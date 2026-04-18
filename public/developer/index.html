@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Console | Controle Financeiro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/developer-assets/developer.css">
+</head>
+<body>
+  <main class="dev-shell">
+    <header class="dev-header">
+      <div>
+        <p class="dev-kicker">Area restrita</p>
+        <h1>Console do desenvolvedor</h1>
+        <p class="dev-subtitle">Visao tecnica de usuarios, integridade e backups sem expor dados financeiros.</p>
+      </div>
+      <div class="dev-header-actions">
+        <button class="dev-btn dev-btn-secondary" type="button" onclick="toggleDeveloperPasswordPanel()">Senha do admin</button>
+        <button class="dev-btn dev-btn-secondary" type="button" onclick="exportDeveloperReport()">Exportar relatorio</button>
+        <button class="dev-btn dev-btn-secondary" type="button" onclick="reloadDeveloperData()">Atualizar</button>
+        <button class="dev-btn" type="button" onclick="logoutDeveloper()">Sair</button>
+      </div>
+    </header>
+
+    <section id="devPasswordPanel" class="dev-panel" hidden>
+      <div class="dev-panel-head">
+        <h2>Senha do admin</h2>
+        <p class="dev-panel-subtitle">Alteracao interna da area tecnica.</p>
+      </div>
+      <form class="dev-password-form" onsubmit="changeDeveloperPassword(event)">
+        <label class="dev-field">
+          <span>Senha atual</span>
+          <input id="devCurrentPassword" type="password" autocomplete="current-password" required>
+        </label>
+        <label class="dev-field">
+          <span>Nova senha</span>
+          <input id="devNewPassword" type="password" autocomplete="new-password" required>
+        </label>
+        <label class="dev-field">
+          <span>Confirmar nova senha</span>
+          <input id="devConfirmPassword" type="password" autocomplete="new-password" required>
+        </label>
+        <p id="devPasswordStatus" class="dev-panel-subtitle"></p>
+        <div class="dev-header-actions">
+          <button class="dev-btn dev-btn-secondary" type="button" onclick="toggleDeveloperPasswordPanel(false)">Fechar</button>
+          <button class="dev-btn" type="submit">Salvar nova senha</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="dev-metrics" id="devMetrics"></section>
+
+    <section class="dev-toolbar">
+      <label class="dev-field">
+        <span>Buscar usuario</span>
+        <input id="devSearchInput" type="search" placeholder="Nome, e-mail ou telefone">
+      </label>
+      <label class="dev-field dev-field-small">
+        <span>Status</span>
+        <select id="devStatusFilter">
+          <option value="all">Todos</option>
+          <option value="ok">Integro</option>
+          <option value="alert">Com alerta</option>
+          <option value="corrupted">Corrompido</option>
+        </select>
+      </label>
+      <label class="dev-field dev-field-small">
+        <span>Ultimo acesso</span>
+        <select id="devRecentFilter">
+          <option value="all">Qualquer periodo</option>
+          <option value="7">Ultimos 7 dias</option>
+          <option value="30">Ultimos 30 dias</option>
+        </select>
+      </label>
+      <label class="dev-field dev-field-small">
+        <span>Ordenar por</span>
+        <select id="devSortSelect">
+          <option value="lastUsedAt">Ultimo acesso</option>
+          <option value="createdAt">Data de criacao</option>
+          <option value="lastLoginAt">Ultimo login</option>
+          <option value="dataStatus">Status</option>
+          <option value="loginCount">Quantidade de logins</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="dev-layout">
+      <div class="dev-panel">
+        <div class="dev-panel-head">
+          <h2>Usuarios cadastrados</h2>
+          <p id="devUserCountLabel" class="dev-panel-subtitle"></p>
+        </div>
+        <div class="dev-table-wrap">
+          <table class="dev-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Telefone</th>
+                <th>Criado</th>
+                <th>Ultimo uso</th>
+                <th>Logins</th>
+                <th>Status</th>
+                <th>Backups</th>
+              </tr>
+            </thead>
+            <tbody id="devUsersBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="dev-sidebar">
+        <section class="dev-panel">
+          <div class="dev-panel-head">
+            <h2>Detalhes do usuario</h2>
+            <p id="devSelectedUserLabel" class="dev-panel-subtitle">Selecione um usuario</p>
+          </div>
+          <div id="devUserDetail" class="dev-detail-empty">Nenhum usuario selecionado.</div>
+        </section>
+
+        <section class="dev-panel">
+          <div class="dev-panel-head">
+            <h2>Backups</h2>
+            <p class="dev-panel-subtitle">Restauracao e integridade</p>
+          </div>
+          <div id="devBackupsList" class="dev-detail-empty">Selecione um usuario para listar os backups.</div>
+        </section>
+
+        <section class="dev-panel">
+          <div class="dev-panel-head">
+            <h2>Logs tecnicos</h2>
+            <p class="dev-panel-subtitle">Backups e restauracoes</p>
+          </div>
+          <div id="devLogsList" class="dev-detail-empty">Nenhum log disponivel.</div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script src="/developer-assets/developer.js"></script>
+</body>
+</html>

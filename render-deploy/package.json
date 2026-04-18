@@ -1,0 +1,19 @@
+{
+  "name": "controle-financeiro-guilherme",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Controle financeiro pessoal com backend protegido por login.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "set-password": "node scripts/set-password.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "express-session": "^1.18.1"
+  }
+}

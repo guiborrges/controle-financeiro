@@ -1,0 +1,36 @@
+# dependências
+node_modules/
+
+# logs
+*.log
+server.out.log
+server.err.log
+
+# dados sensíveis
+data/
+backups/
+migration-backups/
+
+# auth
+auth/*.json
+auth/*.txt
+
+# auth de cópias de deploy
+render-deploy/auth/
+render-upload/auth/
+
+# segredos
+*.local.txt
+.env
+
+# temporários
+tmp.*
+*.xlsx
+*.docx
+
+# sistema
+.DS_Store
+Thumbs.db
+
+# testes
+.playwright-cli/

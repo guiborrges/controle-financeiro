@@ -1,0 +1,9 @@
+node_modules/
+npm-debug.log*
+auth/session-secret.txt
+server.out.log
+server.err.log
+tmp.xlsx
+tmp_meses_faltantes.docx
+backups/
+render-secrets.local.txt

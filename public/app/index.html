@@ -1,0 +1,1674 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle Financeiro</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link rel="stylesheet" href="/app-assets/styles.css">
+</head>
+<body>
+<div id="appStatus" class="app-status" role="status" aria-live="polite">
+  <div id="appStatusIcon" class="app-status-icon">!</div>
+  <div class="app-status-copy">
+    <p id="appStatusTitle" class="app-status-title">Aviso</p>
+    <p id="appStatusMessage" class="app-status-message"></p>
+  </div>
+  <button class="app-status-close" type="button" onclick="hideAppStatus()" aria-label="Fechar aviso">✕</button>
+</div>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <h1>Controle<br>Financeiro</h1>
+    <button id="profileShortcut" class="sidebar-profile-trigger" type="button" onclick="nav('perfil')">Dados da pessoa</button>
+  </div>
+  <div class="sidebar-session">
+    <div class="sidebar-session-copy">
+      <span class="sidebar-session-label">Sessão</span>
+      <strong id="sessionUserName">Usuário</strong>
+    </div>
+    <button class="btn btn-ghost sidebar-logout" type="button" onclick="logout()">Sair</button>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard')"><span class="nav-icon">◉</span> Dashboard</div>
+    <div class="nav-item" data-page="mes" onclick="nav('mes')"><span class="nav-icon">📋</span> Mês Atual</div>
+    <div class="nav-item" data-page="patrimonio" onclick="nav('patrimonio')"><span class="nav-icon">🏦</span> Patrimônio</div>
+    <div class="nav-item" data-page="historico" onclick="nav('historico')"><span class="nav-icon">📈</span> Histórico</div>
+    <div id="esoNavItem" class="nav-item" data-page="eso" onclick="nav('eso')"><span class="nav-icon">🏗</span> Fechamentos ESO</div>
+  </div>
+  <div id="sidebarMonthControls">
+    <div class="sidebar-section">Mês selecionado</div>
+    <div class="month-picker month-picker-calendar">
+      <button id="monthPickerTrigger" class="month-picker-trigger" type="button" onclick="openMonthCalendar()">
+        <span id="monthPickerLabel">mês</span>
+        <span class="month-picker-trigger-chevron">⌄</span>
+      </button>
+      <select id="monthSelect" onchange="selectMonth(this.value)" hidden></select>
+    </div>
+  </div>
+  <div class="sidebar-tools">
+    <div class="sidebar-section">Ferramentas</div>
+    <button class="btn sidebar-tool-btn" type="button" onclick="createManualBackup()">Criar backup</button>
+    <details class="sidebar-tools-panel">
+      <summary class="btn sidebar-tool-btn sidebar-tool-btn-secondary">
+        <span class="sidebar-tools-summary-closed">Mais opções</span>
+        <span class="sidebar-tools-summary-open">Menos opções</span>
+      </summary>
+      <div class="sidebar-tools-list">
+        <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="exportData()">⬇ Exportar</button>
+        <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="document.getElementById('importInput').click()">⬆ Importar</button>
+        <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="openCategoryEditorModal()">🏷 Edição de categorias</button>
+      </div>
+    </details>
+    <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="openModal('modalHelp')">Ajuda</button>
+    <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- DASHBOARD PAGE -->
+<div id="page-dashboard" class="page active">
+  <div class="page-top-band">
+  <div class="page-header">
+    <div class="page-header-main">
+      <div class="page-title-block">
+        <div class="page-title-inline">
+          <h2>Dashboard</h2>
+          <div class="top-notifications" data-page-notifications="dashboard">
+            <button class="top-bell-btn" type="button" onclick="toggleNotificationsPopover(event)" title="Notificações" aria-label="Notificações">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3a4 4 0 0 0-4 4v1.1c0 .8-.24 1.58-.7 2.23L5.6 12.9A2.2 2.2 0 0 0 7.38 16h9.24a2.2 2.2 0 0 0 1.78-3.1l-1.7-2.57A3.98 3.98 0 0 1 16 8.1V7a4 4 0 0 0-4-4Zm0 18a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 21Z"/>
+              </svg>
+              <span class="top-bell-badge" data-notification-badge style="display:none">0</span>
+            </button>
+            <div class="top-notifications-popover" data-notification-popover></div>
+          </div>
+        </div>
+        <p class="sub" id="dashSub"></p>
+      </div>
+      <div class="page-guide" id="dashGuide"></div>
+    </div>
+    <div class="page-header-actions">
+      <details class="filter-panel">
+        <summary class="btn btn-ghost">Filtros</summary>
+        <div class="filter-panel-body">
+          <div id="dashFilters" class="inline-form" style="gap:8px"></div>
+        </div>
+      </details>
+      <button class="btn btn-ghost" onclick="openPreferences()">Preferências</button>
+    </div>
+  </div>
+  <div class="metrics-grid" id="dashMetrics"></div>
+  <div class="insight-strip" id="dashInsights"></div>
+  </div>
+  <div class="dashboard-widget-grid" id="dashboardWidgets"></div>
+  <div id="dashSeriesColorPickerLayer"></div>
+  <div id="catColorPickerLayer"></div>
+</div>
+
+<!-- MES PAGE -->
+<div id="page-mes" class="page">
+  <div class="page-top-band">
+  <div class="page-header">
+    <div class="page-header-main">
+      <div class="page-title-block">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <h2 id="mesTitle">Mês</h2>
+          <button class="btn-inline-calendar" type="button" onclick="openFinanceCalendarModal()" title="Calendário financeiro" aria-label="Calendário financeiro">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1.5A2.5 2.5 0 0 1 22 6.5v13a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 19.5v-13A2.5 2.5 0 0 1 4.5 4H6V3a1 1 0 0 1 1-1Zm12.5 8h-15v9.5a.5.5 0 0 0 .5.5h14a.5.5 0 0 0 .5-.5V10ZM19.5 6h-15a.5.5 0 0 0-.5.5V8h16V6.5a.5.5 0 0 0-.5-.5Z"/>
+            </svg>
+          </button>
+          <div class="top-notifications" data-page-notifications="mes">
+            <button class="top-bell-btn" type="button" onclick="toggleNotificationsPopover(event)" title="Notificações" aria-label="Notificações">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3a4 4 0 0 0-4 4v1.1c0 .8-.24 1.58-.7 2.23L5.6 12.9A2.2 2.2 0 0 0 7.38 16h9.24a2.2 2.2 0 0 0 1.78-3.1l-1.7-2.57A3.98 3.98 0 0 1 16 8.1V7a4 4 0 0 0-4-4Zm0 18a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 21Z"/>
+              </svg>
+              <span class="top-bell-badge" data-notification-badge style="display:none">0</span>
+            </button>
+            <div class="top-notifications-popover" data-notification-popover></div>
+          </div>
+        </div>
+        <p class="sub" id="mesSub"></p>
+      </div>
+      <div class="page-guide page-guide-compact" id="mesGuide"></div>
+    </div>
+    <div class="page-header-actions">
+      <button id="undoBtn" class="btn btn-ghost" onclick="undoLastChange()" title="Desfazer">↶</button>
+      <button id="redoBtn" class="btn btn-ghost" onclick="redoLastChange()" title="Refazer">↷</button>
+      <select id="mesResultSelect" class="btn" style="padding:8px 10px;font-size:12px" onchange="changeResultMode(this.value)"></select>
+    </div>
+  </div>
+
+  <div class="metrics-grid" id="mesMetrics"></div>
+  <div class="insight-strip" id="mesInsights"></div>
+  </div>
+
+  <div class="section" id="section-unified-month" style="display:none">
+    <div class="section-head">
+      <div class="section-title-group">
+        <h3 class="help-tooltip-target" data-help="Centraliza os compromissos do mês: resumo, gastos, cartões e filtros por meio de pagamento.">Compromissos do mês</h3>
+      </div>
+      <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="unifiedOutflowSearch" class="btn unified-outflow-search-input" style="display:none" placeholder="Procurar" oninput="setUnifiedOutflowSearch(this.value)">
+        <select id="unifiedOutflowTagFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
+        <select id="unifiedOutflowFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowFilter(this.value)"></select>
+        <button class="btn btn-ghost" onclick="openBillImportModal()">Adicionar por fatura</button>
+        <button class="btn btn-primary" onclick="openUnifiedOutflowModal()">+ Adicionar gasto ou despesa</button>
+        <button class="btn btn-primary" onclick="openUnifiedCardModal()">+ Adicionar cartão</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:16px 18px 12px">
+      <div id="unifiedMonthContent"></div>
+    </div>
+  </div>
+
+  <!-- Despesas -->
+  <div class="section" id="section-despesas">
+    <div class="section-head">
+      <div class="section-title-group" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h3 id="title-despesas" class="help-tooltip-target" data-help="Compromissos recorrentes e despesas fixas do mês, com controle de pagamento e impacto no fechamento."></h3>
+        <select id="despCategoriaFiltro" class="btn" style="padding:6px 10px;font-size:12px" onchange="setDespCategoriaFiltro(this.value)"></select>
+      </div>
+      <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-despesas" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('despesas')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('despesas', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="openAddItem('despesa')">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" style="margin:0" id="despTable">
+        <thead>
+          <tr>
+            <th style="padding-left:22px;width:34px"></th>
+            <th class="sortable" onclick="setDespSort('nome')">Descrição</th>
+            <th class="sortable" onclick="setDespSort('valor')">Valor</th>
+            <th class="sortable" onclick="setDespSort('data')">Data pag.</th>
+            <th class="sortable" onclick="setDespSort('categoria')">Categoria</th>
+            <th>
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <span>Pago</span>
+                <input id="despPaidAllToggle" type="checkbox" onchange="toggleAllDespesasPaid(this.checked)">
+              </label>
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="despBody"></tbody>
+        <tfoot><tr class="totals-row"><td style="padding-left:22px;padding-top:12px;padding-bottom:12px"></td><td style="padding-top:12px;padding-bottom:12px">Total despesas</td><td id="despTotal" class="amount-neg"></td><td></td><td></td><td></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Categorias gastos (oculto a pedido do usuário) -->
+  <div class="section" id="section-variaveis" style="display:none">
+    <div class="section-head">
+      <h3 id="title-variaveis"></h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="openAddCat()">+ Categoria</button>
+        <button class="btn btn-primary" onclick="openVarModal()">Gastos do mês</button>
+      </div>
+    </div>
+    <div class="section-body" id="catBody">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="openVarModal()">+ Gasto variável</button>
+      </div>
+      <div class="cat-grid" id="catGrid"></div>
+    </div>
+  </div>
+
+  <!-- Gastos diários -->
+  <div class="section" id="section-daily">
+    <div class="section-head">
+      <h3 id="title-daily" class="help-tooltip-target" data-help="Mostra os gastos por categoria e a meta planejada para acompanhar o ritmo de consumo no mês."></h3>
+      <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="toggle-section-daily" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('daily')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('daily', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="openVarModal('add')">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="dailyTable">
+        <thead>
+            <tr>
+              <th class="sortable" style="padding-left:22px" onclick="setDailySort('categoria')">Categoria</th>
+              <th class="sortable" onclick="setDailySort('valor')">Total gasto</th>
+              <th>Meta planejada</th>
+              <th class="sortable" onclick="setDailySort('percentual')"></th>
+            </tr>
+          </thead>
+          <tbody id="dailyBody"></tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td style="padding-left:22px;padding-top:12px;padding-bottom:12px">Total gastos diários</td>
+              <td id="dailyTotal" class="amount-neg"></td>
+              <td id="dailyGoalTotal" class="text-muted" title="Clique duas vezes para editar a meta total">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+  <!-- Renda -->
+  <div class="section section-renda" id="section-renda">
+    <div class="section-head">
+      <h3 id="title-renda" class="help-tooltip-target" data-help="Entradas fixas e recorrentes do mês. Esse total alimenta os indicadores principais do topo."></h3>
+      <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-renda" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('renda')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('renda', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="openAddItem('renda')">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="rendaTable">
+        <thead>
+          <tr>
+            <th style="padding-left:22px;width:34px">Somar</th>
+            <th class="sortable" style="padding-left:22px" onclick="setRendaSort('fonte')">Fonte</th>
+            <th class="sortable" onclick="setRendaSort('dataRecebimento')">Recebimento</th>
+            <th class="sortable" onclick="setRendaSort('valor')">Valor</th>
+            <th>Pago</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rendaBody"></tbody>
+        <tfoot><tr class="totals-row"><td></td><td style="padding-left:22px;padding-top:12px;padding-bottom:12px">Total renda</td><td></td><td id="rendaTotal" class="amount-pos"></td><td></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Metas financeiras -->
+  <div class="section" id="section-goals">
+    <div class="section-head">
+      <h3 id="title-goals" class="help-tooltip-target" data-help="Valores reservados para objetivos financeiros. Aqui você define destino e status de cada meta."></h3>
+      <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-goals" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('goals')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('goals', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="openAddItem('financialGoal')">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="goalsTable">
+        <thead>
+          <tr>
+            <th style="padding-left:22px;width:34px">Somar</th>
+            <th style="padding-left:22px">Descrição</th>
+            <th>Valor</th>
+            <th>Conta destino</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="goalsBody"></tbody>
+        <tfoot><tr class="totals-row"><td></td><td colspan="2" style="padding-left:22px;padding-top:12px;padding-bottom:12px">Total das metas</td><td id="goalsTotal" class="amount"></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Projetos / Entradas -->
+  <div class="section section-projetos" id="section-projetos">
+    <div class="section-head">
+      <h3 id="title-projetos" class="help-tooltip-target" data-help="Entradas extras e projetos pontuais do mês, somadas à renda para formar o total de entradas."></h3>
+      <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-projetos" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('projetos')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('projetos', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="openAddItem('projeto')">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="projTable">
+        <thead>
+          <tr>
+            <th style="padding-left:22px;width:34px">Somar</th>
+            <th class="sortable" style="padding-left:22px" onclick="setProjSort('nome')">Descrição</th>
+            <th class="sortable" onclick="setProjSort('dataRecebimento')">Recebimento</th>
+            <th class="sortable" onclick="setProjSort('valor')">Valor</th>
+            <th>Pago</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="projBody"></tbody>
+        <tfoot><tr class="totals-row"><td></td><td style="padding-left:22px;padding-top:12px;padding-bottom:12px">Total entradas</td><td></td><td id="projTotal" class="amount-pos"></td><td></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Reembolsos -->
+  <div class="section section-reembolsos" id="section-reembolsos" style="display:none">
+    <div class="section-head">
+      <h3 class="help-tooltip-target" data-help="Controle de valores que outras pessoas ainda precisam devolver em compras divididas. Não entra nas somatórias principais por enquanto.">Reembolsos</h3>
+      <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-reembolsos" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('reembolsos')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('reembolsos', event.clientX + 12, event.clientY + 12)">Cor</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="reembolsosTable">
+        <thead>
+          <tr>
+            <th style="padding-left:22px"></th>
+            <th style="padding-left:22px">Pessoa</th>
+            <th>Total a receber</th>
+            <th>Pago</th>
+          </tr>
+        </thead>
+        <tbody id="reembolsosBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Observações -->
+  <div class="section" id="section-observacoes">
+    <div class="section-head">
+      <h3 class="help-tooltip-target" data-help="Espaço para registrar decisões, alertas e contexto do mês para facilitar revisões futuras.">Observações do mês</h3>
+      <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-observacoes" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('observacoes')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('observacoes', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="saveObs()">Salvar</button>
+      </div>
+    </div>
+    <div class="section-body">
+      <textarea id="obsField" rows="3" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px" placeholder="Anote pontos importantes, imprevistos, planos..."></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- PATRIMONIO PAGE -->
+<div id="page-patrimonio" class="page">
+  <div class="page-top-band">
+  <div class="page-header">
+    <div class="page-header-main">
+      <div class="page-title-block">
+        <div class="page-title-inline">
+          <h2>Patrimônio</h2>
+          <div class="top-notifications" data-page-notifications="patrimonio">
+            <button class="top-bell-btn" type="button" onclick="toggleNotificationsPopover(event)" title="Notificações" aria-label="Notificações">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3a4 4 0 0 0-4 4v1.1c0 .8-.24 1.58-.7 2.23L5.6 12.9A2.2 2.2 0 0 0 7.38 16h9.24a2.2 2.2 0 0 0 1.78-3.1l-1.7-2.57A3.98 3.98 0 0 1 16 8.1V7a4 4 0 0 0-4-4Zm0 18a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 21Z"/>
+              </svg>
+              <span class="top-bell-badge" data-notification-badge style="display:none">0</span>
+            </button>
+            <div class="top-notifications-popover" data-notification-popover></div>
+          </div>
+        </div>
+        <p class="sub" id="patrimonioSub"></p>
+      </div>
+      <div class="page-guide" id="patrimonioGuide"></div>
+    </div>
+    <div class="patrimonio-topbar">
+      <input id="patrimonioSearch" class="btn patrimonio-search-input" type="text" placeholder="Buscar conta ou ativo" oninput="setPatrimonioSearch(this.value)">
+      <div class="patrimonio-topbar-actions">
+        <details class="patrimonio-filter-panel">
+          <summary class="btn btn-ghost">Filtros</summary>
+          <div class="patrimonio-filter-body">
+            <select id="patrimonioSort" class="btn" onchange="setPatrimonioSort(this.value)">
+              <option value="saldo_desc">Maior saldo</option>
+              <option value="saldo_asc">Menor saldo</option>
+              <option value="nome_asc">Nome A-Z</option>
+              <option value="nome_desc">Nome Z-A</option>
+            </select>
+            <select id="patrimonioPeriod" class="btn" onchange="setPatrimonioPeriod(this.value)">
+              <option value="all">Todo o histórico</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+              <option value="365">Último ano</option>
+            </select>
+          </div>
+        </details>
+        <button class="btn btn-primary" type="button" onclick="openPatrimonioAccountModal()">+ Adicionar conta</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="metrics-grid" id="patrimonioMetrics"></div>
+  <div class="insight-strip" id="patrimonioInsights"></div>
+  </div>
+
+  <div class="patrimonio-primary-layout">
+    <section class="section patrimonio-accounts-section">
+      <div class="section-head">
+        <div class="section-title-group">
+          <h3 id="title-patrimonio-accounts">Contas patrimoniais</h3>
+        </div>
+      </div>
+      <div class="section-body section-body-scroll">
+        <div id="patrimonioAccountsGrid" class="patrimonio-accounts-grid"></div>
+      </div>
+    </section>
+
+    <section class="section patrimonio-detail-section">
+      <div class="section-head">
+        <div class="section-title-group">
+          <h3 id="title-patrimonio-history">Movimentações</h3>
+        </div>
+      </div>
+      <div class="section-body section-body-scroll">
+        <div id="patrimonioDetail"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="patrimonio-secondary-grid">
+    <details class="section patrimonio-collapsible patrimonio-charts-section" open>
+      <summary class="section-head patrimonio-summary-head">
+        <h3 id="title-patrimonio-evolution">Análises</h3>
+        <span class="patrimonio-summary-toggle">Ocultar</span>
+      </summary>
+      <div class="section-body">
+        <div class="patrimonio-chart-grid">
+          <section class="patrimonio-subpanel">
+            <div class="patrimonio-subpanel-head">Evolução</div>
+            <div class="patrimonio-chart-body">
+              <canvas id="patrimonioEvolutionChart"></canvas>
+            </div>
+          </section>
+
+          <section class="patrimonio-subpanel">
+            <div class="patrimonio-subpanel-head">Distribuição</div>
+            <div class="patrimonio-chart-body">
+              <canvas id="patrimonioDistributionChart"></canvas>
+            </div>
+          </section>
+        </div>
+      </div>
+    </details>
+
+    <details class="section patrimonio-collapsible patrimonio-forecast-section" open>
+      <summary class="section-head patrimonio-summary-head">
+        <h3 id="title-patrimonio-forecasts">Previsões</h3>
+        <span class="patrimonio-summary-toggle">Mostrar</span>
+      </summary>
+      <div class="section-body" style="padding:0">
+        <table class="fin-table patrimonio-table" style="margin:0">
+          <thead>
+            <tr>
+              <th style="padding-left:22px">Mês</th>
+              <th>Meta</th>
+              <th>Destino</th>
+              <th>Valor</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="patrimonioForecastsBody"></tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- HISTORICO PAGE -->
+<div id="page-historico" class="page">
+  <div class="page-top-band">
+  <div class="page-header">
+    <div class="page-header-main">
+      <div class="page-title-block">
+        <div class="page-title-inline">
+          <h2>Histórico</h2>
+          <div class="top-notifications" data-page-notifications="historico">
+            <button class="top-bell-btn" type="button" onclick="toggleNotificationsPopover(event)" title="Notificações" aria-label="Notificações">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3a4 4 0 0 0-4 4v1.1c0 .8-.24 1.58-.7 2.23L5.6 12.9A2.2 2.2 0 0 0 7.38 16h9.24a2.2 2.2 0 0 0 1.78-3.1l-1.7-2.57A3.98 3.98 0 0 1 16 8.1V7a4 4 0 0 0-4-4Zm0 18a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 21Z"/>
+              </svg>
+              <span class="top-bell-badge" data-notification-badge style="display:none">0</span>
+            </button>
+            <div class="top-notifications-popover" data-notification-popover></div>
+          </div>
+        </div>
+        <p class="sub" id="histSub">Todos os meses registrados</p>
+      </div>
+      <div class="page-guide" id="histGuide"></div>
+    </div>
+    <div class="page-header-actions">
+      <details class="filter-panel">
+        <summary class="btn btn-ghost">Filtros</summary>
+        <div class="filter-panel-body">
+          <div id="histFilters" class="inline-form" style="gap:8px"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+  <div class="insight-strip" id="histInsights"></div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="histTab('tabela', this)">Tabela</button>
+    <button class="tab-btn" onclick="histTab('grafico', this)">Gráfico</button>
+  </div>
+  </div>
+  <div id="hist-tabela">
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title-group">
+          <h3>Meses do período</h3>
+        </div>
+      </div>
+      <div class="section-body section-body-table section-body-scroll">
+        <table class="fin-table">
+          <thead><tr><th class="sortable" data-sort="mes" style="padding-left:22px;cursor:pointer" onclick="setHistoricoSort('mes')">Mês</th><th class="sortable" data-sort="gastos" style="cursor:pointer" onclick="setHistoricoSort('gastos')">Gastos</th><th class="sortable" data-sort="renda" style="cursor:pointer" onclick="setHistoricoSort('renda')">Renda</th><th class="sortable" data-sort="projetos" style="cursor:pointer" onclick="setHistoricoSort('projetos')">Projetos</th><th class="sortable" data-sort="resultado" style="cursor:pointer" onclick="setHistoricoSort('resultado')">Resultado</th></tr></thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="hist-grafico" style="display:none">
+    <div class="section">
+      <div class="section-head"><h3 id="histChart1Title">Gastos totais por período</h3></div>
+      <div class="section-body"><div class="chart-wrap" style="height:300px"><canvas id="histChart1"></canvas></div></div>
+    </div>
+    <div class="section">
+      <div class="section-head"><h3 id="histChart2Title">Resultado por período</h3></div>
+      <div class="section-body"><div class="chart-wrap" style="height:280px"><canvas id="histChart2"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ESO PAGE -->
+<div id="page-eso" class="page">
+  <div class="page-top-band">
+  <div class="page-header">
+    <div><h2>Fechamentos ESO</h2><p class="sub" id="esoSub">Acompanhamento independente dos fechamentos de projetos</p></div>
+    <button class="btn btn-primary" onclick="openEsoModal()">+ Adicionar</button>
+  </div>
+  <div class="section">
+    <div class="section-body">
+      <div id="esoFilters" class="inline-form" style="gap:8px"></div>
+    </div>
+  </div>
+  <div class="metrics-grid" id="esoMetrics"></div>
+  </div>
+  <div class="section">
+    <div class="section-head">
+      <h3>Projetos e fechamentos</h3>
+      <button class="btn btn-ghost" onclick="resetEsoFilters()">Limpar filtros</button>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="esoTable">
+        <thead>
+          <tr>
+            <th class="sortable" style="padding-left:22px" onclick="setEsoSort('data')">Data</th>
+            <th class="sortable" onclick="setEsoSort('cliente')">Cliente</th>
+            <th class="sortable" onclick="setEsoSort('tipo')">Tipo de projeto</th>
+            <th class="sortable" onclick="setEsoSort('valor')">Valor</th>
+            <th class="sortable" onclick="setEsoSort('entrada')">Entrada</th>
+            <th class="sortable" onclick="setEsoSort('status')">Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="esoBody"></tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td style="padding-left:22px;padding-top:12px;padding-bottom:12px" colspan="3">Total filtrado</td>
+            <td id="esoTotal" class="amount amount-pos"></td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- DADOS DA PESSOA PAGE -->
+<div id="page-perfil" class="page">
+  <div class="page-top-band">
+  <div class="page-header">
+    <div>
+      <h2>Dados da pessoa</h2>
+      <p class="sub">Informacoes pessoais protegidas e configuracoes de acesso</p>
+    </div>
+  </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h3>Dados pessoais</h3>
+      <button class="btn btn-primary" type="button" onclick="saveProfile()">Salvar dados</button>
+    </div>
+    <div class="section-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="field">
+            <label for="profileDisplayName">Nome exibido</label>
+            <input id="profileDisplayName" type="text" placeholder="Como seu nome aparece no sistema">
+          </div>
+          <div class="field">
+            <label for="profileFullName">Nome completo</label>
+            <input id="profileFullName" type="text" placeholder="Nome completo">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="profileBirthDate">Data de nascimento</label>
+            <input id="profileBirthDate" type="text" inputmode="numeric" placeholder="dd/mm/aaaa">
+          </div>
+          <div class="field">
+            <label for="profilePhone">Telefone</label>
+            <input id="profilePhone" type="text" placeholder="(00) 00000-0000">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="profileEmail">E-mail</label>
+            <input id="profileEmail" type="email" placeholder="voce@email.com">
+          </div>
+          <div class="field">
+            <label for="profileHint">Dica da senha</label>
+            <input id="profileHint" type="text" placeholder="Dica exibida em esqueci minha senha">
+          </div>
+        </div>
+      </div>
+      <p id="profileStatus" class="text-muted" style="margin:16px 0 0;font-size:12px"></p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h3>Seguranca</h3>
+      <button class="btn btn-primary" type="button" onclick="changeUserPassword()">Alterar senha</button>
+    </div>
+    <div class="section-body">
+      <div class="form-grid">
+        <div class="field" style="position:relative">
+          <label for="currentPassword">Senha atual</label>
+          <input id="currentPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha atual">
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="newPassword">Nova senha</label>
+            <input id="newPassword" type="password" autocomplete="new-password" placeholder="Pelo menos 8 caracteres">
+          </div>
+          <div class="field">
+            <label for="confirmPassword">Confirmar nova senha</label>
+            <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Repita a nova senha">
+          </div>
+        </div>
+      </div>
+      <p id="passwordStatus" class="text-muted" style="margin:16px 0 0;font-size:12px"></p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h3>Backups</h3>
+      <button class="btn btn-primary" type="button" onclick="createManualBackup()">Criar backup</button>
+    </div>
+    <div class="section-body">
+      <p class="text-muted" style="margin:0 0 12px;font-size:12px">Crie um backup manual do estado atual da sua conta. O sistema tambem cria backups automaticos conforme o uso.</p>
+      <p id="manualBackupStatus" class="text-muted" style="margin:0;font-size:12px"></p>
+    </div>
+  </div>
+
+  <div class="section danger-section">
+    <div class="section-head">
+      <h3>Apagar conta</h3>
+      <button class="btn btn-danger" type="button" onclick="deleteAccount()">Apagar conta</button>
+    </div>
+    <div class="section-body">
+      <p class="text-muted" style="margin:0 0 16px;font-size:12px">Essa ação apaga o acesso e os dados desta conta. Para confirmar, digite sua senha atual.</p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="deleteAccountPassword">Senha atual</label>
+          <input id="deleteAccountPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha para apagar a conta">
+        </div>
+      </div>
+      <p id="deleteAccountStatus" class="text-muted" style="margin:16px 0 0;font-size:12px"></p>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<div id="monthSectionColorPickerLayer"></div>
+
+<!-- MODAL ADD ITEM -->
+<div class="modal-bg" id="modalItem">
+  <div class="modal">
+    <h3 id="modalItemTitle">Adicionar</h3>
+    <div class="form-grid" id="modalItemForm"></div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalItem')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveItem()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalUnifiedCard">
+  <div class="modal">
+    <h3 id="modalUnifiedCardTitle">Adicionar cartão</h3>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field unified-card-bank-field">
+          <label class="form-help-label" data-help="Escolha a instituição emissora do cartão. Isso ajuda a identificar a fatura e organizar os lançamentos associados.">Instituição</label>
+          <input id="unifiedCardBank" type="hidden">
+          <div class="unified-card-bank-picker">
+            <button type="button" id="unifiedCardBankTrigger" class="unified-card-bank-trigger" onclick="toggleUnifiedCardBankMenu()">
+              <span id="unifiedCardBankTriggerContent">Selecione</span>
+              <span class="unified-card-bank-chevron">⌄</span>
+            </button>
+            <div id="unifiedCardBankMenu" class="unified-card-bank-menu" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+      <div class="field" id="unifiedCardOtherBankWrap" style="display:none">
+        <label class="form-help-label" data-help="Use este campo quando a instituição não estiver na lista. O nome será usado para identificar o cartão no mês.">Nome da instituição</label>
+        <input id="unifiedCardOtherBank" placeholder="Digite o nome da instituição">
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label class="form-help-label" data-help="Dia em que a fatura do cartão fecha. Compras feitas depois desse dia normalmente entram na próxima fatura.">Fechamento</label>
+          <input id="unifiedCardClosingDay" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Ex: 25" oninput="sanitizeUnifiedCardDayInput(this)">
+        </div>
+        <div class="field">
+          <label class="form-help-label" data-help="Dia em que a fatura costuma ser paga. Essa data é usada como referência de cobrança do cartão.">Pagamento</label>
+          <input id="unifiedCardPaymentDay" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Ex: 05" oninput="sanitizeUnifiedCardDayInput(this)">
+        </div>
+      </div>
+      <div class="field">
+        <label class="form-help-label" data-help="Campo livre para anotar algo útil sobre esse cartão, como limite, uso principal ou observação rápida.">Descrição opcional</label>
+        <textarea id="unifiedCardDescription" rows="3" placeholder="Observação rápida sobre esse cartão"></textarea>
+      </div>
+      <div class="field">
+        <label class="form-help-label" data-help="Gerencie os cartões já cadastrados aqui. Você pode editar ou excluir com segurança sem perder controle dos lançamentos.">Cartões cadastrados</label>
+        <div id="unifiedCardManageList" class="unified-card-manage-list"></div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalUnifiedCard')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUnifiedCard()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalUnifiedCardDelete">
+  <div class="modal">
+    <h3>Excluir cartão</h3>
+    <p id="unifiedCardDeleteMessage" class="text-muted" style="margin:-8px 0 12px;font-size:13px"></p>
+    <div class="form-grid">
+      <label class="month-copy-toggle">
+        <input id="unifiedCardDeleteModeTransfer" name="unifiedCardDeleteMode" type="radio" value="transfer" checked onchange="toggleUnifiedCardDeleteMode()">
+        <span>Transferir lançamentos para outro cartão</span>
+      </label>
+      <div class="field" id="unifiedCardDeleteTransferWrap">
+        <label>Cartão de destino</label>
+        <select id="unifiedCardDeleteTarget"></select>
+      </div>
+      <label class="month-copy-toggle">
+        <input id="unifiedCardDeleteModeDelete" name="unifiedCardDeleteMode" type="radio" value="delete" onchange="toggleUnifiedCardDeleteMode()">
+        <span>Excluir dados</span>
+      </label>
+      <label class="month-copy-toggle" id="unifiedCardDeleteConfirmWrap" style="display:none">
+        <input id="unifiedCardDeleteConfirm" type="checkbox">
+        <span>Confirmo que quero excluir os lançamentos vinculados</span>
+      </label>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalUnifiedCardDelete')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmUnifiedCardDelete()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalYesNoQuestion">
+  <div class="modal" style="max-width:460px">
+    <h3>Confirmação</h3>
+    <p id="yesNoQuestionText" class="text-muted" style="margin:-6px 0 10px;font-size:14px"></p>
+    <div class="form-actions" style="margin-top:18px">
+      <button class="btn btn-ghost" onclick="resolveYesNoQuestion(false)">Não</button>
+      <button class="btn btn-primary" onclick="resolveYesNoQuestion(true)">Sim</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalRecurringChangeScope">
+  <div class="modal" style="max-width:520px">
+    <h3>Aplicar alteração recorrente</h3>
+    <p id="recurringChangeScopeText" class="text-muted" style="margin:-6px 0 10px;font-size:14px">Este lançamento se repete em outros meses. Como você deseja aplicar essa alteração?</p>
+    <div class="form-actions" style="margin-top:18px;justify-content:flex-end;gap:10px">
+      <button class="btn btn-ghost" onclick="resolveRecurringChangeScope('cancel')">Cancelar</button>
+      <button class="btn btn-ghost btn-subtle-color" onclick="resolveRecurringChangeScope('this')">Alterar apenas este mês</button>
+      <button class="btn btn-primary" onclick="resolveRecurringChangeScope('forward')">Alterar todos os meses para frente</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBillImport" onclick="closeModalBg(event,'modalBillImport')">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <h3>Adicionar por fatura</h3>
+      <button class="btn-icon" type="button" onclick="closeBillImportModal()">✕</button>
+    </div>
+    <p class="modal-subcopy">
+      Fluxo: copie instruções, envie para a IA com suas faturas, receba o JSON estruturado e suba aqui para revisão obrigatória antes da importação final.
+    </p>
+    <div class="form-grid">
+      <div class="field">
+        <label>Prompt para IA</label>
+        <textarea id="billImportPrompt" rows="10" readonly></textarea>
+      </div>
+      <div class="bill-import-actions">
+        <button class="btn btn-ghost" type="button" onclick="copyBillImportPrompt()">Copiar prompt</button>
+        <button class="btn btn-ghost" type="button" onclick="downloadBillImportContext()">Baixar contexto</button>
+        <button class="btn btn-primary" type="button" onclick="triggerBillImportUpload()">Subir arquivo da IA</button>
+      </div>
+      <div class="field" style="margin-top:8px">
+        <label>Ou cole aqui a resposta da IA</label>
+        <textarea id="billImportRawText" rows="6" placeholder="Cole o texto da IA (com ou sem bloco ```json```)"></textarea>
+        <div class="form-actions" style="margin-top:8px;justify-content:flex-start">
+          <button class="btn btn-ghost" type="button" onclick="handleBillImportPastedText()">Validar texto colado</button>
+        </div>
+      </div>
+      <p class="text-muted" style="margin-top:4px">
+        O sistema continua como fonte de verdade: todo item passa por validação e revisão manual.
+      </p>
+    </div>
+    <input id="billImportFileInput" type="file" accept=".json,application/json" style="display:none" onchange="handleBillImportFileChange(event)">
+    <div class="form-actions" style="margin-top:18px">
+      <button class="btn btn-ghost" type="button" onclick="closeBillImportModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBillImportReview" onclick="closeModalBg(event,'modalBillImportReview')">
+  <div class="modal bill-import-review-modal">
+    <div class="modal-header">
+      <h3>Revisão da importação por fatura</h3>
+      <button class="btn-icon" type="button" onclick="BillImportReview.closeReview()">✕</button>
+    </div>
+    <div id="billImportReviewErrors" style="display:none"></div>
+    <div id="billImportReviewSummary"></div>
+    <datalist id="billImportTagDatalist"></datalist>
+    <div id="billImportReviewList" class="bill-import-review-list"></div>
+    <div class="form-actions" style="margin-top:16px">
+      <button class="btn btn-ghost" type="button" onclick="BillImportReview.closeReview()">Cancelar</button>
+      <button id="billImportApplyBtn" class="btn btn-primary" type="button" onclick="BillImportReview.applyImport()">Importar lançamentos</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalUnifiedOutflow">
+  <div class="modal" id="modalUnifiedOutflowDialog">
+    <div class="modal-drag-handle unified-outflow-modal-head" onmousedown="startModalDrag(event, 'modalUnifiedOutflowDialog')">
+      <h3 id="modalUnifiedOutflowTitle" style="margin:0">Adicionar gasto ou despesa</h3>
+      <div class="unified-outflow-modal-head-actions">
+        <button class="btn-icon unified-outflow-minimize-btn" type="button" onclick="minimizeUnifiedOutflowModal()" title="Minimizar">—</button>
+        <button class="btn-icon" type="button" onclick="closeUnifiedOutflowModal()" title="Fechar">✕</button>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field">
+          <label class="form-help-label" data-help="Nome do lançamento que vai aparecer nas listas e análises do mês.">Descrição</label>
+          <input id="unifiedOutflowDescription" placeholder="Ex: Aluguel, mercado, farmácia" autocomplete="off" oninput="handleUnifiedOutflowDescriptionInput(this.value)" onfocus="handleUnifiedOutflowDescriptionInput(this.value)" onblur="scheduleHideUnifiedOutflowDescriptionSuggestions()">
+          <div id="unifiedOutflowDescriptionSuggestions" class="unified-desc-suggestions" onmousedown="cancelHideUnifiedOutflowDescriptionSuggestions()"></div>
+        </div>
+        <div class="field">
+          <label class="form-help-label" data-help="Use despesa fixa para compromissos do mês. Use gasto para consumo e saídas do dia a dia.">Tipo</label>
+          <select id="unifiedOutflowType" onchange="handleUnifiedOutflowTypeChange()">
+            <option value="fixed">Despesa fixa</option>
+            <option value="spend">Gasto</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label class="form-help-label" data-help="A categoria organiza esse lançamento nas análises, gráficos e agrupamentos do mês.">Categoria</label>
+          <select id="unifiedOutflowCategory" onchange="toggleUnifiedOutflowNewCategory()"></select>
+        </div>
+      <div class="field" id="unifiedOutflowNewCategoryWrap" style="display:none">
+        <label class="form-help-label" data-help="Crie uma categoria nova quando nenhuma das existentes representar bem esse lançamento.">Nova categoria</label>
+          <input id="unifiedOutflowNewCategory" list="unifiedOutflowCategorySuggestions" placeholder="Nome da categoria" oninput="renderUnifiedOutflowCategorySuggestionList(this.value)">
+          <datalist id="unifiedOutflowCategorySuggestions"></datalist>
+      </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label class="form-help-label" data-help="Informe o valor total do lançamento. Se for parcelado, este valor será repetido em cada parcela.">Valor (R$)</label>
+          <input id="unifiedOutflowAmount" type="number" step="0.01" placeholder="0,00">
+        </div>
+        <div class="field">
+          <label class="form-help-label" data-help="Escolha por onde esse valor sai: boleto, dinheiro, pix, débito, conta do patrimônio ou cartão.">Saída</label>
+          <select id="unifiedOutflowOutput" onchange="handleUnifiedOutflowTypeChange()"></select>
+          <div id="unifiedOutflowOutputHelp" class="text-muted" style="margin-top:6px;font-size:12px"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label id="unifiedOutflowDateLabel" class="form-help-label" data-help="Data de referência do lançamento neste mês. Ela ajuda na ordenação e na leitura cronológica.">Data da compra</label>
+          <div class="unified-date-field-wrap">
+            <input id="unifiedOutflowDate" placeholder="dd/mm/aa" inputmode="numeric" oninput="sanitizeUnifiedOutflowDateInput(this)">
+            <div class="unified-date-stepper">
+              <button type="button" class="btn-icon" onclick="shiftUnifiedOutflowDateDay(1)" title="Próximo dia">▲</button>
+              <button type="button" class="btn-icon" onclick="shiftUnifiedOutflowDateDay(-1)" title="Dia anterior">▼</button>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label class="form-help-label" data-help="A tag é opcional e ajuda a separar grupos específicos de gastos, como viagem, reforma ou presente.">Tag</label>
+          <div class="unified-tag-inline-wrap">
+            <select id="unifiedOutflowTag" onchange="toggleUnifiedOutflowNewTag()"></select>
+            <div id="unifiedOutflowTagInlineEditor" class="unified-tag-inline-editor" style="display:none">
+              <input id="unifiedOutflowNewTagInline" placeholder="Nova tag" onkeydown="handleUnifiedOutflowNewTagInlineKeydown(event)">
+              <button type="button" class="btn btn-primary" onclick="confirmUnifiedOutflowNewTagInline()">OK</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <label class="month-copy-toggle form-help-label" id="unifiedOutflowRecurringLabel" style="display:none" data-help="Repete esse gasto automaticamente nos próximos meses, com o mesmo valor e a mesma configuração.">
+        <input id="unifiedOutflowRecurringToggle" type="checkbox" onchange="toggleUnifiedOutflowRecurring()">
+        <span>Gasto recorrente</span>
+      </label>
+      <label class="month-copy-toggle form-help-label" data-help="Cria várias parcelas futuras desse mesmo lançamento. Use quando o valor já está dividido em meses definidos.">
+        <input id="unifiedOutflowInstallmentsToggle" type="checkbox" onchange="toggleUnifiedOutflowInstallments()">
+        <span>Parcelado</span>
+      </label>
+      <div class="form-row" id="unifiedOutflowInstallmentsWrap" style="display:none">
+        <div class="field">
+          <label class="form-help-label" data-help="Quantidade total de meses em que esse lançamento será repetido como parcela.">Número de parcelas</label>
+          <input id="unifiedOutflowInstallmentsCount" type="number" min="2" max="120" value="2">
+        </div>
+      </div>
+      <label class="month-copy-toggle form-help-label" id="unifiedOutflowSharedToggleLabel" style="display:none" data-help="Ative quando o valor pago será dividido com outras pessoas. Apenas a parte do proprietário entra nas despesas do mês.">
+        <input id="unifiedOutflowSharedToggle" type="checkbox" onchange="toggleUnifiedOutflowShared()">
+        <span>Gasto compartilhado</span>
+      </label>
+      <div id="unifiedOutflowSharedWrap" style="display:none">
+        <div class="form-row">
+          <div class="field">
+            <label class="form-help-label" data-help="Quantidade total de pessoas dividindo o gasto. Se for 1, o proprietário não assume valor e fica tudo como reembolso.">Quantidade de pessoas</label>
+            <input id="unifiedOutflowSharedPeopleCount" type="number" min="1" max="20" value="2" oninput="renderUnifiedOutflowSharedPeople()">
+          </div>
+          <div class="field">
+            <label class="form-help-label" data-help="Como o valor será dividido entre as pessoas participantes.">Divisão</label>
+            <select id="unifiedOutflowSharedMode" onchange="renderUnifiedOutflowSharedPeople()">
+              <option value="equal">Dividir igualmente</option>
+              <option value="manual">Divisão manual</option>
+            </select>
+          </div>
+        </div>
+        <div id="unifiedOutflowSharedPeopleList"></div>
+      </div>
+    </div>
+    <div id="unifiedOutflowQuickToast" class="unified-outflow-quick-toast" role="status" aria-live="polite"></div>
+    <div class="unified-outflow-recent-wrap">
+      <div class="unified-outflow-recent-head">Copiar lançamentos deste mês</div>
+      <div id="unifiedOutflowRecentList" class="unified-outflow-recent-list"></div>
+    </div>
+    <div class="form-actions unified-outflow-modal-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeUnifiedOutflowModal()">Cancelar</button>
+      <button id="unifiedOutflowSubmitBtn" class="btn btn-primary" onclick="saveUnifiedOutflow()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TITLES -->
+<div class="modal-bg" id="modalTitles">
+  <div class="modal">
+    <h3>Editar títulos</h3>
+    <div class="form-grid">
+      <div class="field"><label>Despesas</label><input id="titleInpDesp" value=""></div>
+      <div class="field"><label>Renda fixa</label><input id="titleInpRenda" value=""></div>
+      <div class="field"><label>Metas financeiras</label><input id="titleInpGoals" value=""></div>
+      <div class="field"><label>Projetos / extras</label><input id="titleInpProj" value=""></div>
+      <div class="field"><label>Gastos variáveis</label><input id="titleInpVar" value=""></div>
+      <div class="field"><label>Gastos diários</label><input id="titleInpDaily" value=""></div>
+      <div class="field"><label>Gráfico Gastos vs Renda</label><input id="titleInpGvsr" value=""></div>
+      <div class="field"><label>Gráfico Resultado</label><input id="titleInpRes" value=""></div>
+      <div class="field"><label>Categorias (dashboard)</label><input id="titleInpCatDash" value=""></div>
+      <div class="field"><label>Histórico rápido</label><input id="titleInpQuick" value=""></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalTitles')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTitles()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ESO -->
+<div class="modal-bg" id="modalEso">
+  <div class="modal">
+    <h3 id="modalEsoTitle">Adicionar fechamento ESO</h3>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field"><label>Data</label><input id="esoDataInput" placeholder="dd/mm/aa" inputmode="numeric" oninput="maskVarDateInput(this)"></div>
+        <div class="field"><label>Cliente</label><input id="esoClienteInput" placeholder="Nome do cliente"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Tipo de projeto</label><input id="esoTipoInput" placeholder="Ex: Interiores"></div>
+        <div class="field"><label>Valor (R$)</label><input id="esoValorInput" type="number" step="0.01" placeholder="0,00"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Entrada</label><input id="esoEntradaInput" placeholder="Ex: Indicação"></div>
+        <div class="field">
+          <label>Status</label>
+          <select id="esoStatusInput">
+            <option value="Fechado">Fechado</option>
+            <option value="Não fechado">Não fechado</option>
+            <option value="Aguardando">Aguardando</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalEso')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEsoItem()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NEW MONTH -->
+<div class="modal-bg" id="modalNewMonth">
+  <div class="modal">
+    <h3 id="modalNewMonthTitle">Novo mês</h3>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field">
+          <label>Mês</label>
+          <select id="newMonthMes" onchange="refreshMonthCopyControls()">
+            <option value="JANEIRO">Janeiro</option><option value="FEVEREIRO">Fevereiro</option>
+            <option value="MARÇO">Março</option><option value="ABRIL">Abril</option>
+            <option value="MAIO">Maio</option><option value="JUNHO">Junho</option>
+            <option value="JULHO">Julho</option><option value="AGOSTO">Agosto</option>
+            <option value="SETEMBRO">Setembro</option><option value="OUTUBRO">Outubro</option>
+            <option value="NOVEMBRO">Novembro</option><option value="DEZEMBRO">Dezembro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Ano</label>
+          <input type="number" id="newMonthAno" value="2026" min="2020" max="2035" onchange="refreshMonthCopyControls()">
+        </div>
+      </div>
+      <p id="modalNewMonthHelp" style="font-size:12px;color:var(--text2)">O novo mês copia automaticamente do mês anterior: gastos recorrentes selecionados, a categoria <b>ASSINATURAS</b> em gastos diários e as rendas fixas recorrentes.</p>
+      <div id="monthCopyControls" class="month-copy-controls" hidden>
+        <div class="month-copy-topline">
+          <label class="month-copy-toggle">
+            <input type="checkbox" id="copyPrevMonthToggle" onchange="handleMonthCopyEnabledChange(this.checked)">
+            <span>Copiar dados do mês anterior</span>
+          </label>
+          <button type="button" id="monthCopyChooseBtn" class="btn btn-ghost" onclick="toggleMonthCopyPicker()">Escolher dados</button>
+        </div>
+        <p id="monthCopySummary" class="month-copy-summary">Selecione exatamente o que deve ser copiado para os próximos meses.</p>
+        <div id="monthCopyPicker" class="month-copy-picker" hidden></div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalNewMonth')">Cancelar</button>
+      <button id="modalNewMonthSubmit" class="btn btn-primary" onclick="submitMonthModal()">Criar mês</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalMonthCalendar" onclick="closeModalBg(event,'modalMonthCalendar')">
+  <div class="month-calendar-modal">
+    <div class="month-calendar-card">
+      <div class="month-calendar-yearbar">
+        <button class="month-calendar-arrow" type="button" onclick="shiftMonthCalendarYear(-1)">‹</button>
+        <strong id="monthCalendarYearLabel">2026</strong>
+        <button class="month-calendar-arrow" type="button" onclick="shiftMonthCalendarYear(1)">›</button>
+      </div>
+      <div id="monthCalendarGrid" class="month-calendar-grid"></div>
+      <div class="month-calendar-actions">
+        <button class="btn btn-ghost" type="button" onclick="closeModal('modalMonthCalendar')">Cancelar</button>
+        <button class="btn btn-ghost month-calendar-current-btn" type="button" onclick="selectCurrentRealMonth()">Mês atual</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalFinanceCalendar">
+  <div class="modal finance-calendar-modal-shell" id="modalFinanceCalendarDialog">
+    <div class="modal-drag-handle finance-calendar-head" onmousedown="startModalDrag(event, 'modalFinanceCalendarDialog')">
+      <div class="finance-calendar-head-copy">
+        <h3 style="margin:0">Calendário financeiro</h3>
+        <p id="financeCalendarMonthLabel" class="finance-calendar-month-label">Mês</p>
+      </div>
+      <div class="finance-calendar-head-actions">
+        <button id="financeCalendarChartToggleBtn" class="btn-inline-chart" type="button" onclick="toggleFinanceCalendarChart()" title="Mostrar gráfico diário" aria-label="Mostrar gráfico diário">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 19a1 1 0 0 1-1-1V6a1 1 0 1 1 2 0v11h15a1 1 0 1 1 0 2H4Zm3-2.5a1 1 0 0 1-.8-1.6l3.2-4.27a1 1 0 0 1 1.55-.06l2.12 2.53 3.8-5.04a1 1 0 1 1 1.6 1.2l-4.56 6.05a1 1 0 0 1-1.57.03L10.3 12.8l-2.5 3.33a1 1 0 0 1-.8.37Z"/>
+          </svg>
+        </button>
+        <button class="btn btn-primary" type="button" onclick="openFinanceCalendarEventModal()">+ Evento</button>
+        <button class="btn-icon" type="button" onclick="closeFinanceCalendarModal()" title="Fechar">✕</button>
+      </div>
+    </div>
+    <div class="finance-calendar-layout">
+      <div class="finance-calendar-main-stack">
+        <div class="finance-calendar-top-row">
+          <div class="finance-calendar-main">
+            <div id="financeCalendarGridMount"></div>
+          </div>
+        </div>
+        <div id="financeCalendarChartWrap" class="finance-calendar-bottom-row finance-calendar-chart-collapse" aria-hidden="true">
+          <div class="finance-calendar-chart-wrap">
+            <canvas id="financeCalendarDailyChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <aside id="financeCalendarSidePanel" class="finance-calendar-side-panel"></aside>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalCalendarEvent" onclick="closeModalBg(event,'modalCalendarEvent')">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3 id="calendarEventModalTitle">Novo evento financeiro</h3>
+      <button class="btn-icon" type="button" onclick="closeFinanceCalendarEventModal()">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Nome</label>
+        <input id="calendarEventName" placeholder="Ex: Viagem para SP">
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Data início</label>
+          <input id="calendarEventStart" type="date">
+        </div>
+        <div class="field">
+          <label>Data fim</label>
+          <input id="calendarEventEnd" type="date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Orçamento total</label>
+          <input id="calendarEventBudget" type="number" min="0" step="0.01" placeholder="0,00">
+        </div>
+        <div class="field">
+          <label>Cor</label>
+          <input id="calendarEventColor" type="color" value="#9b88f7" style="height:44px;padding:6px">
+        </div>
+      </div>
+      <div class="field">
+        <label>Tag do evento</label>
+        <select id="calendarEventTag" onchange="toggleFinanceCalendarEventTagInline()"></select>
+      </div>
+      <div id="calendarEventTagInlineWrap" class="unified-tag-inline-editor" style="display:none">
+        <input id="calendarEventTagInlineInput" placeholder="Nova tag" onkeydown="handleFinanceCalendarEventTagKeydown(event)">
+        <button class="btn btn-primary" type="button" onclick="confirmFinanceCalendarEventInlineTag()">OK</button>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" type="button" onclick="closeFinanceCalendarEventModal()">Cancelar</button>
+      <button id="calendarEventSaveBtn" class="btn btn-primary" type="button" onclick="saveFinanceCalendarEvent()">Salvar evento</button>
+    </div>
+  </div>
+</div>
+
+<div id="financeCalendarTooltip" class="finance-calendar-tooltip" style="display:none"></div>
+
+<!-- MODAL ADD CAT -->
+<div class="modal-bg" id="modalCat">
+  <div class="modal">
+    <h3 id="modalCatTitle">Categoria de gasto</h3>
+    <div class="form-grid">
+      <div class="field"><label>Categoria</label>
+        <input list="catOptions" id="catNome" placeholder="Ex: ALIMENTAÇÃO">
+        <datalist id="catOptions">
+          <option>TRANSPORTE</option><option>LAZER</option><option>IFOOD+BESTEIRAS</option>
+          <option>PRESENTES/SOCIAL</option><option>ALIMENTAÇÃO</option><option>COMPRAS</option>
+          <option>ASSINATURAS</option><option>FARMÁCIA</option><option>SAÚDE</option>
+          <option>OUTROS</option><option>ESO ARQUITETURA</option>
+        </datalist>
+      </div>
+      <p style="font-size:12px;color:var(--text2)">Apenas criamos a categoria. Os valores são calculados automaticamente pelos gastos lançados.</p>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalCat')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCat()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GASTOS VARIÁVEIS -->
+<div class="modal-bg" id="modalVar">
+  <div class="modal" id="modalVarDialog" style="width:820px">
+    <div class="modal-drag-handle" onmousedown="startModalDrag(event, 'modalVarDialog')" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">Editar/adicionar</h3>
+      <button class="btn-icon" style="width:34px;height:34px;border:1px solid var(--border);border-radius:10px" onclick="closeModal('modalVar')" title="Fechar">✕</button>
+    </div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="field" style="flex:1">
+        <label>Filtrar por categoria</label>
+        <select id="varFiltroCat" onchange="handleVarFilterChange()"></select>
+      </div>
+    </div>
+    <div id="varAddWrap">
+      <div style="display:flex;align-items:center;gap:8px;margin:-4px 0 10px 0">
+        <button class="btn btn-primary" style="padding:8px 12px" onclick="toggleVarForm()">Editar/adicionar</button>
+        <button class="btn btn-ghost" style="padding:8px 12px" onclick="repeatLastVarEntry()">Repetir último</button>
+      </div>
+      <div class="inline-form" id="varFormWrap" style="margin-bottom:12px;display:none" onkeydown="handleVarFormKeydown(event)">
+        <div class="field"><label>Título</label><input id="varTitulo" placeholder="Ex: Supermercado" list="varTituloSugestoes" autocomplete="off" oninput="updateVarTitleSuggestions()" onfocus="updateVarTitleSuggestions()"><datalist id="varTituloSugestoes"></datalist></div>
+        <div class="field small"><label>Valor (R$)</label><input id="varValor" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="field xsmall">
+          <label>Data</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input id="varData" placeholder="dd/mm/aa" inputmode="numeric" oninput="maskVarDateInput(this)">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <button type="button" class="btn-icon" style="width:28px;height:18px;font-size:11px" onclick="shiftVarDate(1)" title="Próximo dia">▲</button>
+              <button type="button" class="btn-icon" style="width:28px;height:18px;font-size:11px" onclick="shiftVarDate(-1)" title="Dia anterior">▼</button>
+            </div>
+          </div>
+        </div>
+        <div class="field"><label>Categoria</label>
+          <select id="varCat" onchange="toggleNovaCat()"></select>
+        </div>
+        <div class="field" id="varNovaCatWrap" style="display:none"><label>Nova categoria</label><input id="varNovaCat" placeholder="Nome da categoria"></div>
+        <button class="btn btn-primary" style="height:42px" onclick="addVarGasto()">Adicionar</button>
+      </div>
+    </div>
+    <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <table class="fin-table" id="varTable" style="margin:0">
+        <thead><tr><th class="sortable" style="padding-left:16px" onclick="setVarSort('data')">Data</th><th class="sortable" onclick="setVarSort('categoria')">Categoria</th><th class="sortable" onclick="setVarSort('titulo')">Título</th><th class="sortable" onclick="setVarSort('valor')">Valor</th><th></th></tr></thead>
+        <tbody id="varTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL META -->
+<div class="modal-bg" id="modalMeta">
+  <div class="modal">
+    <h3>Nova meta</h3>
+    <div class="form-grid">
+      <div class="field"><label>Categoria</label>
+        <select id="metaCat">
+          <option>TRANSPORTE</option><option>LAZER</option><option>IFOOD+BESTEIRAS</option>
+          <option>PRESENTES/SOCIAL</option><option>ALIMENTAÇÃO</option><option>COMPRAS</option>
+          <option>ASSINATURAS</option><option>FARMÁCIA</option><option>SAÚDE</option><option>OUTROS</option>
+        </select>
+      </div>
+      <div class="field"><label>Limite mensal (R$)</label><input type="number" id="metaValor" step="1" placeholder="500"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalMeta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMeta()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PREFERÊNCIAS -->
+<div class="modal-bg" id="modalPreferences">
+  <div class="modal">
+    <h3>Preferências</h3>
+    <p class="modal-subcopy">Ajustes avançados e de sistema. Seus dados do núcleo do produto continuam separados dessas ações.</p>
+    <div class="form-grid">
+      <div class="section" style="margin:0;box-shadow:none">
+        <div class="section-head"><h3 style="font-size:12px">Núcleo visual</h3></div>
+        <div class="section-body" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="resetDashboardLayout()">Resetar layout</button>
+          <button class="btn btn-ghost" onclick="resetDashboardColors()">Resetar cores</button>
+          <button class="btn btn-ghost" onclick="resetDashboardSeries()">Resetar séries do gráfico</button>
+        </div>
+        <p class="preferences-note">Esses ajustes afetam a forma como o produto aparece, sem mexer no conteúdo financeiro.</p>
+      </div>
+      <div class="section" style="margin:0;box-shadow:none">
+        <div class="section-head"><h3 style="font-size:12px">Sistema e proteção</h3></div>
+        <div class="section-body" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="runIntegrityCheck(true)">Verificar integridade</button>
+          <button class="btn btn-danger" onclick="resetUIState()">Resetar preferências da interface</button>
+        </div>
+        <p class="preferences-note">Essas ações não apagam seus dados financeiros. Elas afetam apenas layout, preferências e a checagem de consistência do sistema.</p>
+      </div>
+      <div id="preferencesStatus" style="font-size:12px;color:var(--text2)"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="closeModal('modalPreferences')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalHelp" class="modal-bg" onclick="closeModalBg(event,'modalHelp')">
+  <div class="modal modal-help">
+    <div class="modal-header">
+      <div>
+        <h3>Ajuda rápida</h3>
+        <p class="modal-subcopy">Guia curto para as dúvidas mais comuns do dia a dia, inspirado na ajuda objetiva de apps financeiros modernos.</p>
+      </div>
+      <button class="btn-icon" type="button" onclick="closeModal('modalHelp')">✕</button>
+    </div>
+
+    <div class="help-scroll">
+      <div class="help-grid">
+        <section class="help-card">
+          <h4>Primeiros passos</h4>
+          <div class="help-faq-list">
+            <details class="help-faq" open>
+              <summary>Por onde eu começo?</summary>
+              <p>Comece pelo <strong>Mês Atual</strong>: registre renda, despesas e metas financeiras. Depois use <strong>Patrimônio</strong> para acompanhar onde o dinheiro guardado está.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Qual a lógica do sistema?</summary>
+              <p>O produto foi dividido em 4 papéis: <strong>Dashboard</strong> para visão geral, <strong>Mês Atual</strong> para operar o mês, <strong>Patrimônio</strong> para o dinheiro acumulado e <strong>Histórico</strong> para comparar evolução.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Preciso preencher tudo?</summary>
+              <p>Não. O núcleo do uso diário é simples: renda, despesas, gastos diários e, se quiser, metas. O resto aprofunda a leitura sem ser obrigatório.</p>
+            </details>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <h4>Mês Atual</h4>
+          <div class="help-faq-list">
+            <details class="help-faq">
+              <summary>Como usar os blocos do mês?</summary>
+              <p>Cada bloco segue a mesma lógica: veja o total, use <strong>+ Adicionar</strong> e clique nas linhas para editar. Você também pode arrastar os blocos para a ordem que preferir.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Para que servem as metas financeiras?</summary>
+              <p>Elas representam dinheiro planejado para separar, não gasto realizado. Você pode escolher a conta de destino e depois enviar esse valor para o <strong>Patrimônio</strong>.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Como os gastos diários ajudam?</summary>
+              <p>Os gastos diários mostram gasto, meta e saldo por categoria. O sistema tenta sugerir títulos já usados, traz a data atual por padrão e coloca o lançamento novo no topo para evitar duplicidade.</p>
+            </details>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <h4>Patrimônio</h4>
+          <div class="help-faq-list">
+            <details class="help-faq">
+              <summary>O que entra em Patrimônio?</summary>
+              <p>Contas ou reservas onde você guarda dinheiro, como caixa, caixinha, CDI, poupança, conta corrente ou cripto. O saldo muda só por movimentações manuais.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Como mover dinheiro entre contas?</summary>
+              <p>Selecione uma conta à esquerda e use os botões de <strong>+</strong>, <strong>−</strong> ou <strong>transferência</strong>. Transferências mudam os saldos das contas, mas não alteram o patrimônio total.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Como as metas se conectam ao patrimônio?</summary>
+              <p>No <strong>Mês Atual</strong>, cada meta pode apontar para uma conta patrimonial. Quando você enviar a meta, o sistema cria a movimentação correspondente naquela conta.</p>
+            </details>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <h4>Dashboard e Histórico</h4>
+          <div class="help-faq-list">
+            <details class="help-faq">
+              <summary>Qual a diferença entre Dashboard e Histórico?</summary>
+              <p>O <strong>Dashboard</strong> resume o período selecionado com indicadores, tabelas e gráficos. O <strong>Histórico</strong> é para comparar meses e enxergar tendência com mais foco.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Posso reorganizar o Dashboard?</summary>
+              <p>Sim. As caixas do Dashboard continuam independentes e redimensionáveis. Se algo sair do lugar, você pode resetar o layout em <strong>Preferências</strong>.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Quando usar filtros?</summary>
+              <p>Use filtros para aprofundar. A ideia do topo das páginas é leitura rápida; os filtros refinam a análise quando você precisar.</p>
+            </details>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <h4>Segurança e backups</h4>
+          <div class="help-faq-list">
+            <details class="help-faq">
+              <summary>Como funciona o backup?</summary>
+              <p>Você pode criar backup manualmente pelo botão da lateral. O sistema também gera backup automático em regras internas do projeto e mantém histórico por usuário.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Exportar é a mesma coisa que backup?</summary>
+              <p>Não exatamente. <strong>Exportar</strong> gera um arquivo para levar seus dados. <strong>Backup</strong> é a camada de proteção e restauração do sistema.</p>
+            </details>
+            <details class="help-faq">
+              <summary>Mexer em preferências apaga meus dados?</summary>
+              <p>Não. As preferências afetam layout, visual e comportamentos de interface. Seus dados financeiros continuam separados dessas configurações.</p>
+            </details>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" type="button" onclick="closeModal('modalHelp')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalCategoryEditor" class="modal-bg" onclick="closeModalBg(event,'modalCategoryEditor')">
+  <div class="modal" style="width:min(1160px,95vw);max-width:1160px;max-height:86vh;overflow:auto">
+    <div class="modal-header">
+      <h3>Edição de categorias</h3>
+      <button class="btn-icon" type="button" onclick="closeModal('modalCategoryEditor')">✕</button>
+    </div>
+    <div id="categoryEditorList"></div>
+    <div style="margin-top:14px">
+      <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--text2);letter-spacing:.06em;text-transform:uppercase">Tags</h4>
+      <div id="tagEditorList"></div>
+    </div>
+    <div class="form-actions" style="margin-top:18px">
+      <button class="btn btn-primary" type="button" onclick="closeModal('modalCategoryEditor')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalCategoryEdit" class="modal-bg" onclick="closeModalBg(event,'modalCategoryEdit')">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3>Editar categoria</h3>
+      <button class="btn-icon" type="button" onclick="closeCategoryEditModal()">✕</button>
+    </div>
+    <div class="field">
+      <label>Nome da categoria</label>
+      <input id="categoryEditNameInput" placeholder="Nome da categoria">
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>Emoji da categoria</label>
+      <div id="categoryEditEmojiGrid" class="category-emoji-grid"></div>
+    </div>
+    <div class="form-actions" style="margin-top:18px">
+      <button class="btn btn-ghost" type="button" onclick="closeCategoryEditModal()">Cancelar</button>
+      <button class="btn btn-primary" type="button" onclick="saveCategoryEditModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalCategoryDelete" class="modal-bg" onclick="closeModalBg(event,'modalCategoryDelete')">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3>Excluir categoria</h3>
+      <button class="btn-icon" type="button" onclick="closeCategoryDeleteModal()">✕</button>
+    </div>
+    <p class="modal-subcopy" id="categoryDeleteCopy">Escolha para qual categoria os lançamentos serão enviados.</p>
+    <div class="field">
+      <label>Transferir lançamentos para</label>
+      <select id="categoryDeleteTargetSelect"></select>
+    </div>
+    <div class="form-actions" style="margin-top:18px">
+      <button class="btn btn-ghost" type="button" onclick="closeCategoryDeleteModal()">Cancelar</button>
+      <button class="btn btn-danger" type="button" onclick="confirmCategoryDeleteTransfer()">Excluir categoria</button>
+    </div>
+  </div>
+</div>
+
+  <div id="modalPatrimonioAccount" class="modal-bg" onclick="closeModalBg(event,'modalPatrimonioAccount')">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="patrimonioAccountModalTitle">Nova conta patrimonial</h3>
+        <button class="btn-icon" type="button" onclick="closeModal('modalPatrimonioAccount')">✕</button>
+      </div>
+      <input id="patrimonioAccountId" type="hidden">
+      <input id="patrimonioAccountKind" type="hidden" value="custom">
+      <div class="field">
+          <label class="form-help-label" data-help="Escolha se você quer criar uma conta por instituição ou uma conta personalizada.">Como você quer criar?</label>
+          <div class="patrimonio-kind-grid">
+            <button class="patrimonio-kind-btn active" type="button" data-kind="institution" onclick="setPatrimonioAccountKind('institution')">Instituição</button>
+            <button class="patrimonio-kind-btn" type="button" data-kind="custom" onclick="setPatrimonioAccountKind('custom')">Personalizado</button>
+          </div>
+      </div>
+      <div class="field" id="patrimonioAccountInstitutionWrap">
+        <label class="form-help-label" data-help="Selecione a instituição vinculada a essa conta para usar o visual e a identificação corretos no patrimônio.">Instituição</label>
+        <select id="patrimonioAccountInstitution" onchange="syncPatrimonioAccountInstitution()">
+          <option value="">Selecione</option>
+          <option value="santander">Santander</option>
+          <option value="nubank">Nubank</option>
+          <option value="bb">Banco do Brasil</option>
+          <option value="caixa">Caixa</option>
+          <option value="itau">Itaú</option>
+          <option value="bradesco">Bradesco</option>
+          <option value="inter">Banco Inter</option>
+          <option value="xp">XP</option>
+          <option value="outra">Outra</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="form-help-label" data-help="Nome que vai aparecer na lista de contas e movimentações do patrimônio.">Nome</label>
+        <input id="patrimonioAccountName" placeholder="ex: Reserva de emergência">
+      </div>
+      <div class="field" id="patrimonioAccountInitialValueWrap">
+        <label class="form-help-label" data-help="Valor inicial já existente nessa conta. Ele entra como saldo inicial para começar o acompanhamento corretamente.">Quanto já existe nessa conta?</label>
+        <input id="patrimonioAccountInitialValue" type="number" step="0.01" min="0" placeholder="0,00">
+      </div>
+      <details id="patrimonioAccountExtras" class="modal-details">
+        <summary>Mais opções</summary>
+        <div class="form-grid modal-details-body">
+          <div class="field">
+            <label class="form-help-label" data-help="Escolha uma cor discreta para diferenciar visualmente essa conta ou caixinha no patrimônio.">Cor do módulo</label>
+            <input id="patrimonioAccountColor" type="hidden" value="">
+            <div id="patrimonioAccountColorGrid" class="dash-color-grid patrimonio-color-grid"></div>
+          </div>
+          <div class="field">
+            <label class="form-help-label" data-help="Define a natureza da conta, como corrente, dinheiro, poupança ou investimentos.">Tipo da conta</label>
+            <select id="patrimonioAccountType">
+              <option value="Conta corrente">Conta corrente</option>
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="Poupança">Poupança</option>
+              <option value="Investimentos">Investimentos</option>
+              <option value="VR/VA">VR/VA</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="form-help-label" data-help="Use para anotar algum detalhe útil sobre a conta, sem afetar cálculos ou movimentações.">Observação (opcional)</label>
+            <textarea id="patrimonioAccountNote" rows="3" placeholder="Observações rápidas sobre essa conta ou ativo"></textarea>
+          </div>
+      </div>
+    </details>
+    <div class="modal-actions">
+      <button class="btn" type="button" onclick="closeModal('modalPatrimonioAccount')">Cancelar</button>
+      <button class="btn btn-primary" type="button" onclick="savePatrimonioAccount()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalPatrimonioMovement" class="modal-bg" onclick="closeModalBg(event,'modalPatrimonioMovement')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="patrimonioMovementModalTitle">Nova movimentação</h3>
+      <button class="btn-icon" type="button" onclick="closeModal('modalPatrimonioMovement')">✕</button>
+    </div>
+    <input id="patrimonioMovementId" type="hidden">
+    <div class="form-row">
+      <div class="field">
+          <label class="form-help-label" data-help="Escolha se a movimentação é entrada, saída ou transferência entre contas do patrimônio.">Tipo</label>
+        <select id="patrimonioMovementType" onchange="syncPatrimonioMovementModalVisibility()">
+          <option value="aporte">Aporte</option>
+          <option value="retirada">Retirada</option>
+          <option value="transferencia">Transferência</option>
+        </select>
+      </div>
+      <div class="field" id="patrimonioSingleAccountWrap">
+          <label class="form-help-label" data-help="Conta principal que será afetada por essa movimentação.">Conta / ativo</label>
+        <select id="patrimonioMovementAccount"></select>
+      </div>
+    </div>
+    <div id="patrimonioTransferAccounts" class="form-row" style="display:none">
+      <div class="field">
+          <label class="form-help-label" data-help="Conta de onde o valor está saindo, usada apenas em transferências.">Origem</label>
+        <select id="patrimonioMovementFrom"></select>
+      </div>
+      <div class="field">
+          <label class="form-help-label" data-help="Conta para onde o valor está indo, usada apenas em transferências.">Destino</label>
+        <select id="patrimonioMovementTo"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+          <label class="form-help-label" data-help="Valor da movimentação patrimonial.">Valor</label>
+        <input id="patrimonioMovementValue" type="number" step="0.01" placeholder="0,00">
+      </div>
+      <div class="field">
+          <label class="form-help-label" data-help="Data em que a movimentação aconteceu ou deve ser registrada no patrimônio.">Data</label>
+        <input id="patrimonioMovementDate" type="date">
+      </div>
+    </div>
+    <details id="patrimonioMovementExtras" class="modal-details">
+      <summary>Mais opções</summary>
+      <div class="form-grid modal-details-body">
+        <div class="field">
+          <label class="form-help-label" data-help="Texto livre para explicar a movimentação, como aporte, retirada ou ajuste.">Descrição (opcional)</label>
+          <input id="patrimonioMovementDescription" placeholder="ex: Aporte do mês">
+        </div>
+      </div>
+    </details>
+    <div class="modal-actions">
+      <button class="btn" type="button" onclick="closeModal('modalPatrimonioMovement')">Cancelar</button>
+      <button class="btn btn-primary" type="button" onclick="savePatrimonioMovement()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="formHelpTooltip" class="form-help-popover" aria-hidden="true"></div>
+<button id="unifiedOutflowFloatingButton" class="unified-outflow-floating-btn" type="button" onclick="restoreUnifiedOutflowModal()" title="Reabrir lançamento">+</button>
+
+  <script src="/shared-assets/crypto-client.js"></script>
+  <script src="/app-assets/storage.js"></script>
+  <script src="/app-assets/preferences.js"></script>
+  <script src="/app-assets/data.js"></script>
+  <script src="/app-assets/modules/shared/formatters.js"></script>
+  <script src="/app-assets/modules/shared/dates.js"></script>
+  <script src="/app-assets/modules/shared/html.js"></script>
+  <script src="/app-assets/state.js"></script>
+  <script src="/app-assets/modules/ui-icons.js"></script>
+  <script src="/app-assets/modules/category-editor.js"></script>
+  <script src="/app-assets/modules/mes-atual/constants.js"></script>
+  <script src="/app-assets/modules/mes-atual/utils.js"></script>
+  <script src="/app-assets/modules/mes-atual/selectors.js"></script>
+  <script src="/app-assets/modules/mes-atual/income-dates.js"></script>
+  <script src="/app-assets/modules/mes-atual/filters.js"></script>
+  <script src="/app-assets/modules/mes-atual/renderers.js"></script>
+  <script src="/app-assets/modules/mes-atual/actions.js"></script>
+  <script src="/app-assets/modules/mes-atual/cards.js"></script>
+  <script src="/app-assets/modules/mes-atual/totals.js"></script>
+  <script src="/app-assets/modules/mes-atual/recurrence.js"></script>
+  <script src="/app-assets/modules/mes-atual/notifications.js"></script>
+  <script src="/app-assets/modules/mes-atual/modals.js"></script>
+  <script src="/app-assets/modules/mes-atual/metric-title-editor.js"></script>
+  <script src="/app-assets/modules/shared/dashboard-rules.js"></script>
+  <script src="/app-assets/modules/shared/financial-guards.js"></script>
+  <script src="/app-assets/modules/import-bills-schema.js"></script>
+  <script src="/app-assets/modules/import-bills-utils.js"></script>
+  <script src="/app-assets/modules/import-bills-review.js"></script>
+  <script src="/app-assets/modules/import-bills.js"></script>
+  <script src="/app-assets/modules/calendar-utils.js"></script>
+  <script src="/app-assets/modules/calendar-events.js"></script>
+  <script src="/app-assets/modules/calendar-render.js"></script>
+  <script src="/app-assets/modules/calendar.js"></script>
+  <script src="/app-assets/core.js"></script>
+  <script src="/app-assets/dashboard.js"></script>
+  <script src="/app-assets/mes-atual.js"></script>
+  <script src="/app-assets/patrimonio-clean.js"></script>
+  <script src="/app-assets/historico-eso.js"></script>
+  <script src="/app-assets/interactions.js"></script>
+  <script src="/app-assets/ui.js"></script>
+  <script src="/app-assets/backup.js"></script>
+  <script src="/app-assets/auth-client.js"></script>
+  <script src="/app-assets/app.js"></script>
+  <script src="/app-assets/bootstrap.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+

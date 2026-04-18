@@ -1,0 +1,664 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle Financeiro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link rel="stylesheet" href="/app-assets/styles.css">
+</head>
+<body>
+<div id="appStatus" class="app-status" role="status" aria-live="polite">
+  <div id="appStatusIcon" class="app-status-icon">!</div>
+  <div class="app-status-copy">
+    <p id="appStatusTitle" class="app-status-title">Aviso</p>
+    <p id="appStatusMessage" class="app-status-message"></p>
+  </div>
+  <button class="app-status-close" type="button" onclick="hideAppStatus()" aria-label="Fechar aviso">✕</button>
+</div>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <h1>Controle<br>Financeiro</h1>
+    <button id="profileShortcut" class="sidebar-profile-trigger" type="button" onclick="nav('perfil')">Dados da pessoa</button>
+  </div>
+  <div class="sidebar-session">
+    <div class="sidebar-session-copy">
+      <span class="sidebar-session-label">Sessão</span>
+      <strong id="sessionUserName">Usuário</strong>
+    </div>
+    <button class="btn btn-ghost sidebar-logout" type="button" onclick="logout()">Sair</button>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard')"><span class="nav-icon">◉</span> Dashboard</div>
+    <div class="nav-item" data-page="mes" onclick="nav('mes')"><span class="nav-icon">📋</span> Mês Atual</div>
+    <div class="nav-item" data-page="historico" onclick="nav('historico')"><span class="nav-icon">📈</span> Histórico</div>
+    <div id="esoNavItem" class="nav-item" data-page="eso" onclick="nav('eso')"><span class="nav-icon">🏗</span> Fechamentos ESO</div>
+  </div>
+  <div id="sidebarMonthControls">
+    <div class="sidebar-section">Mês selecionado</div>
+    <div class="month-picker">
+      <select id="monthSelect" onchange="selectMonth(this.value)"></select>
+      <button class="btn-delete-month" onclick="deleteCurrentMonth()" title="Excluir mês selecionado">−</button>
+    </div>
+    <button class="btn-new-month" onclick="openNewMonth()">+ Novo mês</button>
+  </div>
+  <div style="padding: 0 12px 16px; display:flex; gap:6px; flex-wrap:wrap;">
+    <button class="btn" style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);font-size:11px;padding:6px 10px;" onclick="exportData()">⬇ Exportar</button>
+    <button class="btn" style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);font-size:11px;padding:6px 10px;" onclick="document.getElementById('importInput').click()">⬆ Importar</button>
+    <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- DASHBOARD PAGE -->
+<div id="page-dashboard" class="page active">
+  <div class="page-header">
+    <div>
+      <h2>Dashboard</h2>
+      <p class="sub" id="dashSub"></p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div id="dashFilters" class="inline-form" style="gap:8px"></div>
+      <button class="btn btn-ghost" onclick="openPreferences()">Preferências</button>
+    </div>
+  </div>
+  <div class="metrics-grid" id="dashMetrics"></div>
+  <div class="dashboard-widget-grid" id="dashboardWidgets"></div>
+  <div id="dashSeriesColorPickerLayer"></div>
+  <div id="catColorPickerLayer"></div>
+</div>
+
+<!-- MES PAGE -->
+<div id="page-mes" class="page">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 id="mesTitle">Mês</h2>
+      <button class="btn-inline-edit-month" onclick="openEditCurrentMonth()" title="Editar mês selecionado">✎</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="undoBtn" class="btn btn-ghost" onclick="undoLastChange()" title="Desfazer">↶</button>
+      <button id="redoBtn" class="btn btn-ghost" onclick="redoLastChange()" title="Refazer">↷</button>
+      <select id="mesResultSelect" class="btn" style="padding:8px 10px;font-size:12px" onchange="changeResultMode(this.value)"></select>
+    </div>
+  </div>
+
+  <div class="metrics-grid" id="mesMetrics"></div>
+
+  <!-- Despesas -->
+  <div class="section" id="section-despesas">
+    <div class="section-head">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h3 id="title-despesas"></h3>
+        <select id="despCategoriaFiltro" class="btn" style="padding:6px 10px;font-size:12px" onchange="setDespCategoriaFiltro(this.value)"></select>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-despesas" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('despesas')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('despesas', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="openAddItem('despesa')">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" style="margin:0" id="despTable">
+        <thead>
+          <tr>
+            <th style="padding-left:22px;width:34px"></th>
+            <th class="sortable" onclick="setDespSort('nome')">Descrição</th>
+            <th class="sortable" onclick="setDespSort('valor')">Valor</th>
+            <th class="sortable" onclick="setDespSort('data')">Data pag.</th>
+            <th class="sortable" onclick="setDespSort('categoria')">Categoria</th>
+            <th>
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <span>Pago</span>
+                <input id="despPaidAllToggle" type="checkbox" onchange="toggleAllDespesasPaid(this.checked)">
+              </label>
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="despBody"></tbody>
+        <tfoot><tr class="totals-row"><td style="padding-left:22px;padding-top:12px;padding-bottom:12px"></td><td style="padding-top:12px;padding-bottom:12px">Total despesas</td><td id="despTotal" class="amount-neg"></td><td></td><td></td><td></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Categorias gastos (oculto a pedido do usuário) -->
+  <div class="section" id="section-variaveis" style="display:none">
+    <div class="section-head">
+      <h3 id="title-variaveis"></h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="openAddCat()">+ Categoria</button>
+        <button class="btn btn-primary" onclick="openVarModal()">Gastos do mês</button>
+      </div>
+    </div>
+    <div class="section-body" id="catBody">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="openVarModal()">+ Gasto variável</button>
+      </div>
+      <div class="cat-grid" id="catGrid"></div>
+    </div>
+  </div>
+
+  <!-- Gastos diários -->
+  <div class="section" id="section-daily">
+    <div class="section-head">
+      <h3 id="title-daily"></h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="toggle-section-daily" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('daily')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('daily', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="openVarModal('add')">Editar/adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="dailyTable">
+        <thead>
+          <tr>
+            <th class="sortable" style="padding-left:22px" onclick="setDailySort('categoria')">Categoria</th>
+            <th class="sortable" onclick="setDailySort('valor')">Valor</th>
+            <th>Meta</th>
+            <th class="sortable" onclick="setDailySort('percentual')">% do total</th>
+          </tr>
+        </thead>
+        <tbody id="dailyBody"></tbody>
+        <tfoot><tr class="totals-row"><td style="padding-left:22px;padding-top:12px;padding-bottom:12px">Total gastos diários</td><td id="dailyTotal" class="amount-neg"></td><td></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Renda -->
+  <div class="section section-renda" id="section-renda">
+    <div class="section-head">
+      <h3 id="title-renda"></h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-renda" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('renda')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('renda', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="openAddItem('renda')">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="rendaTable">
+        <thead>
+          <tr>
+            <th class="sortable" style="padding-left:22px" onclick="setRendaSort('fonte')">Fonte</th>
+            <th class="sortable" onclick="setRendaSort('valor')">Valor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rendaBody"></tbody>
+        <tfoot><tr class="totals-row"><td style="padding-left:22px;padding-top:12px;padding-bottom:12px">Total renda</td><td id="rendaTotal" class="amount-pos"></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Projetos / Entradas -->
+  <div class="section section-projetos" id="section-projetos">
+    <div class="section-head">
+      <h3 id="title-projetos"></h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-projetos" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('projetos')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('projetos', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="openAddItem('projeto')">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="projTable">
+        <thead>
+          <tr>
+            <th class="sortable" style="padding-left:22px" onclick="setProjSort('nome')">Descrição</th>
+            <th class="sortable" onclick="setProjSort('valor')">Valor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="projBody"></tbody>
+        <tfoot><tr class="totals-row"><td style="padding-left:22px;padding-top:12px;padding-bottom:12px">Total entradas</td><td id="projTotal" class="amount-pos"></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Observações -->
+  <div class="section" id="section-observacoes">
+    <div class="section-head">
+      <h3>Observações do mês</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="toggle-section-observacoes" class="btn btn-ghost btn-subtle-color btn-subtle-toggle" onclick="toggleMonthSectionCollapse('observacoes')" title="Minimizar ou maximizar">−</button>
+        <button class="btn btn-ghost btn-subtle-color" onclick="openMonthSectionColorPicker('observacoes', event.clientX + 12, event.clientY + 12)">Cor</button>
+        <button class="btn btn-primary" onclick="saveObs()">Salvar</button>
+      </div>
+    </div>
+    <div class="section-body">
+      <textarea id="obsField" rows="3" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px" placeholder="Anote pontos importantes, imprevistos, planos..."></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORICO PAGE -->
+<div id="page-historico" class="page">
+  <div class="page-header">
+    <div><h2>Histórico</h2><p class="sub" id="histSub">Todos os meses registrados</p></div>
+    <div id="histFilters" class="inline-form" style="gap:8px"></div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="histTab('tabela', this)">Tabela</button>
+    <button class="tab-btn" onclick="histTab('grafico', this)">Gráfico</button>
+  </div>
+  <div id="hist-tabela">
+    <div class="section">
+      <div class="section-body" style="padding:0">
+        <table class="fin-table">
+          <thead><tr><th style="padding-left:22px">Mês</th><th>Gastos</th><th>Renda</th><th>Projetos</th><th>Resultado</th></tr></thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="hist-grafico" style="display:none">
+    <div class="section">
+      <div class="section-head"><h3 id="histChart1Title">Gastos totais por período</h3></div>
+      <div class="section-body"><div class="chart-wrap" style="height:300px"><canvas id="histChart1"></canvas></div></div>
+    </div>
+    <div class="section">
+      <div class="section-head"><h3 id="histChart2Title">Resultado por período</h3></div>
+      <div class="section-body"><div class="chart-wrap" style="height:280px"><canvas id="histChart2"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ESO PAGE -->
+<div id="page-eso" class="page">
+  <div class="page-header">
+    <div><h2>Fechamentos ESO</h2><p class="sub" id="esoSub">Acompanhamento independente dos fechamentos de projetos</p></div>
+    <button class="btn btn-primary" onclick="openEsoModal()">+ Adicionar</button>
+  </div>
+  <div class="section">
+    <div class="section-body">
+      <div id="esoFilters" class="inline-form" style="gap:8px"></div>
+    </div>
+  </div>
+  <div class="metrics-grid" id="esoMetrics"></div>
+  <div class="section">
+    <div class="section-head">
+      <h3>Projetos e fechamentos</h3>
+      <button class="btn btn-ghost" onclick="resetEsoFilters()">Limpar filtros</button>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="fin-table" id="esoTable">
+        <thead>
+          <tr>
+            <th class="sortable" style="padding-left:22px" onclick="setEsoSort('data')">Data</th>
+            <th class="sortable" onclick="setEsoSort('cliente')">Cliente</th>
+            <th class="sortable" onclick="setEsoSort('tipo')">Tipo de projeto</th>
+            <th class="sortable" onclick="setEsoSort('valor')">Valor</th>
+            <th class="sortable" onclick="setEsoSort('entrada')">Entrada</th>
+            <th class="sortable" onclick="setEsoSort('status')">Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="esoBody"></tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td style="padding-left:22px;padding-top:12px;padding-bottom:12px" colspan="3">Total filtrado</td>
+            <td id="esoTotal" class="amount amount-pos"></td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- DADOS DA PESSOA PAGE -->
+<div id="page-perfil" class="page">
+  <div class="page-header">
+    <div>
+      <h2>Dados da pessoa</h2>
+      <p class="sub">Informacoes pessoais protegidas e configuracoes de acesso</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h3>Dados pessoais</h3>
+      <button class="btn btn-primary" type="button" onclick="saveProfile()">Salvar dados</button>
+    </div>
+    <div class="section-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="field">
+            <label for="profileDisplayName">Nome exibido</label>
+            <input id="profileDisplayName" type="text" placeholder="Como seu nome aparece no sistema">
+          </div>
+          <div class="field">
+            <label for="profileFullName">Nome completo</label>
+            <input id="profileFullName" type="text" placeholder="Nome completo">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="profileBirthDate">Data de nascimento</label>
+            <input id="profileBirthDate" type="text" inputmode="numeric" placeholder="dd/mm/aaaa">
+          </div>
+          <div class="field">
+            <label for="profilePhone">Telefone</label>
+            <input id="profilePhone" type="text" placeholder="(00) 00000-0000">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="profileEmail">E-mail</label>
+            <input id="profileEmail" type="email" placeholder="voce@email.com">
+          </div>
+          <div class="field">
+            <label for="profileHint">Dica da senha</label>
+            <input id="profileHint" type="text" placeholder="Dica exibida em esqueci minha senha">
+          </div>
+        </div>
+      </div>
+      <p id="profileStatus" class="text-muted" style="margin:16px 0 0;font-size:12px"></p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h3>Seguranca</h3>
+      <button class="btn btn-primary" type="button" onclick="changeUserPassword()">Alterar senha</button>
+    </div>
+    <div class="section-body">
+      <div class="form-grid">
+        <div class="field">
+          <label for="currentPassword">Senha atual</label>
+          <input id="currentPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha atual">
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="newPassword">Nova senha</label>
+            <input id="newPassword" type="password" autocomplete="new-password" placeholder="Pelo menos 8 caracteres">
+          </div>
+          <div class="field">
+            <label for="confirmPassword">Confirmar nova senha</label>
+            <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Repita a nova senha">
+          </div>
+        </div>
+      </div>
+      <p id="passwordStatus" class="text-muted" style="margin:16px 0 0;font-size:12px"></p>
+    </div>
+  </div>
+
+  <div class="section danger-section">
+    <div class="section-head">
+      <h3>Apagar conta</h3>
+      <button class="btn btn-danger" type="button" onclick="deleteAccount()">Apagar conta</button>
+    </div>
+    <div class="section-body">
+      <p class="text-muted" style="margin:0 0 16px;font-size:12px">Essa ação apaga o acesso e os dados desta conta. Para confirmar, digite sua senha atual.</p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="deleteAccountPassword">Senha atual</label>
+          <input id="deleteAccountPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha para apagar a conta">
+        </div>
+      </div>
+      <p id="deleteAccountStatus" class="text-muted" style="margin:16px 0 0;font-size:12px"></p>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<div id="monthSectionColorPickerLayer"></div>
+
+<!-- MODAL ADD ITEM -->
+<div class="modal-bg" id="modalItem">
+  <div class="modal">
+    <h3 id="modalItemTitle">Adicionar</h3>
+    <div class="form-grid" id="modalItemForm"></div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalItem')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveItem()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TITLES -->
+<div class="modal-bg" id="modalTitles">
+  <div class="modal">
+    <h3>Editar títulos</h3>
+    <div class="form-grid">
+      <div class="field"><label>Despesas</label><input id="titleInpDesp" value=""></div>
+      <div class="field"><label>Renda fixa</label><input id="titleInpRenda" value=""></div>
+      <div class="field"><label>Projetos / extras</label><input id="titleInpProj" value=""></div>
+      <div class="field"><label>Gastos variáveis</label><input id="titleInpVar" value=""></div>
+      <div class="field"><label>Gastos diários</label><input id="titleInpDaily" value=""></div>
+      <div class="field"><label>Gráfico Gastos vs Renda</label><input id="titleInpGvsr" value=""></div>
+      <div class="field"><label>Gráfico Resultado</label><input id="titleInpRes" value=""></div>
+      <div class="field"><label>Categorias (dashboard)</label><input id="titleInpCatDash" value=""></div>
+      <div class="field"><label>Histórico rápido</label><input id="titleInpQuick" value=""></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalTitles')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTitles()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ESO -->
+<div class="modal-bg" id="modalEso">
+  <div class="modal">
+    <h3 id="modalEsoTitle">Adicionar fechamento ESO</h3>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field"><label>Data</label><input id="esoDataInput" placeholder="dd/mm/aa" inputmode="numeric" oninput="maskVarDateInput(this)"></div>
+        <div class="field"><label>Cliente</label><input id="esoClienteInput" placeholder="Nome do cliente"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Tipo de projeto</label><input id="esoTipoInput" placeholder="Ex: Interiores"></div>
+        <div class="field"><label>Valor (R$)</label><input id="esoValorInput" type="number" step="0.01" placeholder="0,00"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Entrada</label><input id="esoEntradaInput" placeholder="Ex: Indicação"></div>
+        <div class="field">
+          <label>Status</label>
+          <select id="esoStatusInput">
+            <option value="Fechado">Fechado</option>
+            <option value="Não fechado">Não fechado</option>
+            <option value="Aguardando">Aguardando</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalEso')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEsoItem()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NEW MONTH -->
+<div class="modal-bg" id="modalNewMonth">
+  <div class="modal">
+    <h3 id="modalNewMonthTitle">Novo mês</h3>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field">
+          <label>Mês</label>
+          <select id="newMonthMes" onchange="refreshMonthCopyControls()">
+            <option value="JANEIRO">Janeiro</option><option value="FEVEREIRO">Fevereiro</option>
+            <option value="MARÇO">Março</option><option value="ABRIL">Abril</option>
+            <option value="MAIO">Maio</option><option value="JUNHO">Junho</option>
+            <option value="JULHO">Julho</option><option value="AGOSTO">Agosto</option>
+            <option value="SETEMBRO">Setembro</option><option value="OUTUBRO">Outubro</option>
+            <option value="NOVEMBRO">Novembro</option><option value="DEZEMBRO">Dezembro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Ano</label>
+          <input type="number" id="newMonthAno" value="2026" min="2020" max="2035" onchange="refreshMonthCopyControls()">
+        </div>
+      </div>
+      <p id="modalNewMonthHelp" style="font-size:12px;color:var(--text2)">O novo mês copia automaticamente do mês anterior: despesas recorrentes selecionadas, a categoria <b>ASSINATURAS</b> em gastos diários e as rendas fixas recorrentes.</p>
+      <div id="monthCopyControls" class="month-copy-controls" hidden>
+        <div class="month-copy-topline">
+          <label class="month-copy-toggle">
+            <input type="checkbox" id="copyPrevMonthToggle" onchange="handleMonthCopyEnabledChange(this.checked)">
+            <span>Copiar dados do mês anterior</span>
+          </label>
+          <button type="button" id="monthCopyChooseBtn" class="btn btn-ghost" onclick="toggleMonthCopyPicker()">Escolher dados</button>
+        </div>
+        <p id="monthCopySummary" class="month-copy-summary">Selecione exatamente o que deve ser copiado para os próximos meses.</p>
+        <div id="monthCopyPicker" class="month-copy-picker" hidden></div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalNewMonth')">Cancelar</button>
+      <button id="modalNewMonthSubmit" class="btn btn-primary" onclick="submitMonthModal()">Criar mês</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADD CAT -->
+<div class="modal-bg" id="modalCat">
+  <div class="modal">
+    <h3 id="modalCatTitle">Categoria de gasto</h3>
+    <div class="form-grid">
+      <div class="field"><label>Categoria</label>
+        <input list="catOptions" id="catNome" placeholder="Ex: ALIMENTAÇÃO">
+        <datalist id="catOptions">
+          <option>TRANSPORTE</option><option>LAZER</option><option>IFOOD+BESTEIRAS</option>
+          <option>PRESENTES/SOCIAL</option><option>ALIMENTAÇÃO</option><option>COMPRAS</option>
+          <option>ASSINATURAS</option><option>FARMÁCIA</option><option>SAÚDE</option>
+          <option>OUTROS</option><option>ESO ARQUITETURA</option>
+        </datalist>
+      </div>
+      <p style="font-size:12px;color:var(--text2)">Apenas criamos a categoria. Os valores são calculados automaticamente pelos gastos lançados.</p>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalCat')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCat()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GASTOS VARIÁVEIS -->
+<div class="modal-bg" id="modalVar">
+  <div class="modal" id="modalVarDialog" style="width:820px">
+    <div class="modal-drag-handle" onmousedown="startModalDrag(event, 'modalVarDialog')" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">Editar/adicionar</h3>
+      <button class="btn-icon" style="width:34px;height:34px;border:1px solid var(--border);border-radius:10px" onclick="closeModal('modalVar')" title="Fechar">✕</button>
+    </div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="field" style="flex:1">
+        <label>Filtrar por categoria</label>
+        <select id="varFiltroCat" onchange="handleVarFilterChange()"></select>
+      </div>
+    </div>
+    <div id="varAddWrap">
+      <div style="display:flex;align-items:center;gap:8px;margin:-4px 0 10px 0">
+        <button class="btn btn-primary" style="padding:8px 12px" onclick="toggleVarForm()">Editar/adicionar</button>
+      </div>
+      <div class="inline-form" id="varFormWrap" style="margin-bottom:12px;display:none" onkeydown="handleVarFormKeydown(event)">
+        <div class="field"><label>Título</label><input id="varTitulo" placeholder="Ex: Supermercado"></div>
+        <div class="field small"><label>Valor (R$)</label><input id="varValor" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="field xsmall">
+          <label>Data</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input id="varData" placeholder="dd/mm/aa" inputmode="numeric" oninput="maskVarDateInput(this)">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <button type="button" class="btn-icon" style="width:28px;height:18px;font-size:11px" onclick="shiftVarDate(1)" title="Próximo dia">▲</button>
+              <button type="button" class="btn-icon" style="width:28px;height:18px;font-size:11px" onclick="shiftVarDate(-1)" title="Dia anterior">▼</button>
+            </div>
+          </div>
+        </div>
+        <div class="field"><label>Categoria</label>
+          <select id="varCat" onchange="toggleNovaCat()"></select>
+        </div>
+        <div class="field" id="varNovaCatWrap" style="display:none"><label>Nova categoria</label><input id="varNovaCat" placeholder="Nome da categoria"></div>
+        <button class="btn btn-primary" style="height:42px" onclick="addVarGasto()">Adicionar</button>
+      </div>
+    </div>
+    <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <table class="fin-table" id="varTable" style="margin:0">
+        <thead><tr><th class="sortable" style="padding-left:16px" onclick="setVarSort('data')">Data</th><th class="sortable" onclick="setVarSort('categoria')">Categoria</th><th class="sortable" onclick="setVarSort('titulo')">Título</th><th class="sortable" onclick="setVarSort('valor')">Valor</th><th></th></tr></thead>
+        <tbody id="varTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL META -->
+<div class="modal-bg" id="modalMeta">
+  <div class="modal">
+    <h3>Nova meta</h3>
+    <div class="form-grid">
+      <div class="field"><label>Categoria</label>
+        <select id="metaCat">
+          <option>TRANSPORTE</option><option>LAZER</option><option>IFOOD+BESTEIRAS</option>
+          <option>PRESENTES/SOCIAL</option><option>ALIMENTAÇÃO</option><option>COMPRAS</option>
+          <option>ASSINATURAS</option><option>FARMÁCIA</option><option>SAÚDE</option><option>OUTROS</option>
+        </select>
+      </div>
+      <div class="field"><label>Limite mensal (R$)</label><input type="number" id="metaValor" step="1" placeholder="500"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modalMeta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMeta()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PREFERÊNCIAS -->
+<div class="modal-bg" id="modalPreferences">
+  <div class="modal">
+    <h3>Preferências</h3>
+    <div class="form-grid">
+      <div class="section" style="margin:0;box-shadow:none">
+        <div class="section-head"><h3 style="font-size:12px">Dashboard</h3></div>
+        <div class="section-body" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="resetDashboardLayout()">Resetar layout</button>
+          <button class="btn btn-ghost" onclick="resetDashboardColors()">Resetar cores</button>
+          <button class="btn btn-ghost" onclick="resetDashboardSeries()">Resetar séries do gráfico</button>
+        </div>
+      </div>
+      <div class="section" style="margin:0;box-shadow:none">
+        <div class="section-head"><h3 style="font-size:12px">Sistema</h3></div>
+        <div class="section-body" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="runIntegrityCheck(true)">Verificar integridade</button>
+          <button class="btn btn-danger" onclick="resetUIState()">Resetar preferências da interface</button>
+        </div>
+        <p style="font-size:12px;color:var(--text2);margin-top:10px">Essas ações não apagam seus dados financeiros. Elas afetam apenas layout, cores e preferências da interface.</p>
+      </div>
+      <div id="preferencesStatus" style="font-size:12px;color:var(--text2)"></div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="closeModal('modalPreferences')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+  <script src="/shared-assets/crypto-client.js"></script>
+  <script src="/app-assets/storage.js"></script>
+  <script src="/app-assets/preferences.js"></script>
+  <script src="/app-assets/data.js"></script>
+  <script src="/app-assets/state.js"></script>
+  <script src="/app-assets/core.js"></script>
+  <script src="/app-assets/dashboard.js"></script>
+  <script src="/app-assets/mes-atual.js"></script>
+  <script src="/app-assets/historico-eso.js"></script>
+  <script src="/app-assets/interactions.js"></script>
+  <script src="/app-assets/ui.js"></script>
+  <script src="/app-assets/backup.js"></script>
+  <script src="/app-assets/auth-client.js"></script>
+  <script src="/app-assets/app.js"></script>
+  <script src="/app-assets/bootstrap.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+

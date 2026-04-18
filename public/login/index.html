@@ -1,0 +1,139 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar | Controle Financeiro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/login-assets/login.css">
+</head>
+<body>
+  <main class="login-shell">
+    <div class="login-backdrop"></div>
+    <section class="login-panel" aria-labelledby="loginTitle">
+      <div class="login-copy">
+        <p class="login-kicker">Acesso seguro</p>
+        <h1 id="loginTitle">Controle Financeiro</h1>
+        <p class="login-subtitle">Entre para continuar no sistema.</p>
+      </div>
+
+      <form id="loginForm" class="login-form" novalidate>
+        <label class="field">
+          <span>E-mail</span>
+          <input id="emailInput" name="email" type="email" autocomplete="email" placeholder="Digite seu e-mail" required>
+        </label>
+
+        <label class="field">
+          <span>Senha</span>
+          <div class="password-field">
+            <input id="passwordInput" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required>
+            <button id="togglePassword" class="password-toggle" type="button" aria-label="Mostrar senha">Mostrar</button>
+          </div>
+        </label>
+
+        <label class="remember-check">
+          <input id="rememberMeInput" name="rememberMe" type="checkbox">
+          <span>Continuar logado</span>
+        </label>
+
+        <p id="loginError" class="login-error" role="alert" aria-live="polite"></p>
+
+        <button class="login-submit" type="submit">Entrar</button>
+      </form>
+
+      <div class="login-links">
+        <button id="forgotToggle" class="login-link" type="button">Esqueci minha senha</button>
+        <button id="registerToggle" class="login-link" type="button">Criar conta</button>
+      </div>
+
+      <section id="forgotPanel" class="forgot-panel" hidden>
+        <div class="field">
+          <span>E-mail</span>
+          <input id="forgotEmailInput" type="email" autocomplete="email" placeholder="Digite seu e-mail">
+        </div>
+        <p class="forgot-copy">Se voce informar a data de nascimento correta, eu mostro a dica cadastrada da senha.</p>
+        <div class="field">
+          <span>Data de nascimento</span>
+          <input id="birthDateInput" type="text" inputmode="numeric" placeholder="dd/mm/aaaa">
+        </div>
+        <div class="forgot-actions">
+          <button id="hintButton" class="login-submit secondary" type="button">Ver dica</button>
+        </div>
+        <p id="forgotFeedback" class="login-error" role="status" aria-live="polite"></p>
+      </section>
+
+      <p class="login-footnote">Acesso protegido por autenticacao e sessao.</p>
+    </section>
+  </main>
+
+  <div id="registerModal" class="register-modal" hidden>
+    <section class="register-card" aria-labelledby="registerTitle">
+      <div class="register-head">
+        <div>
+          <p class="login-kicker">Novo usuário</p>
+          <h2 id="registerTitle">Criar conta</h2>
+        </div>
+        <button id="registerClose" class="register-close" type="button" aria-label="Fechar cadastro">✕</button>
+      </div>
+      <form id="registerForm" class="register-form" novalidate>
+        <div class="field">
+          <span>Nome completo</span>
+          <input id="registerFullName" name="fullName" type="text" autocomplete="name" placeholder="Digite seu nome completo" required>
+        </div>
+        <div class="field">
+          <span>E-mail</span>
+          <input id="registerEmail" name="email" type="email" autocomplete="email" placeholder="Digite seu e-mail" required>
+        </div>
+        <div class="field">
+          <span>Telefone</span>
+          <input id="registerPhone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="(00) 00000-0000" required>
+        </div>
+        <div class="field">
+          <span>Data de nascimento</span>
+          <input id="registerBirthDate" name="birthDate" type="text" inputmode="numeric" placeholder="dd/mm/aaaa" required>
+        </div>
+        <div class="field">
+          <span>Senha</span>
+          <div class="password-field">
+            <input id="registerPassword" name="password" type="password" autocomplete="new-password" placeholder="Crie uma senha" required>
+            <button id="toggleRegisterPassword" class="password-toggle" type="button" aria-label="Mostrar senha do cadastro">Mostrar</button>
+          </div>
+        </div>
+        <div class="field">
+          <span>Dica da senha</span>
+          <input id="registerPasswordHint" name="passwordHint" type="text" autocomplete="off" placeholder="Ex.: algo que só você saiba">
+        </div>
+        <p id="registerError" class="login-error" role="alert" aria-live="polite"></p>
+        <div class="register-actions">
+          <button id="registerCancel" class="login-submit secondary ghost" type="button">Cancelar</button>
+          <button class="login-submit" type="submit">Criar conta</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="developerModal" class="register-modal developer-modal" hidden>
+    <section class="register-card developer-card" aria-labelledby="developerTitle">
+      <div class="register-head developer-head">
+        <h2 id="developerTitle" class="sr-only">Acesso tecnico</h2>
+        <button id="developerClose" class="register-close" type="button" aria-label="Fechar acesso do desenvolvedor">✕</button>
+      </div>
+      <form id="developerForm" class="register-form" novalidate>
+        <div class="field">
+          <div class="password-field">
+            <input id="developerPassword" name="developerPassword" type="password" autocomplete="off" placeholder="Senha" required>
+            <button id="toggleDeveloperPassword" class="password-toggle" type="button" aria-label="Mostrar senha do desenvolvedor">Mostrar</button>
+          </div>
+        </div>
+        <p id="developerError" class="login-error" role="alert" aria-live="polite"></p>
+        <button class="sr-only" type="submit">Entrar</button>
+      </form>
+    </section>
+  </div>
+
+  <script src="/shared-assets/crypto-client.js"></script>
+  <script src="/login-assets/login.js"></script>
+</body>
+</html>
