@@ -204,8 +204,8 @@ function getDeveloperSessionPayload(req) {
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(applySecurityHeaders);
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: false, limit: '5mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 app.use(session({
   name: 'fin.sid',
   secret: ensureSessionSecret(SESSION_SECRET_PATH),
