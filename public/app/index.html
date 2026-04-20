@@ -1,12 +1,16 @@
 ﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Controle Financeiro</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-  <link rel="stylesheet" href="/app-assets/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Financeiro</title>
+    
+    <script>window.notificationsPopoverOpen = false;</script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    
+    <link rel="stylesheet" href="/app-assets/styles.css">
 </head>
 <body>
 <div id="appStatus" class="app-status" role="status" aria-live="polite">
@@ -1619,6 +1623,7 @@
 <div id="formHelpTooltip" class="form-help-popover" aria-hidden="true"></div>
 <button id="unifiedOutflowFloatingButton" class="unified-outflow-floating-btn" type="button" onclick="restoreUnifiedOutflowModal()" title="Reabrir lançamento">+</button>
 
+  
   <script src="/shared-assets/crypto-client.js"></script>
   <script src="/app-assets/storage.js"></script>
   <script src="/app-assets/preferences.js"></script>
@@ -1629,6 +1634,7 @@
   <script src="/app-assets/state.js"></script>
   <script src="/app-assets/modules/ui-icons.js"></script>
   <script src="/app-assets/modules/category-editor.js"></script>
+  <script src="/app-assets/modules/mes-atual/notifications.js"></script>
   <script src="/app-assets/modules/mes-atual/constants.js"></script>
   <script src="/app-assets/modules/mes-atual/utils.js"></script>
   <script src="/app-assets/modules/mes-atual/selectors.js"></script>
@@ -1639,7 +1645,6 @@
   <script src="/app-assets/modules/mes-atual/cards.js"></script>
   <script src="/app-assets/modules/mes-atual/totals.js"></script>
   <script src="/app-assets/modules/mes-atual/recurrence.js"></script>
-  <script src="/app-assets/modules/mes-atual/notifications.js"></script>
   <script src="/app-assets/modules/mes-atual/modals.js"></script>
   <script src="/app-assets/modules/mes-atual/metric-title-editor.js"></script>
   <script src="/app-assets/modules/shared/dashboard-rules.js"></script>

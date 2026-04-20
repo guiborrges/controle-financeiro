@@ -1,0 +1,28 @@
+name: Deploy para Oracle Cloud
+
+on:
+  push:
+    branches:
+      - main  # Certifique-se de que sua branch principal se chama 'main'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Baixar Código do GitHub
+      uses: actions/checkout@v3
+
+    - name: Configurar CLI da Oracle (OCI)
+      uses: oracle-actions/setup-oci@v1
+      with:
+        user: ${{ secrets.OCI_USER_OCID }}
+        tenancy: ${{ secrets.OCI_TENANCY_OCID }}
+        fingerprint: ${{ secrets.OCI_FINGERPRINT }}
+        region: ${{ secrets.OCI_REGION }}
+        api_key: ${{ secrets.OCI_KEY_FILE }}
+
+    - name: Testar Conexão com a Oracle
+      run: |
+        oci iam compartment list --limit 1
+        echo "Conexão com a Oracle estabelecida com sucesso!"
