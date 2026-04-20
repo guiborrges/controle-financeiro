@@ -30,3 +30,4 @@ jobs:
             cd /home/ubuntu/controle-financeiro
             npm install
             pm2 restart all || node server.js &
+# teste final
