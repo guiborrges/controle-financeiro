@@ -2,27 +2,31 @@ name: Deploy para Oracle Cloud
 
 on:
   push:
-    branches:
-      - main  # Certifique-se de que sua branch principal se chama 'main'
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Baixar Código do GitHub
-      uses: actions/checkout@v3
+      - name: Checkout do código
+        uses: actions/checkout@v3
 
-    - name: Configurar CLI da Oracle (OCI)
-      uses: oracle-actions/setup-oci@v1
-      with:
-        user: ${{ secrets.OCI_USER_OCID }}
-        tenancy: ${{ secrets.OCI_TENANCY_OCID }}
-        fingerprint: ${{ secrets.OCI_FINGERPRINT }}
-        region: ${{ secrets.OCI_REGION }}
-        api_key: ${{ secrets.OCI_KEY_FILE }}
+      - name: Enviar arquivos via SSH
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ubuntu
+          key: ${{ secrets.OCI_KEY }}
+          source: "."
+          target: "/home/ubuntu/controle-financeiro"
 
-    - name: Testar Conexão com a Oracle
-      run: |
-        oci iam compartment list --limit 1
-        echo "Conexão com a Oracle estabelecida com sucesso!"
+      - name: Reiniciar o Servidor
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ubuntu
+          key: ${{ secrets.OCI_KEY }}
+          script: |
+            cd /home/ubuntu/controle-financeiro
+            npm install
+            pm2 restart all || node server.js &
