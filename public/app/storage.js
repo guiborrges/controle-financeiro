@@ -49,6 +49,20 @@ let storageInitialized = false;
 let scopedStorageNamespace = 'anonymous';
 let serverStateRevision = '';
 let storageWriteConflictDetected = false;
+let isFlushing = false;
+let needsFlushAgain = false;
+let flushSequence = 0;
+
+function shouldLogStorageSync() {
+  try {
+    return (
+      String(localStorage.getItem('finDebugSync') || '').trim() === '1' ||
+      String(window.__APP_BOOTSTRAP__?.debugSync || '').trim() === '1'
+    );
+  } catch {
+    return false;
+  }
+}
 
 function getCsrfHeaders(extraHeaders = {}) {
   const token = window.__CSRF_TOKEN__ || '';
@@ -157,12 +171,26 @@ function materializeLegacyStateSnapshot(snapshot) {
 async function flushServerStorage(force = false) {
   if (!storageInitialized) return;
   if (storageWriteConflictDetected) return;
+  if (isFlushing) {
+    needsFlushAgain = true;
+    return;
+  }
   if (!force && storageFlushTimer) return;
 
+  isFlushing = true;
+  needsFlushAgain = false;
+  const flushId = ++flushSequence;
   const payload = {
     state: cloneStateValue(serverStorageCache),
     baseRevision: serverStateRevision || ''
   };
+  if (shouldLogStorageSync()) {
+    console.log('[storage][flush:start]', {
+      flushId,
+      force,
+      baseRevision: payload.baseRevision || '(vazio)'
+    });
+  }
 
   storageFlushPromise = fetch('/api/app-state', {
     method: 'PUT',
@@ -175,41 +203,43 @@ async function flushServerStorage(force = false) {
       
       if (response.ok) {
         serverStateRevision = String(body?.updatedAt || serverStateRevision || '');
+        if (shouldLogStorageSync()) {
+          console.log('[storage][flush:ok]', {
+            flushId,
+            sentBaseRevision: payload.baseRevision || '(vazio)',
+            updatedAt: serverStateRevision || '(vazio)'
+          });
+        }
         return;
       }
       
       if (response.status === 409 || body?.conflict) {
-        // --- Lógica de Tolerância de 2 segundos ---
-        const serverTime = new Date(body.currentRevision || 0).getTime();
-        const myTime = new Date(payload.baseRevision || 0).getTime();
-        const diff = Math.abs(serverTime - myTime);
-
-        if (diff < 2000) {
-          console.warn('[storage] Conflito leve ignorado (<2s). Sincronizando revisão local.', { diffMs: diff });
-          serverStateRevision = String(body.currentRevision || serverStateRevision);
-          return;
-        }
-        // ------------------------------------------
-
         storageWriteConflictDetected = true;
         if (typeof window.showAppStatus === 'function') {
           window.showAppStatus(
-            'Detectamos alterações em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.',
-            'Conflito de sincronização',
+            'Detectamos alteraÃ§Ãµes em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.',
+            'Conflito de sincronizaÃ§Ã£o',
             'warn'
           );
         }
-        console.warn('[storage] conflito de revisão detectado', {
+        console.warn('[storage] conflito de revisÃ£o detectado', {
+          flushId,
           expectedRevision: payload.baseRevision || '(vazio)',
-          currentRevision: String(body?.currentRevision || '').trim() || '(desconhecida)',
-          diffMs: diff
+          currentRevision: String(body?.currentRevision || '').trim() || '(desconhecida)'
         });
+        return;
       }
     })
     .catch((error) => {
       console.error('[storage] Erro na comunicação com o servidor:', error);
     });
 
+  storageFlushPromise = storageFlushPromise.finally(() => {
+    isFlushing = false;
+    if (needsFlushAgain && !storageWriteConflictDetected) {
+      window.setTimeout(() => flushServerStorage(true), 100);
+    }
+  });
   await storageFlushPromise;
 }
 
@@ -274,6 +304,15 @@ async function initializeServerStorage() {
     : {};
   serverStateRevision = String(payload.stateRevision || '');
   storageWriteConflictDetected = false;
+  isFlushing = false;
+  needsFlushAgain = false;
+  flushSequence = 0;
+  if (shouldLogStorageSync()) {
+    console.log('[storage][bootstrap]', {
+      stateRevision: serverStateRevision || '(vazio)',
+      hasServerState: !!payload.hasServerState
+    });
+  }
 
   if (!payload.hasServerState && payload.session?.username === 'guilherme' && hasLegacyAppData()) {
     const legacyState = materializeLegacyStateSnapshot(captureLegacyAppState());

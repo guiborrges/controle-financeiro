@@ -817,6 +817,17 @@
     - avoids duplicates repeated inside the same import batch (double-click / duplicated lines).
   - prevents silent inflated totals from repeated imports while keeping review behavior unchanged.
 
+## 30. UPDATE_LOG_2026_04_21_CONFLICT_FALSE_POSITIVE_FIX
+- Root-cause hardening for false `409` in normal usage:
+  - `server/http/routes/app-state.js` now uses exact revision conflict detection (`baseRevision !== currentRevision`) without time-difference heuristic.
+  - `/api/app/bootstrap` now refreshes `stateRevision` from the **rewritten payload** when bootstrap itself re-persisted state (legacy recovery/encryption rewrite path), preventing stale revision return.
+- Frontend flush serialization:
+  - `public/app/storage.js` now enforces single in-flight save (`isFlushing`) with pending retry flag (`needsFlushAgain`) to avoid same-tab self-conflict from overlapping PUTs.
+  - conflict guard remains active: `409` still blocks autosave and requires user reload.
+- Temporary diagnostics (opt-in):
+  - backend: `FIN_APP_STATE_DEBUG=1` emits `[app-state][bootstrap|put-check|put-ok]`.
+  - frontend: `localStorage.finDebugSync=1` emits `[storage][bootstrap|flush:start|flush:ok]`.
+
 ## 29. UPDATE_LOG_2026_04_18_IDEMPOTENCY_GUARDS
 - Frontend action lock:
   - `public/app/interactions.js` exports `window.runExclusiveAction(actionKey, handler)`.

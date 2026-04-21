@@ -16,28 +16,16 @@ function registerAppStateRoutes(app, deps) {
   } = deps;
 
   // Constantes para tolerância de conflito (2 segundos)
-  const CONFLICT_TOLERANCE_MS = 2000;
+  const DEBUG_APP_STATE = String(process.env.FIN_APP_STATE_DEBUG || '').trim() === '1';
 
   /**
    * Verifica se há um conflito REAL comparando timestamps com tolerância
    */
-  function isRealConflict(baseRevisionStr, currentRevisionStr) {
-    if (!baseRevisionStr || !currentRevisionStr) return false;
-    
-    try {
-      const baseTime = Date.parse(baseRevisionStr);
-      const currentTime = Date.parse(currentRevisionStr);
-      
-      if (isNaN(baseTime) || isNaN(currentTime)) {
-        return false;
-      }
-      
-      const timeDiffMs = Math.abs(currentTime - baseTime);
-      return timeDiffMs > CONFLICT_TOLERANCE_MS;
-    } catch (error) {
-      console.warn('[app-state] Erro ao comparar timestamps', error?.message);
-      return false;
-    }
+  function hasRevisionConflict(baseRevisionStr, currentRevisionStr) {
+    const base = String(baseRevisionStr || '').trim();
+    const current = String(currentRevisionStr || '').trim();
+    if (!base || !current) return false;
+    return base !== current;
   }
 
   app.get('/api/app/bootstrap', noStore, requireAuth, (req, res) => {
@@ -61,18 +49,37 @@ function registerAppStateRoutes(app, deps) {
     if (savedState?.state) {
       const recovered = recoverMissingMonthsFromLegacyBackups(refreshedUser.id, savedState.state, USERS_DATA_DIR);
       if (recovered.changed) {
-        savedState = { ...savedState, state: recovered.state };
-        writeUserAppState(refreshedUser.id, recovered.state || {}, req.session?.dataEncryptionKey || '');
+        const rewritten = writeUserAppState(refreshedUser.id, recovered.state || {}, req.session?.dataEncryptionKey || '');
+        savedState = {
+          ...savedState,
+          state: recovered.state,
+          updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
+        };
       } else if (!savedState.encrypted && req.session?.dataEncryptionKey) {
-        writeUserAppState(refreshedUser.id, savedState.state || {}, req.session.dataEncryptionKey);
+        const rewritten = writeUserAppState(refreshedUser.id, savedState.state || {}, req.session.dataEncryptionKey);
+        savedState = {
+          ...savedState,
+          updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
+        };
       }
     } else if (savedState && !savedState.encrypted && req.session?.dataEncryptionKey) {
-      writeUserAppState(refreshedUser.id, savedState.state || {}, req.session.dataEncryptionKey);
+      const rewritten = writeUserAppState(refreshedUser.id, savedState.state || {}, req.session.dataEncryptionKey);
+      savedState = {
+        ...savedState,
+        updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
+      };
     }
     const isPrimaryUser = refreshedUser.username === 'guilherme';
     
     // ✅ CRÍTICO: Sempre retornar updatedAt do estado carregado
     const stateRevision = savedState?.updatedAt || '';
+    if (DEBUG_APP_STATE) {
+      console.log('[app-state][bootstrap]', {
+        userId: refreshedUser.id,
+        stateRevision,
+        hasServerState: !!savedState
+      });
+    }
     
     return res.json({
       session: {
@@ -117,7 +124,15 @@ function registerAppStateRoutes(app, deps) {
         const currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
         const currentRevision = String(currentState?.updatedAt || '').trim();
         
-        if (currentRevision && isRealConflict(baseRevision, currentRevision)) {
+        if (DEBUG_APP_STATE) {
+          console.log('[app-state][put-check]', {
+            userId: user.id,
+            baseRevision,
+            currentRevision
+          });
+        }
+
+        if (currentRevision && hasRevisionConflict(baseRevision, currentRevision)) {
           console.warn('[app-state] Conflito real detectado - bloqueando write', {
             userId: user.id,
             baseRevision,
@@ -138,6 +153,13 @@ function registerAppStateRoutes(app, deps) {
         updatedAt: saved.updatedAt
       });
 
+      if (DEBUG_APP_STATE) {
+        console.log('[app-state][put-ok]', {
+          userId: user.id,
+          baseRevision,
+          updatedAt: saved.updatedAt
+        });
+      }
       return res.json({ ok: true, updatedAt: saved.updatedAt });
     } catch (error) {
       console.error('[app-state] ❌ Erro ao salvar estado', {
