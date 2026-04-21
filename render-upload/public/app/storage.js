@@ -216,6 +216,7 @@ const Storage = {
       return fallback;
     }
   },
+
   setText(key, value) {
     try {
       serverStorageCache[key] = String(value);
@@ -227,6 +228,7 @@ const Storage = {
       scheduleServerStorageFlush();
     } catch {}
   },
+
   getJSON(key, fallback = null) {
     try {
       if (Object.prototype.hasOwnProperty.call(serverStorageCache, key)) {
@@ -238,6 +240,7 @@ const Storage = {
       return fallback;
     }
   },
+
   setJSON(key, value) {
     try {
       serverStorageCache[key] = cloneStateValue(value);
@@ -246,9 +249,12 @@ const Storage = {
       } else {
         ScopedLocalStorage.remove(key);
       }
-      scheduleServerStorageFlush();
+      if (key !== STORAGE_KEYS.uiState) {
+        scheduleServerStorageFlush();
+      }
     } catch {}
   },
+
   remove(key) {
     try {
       delete serverStorageCache[key];
