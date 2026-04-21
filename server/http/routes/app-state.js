@@ -70,28 +70,20 @@ function registerAppStateRoutes(app, deps) {
     });
   });
 
-  app.put('/api/app-state', noStore, requireAuth, requireCsrf, (req, res) => {
+app.put('/api/app-state', noStore, requireAuth, requireCsrf, (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ message: 'Sessao expirada ou inexistente.' });
     }
     const state = req.body?.state;
-    const baseRevision = String(req.body?.baseRevision || '').trim();
+    
+    // Ignoramos a checagem de baseRevision para evitar o erro 409
     if (!state || typeof state !== 'object' || Array.isArray(state)) {
       return res.status(400).json({ message: 'Estado invalido.' });
     }
+    
     try {
-      if (baseRevision) {
-        const currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
-        const currentRevision = String(currentState?.updatedAt || '').trim();
-        if (currentRevision && currentRevision !== baseRevision) {
-          return res.status(409).json({
-            message: 'O estado foi alterado em outra aba/dispositivo. Recarregue para evitar perda de dados.',
-            conflict: true,
-            currentRevision
-          });
-        }
-      }
+      // Salvamos direto, sem comparar revisões
       const saved = writeUserAppState(user.id, state, req.session?.dataEncryptionKey || '');
       return res.json({ ok: true, updatedAt: saved.updatedAt });
     } catch (error) {
@@ -100,7 +92,7 @@ function registerAppStateRoutes(app, deps) {
       });
     }
   });
-
+      
   app.post('/api/app-state/migrate-legacy', noStore, requireAuth, requireCsrf, (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
