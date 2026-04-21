@@ -20,9 +20,6 @@ function registerAppStateRoutes(app, deps) {
 
   /**
    * Verifica se há um conflito REAL comparando timestamps com tolerância
-   * @param {string} baseRevisionStr - timestamp base do cliente
-   * @param {string} currentRevisionStr - timestamp atual do servidor
-   * @returns {boolean} true se houver conflito real (> 2s de diferença)
    */
   function isRealConflict(baseRevisionStr, currentRevisionStr) {
     if (!baseRevisionStr || !currentRevisionStr) return false;
@@ -32,25 +29,11 @@ function registerAppStateRoutes(app, deps) {
       const currentTime = Date.parse(currentRevisionStr);
       
       if (isNaN(baseTime) || isNaN(currentTime)) {
-        console.warn('[app-state] Timestamps inválidos para comparação de conflito', {
-          base: baseRevisionStr,
-          current: currentRevisionStr
-        });
         return false;
       }
       
       const timeDiffMs = Math.abs(currentTime - baseTime);
-      const hasConflict = timeDiffMs > CONFLICT_TOLERANCE_MS;
-      
-      if (hasConflict) {
-        console.warn('[app-state] Conflito detectado (diferença > 2s)', {
-          baseRevision: baseRevisionStr,
-          currentRevision: currentRevisionStr,
-          timeDiffMs
-        });
-      }
-      
-      return hasConflict;
+      return timeDiffMs > CONFLICT_TOLERANCE_MS;
     } catch (error) {
       console.warn('[app-state] Erro ao comparar timestamps', error?.message);
       return false;
@@ -87,6 +70,10 @@ function registerAppStateRoutes(app, deps) {
       writeUserAppState(refreshedUser.id, savedState.state || {}, req.session.dataEncryptionKey);
     }
     const isPrimaryUser = refreshedUser.username === 'guilherme';
+    
+    // ✅ CRÍTICO: Sempre retornar updatedAt do estado carregado
+    const stateRevision = savedState?.updatedAt || '';
+    
     return res.json({
       session: {
         authenticated: true,
@@ -106,7 +93,7 @@ function registerAppStateRoutes(app, deps) {
       },
       isPrimaryUser,
       appState: savedState?.state || null,
-      stateRevision: savedState?.updatedAt || '',
+      stateRevision: stateRevision,
       hasServerState: !!savedState,
       shouldStartEmpty: !savedState && !isPrimaryUser
     });
@@ -121,29 +108,16 @@ function registerAppStateRoutes(app, deps) {
     const baseRevision = String(req.body?.baseRevision || '').trim();
     
     if (!state || typeof state !== 'object' || Array.isArray(state)) {
-      console.warn('[app-state] Estado inválido recebido', {
-        userId: user.id,
-        hasState: !!state,
-        isObject: typeof state === 'object',
-        isArray: Array.isArray(state)
-      });
       return res.status(400).json({ message: 'Estado invalido.' });
     }
     
     try {
-      console.debug('[app-state] Salvando estado do usuário', {
-        userId: user.id,
-        username: user.username,
-        stateSizeBytes: JSON.stringify(state).length,
-        baseRevision: baseRevision || '(vazio)'
-      });
-
-      // ✅ NOVO: Validar conflito com tolerância de 2 segundos
+      // ✅ NOVO: Validar conflito APENAS se baseRevision não estiver vazio
       if (baseRevision) {
         const currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
         const currentRevision = String(currentState?.updatedAt || '').trim();
         
-        if (isRealConflict(baseRevision, currentRevision)) {
+        if (currentRevision && isRealConflict(baseRevision, currentRevision)) {
           console.warn('[app-state] Conflito real detectado - bloqueando write', {
             userId: user.id,
             baseRevision,
@@ -161,17 +135,14 @@ function registerAppStateRoutes(app, deps) {
       
       console.log('[app-state] ✅ Salvamento bem-sucedido', {
         userId: user.id,
-        username: user.username,
         updatedAt: saved.updatedAt
       });
 
-      // ✅ CRÍTICO: Sempre retornar updatedAt para o cliente sincronizar
       return res.json({ ok: true, updatedAt: saved.updatedAt });
     } catch (error) {
       console.error('[app-state] ❌ Erro ao salvar estado', {
         userId: user.id,
-        message: error?.message || String(error),
-        stack: error?.stack
+        message: error?.message || String(error)
       });
       return res.status(400).json({
         message: error?.message || 'Falha ao salvar o estado.'
