@@ -238,17 +238,18 @@ const Storage = {
       return fallback;
     }
   },
-  setJSON(key, value) {
-    try {
-      serverStorageCache[key] = cloneStateValue(value);
-      if (!ENCRYPTED_STORAGE_KEYS.has(key)) {
-        ScopedLocalStorage.setJSON(key, value);
-      } else {
-        ScopedLocalStorage.remove(key);
-      }
-      scheduleServerStorageFlush();
-    } catch {}
-  },
+setJSON(key, value) {
+  try {
+    serverStorageCache[key] = cloneStateValue(value);
+    if (!ENCRYPTED_STORAGE_KEYS.has(key)) {
+      ScopedLocalStorage.setJSON(key, value);
+    } else {
+      ScopedLocalStorage.remove(key);
+    }
+    // ✅ CRÍTICO: Agendar flush no render-deploy (estava faltando!)
+    scheduleServerStorageFlush();
+  } catch {}
+},
   remove(key) {
     try {
       delete serverStorageCache[key];
