@@ -189,49 +189,45 @@ async function flushServerStorage(force = false) {
       let body = {};
       try {
         body = await response.json();
-      } catch (jsonError) {
-        console.error('[storage] ❌ Erro ao parsear JSON da resposta do servidor:', jsonError);
+      } catch (e) {
         body = {};
       }
 
-      console.debug('[storage] 📥 Resposta recebida do servidor', {
-        status: response.status,
-        ok: response.ok,
-        hasUpdatedAt: !!body.updatedAt,
-        updatedAt: body.updatedAt || '(indefinido)'
-      });
-
       if (response.ok) {
         const newRevision = String(body?.updatedAt || serverStateRevision || '');
-        if (newRevision && newRevision !== serverStateRevision) {
-          console.log('[storage] ✅ Salvamento bem-sucedido!', {
-            oldRevision: serverStateRevision,
-            newRevision,
-            timestamp: new Date().toISOString()
-          });
-          serverStateRevision = newRevision;
-        } else if (!newRevision) {
-          console.warn('[storage] ⚠️ Aviso: servidor retornou ok mas sem updatedAt');
-        }
+        serverStateRevision = newRevision;
+        console.log('[storage] ✅ Salvamento bem-sucedido!', { newRevision });
         return;
       }
 
       if (response.status === 409 || body?.conflict) {
+        const serverTime = new Date(body.currentRevision || 0).getTime();
+        const myTime = new Date(payload.baseRevision || 0).getTime();
+        const diff = Math.abs(serverTime - myTime);
+
+        // Tolerância de 2 segundos
+        if (diff < 2000) {
+          console.warn('[storage] ⚠️ Conflito leve (tolerado), sincronizando...', { diffMs: diff });
+          serverStateRevision = String(body.currentRevision || serverStateRevision);
+          return;
+        }
+
         storageWriteConflictDetected = true;
-        console.error('[storage] ❌ CONFLITO DE SINCRONIZAÇÃO DETECTADO', {
-          expectedRevision: payload.baseRevision || '(vazio)',
-          currentRevision: String(body?.currentRevision || '').trim() || '(desconhecida)',
-          message: body?.message
-        });
+        console.error('[storage] ❌ CONFLITO DE SINCRONIZAÇÃO', { diffMs: diff });
         if (typeof window.showAppStatus === 'function') {
-          window.showAppStatus(
-            'Detectamos alterações em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.',
-            'Conflito de sincronização',
-            'warn'
-          );
+          window.showAppStatus('Conflito de sincronização. Recarregue a página.', 'Erro', 'warn');
         }
         return;
       }
+
+      console.error('[storage] ❌ Erro HTTP:', response.status);
+    })
+    .catch((error) => {
+      console.error('[storage] ❌ Erro de rede:', error);
+    });
+
+  await storageFlushPromise;
+}
 
       // ✅ NOVO: Logar outros erros HTTP
       console.error('[storage] ❌ Erro HTTP ao salvar (status ' + response.status + ')', {
