@@ -115,3 +115,54 @@ test('put app-state accepts matching baseRevision and persists', () => {
   assert.equal(res.payload.ok, true);
   assert.equal(wrote, true);
 });
+
+test('bootstrap returns rewritten revision when bootstrap recovery rewrites state', () => {
+  const { app } = registerWithDeps({
+    readUserAppState: () => ({
+      state: { finData: [{ id: 'abril_2026' }] },
+      updatedAt: '2026-04-18T10:30:00.000Z',
+      encrypted: true
+    }),
+    recoverMissingMonthsFromLegacyBackups: () => ({
+      changed: true,
+      state: { finData: [{ id: 'abril_2026' }, { id: 'maio_2026' }] }
+    }),
+    writeUserAppState: () => ({ updatedAt: '2026-04-18T10:35:00.000Z' })
+  });
+  const handler = app.routes.get('GET /api/app/bootstrap');
+  const req = { session: { dataEncryptionKey: 'k' } };
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.stateRevision, '2026-04-18T10:35:00.000Z');
+  assert.equal(res.payload.appState.finData.length, 2);
+});
+
+test('put app-state blocks second rapid save with stale revision', () => {
+  let currentRevision = '2026-04-18T10:30:00.000Z';
+  const writes = [];
+  const { app } = registerWithDeps({
+    readUserAppState: () => ({ state: { finData: [] }, updatedAt: currentRevision, encrypted: true }),
+    writeUserAppState: (_userId, state) => {
+      writes.push(state);
+      currentRevision = '2026-04-18T10:31:00.000Z';
+      return { updatedAt: currentRevision };
+    }
+  });
+  const handler = app.routes.get('PUT /api/app-state');
+  const reqA = {
+    session: { dataEncryptionKey: 'k' },
+    body: { state: { finData: [{ id: 'a' }] }, baseRevision: '2026-04-18T10:30:00.000Z' }
+  };
+  const reqB = {
+    session: { dataEncryptionKey: 'k' },
+    body: { state: { finData: [{ id: 'b' }] }, baseRevision: '2026-04-18T10:30:00.000Z' }
+  };
+  const resA = createMockRes();
+  const resB = createMockRes();
+  handler(reqA, resA);
+  handler(reqB, resB);
+  assert.equal(resA.statusCode, 200);
+  assert.equal(resB.statusCode, 409);
+  assert.equal(writes.length, 1);
+});

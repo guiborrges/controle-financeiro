@@ -17,6 +17,18 @@ function registerAppStateRoutes(app, deps) {
 
   // Constantes para tolerância de conflito (2 segundos)
   const DEBUG_APP_STATE = String(process.env.FIN_APP_STATE_DEBUG || '').trim() === '1';
+  function buildRequestContext(req, userId = '') {
+    const headers = req && typeof req === 'object' && req.headers && typeof req.headers === 'object'
+      ? req.headers
+      : {};
+    return {
+      pid: process.pid,
+      userId,
+      ip: (req && req.ip) || headers['x-forwarded-for'] || '',
+      ua: headers['user-agent'] || '',
+      requestId: headers['x-request-id'] || ''
+    };
+  }
 
   /**
    * Verifica se há um conflito REAL comparando timestamps com tolerância
@@ -75,6 +87,7 @@ function registerAppStateRoutes(app, deps) {
     const stateRevision = savedState?.updatedAt || '';
     if (DEBUG_APP_STATE) {
       console.log('[app-state][bootstrap]', {
+        ...buildRequestContext(req, refreshedUser.id),
         userId: refreshedUser.id,
         stateRevision,
         hasServerState: !!savedState
@@ -126,6 +139,7 @@ function registerAppStateRoutes(app, deps) {
         
         if (DEBUG_APP_STATE) {
           console.log('[app-state][put-check]', {
+            ...buildRequestContext(req, user.id),
             userId: user.id,
             baseRevision,
             currentRevision
@@ -134,6 +148,7 @@ function registerAppStateRoutes(app, deps) {
 
         if (currentRevision && hasRevisionConflict(baseRevision, currentRevision)) {
           console.warn('[app-state] Conflito real detectado - bloqueando write', {
+            ...buildRequestContext(req, user.id),
             userId: user.id,
             baseRevision,
             currentRevision
@@ -155,6 +170,7 @@ function registerAppStateRoutes(app, deps) {
 
       if (DEBUG_APP_STATE) {
         console.log('[app-state][put-ok]', {
+          ...buildRequestContext(req, user.id),
           userId: user.id,
           baseRevision,
           updatedAt: saved.updatedAt

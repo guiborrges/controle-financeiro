@@ -828,6 +828,41 @@
   - backend: `FIN_APP_STATE_DEBUG=1` emits `[app-state][bootstrap|put-check|put-ok]`.
   - frontend: `localStorage.finDebugSync=1` emits `[storage][bootstrap|flush:start|flush:ok]`.
 
+## 31. UPDATE_LOG_2026_04_21_ONLINE_HARDENING_ORACLE
+- Frontend save-flow hardening (`public/app/storage.js`):
+  - flush remains single-flight (`isFlushing`) and now keeps explicit flush reason (`pendingFlushReason`) for diagnostics.
+  - autosave is paused immediately on real conflict (`storageWriteConflictDetected`) and pending timers are cleared to avoid stale post-conflict writes.
+  - flush success emits cross-tab revision beacon via localStorage key:
+    - `finStateRevision::<scopedStorageNamespace>`.
+  - stale-tab protection:
+    - other tabs listen to revision beacon (`storage` event),
+    - if incoming revision differs from local revision, tab is marked stale and autosave is paused,
+    - user receives explicit warning to reload before editing.
+  - save scheduling is now reason-aware:
+    - `setText:<key>`, `setJSON:<key>`, `remove:<key>`, timer/queued reasons.
+
+- Backend route diagnostics (`server/http/routes/app-state.js`):
+  - added request context helper for debug logs:
+    - `pid`, `ip`, `user-agent`, `x-request-id`, `userId`.
+  - debug traces include this context in:
+    - bootstrap revision emission,
+    - put conflict check,
+    - put success.
+
+- Integration tests expanded:
+  - `tests/app-state-routes.test.js`
+    - bootstrap rewrite path returns rewritten `stateRevision`,
+    - rapid sequential writes with same base revision -> first save succeeds, second returns `409`.
+  - `tests/state-store-sqlite.test.js`
+    - sequential SQLite writes return/serve latest revision consistently.
+
+- Oracle/PM2 runtime recommendation:
+  - keep single app instance for SQLite state backend:
+    - `pm2 start server.js -i 1` (do not use cluster with shared SQLite state writes).
+  - production env:
+    - `FIN_STATE_BACKEND=sqlite`
+    - optional diagnostics during incident only: `FIN_APP_STATE_DEBUG=1`.
+
 ## 29. UPDATE_LOG_2026_04_18_IDEMPOTENCY_GUARDS
 - Frontend action lock:
   - `public/app/interactions.js` exports `window.runExclusiveAction(actionKey, handler)`.

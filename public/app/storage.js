@@ -52,6 +52,15 @@ let storageWriteConflictDetected = false;
 let isFlushing = false;
 let needsFlushAgain = false;
 let flushSequence = 0;
+let pendingFlushReason = 'unknown';
+let storageSyncEventsBound = false;
+const storageTabId = (() => {
+  try {
+    return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  } catch {
+    return `tab_${Date.now()}`;
+  }
+})();
 
 function shouldLogStorageSync() {
   try {
@@ -62,6 +71,70 @@ function shouldLogStorageSync() {
   } catch {
     return false;
   }
+}
+
+function getCrossTabRevisionStorageKey() {
+  return `finStateRevision::${scopedStorageNamespace}`;
+}
+
+function pauseAutosaveWithConflict(message, context = {}) {
+  storageWriteConflictDetected = true;
+  if (storageFlushTimer) {
+    window.clearTimeout(storageFlushTimer);
+    storageFlushTimer = null;
+  }
+  if (typeof window.showAppStatus === 'function') {
+    window.showAppStatus(
+      String(message || 'Detectamos alteracoes em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.'),
+      'Conflito de sincronizacao',
+      'warn'
+    );
+  }
+  console.warn('[storage] conflito de revisao detectado', context);
+}
+
+function emitRevisionToOtherTabs(nextRevision) {
+  const revision = String(nextRevision || '').trim();
+  if (!revision) return;
+  try {
+    localStorage.setItem(
+      getCrossTabRevisionStorageKey(),
+      JSON.stringify({
+        revision,
+        sourceTabId: storageTabId,
+        emittedAt: new Date().toISOString()
+      })
+    );
+  } catch {}
+}
+
+function bindCrossTabRevisionSync() {
+  if (storageSyncEventsBound) return;
+  storageSyncEventsBound = true;
+  window.addEventListener('storage', (event) => {
+    if (event.key !== getCrossTabRevisionStorageKey()) return;
+    if (!event.newValue || storageWriteConflictDetected) return;
+    let payload = null;
+    try {
+      payload = JSON.parse(event.newValue);
+    } catch {
+      payload = null;
+    }
+    const sourceTabId = String(payload?.sourceTabId || '').trim();
+    if (!payload || sourceTabId === storageTabId) return;
+    const incomingRevision = String(payload?.revision || '').trim();
+    const currentRevision = String(serverStateRevision || '').trim();
+    if (!incomingRevision || !currentRevision || incomingRevision === currentRevision) return;
+    pauseAutosaveWithConflict(
+      'Outra aba atualizou os dados deste usuario. Recarregue esta aba antes de continuar editando.',
+      {
+        source: 'storage-event',
+        sourceTabId,
+        incomingRevision,
+        currentRevision
+      }
+    );
+  });
 }
 
 function getCsrfHeaders(extraHeaders = {}) {
@@ -168,17 +241,20 @@ function materializeLegacyStateSnapshot(snapshot) {
   return state;
 }
 
-async function flushServerStorage(force = false) {
+async function flushServerStorage(force = false, reason = 'unknown') {
   if (!storageInitialized) return;
   if (storageWriteConflictDetected) return;
   if (isFlushing) {
     needsFlushAgain = true;
+    pendingFlushReason = String(reason || pendingFlushReason || 'queued');
     return;
   }
   if (!force && storageFlushTimer) return;
 
   isFlushing = true;
   needsFlushAgain = false;
+  const flushReason = String(reason || pendingFlushReason || 'unknown');
+  pendingFlushReason = 'unknown';
   const flushId = ++flushSequence;
   const payload = {
     state: cloneStateValue(serverStorageCache),
@@ -188,7 +264,8 @@ async function flushServerStorage(force = false) {
     console.log('[storage][flush:start]', {
       flushId,
       force,
-      baseRevision: payload.baseRevision || '(vazio)'
+      reason: flushReason,
+      baseRevision: payload.baseRevision || '(empty)'
     });
   }
 
@@ -203,19 +280,30 @@ async function flushServerStorage(force = false) {
       
       if (response.ok) {
         serverStateRevision = String(body?.updatedAt || serverStateRevision || '');
+        emitRevisionToOtherTabs(serverStateRevision);
         if (shouldLogStorageSync()) {
           console.log('[storage][flush:ok]', {
             flushId,
-            sentBaseRevision: payload.baseRevision || '(vazio)',
-            updatedAt: serverStateRevision || '(vazio)'
+            reason: flushReason,
+            sentBaseRevision: payload.baseRevision || '(empty)',
+            updatedAt: serverStateRevision || '(empty)'
           });
         }
         return;
       }
       
       if (response.status === 409 || body?.conflict) {
-        storageWriteConflictDetected = true;
-        if (typeof window.showAppStatus === 'function') {
+        pauseAutosaveWithConflict(
+          'Detectamos alteracoes em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.',
+          {
+            flushId,
+            source: 'api-409',
+            reason: flushReason,
+            expectedRevision: payload.baseRevision || '(empty)',
+            currentRevision: String(body?.currentRevision || '').trim() || '(unknown)'
+          }
+        );
+        if (false) {
           window.showAppStatus(
             'Detectamos alteraÃ§Ãµes em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.',
             'Conflito de sincronizaÃ§Ã£o',
@@ -229,6 +317,12 @@ async function flushServerStorage(force = false) {
         });
         return;
       }
+      console.error('[storage] Falha ao salvar app-state', {
+        flushId,
+        reason: flushReason,
+        status: response.status,
+        message: String(body?.message || 'Falha desconhecida')
+      });
     })
     .catch((error) => {
       console.error('[storage] Erro na comunicação com o servidor:', error);
@@ -237,18 +331,21 @@ async function flushServerStorage(force = false) {
   storageFlushPromise = storageFlushPromise.finally(() => {
     isFlushing = false;
     if (needsFlushAgain && !storageWriteConflictDetected) {
-      window.setTimeout(() => flushServerStorage(true), 100);
+      const nextReason = pendingFlushReason || `${flushReason}:queued`;
+      window.setTimeout(() => flushServerStorage(true, nextReason), 100);
     }
   });
   await storageFlushPromise;
 }
 
-function scheduleServerStorageFlush() {
+function scheduleServerStorageFlush(reason = 'unknown') {
   if (!storageInitialized) return;
+  if (storageWriteConflictDetected) return;
+  pendingFlushReason = String(reason || pendingFlushReason || 'scheduled');
   if (storageFlushTimer) window.clearTimeout(storageFlushTimer);
   storageFlushTimer = window.setTimeout(async () => {
     storageFlushTimer = null;
-    await flushServerStorage(true);
+    await flushServerStorage(true, pendingFlushReason || 'timer');
   }, 250);
 }
 
@@ -307,9 +404,12 @@ async function initializeServerStorage() {
   isFlushing = false;
   needsFlushAgain = false;
   flushSequence = 0;
+  pendingFlushReason = 'bootstrap';
+  bindCrossTabRevisionSync();
   if (shouldLogStorageSync()) {
     console.log('[storage][bootstrap]', {
-      stateRevision: serverStateRevision || '(vazio)',
+      stateRevision: serverStateRevision || '(empty)',
+      tabId: storageTabId,
       hasServerState: !!payload.hasServerState
     });
   }
@@ -356,7 +456,7 @@ const Storage = {
       } else {
         ScopedLocalStorage.remove(key);
       }
-      scheduleServerStorageFlush();
+      scheduleServerStorageFlush(`setText:${key}`);
     } catch {}
   },
   getJSON(key, fallback = null) {
@@ -379,7 +479,7 @@ const Storage = {
         ScopedLocalStorage.remove(key);
       }
       if (key !== STORAGE_KEYS.uiState) {
-        scheduleServerStorageFlush();
+        scheduleServerStorageFlush(`setJSON:${key}`);
       }
     } catch {}
   },
@@ -387,7 +487,7 @@ const Storage = {
     try {
       delete serverStorageCache[key];
       ScopedLocalStorage.remove(key);
-      scheduleServerStorageFlush();
+      scheduleServerStorageFlush(`remove:${key}`);
     } catch {}
   }
 };
@@ -931,7 +1031,7 @@ function setMonthSectionColor(key, color) {
   monthSectionColorOverrides[key] = color;
   saveMonthSectionColors();
   saveUIState();
-  flushServerStorage(true);
+  flushServerStorage(true, 'saveMonthSectionColor');
   closeMonthSectionColorPicker();
   renderMes();
 }
