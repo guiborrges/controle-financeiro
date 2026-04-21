@@ -38,6 +38,10 @@ let storageFlushTimer = null;
 let storageFlushPromise = Promise.resolve();
 let storageInitialized = false;
 let scopedStorageNamespace = 'anonymous';
+let serverStateRevision = '';
+let storageWriteConflictDetected = false;
+let isFlushing = false;
+let needsFlushAgain = false;
 
 function getCsrfHeaders(extraHeaders = {}) {
   const token = window.__CSRF_TOKEN__ || '';
@@ -145,24 +149,71 @@ function materializeLegacyStateSnapshot(snapshot) {
 
 async function flushServerStorage(force = false) {
   if (!storageInitialized) return;
-  if (!force && storageFlushTimer) return;
-  const payload = { state: cloneStateValue(serverStorageCache) };
-  storageFlushPromise = fetch('/api/app-state', {
-    method: 'PUT',
-    credentials: 'same-origin',
-    headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
-    body: JSON.stringify(payload)
-  }).catch(() => {});
-  await storageFlushPromise;
-}
+  
+  // 1. BLOQUEIO ABSOLUTO: Se houve conflito, nada salva até o F5.
+  if (storageWriteConflictDetected) return;
+  
+  // 2. FILA SERIALIZADA: Se já houver um save em voo, agenda o próximo.
+  if (isFlushing) {
+    needsFlushAgain = true;
+    return;
+  }
 
-function scheduleServerStorageFlush() {
-  if (!storageInitialized) return;
-  if (storageFlushTimer) window.clearTimeout(storageFlushTimer);
-  storageFlushTimer = window.setTimeout(async () => {
-    storageFlushTimer = null;
-    await flushServerStorage(true);
-  }, 250);
+  // 3. DEBOUNCE: Aguarda o timer (a menos que seja forçado).
+  if (!force && storageFlushTimer) return;
+
+  isFlushing = true;
+  needsFlushAgain = false;
+
+  const payload = {
+    state: cloneStateValue(serverStorageCache),
+    baseRevision: serverStateRevision || ''
+  };
+
+  try {
+    const response = await fetch('/api/app-state', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+
+    const body = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      serverStateRevision = String(body?.updatedAt || serverStateRevision);
+      storageWriteConflictDetected = false;
+    } 
+    else if (response.status === 409 || body?.conflict) {
+      // LOG DEFENSIVO
+      const sentTime = Date.parse(payload.baseRevision || '');
+      const serverTime = Date.parse(body.currentRevision || '');
+      const diffMs = (Number.isFinite(sentTime) && Number.isFinite(serverTime)) 
+                     ? Math.abs(sentTime - serverTime) 
+                     : null;
+
+      console.warn('[storage] Conflito detectado:', { enviado: payload.baseRevision, servidor: body.currentRevision, atrasoMs: diffMs });
+
+      serverStateRevision = String(body.currentRevision || '');
+      storageWriteConflictDetected = true;
+      needsFlushAgain = false; 
+
+      if (typeof window.showAppStatus === 'function') {
+        window.showAppStatus('Conflito de versão detectado. Recarregue a página.', 'Sincronização Pausada', 'warn');
+      }
+      return; 
+    }
+  } catch (error) {
+    console.error('[storage] Erro de rede ao salvar:', error);
+    if (typeof window.showAppStatus === 'function') {
+      window.showAppStatus('Erro de conexão ao salvar.', 'Falha de Rede', 'error');
+    }
+  } finally {
+    isFlushing = false;
+    if (needsFlushAgain && !storageWriteConflictDetected) {
+      window.setTimeout(() => flushServerStorage(true), 200);
+    }
+  }
 }
 
 async function initializeServerStorage() {
@@ -200,6 +251,7 @@ async function initializeServerStorage() {
     LegacyStorage.remove(key);
     ScopedLocalStorage.remove(key);
   });
+  serverStateRevision = String(payload.appState?.updatedAt || payload.stateRevision || '');
   return payload;
 }
 
