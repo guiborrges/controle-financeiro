@@ -155,13 +155,30 @@ function materializeLegacyStateSnapshot(snapshot) {
 }
 
 async function flushServerStorage(force = false) {
-  if (!storageInitialized) return;
-  if (storageWriteConflictDetected) return;
-  if (!force && storageFlushTimer) return;
+  if (!storageInitialized) {
+    console.debug('[storage] flushServerStorage: storageInitialized=false, ignorando');
+    return;
+  }
+  if (storageWriteConflictDetected) {
+    console.debug('[storage] flushServerStorage: conflito anterior detectado, bloqueando mais saves');
+    return;
+  }
+  if (!force && storageFlushTimer) {
+    console.debug('[storage] flushServerStorage: timer still active, ignorando duplicata');
+    return;
+  }
+
   const payload = {
     state: cloneStateValue(serverStorageCache),
     baseRevision: serverStateRevision || ''
   };
+
+  console.debug('[storage] 📤 Iniciando flushServerStorage', {
+    stateSizeBytes: JSON.stringify(payload.state).length,
+    baseRevision: payload.baseRevision || '(vazio)',
+    force
+  });
+
   storageFlushPromise = fetch('/api/app-state', {
     method: 'PUT',
     credentials: 'same-origin',
@@ -169,13 +186,43 @@ async function flushServerStorage(force = false) {
     body: JSON.stringify(payload)
   })
     .then(async (response) => {
-      const body = await response.json().catch(() => ({}));
+      let body = {};
+      try {
+        body = await response.json();
+      } catch (jsonError) {
+        console.error('[storage] ❌ Erro ao parsear JSON da resposta do servidor:', jsonError);
+        body = {};
+      }
+
+      console.debug('[storage] 📥 Resposta recebida do servidor', {
+        status: response.status,
+        ok: response.ok,
+        hasUpdatedAt: !!body.updatedAt,
+        updatedAt: body.updatedAt || '(indefinido)'
+      });
+
       if (response.ok) {
-        serverStateRevision = String(body?.updatedAt || serverStateRevision || '');
+        const newRevision = String(body?.updatedAt || serverStateRevision || '');
+        if (newRevision && newRevision !== serverStateRevision) {
+          console.log('[storage] ✅ Salvamento bem-sucedido!', {
+            oldRevision: serverStateRevision,
+            newRevision,
+            timestamp: new Date().toISOString()
+          });
+          serverStateRevision = newRevision;
+        } else if (!newRevision) {
+          console.warn('[storage] ⚠️ Aviso: servidor retornou ok mas sem updatedAt');
+        }
         return;
       }
+
       if (response.status === 409 || body?.conflict) {
         storageWriteConflictDetected = true;
+        console.error('[storage] ❌ CONFLITO DE SINCRONIZAÇÃO DETECTADO', {
+          expectedRevision: payload.baseRevision || '(vazio)',
+          currentRevision: String(body?.currentRevision || '').trim() || '(desconhecida)',
+          message: body?.message
+        });
         if (typeof window.showAppStatus === 'function') {
           window.showAppStatus(
             'Detectamos alterações em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.',
@@ -183,16 +230,27 @@ async function flushServerStorage(force = false) {
             'warn'
           );
         }
-        console.warn('[storage] conflito de revisão detectado', {
-          expectedRevision: payload.baseRevision || '(vazio)',
-          currentRevision: String(body?.currentRevision || '').trim() || '(desconhecida)'
-        });
+        return;
       }
+
+      // ✅ NOVO: Logar outros erros HTTP
+      console.error('[storage] ❌ Erro HTTP ao salvar (status ' + response.status + ')', {
+        status: response.status,
+        message: body?.message || 'Erro desconhecido',
+        body
+      });
     })
-    .catch(() => {});
+    .catch((error) => {
+      // ✅ CRÍTICO: NÃO silenciar erro de rede
+      console.error('[storage] ❌ ERRO DE REDE ao salvar estado:', {
+        message: error?.message || String(error),
+        type: error?.name || 'Erro desconhecido',
+        timestamp: new Date().toISOString()
+      });
+    });
+
   await storageFlushPromise;
 }
-
 function scheduleServerStorageFlush() {
   if (!storageInitialized) return;
   if (storageFlushTimer) window.clearTimeout(storageFlushTimer);
