@@ -38,6 +38,8 @@ let storageFlushTimer = null;
 let storageFlushPromise = Promise.resolve();
 let storageInitialized = false;
 let scopedStorageNamespace = 'anonymous';
+let serverStateRevision = '';
+let storageWriteConflictDetected = false;
 
 function getCsrfHeaders(extraHeaders = {}) {
   const token = window.__CSRF_TOKEN__ || '';
@@ -145,14 +147,54 @@ function materializeLegacyStateSnapshot(snapshot) {
 
 async function flushServerStorage(force = false) {
   if (!storageInitialized) return;
+  if (storageWriteConflictDetected) return;
   if (!force && storageFlushTimer) return;
-  const payload = { state: cloneStateValue(serverStorageCache) };
+
+  const payload = {
+    state: cloneStateValue(serverStorageCache),
+    baseRevision: serverStateRevision || ''
+  };
+
   storageFlushPromise = fetch('/api/app-state', {
     method: 'PUT',
     credentials: 'same-origin',
     headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
     body: JSON.stringify(payload)
-  }).catch(() => {});
+  })
+    .then(async (response) => {
+      const body = await response.json().catch(() => ({}));
+      
+      if (response.ok) {
+        serverStateRevision = String(body?.updatedAt || serverStateRevision || '');
+        return;
+      }
+      
+      if (response.status === 409 || body?.conflict) {
+        const serverTime = new Date(body.currentRevision || 0).getTime();
+        const myTime = new Date(payload.baseRevision || 0).getTime();
+        const diff = Math.abs(serverTime - myTime);
+
+        // Tolerância de 2 segundos para evitar conflitos bobos
+        if (diff < 2000) {
+          console.warn('[storage] Conflito leve ignorado (<2s). Sincronizando revisão local.', { diffMs: diff });
+          serverStateRevision = String(body.currentRevision || serverStateRevision);
+          return;
+        }
+
+        storageWriteConflictDetected = true;
+        if (typeof window.showAppStatus === 'function') {
+          window.showAppStatus(
+            'Alterações detectadas em outra aba. Recarregue a página para sincronizar.',
+            'Conflito de sincronização',
+            'warn'
+          );
+        }
+      }
+    })
+    .catch((error) => {
+      console.error('[storage] Erro de rede:', error);
+    });
+
   await storageFlushPromise;
 }
 
@@ -167,40 +209,56 @@ function scheduleServerStorageFlush() {
 
 async function initializeServerStorage() {
   if (storageInitialized && window.__APP_BOOTSTRAP__) return window.__APP_BOOTSTRAP__;
-  const response = await fetch('/api/app/bootstrap', {
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' }
-  });
-  if (!response.ok) {
-    throw new Error('Nao foi possivel carregar o ambiente do usuário.');
-  }
-  const payload = await response.json();
-  window.__APP_BOOTSTRAP__ = payload;
-  window.__CSRF_TOKEN__ = payload.session?.csrfToken || '';
-  scopedStorageNamespace = payload.session?.id || payload.session?.email || payload.session?.username || 'anonymous';
-  serverStorageCache = payload.appState && typeof payload.appState === 'object'
-    ? cloneStateValue(payload.appState)
-    : {};
-
-  if (!payload.hasServerState && payload.session?.username === 'guilherme' && hasLegacyAppData()) {
-    const legacyState = materializeLegacyStateSnapshot(captureLegacyAppState());
-    await fetch('/api/app-state/migrate-legacy', {
-      method: 'POST',
+  
+  try {
+    const response = await fetch('/api/app/bootstrap', {
       credentials: 'same-origin',
-      headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
-      body: JSON.stringify({ state: legacyState })
-    }).catch(() => null);
-    serverStorageCache = legacyState;
-    payload.appState = cloneStateValue(legacyState);
-    payload.hasServerState = true;
-  }
+      headers: { Accept: 'application/json' }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) window.location.replace('/login');
+      throw new Error('Falha no bootstrap');
+    }
 
-  storageInitialized = true;
-  ENCRYPTED_STORAGE_KEYS.forEach(key => {
-    LegacyStorage.remove(key);
-    ScopedLocalStorage.remove(key);
-  });
-  return payload;
+    const payload = await response.json();
+    window.__APP_BOOTSTRAP__ = payload;
+    window.__CSRF_TOKEN__ = payload.session?.csrfToken || '';
+    scopedStorageNamespace = payload.session?.id || 'anonymous';
+    
+    serverStorageCache = payload.appState && typeof payload.appState === 'object'
+      ? cloneStateValue(payload.appState)
+      : {};
+
+    // Sincroniza a revisão inicial
+    serverStateRevision = String(payload.stateRevision || '');
+
+    if (!payload.hasServerState && payload.session?.username === 'guilherme' && hasLegacyAppData()) {
+      const legacyState = materializeLegacyStateSnapshot(captureLegacyAppState());
+      await fetch('/api/app-state/migrate-legacy', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+        body: JSON.stringify({ state: legacyState })
+      }).catch(() => null);
+      serverStorageCache = legacyState;
+      payload.appState = cloneStateValue(legacyState);
+      payload.hasServerState = true;
+    }
+
+    storageWriteConflictDetected = false;
+    storageInitialized = true;
+    
+    ENCRYPTED_STORAGE_KEYS.forEach(key => {
+      LegacyStorage.remove(key);
+      ScopedLocalStorage.remove(key);
+    });
+
+    return payload;
+  } catch (error) {
+    console.error('[storage] Erro na inicialização:', error);
+    return null;
+  }
 }
 
 const Storage = {
@@ -454,23 +512,6 @@ function saveCategoryColors() {
 
 function saveMonthSectionColors() {
   Storage.setJSON(STORAGE_KEYS.monthSectionColors, monthSectionColorOverrides);
-}
-
-function hexToRgba(hex, alpha) {
-  const value = String(hex || '').replace('#', '').trim();
-  if (value.length !== 6) return `rgba(26,24,20,${alpha})`;
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-function getMonthSectionColor(key) {
-  return monthSectionColorOverrides[key] || MONTH_SECTION_DEFAULT_COLORS[key] || '#7f8c8d';
-}
-
-function getDashSeriesColor(key) {
-  return dashSeriesColorOverrides[key] || DASH_SERIES_OPTIONS[key]?.color || '#2855a0';
 }
 
 function hexToRgba(hex, alpha) {
