@@ -1,45 +1,11 @@
 const STORAGE_KEYS = {
   uiState: 'finUIState',
   categoryRenameMap: 'finCategoryRenameMap',
-  dashSeriesSelection: 'finDashSeriesSelection',
-  dashSeriesSelectionSimple: 'finDashSeriesSelection_simples',
-  dashSeriesSelectionFixed: 'finDashSeriesSelection_fixo',
-  dashSeriesSelectionVersion: 'finDashSeriesSelectionVersion',
-  dashSeriesColors: 'finDashSeriesColors',
-  categoryColors: 'finCategoryColors',
-  categoryEmojis: 'finCategoryEmojis',
-  monthSectionColors: 'finMonthSectionColors',
-  monthSectionCollapsed: 'finMonthSectionCollapsed',
-  dashMetricOrder: 'finDashMetricOrder',
-  dashboardWidgetOrder: 'finDashboardWidgetOrder',
-  dashboardWidgetLayout: 'finDashboardWidgetLayout',
-  monthMetricOrder: 'finMesMetricOrder',
-  monthSectionOrder: 'finMesSectionOrder',
-  monthCopyPreferences: 'finMonthCopyPreferences',
-  expenseCategoryRules: 'finExpenseCategoryRules',
-  expenseNameRenameMap: 'finExpenseNameRenameMap',
-  expensePaymentDateRules: 'finExpensePaymentDateRules',
-  incomeNameRenameMap: 'finIncomeNameRenameMap',
-  esoData: 'finEsoData',
   data: 'finData',
-  patrimonioAccounts: 'finPatrimonioAccounts',
-  patrimonioMovements: 'finPatrimonioMovements',
-  metas: 'finMetas',
-  schemaVersion: 'finStateSchemaVersion',
-  migrationVersion: 'finDataMigrationVersion',
-  titles: 'finTitles',
   resultMode: 'finResultMode'
 };
 
-const ENCRYPTED_STORAGE_KEYS = new Set([
-  STORAGE_KEYS.data,
-  STORAGE_KEYS.patrimonioAccounts,
-  STORAGE_KEYS.patrimonioMovements,
-  STORAGE_KEYS.metas,
-  STORAGE_KEYS.esoData
-]);
-
-const LEGACY_STORAGE_KEYS = Object.values(STORAGE_KEYS);
+const ENCRYPTED_STORAGE_KEYS = new Set([STORAGE_KEYS.data]);
 let serverStorageCache = {};
 let storageFlushTimer = null;
 let storageFlushPromise = Promise.resolve();
@@ -62,9 +28,6 @@ const ScopedLocalStorage = {
   },
   setJSON(key, value) {
     try { localStorage.setItem(`finScoped::${scopedStorageNamespace}::${key}`, JSON.stringify(value)); } catch {}
-  },
-  remove(key) {
-    try { localStorage.removeItem(`finScoped::${scopedStorageNamespace}::${key}`); } catch {}
   }
 };
 
@@ -73,7 +36,6 @@ function cloneStateValue(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-// --- FUNÇÃO CORRIGIDA COM TOLERÂNCIA DE 2s ---
 async function flushServerStorage(force = false) {
   if (!storageInitialized || storageWriteConflictDetected) return;
   if (!force && storageFlushTimer) return;
@@ -116,7 +78,6 @@ async function flushServerStorage(force = false) {
       }
       return;
     }
-    console.error('[storage] ❌ Erro HTTP:', response.status);
   })
   .catch((error) => { console.error('[storage] ❌ Erro de rede:', error); });
 
@@ -152,6 +113,17 @@ async function initializeServerStorage() {
 }
 
 const Storage = {
+  getText(key, fallback = '') {
+    if (Object.prototype.hasOwnProperty.call(serverStorageCache, key)) {
+      const v = serverStorageCache[key];
+      return v === null ? fallback : String(v);
+    }
+    return fallback;
+  },
+  setText(key, value) {
+    serverStorageCache[key] = String(value);
+    scheduleServerStorageFlush();
+  },
   getJSON(key, fallback = null) {
     if (Object.prototype.hasOwnProperty.call(serverStorageCache, key)) return cloneStateValue(serverStorageCache[key]);
     return ScopedLocalStorage.getJSON(key, fallback);
