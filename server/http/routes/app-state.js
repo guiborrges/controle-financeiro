@@ -15,6 +15,48 @@ function registerAppStateRoutes(app, deps) {
     hasUserAppState
   } = deps;
 
+  // Constantes para tolerância de conflito (2 segundos)
+  const CONFLICT_TOLERANCE_MS = 2000;
+
+  /**
+   * Verifica se há um conflito REAL comparando timestamps com tolerância
+   * @param {string} baseRevisionStr - timestamp base do cliente
+   * @param {string} currentRevisionStr - timestamp atual do servidor
+   * @returns {boolean} true se houver conflito real (> 2s de diferença)
+   */
+  function isRealConflict(baseRevisionStr, currentRevisionStr) {
+    if (!baseRevisionStr || !currentRevisionStr) return false;
+    
+    try {
+      const baseTime = Date.parse(baseRevisionStr);
+      const currentTime = Date.parse(currentRevisionStr);
+      
+      if (isNaN(baseTime) || isNaN(currentTime)) {
+        console.warn('[app-state] Timestamps inválidos para comparação de conflito', {
+          base: baseRevisionStr,
+          current: currentRevisionStr
+        });
+        return false;
+      }
+      
+      const timeDiffMs = Math.abs(currentTime - baseTime);
+      const hasConflict = timeDiffMs > CONFLICT_TOLERANCE_MS;
+      
+      if (hasConflict) {
+        console.warn('[app-state] Conflito detectado (diferença > 2s)', {
+          baseRevision: baseRevisionStr,
+          currentRevision: currentRevisionStr,
+          timeDiffMs
+        });
+      }
+      
+      return hasConflict;
+    } catch (error) {
+      console.warn('[app-state] Erro ao comparar timestamps', error?.message);
+      return false;
+    }
+  }
+
   app.get('/api/app/bootstrap', noStore, requireAuth, (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
@@ -70,29 +112,73 @@ function registerAppStateRoutes(app, deps) {
     });
   });
 
-app.put('/api/app-state', noStore, requireAuth, requireCsrf, (req, res) => {
+  app.put('/api/app-state', noStore, requireAuth, requireCsrf, (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ message: 'Sessao expirada ou inexistente.' });
     }
     const state = req.body?.state;
+    const baseRevision = String(req.body?.baseRevision || '').trim();
     
-    // Ignoramos a checagem de baseRevision para evitar o erro 409
     if (!state || typeof state !== 'object' || Array.isArray(state)) {
+      console.warn('[app-state] Estado inválido recebido', {
+        userId: user.id,
+        hasState: !!state,
+        isObject: typeof state === 'object',
+        isArray: Array.isArray(state)
+      });
       return res.status(400).json({ message: 'Estado invalido.' });
     }
     
     try {
-      // Salvamos direto, sem comparar revisões
+      console.debug('[app-state] Salvando estado do usuário', {
+        userId: user.id,
+        username: user.username,
+        stateSizeBytes: JSON.stringify(state).length,
+        baseRevision: baseRevision || '(vazio)'
+      });
+
+      // ✅ NOVO: Validar conflito com tolerância de 2 segundos
+      if (baseRevision) {
+        const currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
+        const currentRevision = String(currentState?.updatedAt || '').trim();
+        
+        if (isRealConflict(baseRevision, currentRevision)) {
+          console.warn('[app-state] Conflito real detectado - bloqueando write', {
+            userId: user.id,
+            baseRevision,
+            currentRevision
+          });
+          return res.status(409).json({
+            message: 'O estado foi alterado em outra aba/dispositivo. Recarregue para evitar perda de dados.',
+            conflict: true,
+            currentRevision
+          });
+        }
+      }
+
       const saved = writeUserAppState(user.id, state, req.session?.dataEncryptionKey || '');
+      
+      console.log('[app-state] ✅ Salvamento bem-sucedido', {
+        userId: user.id,
+        username: user.username,
+        updatedAt: saved.updatedAt
+      });
+
+      // ✅ CRÍTICO: Sempre retornar updatedAt para o cliente sincronizar
       return res.json({ ok: true, updatedAt: saved.updatedAt });
     } catch (error) {
+      console.error('[app-state] ❌ Erro ao salvar estado', {
+        userId: user.id,
+        message: error?.message || String(error),
+        stack: error?.stack
+      });
       return res.status(400).json({
         message: error?.message || 'Falha ao salvar o estado.'
       });
     }
   });
-      
+
   app.post('/api/app-state/migrate-legacy', noStore, requireAuth, requireCsrf, (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
