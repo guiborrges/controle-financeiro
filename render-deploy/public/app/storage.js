@@ -217,16 +217,17 @@ const Storage = {
     }
   },
   setText(key, value) {
-    try {
-      serverStorageCache[key] = String(value);
-      if (!ENCRYPTED_STORAGE_KEYS.has(key)) {
-        ScopedLocalStorage.setText(key, value);
-      } else {
-        ScopedLocalStorage.remove(key);
-      }
-      scheduleServerStorageFlush();
-    } catch {}
-  },
+  try {
+    serverStorageCache[key] = String(value);
+    if (!ENCRYPTED_STORAGE_KEYS.has(key)) {
+      ScopedLocalStorage.setText(key, value);
+    } else {
+      ScopedLocalStorage.remove(key);
+    }
+    // ✅ CRÍTICO: Agendar flush no render-deploy (estava faltando!)
+    scheduleServerStorageFlush();
+  } catch {}
+},
   getJSON(key, fallback = null) {
     try {
       if (Object.prototype.hasOwnProperty.call(serverStorageCache, key)) {
