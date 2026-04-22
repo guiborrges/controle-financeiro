@@ -184,17 +184,6 @@ function ensureUnifiedRecurringFutureCoverage() {
       migrateUnifiedOutflowMonth(month);
       month.outflows = (Array.isArray(month.outflows) ? month.outflows : []).map((item, itemIdx) => normalizeUnifiedOutflowItem(item, itemIdx));
       month.cardBills = (Array.isArray(month.cardBills) ? month.cardBills : []).map((bill, billIdx) => normalizeUnifiedCardBill(month, bill, billIdx));
-      if (restrictHistoricalBackfill && getMonthSortValue(month) >= realCurrentSortValue) {
-        const beforeCount = month.outflows.length;
-        month.outflows = month.outflows.filter(item => {
-          const recurringKey = String(item?.recurringGroupId || '').trim().toLowerCase();
-          if (item?.type !== 'fixed') return true;
-          if (!recurringKey) return true;
-          if (!recurringKey.startsWith('legacy_')) return true;
-          return false;
-        });
-        if (month.outflows.length !== beforeCount) changed = true;
-      }
       getRecurringSeriesStops(month);
     }
 
@@ -202,9 +191,8 @@ function ensureUnifiedRecurringFutureCoverage() {
       const prev = data[idx - 1];
       const current = data[idx];
       if (restrictHistoricalBackfill) {
-        const prevSort = getMonthSortValue(prev);
         const currentSort = getMonthSortValue(current);
-        if (prevSort < realCurrentSortValue || currentSort < realCurrentSortValue) continue;
+        if (currentSort < realCurrentSortValue) continue;
       }
       const blocked = new Set(getRecurringSeriesStops(current));
       const recurringTemplates = (prev.outflows || []).filter(isUnifiedRecurringTemplateItem);
