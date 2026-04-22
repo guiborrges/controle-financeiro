@@ -25,6 +25,36 @@ function hasCoarsePointer() {
   }
 }
 
+function getNavigatorUaDataHints() {
+  const uaData = navigator.userAgentData;
+  if (!uaData) {
+    return {
+      hasUaData: false,
+      isMobileHint: false,
+      platformHint: '',
+      brandsHint: ''
+    };
+  }
+  const brands = Array.isArray(uaData.brands) ? uaData.brands.map(entry => String(entry?.brand || '').toLowerCase()) : [];
+  const platform = String(uaData.platform || '').toLowerCase();
+  return {
+    hasUaData: true,
+    isMobileHint: uaData.mobile === true,
+    platformHint: platform,
+    brandsHint: brands.join('|')
+  };
+}
+
+function getNavigatorUserAgentHints() {
+  const userAgent = String(navigator.userAgent || '').toLowerCase();
+  return {
+    isIPhoneFamily: /iphone|ipad|ipod/.test(userAgent),
+    isAndroid: /android/.test(userAgent),
+    isMobileUa: /mobile|iphone|ipod|android/.test(userAgent),
+    raw: userAgent
+  };
+}
+
 function updateDynamicViewportHeightCssVar() {
   const viewportHeight = Math.max(
     320,
@@ -39,17 +69,29 @@ function updateDynamicViewportHeightCssVar() {
 }
 
 function detectMobileUiState() {
+  const uaDataHints = getNavigatorUaDataHints();
+  const uaHints = getNavigatorUserAgentHints();
   const width = Math.max(0, window.innerWidth || document.documentElement?.clientWidth || 0);
-  const touchCapable = (navigator.maxTouchPoints || 0) > 0 || hasCoarsePointer();
+  const touchPoints = Number(navigator.maxTouchPoints || 0);
+  const touchCapable = touchPoints > 0 || hasCoarsePointer();
   const narrowViewport = width <= MOBILE_UI_BREAKPOINT;
-  const touchNarrowViewport = touchCapable && width <= TOUCH_MAX_WIDTH;
-  const userAgent = String(navigator.userAgent || '').toLowerCase();
-  const isIOS = /iphone|ipad|ipod/.test(userAgent)
-    || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
+  const touchFriendlyViewport = width <= TOUCH_MAX_WIDTH;
+  const likelyPhoneViewport = width <= 860;
+  const uaMobile = uaDataHints.isMobileHint || uaHints.isMobileUa;
+  const platformMobile = /android|ios|iphone|ipad|ipod/.test(uaDataHints.platformHint || '');
+  const isIOS = uaHints.isIPhoneFamily
+    || /ios|iphone|ipad|ipod/.test(uaDataHints.platformHint || '')
+    || (navigator.platform === 'MacIntel' && touchPoints > 1);
+  const isMobile =
+    narrowViewport
+    || (touchCapable && touchFriendlyViewport)
+    || (uaMobile && likelyPhoneViewport)
+    || (platformMobile && touchCapable);
   return {
-    isMobile: narrowViewport || touchNarrowViewport,
+    isMobile,
     isTouch: touchCapable,
-    isIOS
+    isIOS,
+    uaData: uaDataHints
   };
 }
 

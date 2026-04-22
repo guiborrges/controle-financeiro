@@ -366,7 +366,12 @@
     - item is not paid
   - do not generate for card/bill notifications.
 - Mobile/iPhone adaptive mode:
-  - runtime detection combines viewport width + touch capability; `body.mobile-ui`, `body.touch-ui`, `body.ios-ui` classes are applied dynamically.
+  - runtime detection is hybrid and combines:
+    - `navigator.userAgentData` hints (when available),
+    - `navigator.userAgent` fallback parsing,
+    - touch capability (`maxTouchPoints` + coarse pointer),
+    - viewport thresholds.
+  - `body.mobile-ui`, `body.touch-ui`, `body.ios-ui` classes are applied dynamically.
   - iOS/Safari viewport uses `--app-dvh` (from `visualViewport`/`innerHeight`) + `viewport-fit=cover` to reduce `100vh` instability and honor safe areas.
   - mobile disables drag/resize interactions for dashboard widgets, month metric cards, month section blocks, and draggable modals.
   - dashboard switches to static vertical stack in mobile mode (no free drag layout).
