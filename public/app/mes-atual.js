@@ -76,6 +76,74 @@ function getRecurringComparableSnapshot(item) {
   };
 }
 
+function normalizeRecurringSignatureToken(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getRecurringSeriesIdentity(item) {
+  if (!item) return '';
+  const kind = item.type === 'fixed' ? 'fixed' : (item.recurringSpend === true ? 'recurring-spend' : '');
+  if (!kind) return '';
+  const installmentsTotal = Math.max(1, Number(item.installmentsTotal || 1) || 1);
+  if (installmentsTotal > 1) return '';
+  const description = normalizeRecurringSignatureToken(item.description || '');
+  if (!description) return '';
+  const date = normalizeVarDate(String(item.date || '').trim()) || '';
+  const day = date ? String(Number(date.split('/')[0] || 1)).padStart(2, '0') : '00';
+  return `${kind}|${description}|${day}`;
+}
+
+function computeRecurringSeriesKeyFromIdentity(identity, occurrenceIndex = 1) {
+  const raw = String(identity || '');
+  if (!raw) return '';
+  let hash = 0;
+  for (let idx = 0; idx < raw.length; idx += 1) {
+    hash = ((hash << 5) - hash) + raw.charCodeAt(idx);
+    hash |= 0;
+  }
+  const suffix = Math.max(1, Number(occurrenceIndex || 1) || 1);
+  return `rec_auto_${Math.abs(hash).toString(36)}_${suffix}`;
+}
+
+function isUnifiedRecurringSeriesCandidate(item) {
+  if (!item) return false;
+  const installmentsTotal = Math.max(1, Number(item.installmentsTotal || 1) || 1);
+  if (installmentsTotal > 1) return false;
+  return item.type === 'fixed' || item.recurringSpend === true;
+}
+
+function ensureUnifiedRecurringSeriesKeysAcrossMonths() {
+  sortDataChronologically();
+  let changed = false;
+  const carryMap = new Map();
+  (data || []).forEach(month => {
+    ensureUnifiedOutflowPilotMonth(month);
+    const monthSeen = new Map();
+    (month.outflows || []).forEach(item => {
+      if (!isUnifiedRecurringSeriesCandidate(item)) return;
+      const identity = getRecurringSeriesIdentity(item);
+      if (!identity) return;
+      const occurrence = (monthSeen.get(identity) || 0) + 1;
+      monthSeen.set(identity, occurrence);
+      const scopedIdentity = `${identity}#${occurrence}`;
+      const existingKey = String(item.recurringGroupId || '').trim();
+      const fallbackKey = carryMap.get(scopedIdentity) || '';
+      const resolvedKey = existingKey || fallbackKey || computeRecurringSeriesKeyFromIdentity(identity, occurrence);
+      if (!existingKey && resolvedKey) {
+        item.recurringGroupId = resolvedKey;
+        changed = true;
+      }
+      if (resolvedKey) carryMap.set(scopedIdentity, resolvedKey);
+    });
+  });
+  return changed;
+}
+
 function getRecurringChangedFields(previousItem, nextItem) {
   const before = getRecurringComparableSnapshot(previousItem);
   const after = getRecurringComparableSnapshot(nextItem);
@@ -101,16 +169,33 @@ function applyRecurringChangedFieldsToItem(targetItem, sourceItem, changedFields
   });
 }
 
-function applyRecurringForwardChanges(month, seriesKey, sourceItem, changedFields) {
+function applyRecurringForwardChanges(month, seriesKey, sourceItem, changedFields, matchItem = null) {
   if (!seriesKey || !Array.isArray(changedFields) || !changedFields.length) return;
   clearRecurringSeriesStopFromMonth(month, seriesKey);
   const currentSort = getMonthSortValue(month);
+  const fallbackIdentity = getRecurringSeriesIdentity(matchItem || sourceItem);
   data.forEach(otherMonth => {
     if (otherMonth.id === month.id || getMonthSortValue(otherMonth) < currentSort) return;
     ensureUnifiedOutflowPilotMonth(otherMonth);
-    (otherMonth.outflows || []).forEach(otherItem => {
+    const outflows = otherMonth.outflows || [];
+    const explicitMatches = [];
+    const fallbackMatches = [];
+    outflows.forEach(otherItem => {
       const otherSeriesKey = otherItem.installmentsGroupId || otherItem.recurringGroupId;
-      if (otherSeriesKey !== seriesKey) return;
+      if (otherSeriesKey === seriesKey) {
+        explicitMatches.push(otherItem);
+        return;
+      }
+      if (otherSeriesKey || !fallbackIdentity) return;
+      if (!isUnifiedRecurringSeriesCandidate(otherItem)) return;
+      if (getRecurringSeriesIdentity(otherItem) !== fallbackIdentity) return;
+      fallbackMatches.push(otherItem);
+    });
+    const targets = explicitMatches.length ? explicitMatches : (fallbackMatches.length === 1 ? fallbackMatches : []);
+    targets.forEach(otherItem => {
+      if (!String(otherItem.recurringGroupId || '').trim() && !String(otherItem.installmentsGroupId || '').trim()) {
+        otherItem.recurringGroupId = seriesKey;
+      }
       applyRecurringChangedFieldsToItem(otherItem, sourceItem, changedFields, otherMonth);
     });
     syncUnifiedOutflowLegacyData(otherMonth);
@@ -118,12 +203,9 @@ function applyRecurringForwardChanges(month, seriesKey, sourceItem, changedField
 }
 
 function isUnifiedRecurringTemplateItem(item) {
-  if (!item) return false;
+  if (!isUnifiedRecurringSeriesCandidate(item)) return false;
   const recurringKey = String(item.recurringGroupId || '').trim();
-  if (!recurringKey) return false;
-  const installmentsTotal = Math.max(1, Number(item.installmentsTotal || 1) || 1);
-  if (installmentsTotal > 1) return false;
-  return item.type === 'fixed' || item.recurringSpend === true;
+  return Boolean(recurringKey);
 }
 
 function getRecurringSeriesStops(month) {
@@ -186,6 +268,7 @@ function ensureUnifiedRecurringFutureCoverage() {
       month.cardBills = (Array.isArray(month.cardBills) ? month.cardBills : []).map((bill, billIdx) => normalizeUnifiedCardBill(month, bill, billIdx));
       getRecurringSeriesStops(month);
     }
+    if (ensureUnifiedRecurringSeriesKeysAcrossMonths()) changed = true;
 
     for (let idx = 1; idx < data.length; idx += 1) {
       const prev = data[idx - 1];
@@ -3595,7 +3678,7 @@ function saveUnifiedOutflow() {
     if (seriesKey) clearRecurringSeriesStopFromMonth(month, seriesKey);
 
     if (editingUnifiedOutflowId && seriesKey && applyForward && changedFields.length && canPropagateRecurringFromMonth(month)) {
-      applyRecurringForwardChanges(month, seriesKey, baseItem, changedFields);
+      applyRecurringForwardChanges(month, seriesKey, baseItem, changedFields, previousItem || baseItem);
     }
 
     if (!editingUnifiedOutflowId && installmentsTotal > 1) {
@@ -4680,7 +4763,7 @@ function commitInlineEdit(rawValue) {
     const applyUnifiedOutflowInlineUpdate = (applyForward) => {
       Object.assign(item, next);
       if (seriesKey && applyForward && changedFields.length) {
-        applyRecurringForwardChanges(m, seriesKey, item, changedFields);
+        applyRecurringForwardChanges(m, seriesKey, item, changedFields, original || item);
       }
       if (!m.categorias) m.categorias = {};
       if (!(item.category in m.categorias)) m.categorias[item.category] = 0;

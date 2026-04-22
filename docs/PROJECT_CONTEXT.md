@@ -243,6 +243,7 @@
 - Runtime synchronization:
   - `ensureUnifiedRecurringFutureCoverage()` keeps future months consistent.
   - existing future months are rechecked/synchronized.
+  - recurring templates missing `recurringGroupId` are auto-repaired with deterministic series keys across chronological months, so forward edits (including card/output changes) continue to propagate to existing and newly created months.
 - Editing scope UX:
   - custom app modal (not browser confirm) with:
     - this month only
