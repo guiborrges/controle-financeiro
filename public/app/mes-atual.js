@@ -449,20 +449,78 @@ function buildUnifiedLegacyFixed(month, item, idx, profile, cardsByName) {
   };
 }
 
+function recoverMissingUnifiedLegacyCommitments(month, legacyExpenses, profile, cardsByName) {
+  if (!month || !Array.isArray(legacyExpenses) || !legacyExpenses.length) return false;
+  const existingOutflows = Array.isArray(month.outflows) ? month.outflows : (month.outflows = []);
+  const existingBills = Array.isArray(month.cardBills) ? month.cardBills : (month.cardBills = []);
+  const billsByCardId = new Map(existingBills.map(bill => [String(bill?.cardId || '').trim(), bill]));
+  let changed = false;
+
+  const hasAnyFixed = existingOutflows.some(item => item?.type === 'fixed' && Number(item?.amount || 0) > 0);
+  const hasAnyBill = existingBills.some(item => Number(item?.amount || 0) > 0);
+  if (hasAnyFixed && hasAnyBill) return false;
+
+  legacyExpenses.forEach((item, idx) => {
+    const migrated = buildUnifiedLegacyFixed(month, item, idx, profile, cardsByName);
+    if (migrated.kind === 'bill') {
+      const cardId = String(migrated.bill?.cardId || '').trim();
+      if (!cardId) return;
+      const existing = billsByCardId.get(cardId);
+      if (!existing) {
+        const normalized = normalizeUnifiedCardBill(month, migrated.bill, existingBills.length);
+        existingBills.push(normalized);
+        billsByCardId.set(cardId, normalized);
+        changed = true;
+        return;
+      }
+      const currentAmount = Number(existing?.amount || 0);
+      const incomingAmount = Number(migrated.bill?.amount || 0);
+      if (currentAmount <= 0 && incomingAmount > 0 && existing?.manualAmountSet !== true) {
+        existing.amount = incomingAmount;
+        if (migrated.bill?.paid === true) existing.paid = true;
+        changed = true;
+      }
+      return;
+    }
+
+    const candidate = migrated.outflow;
+    if (candidate?.type !== 'fixed') return;
+    const recurringKey = String(candidate?.recurringGroupId || '').trim();
+    const exists = existingOutflows.some(entry => {
+      if (entry?.type !== 'fixed') return false;
+      const entryKey = String(entry?.recurringGroupId || '').trim();
+      if (recurringKey && entryKey && recurringKey === entryKey) return true;
+      const sameDesc = String(entry?.description || '').trim().toUpperCase() === String(candidate?.description || '').trim().toUpperCase();
+      const sameDate = String(entry?.date || '') === String(candidate?.date || '');
+      const sameAmount = Math.abs(Number(entry?.amount || 0) - Number(candidate?.amount || 0)) < 0.01;
+      return sameDesc && sameDate && sameAmount;
+    });
+    if (exists) return;
+    existingOutflows.push(normalizeUnifiedOutflowItem(candidate, existingOutflows.length));
+    changed = true;
+  });
+
+  if (changed) {
+    month.cardBills = (month.outflowCards || []).map((card, idx) => normalizeUnifiedCardBill(month, billsByCardId.get(card.id) || { cardId: card.id }, idx));
+  }
+  return changed;
+}
+
 function migrateUnifiedOutflowMonth(month, profile = getUnifiedMigrationProfile()) {
   if (!month) return false;
   let changed = false;
   const cardsByName = ensureUnifiedRequiredCards(month, profile);
   month.cardBills = (Array.isArray(month.cardBills) ? month.cardBills : []).map((bill, idx) => normalizeUnifiedCardBill(month, bill, idx));
   month.outflows = (Array.isArray(month.outflows) ? month.outflows : []).map((item, idx) => normalizeUnifiedOutflowItem(item, idx));
+  const legacyExpenses = Array.isArray(month.despesas) ? month.despesas : [];
+  const legacySpends = Array.isArray(month.gastosVar) ? month.gastosVar : [];
   if (harmonizeUnifiedFixedBillingDates(month)) changed = true;
   if (Number(month._unifiedOutflowMigratedVersion || 0) >= UNIFIED_OUTFLOW_GLOBAL_MIGRATION_VERSION) {
+    if (recoverMissingUnifiedLegacyCommitments(month, legacyExpenses, profile, cardsByName)) changed = true;
     syncUnifiedOutflowLegacyData(month);
     return changed;
   }
 
-  const legacyExpenses = Array.isArray(month.despesas) ? month.despesas : [];
-  const legacySpends = Array.isArray(month.gastosVar) ? month.gastosVar : [];
   const hasStructuredOutflows = (month.outflows || []).length > 0 || (month.cardBills || []).some(bill => Number(bill?.amount || 0) > 0);
 
   if (!hasStructuredOutflows && (legacyExpenses.length || legacySpends.length)) {
@@ -513,6 +571,9 @@ function migrateUnifiedOutflowMonth(month, profile = getUnifiedMigrationProfile(
   });
 
   if (reconcileGuilhermeLegacySpendOutputs(month, profile, cardsByName)) {
+    changed = true;
+  }
+  if (recoverMissingUnifiedLegacyCommitments(month, legacyExpenses, profile, cardsByName)) {
     changed = true;
   }
 

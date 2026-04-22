@@ -934,6 +934,10 @@
   - files:
     - `public/app/state.js`
     - `public/app/mes-atual.js`
+  - consistency repair:
+    - added conservative legacy-to-unified commitment recovery for months with mixed state (legacy `despesas` + partially structured `outflows/cardBills`).
+    - restores missing fixed commitments and missing card bill amounts when absent/zero, avoiding duplicate insertion by recurring key and fallback identity.
+    - prevents months from appearing without fixed expenses/cards after partial migrations.
 
 - Tests added:
   - `tests/profile-auto-exit-backup.test.js`
