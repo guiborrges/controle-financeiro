@@ -9,6 +9,71 @@
   }
 }
 
+const MOBILE_UI_BREAKPOINT = 980;
+const TOUCH_MAX_WIDTH = 1180;
+const MOBILE_UI_STATE = {
+  isMobile: false,
+  isTouch: false,
+  isIOS: false
+};
+
+function hasCoarsePointer() {
+  try {
+    return window.matchMedia?.('(pointer: coarse)')?.matches === true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function updateDynamicViewportHeightCssVar() {
+  const viewportHeight = Math.max(
+    320,
+    Math.round(
+      window.visualViewport?.height
+      || window.innerHeight
+      || document.documentElement?.clientHeight
+      || 0
+    )
+  );
+  document.documentElement.style.setProperty('--app-dvh', `${viewportHeight}px`);
+}
+
+function detectMobileUiState() {
+  const width = Math.max(0, window.innerWidth || document.documentElement?.clientWidth || 0);
+  const touchCapable = (navigator.maxTouchPoints || 0) > 0 || hasCoarsePointer();
+  const narrowViewport = width <= MOBILE_UI_BREAKPOINT;
+  const touchNarrowViewport = touchCapable && width <= TOUCH_MAX_WIDTH;
+  const userAgent = String(navigator.userAgent || '').toLowerCase();
+  const isIOS = /iphone|ipad|ipod/.test(userAgent)
+    || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
+  return {
+    isMobile: narrowViewport || touchNarrowViewport,
+    isTouch: touchCapable,
+    isIOS
+  };
+}
+
+function applyMobileUiState() {
+  const next = detectMobileUiState();
+  MOBILE_UI_STATE.isMobile = next.isMobile;
+  MOBILE_UI_STATE.isTouch = next.isTouch;
+  MOBILE_UI_STATE.isIOS = next.isIOS;
+  const body = document.body;
+  if (body) {
+    body.classList.toggle('mobile-ui', next.isMobile);
+    body.classList.toggle('touch-ui', next.isTouch);
+    body.classList.toggle('ios-ui', next.isIOS);
+  }
+  updateDynamicViewportHeightCssVar();
+}
+
+function isMobileUiMode() {
+  return MOBILE_UI_STATE.isMobile === true;
+}
+
+window.isMobileUiMode = isMobileUiMode;
+window.applyMobileUiState = applyMobileUiState;
+
 function getInlineItem(table, row) {
   const m = getCurrentMonth();
   if (table === 'despesa') return m.despesas[row];
@@ -305,11 +370,13 @@ function getCountedVarTotal(m) {
 // NAVIGATION
 // ============================================================
 function nav(page) {
+  if (typeof applyMobileUiState === 'function') applyMobileUiState();
   if (page === 'eso' && !currentSession?.permissions?.canAccessESO) {
     page = 'dashboard';
   }
   if (typeof closeNotificationsPopover === 'function') closeNotificationsPopover();
   activePage = page;
+  if (document.body) document.body.dataset.activePage = page;
   if (page === 'mes') {
     currentMonthId = getCurrentRealMonthId(true);
     buildMonthSelect();

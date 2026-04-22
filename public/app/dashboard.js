@@ -114,6 +114,7 @@ function setDashSeriesSelection(key, checked) {
 }
 
 function onDashMetricDragStart(event, key) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   dragDashMetricKey = key;
   const card = event.currentTarget;
   if (card) card.classList.add('dragging');
@@ -131,6 +132,7 @@ function onDashMetricDragEnd(event) {
 }
 
 function onDashMetricDragOver(event) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   event.preventDefault();
   const card = event.currentTarget;
   if (!card || !dragDashMetricKey || card.dataset.metricKey === dragDashMetricKey) return;
@@ -144,6 +146,7 @@ function onDashMetricDragLeave(event) {
 }
 
 function onDashMetricDrop(event, targetKey) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   event.preventDefault();
   const fromKey = dragDashMetricKey || (event.dataTransfer ? event.dataTransfer.getData('text/plain') : '');
   if (!fromKey || !targetKey || fromKey === targetKey) return;
@@ -158,6 +161,7 @@ function onDashMetricDrop(event, targetKey) {
 }
 
 function startDashboardWidgetDrag(event, key) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   event.preventDefault();
   const grid = document.getElementById('dashboardWidgets');
   const widget = event.currentTarget?.closest('.dashboard-widget');
@@ -215,6 +219,7 @@ function stopDashboardWidgetDrag(event) {
 }
 
 function startDashboardWidgetResize(event, key) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   event.preventDefault();
   event.stopPropagation();
   const grid = document.getElementById('dashboardWidgets');
@@ -354,37 +359,48 @@ function renderDashboard() {
   }
   dashMetricOrder = sanitizeDashMetricOrder(dashMetricOrder).filter(key => allowedMetricKeys.includes(key));
   dashboardWidgetLayout = sanitizeDashboardWidgetLayout(dashboardWidgetLayout);
+  const mobileUi = typeof isMobileUiMode === 'function' && isMobileUiMode();
+  const dashboardMetricDnDAttrs = mobileUi
+    ? 'draggable="false"'
+    : `draggable="true" ondragstart="onDashMetricDragStart(event,'__KEY__')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'__KEY__')"`;
+  const getMetricDnDAttrs = (key) => dashboardMetricDnDAttrs.split('__KEY__').join(key);
+  const widgetMoveControl = (key) => mobileUi
+    ? ''
+    : `<span class="dashboard-widget-grip" onmousedown="startDashboardWidgetDrag(event,'${key}')">Mover</span>`;
+  const widgetResizeControl = (key) => mobileUi
+    ? ''
+    : `<div class="dashboard-widget-resize" onmousedown="startDashboardWidgetResize(event,'${key}')" title="Redimensionar"></div>`;
   const metricCards = {
     resultado: `
-      <div class="metric-card ${(isGenericDashboardUser() ? resCur : resTotal) >= 0 ? 'green' : 'red'}" draggable="true" data-metric-key="resultado" ondragstart="onDashMetricDragStart(event,'resultado')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'resultado')">
+      <div class="metric-card ${(isGenericDashboardUser() ? resCur : resTotal) >= 0 ? 'green' : 'red'}" ${getMetricDnDAttrs('resultado')} data-metric-key="resultado">
         <div class="mc-label">${isGenericDashboardUser() ? 'Resultado do mês' : 'Resultado no período'}</div>
         <div class="mc-value">${fmtSigned(isGenericDashboardUser() ? resCur : resTotal)}</div>
         <div class="mc-note">${pLabel}</div>
       </div>
     `,
     gastos: `
-      <div class="metric-card month-spent" draggable="true" data-metric-key="gastos" ondragstart="onDashMetricDragStart(event,'gastos')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'gastos')">
+      <div class="metric-card month-spent" ${getMetricDnDAttrs('gastos')} data-metric-key="gastos">
         <div class="mc-label">${isGenericDashboardUser() ? 'Saiu no mês' : 'Saiu no período'}</div>
         <div class="mc-value">${fmt(totalGastos)}</div>
         <div class="mc-note">Tudo o que já saiu nesse recorte.</div>
       </div>
     `,
     ganhos: `
-      <div class="metric-card green" draggable="true" data-metric-key="ganhos" ondragstart="onDashMetricDragStart(event,'ganhos')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'ganhos')">
+      <div class="metric-card green" ${getMetricDnDAttrs('ganhos')} data-metric-key="ganhos">
         <div class="mc-label">${isGenericDashboardUser() ? 'Entrou no mês' : 'Entrou no período'}</div>
         <div class="mc-value">${fmt(filtered.reduce((a,m)=>a+getTotals(m).rendaTotal,0))}</div>
         <div class="mc-note">Renda fixa e demais entradas do período.</div>
       </div>
     `,
     renda: `
-      <div class="metric-card green" draggable="true" data-metric-key="renda" ondragstart="onDashMetricDragStart(event,'renda')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'renda')">
+      <div class="metric-card green" ${getMetricDnDAttrs('renda')} data-metric-key="renda">
         <div class="mc-label">Renda fixa no período</div>
         <div class="mc-value">${fmt(totalRendaFixaSum)}</div>
         <div class="mc-note">Parte previsível da entrada total.</div>
       </div>
     `,
     projetos: `
-      <div class="metric-card" style="background:var(--blue-light);border-color:rgba(40,85,160,.2)" draggable="true" data-metric-key="projetos" ondragstart="onDashMetricDragStart(event,'projetos')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'projetos')">
+      <div class="metric-card" style="background:var(--blue-light);border-color:rgba(40,85,160,.2)" ${getMetricDnDAttrs('projetos')} data-metric-key="projetos">
         <div class="mc-label">Renda extra no período</div>
         <div class="mc-value" style="color:var(--blue)">${fmt(totalProjSum)}</div>
         <div class="mc-note">Entradas extras e projetos somados.</div>
@@ -400,7 +416,7 @@ function renderDashboard() {
           <div class="section-head">
             <div class="dashboard-widget-head">
               <h3 id="chartTitleGVSR">Gastos vs Renda</h3>
-              <span class="dashboard-widget-grip" onmousedown="startDashboardWidgetDrag(event,'gvsr')">Mover</span>
+              ${widgetMoveControl('gvsr')}
             </div>
             <div id="dashSeriesControls" style="position:relative"></div>
           </div>
@@ -408,7 +424,7 @@ function renderDashboard() {
             <div class="chart-wrap" style="height:100%"><canvas id="lineChart"></canvas></div>
           </div>
         </div>
-        <div class="dashboard-widget-resize" onmousedown="startDashboardWidgetResize(event,'gvsr')" title="Redimensionar"></div>
+        ${widgetResizeControl('gvsr')}
       </div>
     `,
     categories: `
@@ -417,12 +433,12 @@ function renderDashboard() {
           <div class="section-head">
             <div class="dashboard-widget-head">
               <h3 id="title-catdash">Categorias</h3>
-              <span class="dashboard-widget-grip" onmousedown="startDashboardWidgetDrag(event,'categories')">Mover</span>
+              ${widgetMoveControl('categories')}
             </div>
           </div>
           <div class="section-body" id="catCards" style="padding:18px 20px 22px"></div>
         </div>
-        <div class="dashboard-widget-resize" onmousedown="startDashboardWidgetResize(event,'categories')" title="Redimensionar"></div>
+        ${widgetResizeControl('categories')}
       </div>
     `,
     result: `
@@ -431,14 +447,14 @@ function renderDashboard() {
           <div class="section-head">
             <div class="dashboard-widget-head">
               <h3 id="chartTitleRes">Resultado por período selecionado</h3>
-              <span class="dashboard-widget-grip" onmousedown="startDashboardWidgetDrag(event,'result')">Mover</span>
+              ${widgetMoveControl('result')}
             </div>
           </div>
           <div class="section-body dashboard-widget-body-fill">
             <div class="chart-wrap" style="height:100%"><canvas id="resultChart"></canvas></div>
           </div>
         </div>
-        <div class="dashboard-widget-resize" onmousedown="startDashboardWidgetResize(event,'result')" title="Redimensionar"></div>
+        ${widgetResizeControl('result')}
       </div>
     `,
     quickhist: `
@@ -447,12 +463,12 @@ function renderDashboard() {
           <div class="section-head">
             <div class="dashboard-widget-head">
               <h3 id="title-quickhist">Historico rapido</h3>
-              <span class="dashboard-widget-grip" onmousedown="startDashboardWidgetDrag(event,'quickhist')">Mover</span>
+              ${widgetMoveControl('quickhist')}
             </div>
           </div>
           <div class="section-body" style="padding:12px 22px" id="quickHistory"></div>
         </div>
-        <div class="dashboard-widget-resize" onmousedown="startDashboardWidgetResize(event,'quickhist')" title="Redimensionar"></div>
+        ${widgetResizeControl('quickhist')}
       </div>
     `
   };

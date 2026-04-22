@@ -3797,36 +3797,41 @@ function renderMes() {
   const previousIncome = previousTotals ? Number(previousTotals.rendaFixa || 0) + Number(previousTotals.totalProj || 0) : 0;
   const previousPlanned = Number(previousUnifiedMetrics?.plannedExpenses || 0);
   const previousDone = Number(previousUnifiedMetrics?.doneExpenses || 0);
+  const mobileUi = typeof isMobileUiMode === 'function' && isMobileUiMode();
+  const monthMetricDnDAttrs = mobileUi
+    ? 'draggable="false"'
+    : `draggable="true" ondragstart="onMonthMetricDragStart(event,'__KEY__')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'__KEY__')"`;
+  const getMonthMetricDnDAttrs = (key) => monthMetricDnDAttrs.split('__KEY__').join(key);
   const metricCards = {
     resultado: `
-    <div class="metric-card ${unifiedPilotEnabled ? 'month-planned' : ((resultado)>=0?'month-result-pos':'month-result-neg')}" draggable="true" data-metric-key="resultado" ondragstart="onMonthMetricDragStart(event,'resultado')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'resultado')">
+    <div class="metric-card ${unifiedPilotEnabled ? 'month-planned' : ((resultado)>=0?'month-result-pos':'month-result-neg')}" ${getMonthMetricDnDAttrs('resultado')} data-metric-key="resultado">
       ${unifiedPilotEnabled ? renderStaticMonthMetricLabel('Despesas planejadas para o mês', 'Valores que você planejou gastar no mês.') : renderMonthMetricLabel('resultado', 'Resultado do mês')}
       <div class="mc-value">${unifiedPilotEnabled ? fmt(unifiedMetrics.plannedExpenses) : fmtSigned(resultado)}</div>
       ${unifiedPilotEnabled ? renderMonthMetricVariation(unifiedMetrics.plannedExpenses, previousPlanned, { invertMeaning: true }) : ''}
       <div class="mc-note">${unifiedPilotEnabled ? 'Valores que você planejou gastar no mês.' : 'Depois das despesas e metas.'}</div>
     </div>`,
     gastos: `
-    <div class="metric-card ${unifiedPilotEnabled ? 'month-spent' : 'month-desp'}" draggable="true" data-metric-key="gastos" ondragstart="onMonthMetricDragStart(event,'gastos')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'gastos')">
+    <div class="metric-card ${unifiedPilotEnabled ? 'month-spent' : 'month-desp'}" ${getMonthMetricDnDAttrs('gastos')} data-metric-key="gastos">
       ${unifiedPilotEnabled ? renderStaticMonthMetricLabel('Despesas do mês', 'Total gasto até agora no mês.') : renderMonthMetricLabel('gastos', 'Saiu no mês')}
       <div class="mc-value">${fmt(unifiedPilotEnabled ? unifiedMetrics.doneExpenses : totalDesp)}</div>
       ${unifiedPilotEnabled ? renderMonthMetricVariation(unifiedMetrics.doneExpenses, previousDone, { invertMeaning: true }) : ''}
       <div class="mc-note">${unifiedPilotEnabled ? 'Total gasto até agora no mês.' : 'Tudo o que já saiu neste mês.'}</div>
     </div>`,
     renda: `
-    <div class="metric-card month-renda" draggable="true" data-metric-key="renda" ondragstart="onMonthMetricDragStart(event,'renda')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'renda')">
+    <div class="metric-card month-renda" ${getMonthMetricDnDAttrs('renda')} data-metric-key="renda">
       ${unifiedPilotEnabled ? renderStaticMonthMetricLabel('Renda total', 'Entradas consideradas no mês.') : renderMonthMetricLabel('renda', 'Total das rendas')}
       <div class="mc-value">${fmt(totalIncome)}</div>
       ${unifiedPilotEnabled ? renderMonthMetricVariation(totalIncome, previousIncome) : ''}
       <div class="mc-note">Entradas somadas para formar sua renda do mês.</div>
     </div>`,
     projetos: unifiedPilotEnabled ? `
-    <div class="metric-card ${monthlyResultUnified >= 0 ? 'month-result-pos' : 'month-result-neg'}" draggable="true" data-metric-key="projetos" ondragstart="onMonthMetricDragStart(event,'projetos')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'projetos')">
+    <div class="metric-card ${monthlyResultUnified >= 0 ? 'month-result-pos' : 'month-result-neg'}" ${getMonthMetricDnDAttrs('projetos')} data-metric-key="projetos">
       ${renderStaticMonthMetricLabel('Resultado', 'Renda total menos despesas do mês.')}
       <div class="mc-value">${fmtSigned(monthlyResultUnified)}</div>
       <div class="mc-note">Renda total menos despesas do mês.</div>
     </div>` : '',
     metas: unifiedPilotEnabled ? '' : `
-    <div class="metric-card month-goals" draggable="true" data-metric-key="metas" ondragstart="onMonthMetricDragStart(event,'metas')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'metas')">
+    <div class="metric-card month-goals" ${getMonthMetricDnDAttrs('metas')} data-metric-key="metas">
       ${renderMonthMetricLabel('metas', 'Separado em metas')}
       <div class="mc-value">${fmt(totalGoals)}</div>
       <div class="mc-note">Valor planejado para guardar.</div>

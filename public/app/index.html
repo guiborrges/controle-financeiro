@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Controle Financeiro</title>
     
     <script>window.notificationsPopoverOpen = false;</script>
@@ -56,7 +56,7 @@
   <div class="sidebar-tools">
     <div class="sidebar-section">Ferramentas</div>
     <button class="btn sidebar-tool-btn" type="button" onclick="createManualBackup()">Criar backup</button>
-    <details class="sidebar-tools-panel">
+    <details class="sidebar-tools-panel desktop-only-mobile-hidden">
       <summary class="btn sidebar-tool-btn sidebar-tool-btn-secondary">
         <span class="sidebar-tools-summary-closed">Mais opções</span>
         <span class="sidebar-tools-summary-open">Menos opções</span>
@@ -162,7 +162,7 @@
         <input id="unifiedOutflowSearch" class="btn unified-outflow-search-input" style="display:none" placeholder="Procurar" oninput="setUnifiedOutflowSearch(this.value)">
         <select id="unifiedOutflowTagFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
         <select id="unifiedOutflowFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowFilter(this.value)"></select>
-        <button class="btn btn-ghost" onclick="openBillImportModal()">Adicionar por fatura</button>
+        <button class="btn btn-ghost desktop-only-mobile-hidden" onclick="openBillImportModal()">Adicionar por fatura</button>
         <button class="btn btn-primary" onclick="openUnifiedOutflowModal()">+ Adicionar gasto ou despesa</button>
         <button class="btn btn-primary" onclick="openUnifiedCardModal()">+ Adicionar cartão</button>
       </div>

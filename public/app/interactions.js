@@ -1,4 +1,5 @@
 ﻿function onMonthMetricDragStart(event, key) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   dragMonthMetricKey = key;
   const card = event.currentTarget;
   if (card) card.classList.add('dragging');
@@ -16,6 +17,7 @@ function onMonthMetricDragEnd() {
 }
 
 function onMonthMetricDragOver(event) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   event.preventDefault();
   const card = event.currentTarget;
   if (!card || !dragMonthMetricKey || card.dataset.metricKey === dragMonthMetricKey) return;
@@ -29,6 +31,7 @@ function onMonthMetricDragLeave(event) {
 }
 
 function onMonthMetricDrop(event, targetKey) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   event.preventDefault();
   const fromKey = dragMonthMetricKey || (event.dataTransfer ? event.dataTransfer.getData('text/plain') : '');
   if (!fromKey || !targetKey || fromKey === targetKey) return;
@@ -45,6 +48,13 @@ function onMonthMetricDrop(event, targetKey) {
 function resetDraggableModalPosition(dialogId) {
   const dialog = document.getElementById(dialogId);
   if (!dialog) return;
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) {
+    dialog.style.position = '';
+    dialog.style.left = '';
+    dialog.style.top = '';
+    dialog.style.margin = '';
+    return;
+  }
   dialog.style.position = '';
   dialog.style.left = '';
   dialog.style.top = '';
@@ -59,6 +69,7 @@ function resetDraggableModalPosition(dialogId) {
 }
 
 function startModalDrag(event, dialogId) {
+  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   if (event.target.closest('button')) return;
   if (dialogId === 'modalUnifiedOutflowDialog' && window.__unifiedOutflowSimpleEditMode === true) return;
   const dialog = document.getElementById(dialogId);
@@ -181,6 +192,14 @@ function scheduleSaveUiStateFromScroll() {
 }
 
 function bindGlobalInteractions() {
+  if (typeof applyMobileUiState === 'function') {
+    applyMobileUiState();
+    if (window.visualViewport?.addEventListener) {
+      window.visualViewport.addEventListener('resize', applyMobileUiState, { passive: true });
+      window.visualViewport.addEventListener('scroll', applyMobileUiState, { passive: true });
+    }
+    window.addEventListener('orientationchange', applyMobileUiState);
+  }
   bindRuntimeErrorHandling();
   window.addEventListener('beforeunload', () => {
     saveUIState();
@@ -196,6 +215,7 @@ function bindGlobalInteractions() {
     closeNotificationsPopover();
   });
   window.addEventListener('resize', () => {
+    if (typeof applyMobileUiState === 'function') applyMobileUiState();
     if (!notificationsPopoverOpen) return;
     if (typeof repositionOpenNotificationsPopover === 'function') {
       repositionOpenNotificationsPopover();

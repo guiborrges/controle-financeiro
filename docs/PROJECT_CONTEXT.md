@@ -365,6 +365,14 @@
     - output is NOT card
     - item is not paid
   - do not generate for card/bill notifications.
+- Mobile/iPhone adaptive mode:
+  - runtime detection combines viewport width + touch capability; `body.mobile-ui`, `body.touch-ui`, `body.ios-ui` classes are applied dynamically.
+  - iOS/Safari viewport uses `--app-dvh` (from `visualViewport`/`innerHeight`) + `viewport-fit=cover` to reduce `100vh` instability and honor safe areas.
+  - mobile disables drag/resize interactions for dashboard widgets, month metric cards, month section blocks, and draggable modals.
+  - dashboard switches to static vertical stack in mobile mode (no free drag layout).
+  - left sidebar becomes compact icon rail on mobile to preserve content width.
+  - desktop-only actions are hidden on mobile (`.desktop-only-mobile-hidden`), including advanced sidebar options and bill-import quick action.
+  - finance calendar and modal flows become stacked/vertical on mobile (main grid, side detail block, and chart in sequence).
 
 ## 15.1 CALENDAR DATA SOURCE CONTRACT
 - Calendar modules must not depend on lexical fallback `data`.
