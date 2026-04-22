@@ -42,7 +42,8 @@
   function buildUnifiedOutflowDraftFromForm(month, deps = {}) {
     const safeMonth = month || deps.getCurrentMonth?.();
     const description = String(document.getElementById('unifiedOutflowDescription')?.value || '').trim();
-    const type = document.getElementById('unifiedOutflowType')?.value === 'spend' ? 'spend' : 'fixed';
+    const typeRaw = String(document.getElementById('unifiedOutflowType')?.value || 'spend').trim().toLowerCase();
+    const type = typeRaw === 'fixed' ? 'fixed' : 'spend';
     const category = String(document.getElementById('unifiedOutflowCategory')?.value || '');
     const newCategory = String(document.getElementById('unifiedOutflowNewCategory')?.value || '').trim();
     const amount = String(document.getElementById('unifiedOutflowAmount')?.value || '').trim();
@@ -84,7 +85,7 @@
     if (!draft || typeof draft !== 'object') return false;
     const descriptionInput = document.getElementById('unifiedOutflowDescription');
     if (descriptionInput) descriptionInput.value = String(draft.description || '');
-    document.getElementById('unifiedOutflowType').value = draft.type === 'spend' ? 'spend' : 'fixed';
+    document.getElementById('unifiedOutflowType').value = String(draft.type || '').trim().toLowerCase() === 'fixed' ? 'fixed' : 'spend';
     deps.populateCategoryOptions?.(month, String(draft.category || deps.resolveDefaultCategory?.('COMPRAS') || ''));
     document.getElementById('unifiedOutflowNewCategory').value = String(draft.newCategory || '');
     deps.toggleNewCategory?.();

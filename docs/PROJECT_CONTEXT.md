@@ -885,3 +885,59 @@
     - `server.js` (dependency wiring).
 - Tests:
   - `tests/operation-token-store.test.js` added for token dedup behavior.
+
+## 32. UPDATE_LOG_2026_04_22_FIXED_SUMMARY_AUTO_EXIT_BACKUP_AND_RECURRENCE_SWEEP
+- Month summary (`Compromissos do mês > Resumo`) hardening:
+  - direct-method grouping (`PIX/DINHEIRO/DÉBITO`) now applies only to `type === "spend"`.
+  - fixed commitments with method output (e.g., fixed + pix/debito) remain rendered as `Despesa fixa` items.
+  - no financial rule change in totals; this is grouping/visibility separation to avoid semantic mixing.
+  - files:
+    - `public/app/mes-atual.js`
+    - `public/app/modules/mes-atual/utils.js`
+
+- Outflow modal type stability:
+  - type normalization now defaults to `spend` (gasto) and only sets `fixed` when explicitly selected.
+  - draft restore keeps `fixed` selection correctly; prevents implicit fallback to wrong type.
+  - files:
+    - `public/app/mes-atual.js`
+    - `public/app/modules/mes-atual/modals.js`
+
+- Automatic backup on exit/logout (best-effort, online-safe):
+  - new endpoint:
+    - `POST /api/backups/auto-exit`
+    - requires authenticated session + valid CSRF (header or body token).
+  - frontend triggers:
+    - `pagehide`
+    - `visibilitychange` (`hidden`)
+    - `beforeunload`
+    - explicit logout path (`await` flow).
+  - safeguards:
+    - client cooldown + in-flight guard (avoid burst duplicates).
+    - server cooldown (`FIN_AUTO_EXIT_BACKUP_MIN_MS`, default `60000` ms).
+  - behavior:
+    - best-effort on tab close/reload (browser lifecycle limits apply).
+    - stronger guarantee on logout (`flush -> auto-exit backup -> logout` sequence).
+  - files:
+    - `public/app/auth-client.js`
+    - `public/app/interactions.js`
+    - `server/http/routes/profile.js`
+
+- Recurrence/parcel propagation for months not opened:
+  - startup now runs recurring coverage sweep after data normalization.
+  - sweep no longer gates by current-real-month only; it scans full chronological dataset.
+  - installment chains (`installmentsTotal > 1`) are also backfilled between adjacent months when missing.
+  - recurring sweep is scheduled during month render for continuous synchronization.
+  - files:
+    - `public/app/state.js`
+    - `public/app/mes-atual.js`
+
+- Tests added:
+  - `tests/profile-auto-exit-backup.test.js`
+    - auto-exit backup accepts body CSRF
+    - cooldown skip
+    - invalid CSRF rejection
+  - `tests/mes-atual-utils.test.js`
+    - direct-method grouping predicate accepts only spend rows
+  - `tests/unified-outflow-modal-draft.test.js`
+    - modal draft defaults to `spend`
+    - fixed type remains restorable/selectable

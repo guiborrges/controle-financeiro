@@ -55,6 +55,46 @@ function registerProfileRoutes(app, deps) {
     }
   });
 
+  app.post('/api/backups/auto-exit', noStore, requireAuth, (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Sessao expirada ou inexistente.' });
+    }
+    const expectedCsrf = ensureCsrfToken(req);
+    const receivedCsrf = String(
+      req.get('X-CSRF-Token')
+      || req.body?.csrfToken
+      || ''
+    ).trim();
+    if (!receivedCsrf || receivedCsrf !== expectedCsrf) {
+      return res.status(403).json({ message: 'Token CSRF invalido.' });
+    }
+
+    const minIntervalMs = Math.max(5_000, Number(process.env.FIN_AUTO_EXIT_BACKUP_MIN_MS || 60_000) || 60_000);
+    const lastAutoExitAtMs = Date.parse(String(user?.backupStats?.lastAutoExitBackupAt || ''));
+    const nowMs = Date.now();
+    if (Number.isFinite(lastAutoExitAtMs) && (nowMs - lastAutoExitAtMs) < minIntervalMs) {
+      return res.json({ ok: true, skipped: true, reason: 'cooldown' });
+    }
+
+    try {
+      const reason = String(req.body?.reason || 'auto-exit').trim().slice(0, 64) || 'auto-exit';
+      const backup = createUserBackup(user.id, {
+        type: 'automatic',
+        note: `Backup automático de saída (${reason}).`
+      });
+      updateUser(user.id, {
+        backupStats: {
+          ...(user?.backupStats || {}),
+          lastAutoExitBackupAt: new Date(nowMs).toISOString()
+        }
+      });
+      return res.json({ ok: true, backup: toClientBackupMeta(backup) });
+    } catch (error) {
+      return res.status(400).json({ message: error.message || 'Nao foi possivel criar backup automatico de saida.' });
+    }
+  });
+
   app.put('/api/profile', noStore, requireAuth, (req, res) => {
     if (!req.get('X-CSRF-Token') || req.get('X-CSRF-Token') !== ensureCsrfToken(req)) {
       return res.status(403).json({ message: 'Token CSRF inválido.' });

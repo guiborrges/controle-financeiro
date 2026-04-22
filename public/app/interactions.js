@@ -184,7 +184,10 @@ function bindGlobalInteractions() {
   bindRuntimeErrorHandling();
   window.addEventListener('beforeunload', () => {
     saveUIState();
-    flushServerStorage(true);
+    flushServerStorage(true, 'beforeunload');
+    if (typeof requestAutoExitBackup === 'function') {
+      requestAutoExitBackup('beforeunload');
+    }
   });
   window.addEventListener('scroll', scheduleSaveUiStateFromScroll, { passive: true });
   document.addEventListener('click', e => {

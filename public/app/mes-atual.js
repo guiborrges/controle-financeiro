@@ -159,9 +159,6 @@ function ensureUnifiedRecurringFutureCoverage() {
   unifiedRecurringSweepInProgress = true;
   try {
     sortDataChronologically();
-    const realCurrentMonthId = getCurrentRealMonthId(false);
-    const realCurrentMonth = data.find(entry => entry.id === realCurrentMonthId);
-    const realCurrentSortValue = realCurrentMonth ? getMonthSortValue(realCurrentMonth) : -Infinity;
     let changed = false;
     for (let idx = 0; idx < data.length; idx += 1) {
       const month = data[idx];
@@ -174,17 +171,33 @@ function ensureUnifiedRecurringFutureCoverage() {
     for (let idx = 1; idx < data.length; idx += 1) {
       const prev = data[idx - 1];
       const current = data[idx];
-      if (getMonthSortValue(prev) < realCurrentSortValue) continue;
-      if (getMonthSortValue(current) < realCurrentSortValue) continue;
       const blocked = new Set(getRecurringSeriesStops(current));
-      const templates = (prev.outflows || []).filter(isUnifiedRecurringTemplateItem);
-      templates.forEach(template => {
+      const recurringTemplates = (prev.outflows || []).filter(isUnifiedRecurringTemplateItem);
+      recurringTemplates.forEach(template => {
         const key = String(template.recurringGroupId || '').trim();
         if (!key || blocked.has(key)) return;
         const alreadyExists = (current.outflows || []).some(entry => String(entry.recurringGroupId || '').trim() === key);
         if (alreadyExists) return;
         const currentDate = getMonthDateFromMonthObject(current);
         current.outflows.push(cloneUnifiedOutflowForMonth(template, currentDate, prev));
+        changed = true;
+      });
+      const installmentTemplates = (prev.outflows || []).filter(item => {
+        const total = Math.max(1, Number(item?.installmentsTotal || 1) || 1);
+        const index = Math.max(1, Number(item?.installmentIndex || 1) || 1);
+        return total > 1 && index < total && String(item?.installmentsGroupId || '').trim();
+      });
+      installmentTemplates.forEach(template => {
+        const groupId = String(template.installmentsGroupId || '').trim();
+        const nextInstallmentIndex = Math.max(1, Number(template.installmentIndex || 1) + 1);
+        const alreadyExists = (current.outflows || []).some(entry => (
+          String(entry.installmentsGroupId || '').trim() === groupId
+          && Number(entry.installmentIndex || 1) === nextInstallmentIndex
+        ));
+        if (alreadyExists) return;
+        const currentDate = getMonthDateFromMonthObject(current);
+        const cloned = cloneUnifiedOutflowForMonth(template, currentDate, prev);
+        current.outflows.push(cloned);
         changed = true;
       });
     }
@@ -1308,7 +1321,11 @@ function getUnifiedFixedSelectionIndex(month, row) {
 
 function isUnifiedDirectMethodSummaryRow(row) {
   const item = row?.item;
+  if (typeof isUnifiedDirectMethodSpend === 'function') {
+    return row?.kind === 'outflow' && isUnifiedDirectMethodSpend(item);
+  }
   return row?.kind === 'outflow'
+    && item?.type === 'spend'
     && item?.outputKind === 'method'
     && ['pix', 'dinheiro', 'debito'].includes(item?.outputMethod);
 }
@@ -2924,7 +2941,8 @@ function buildUnifiedOutflowDraftFromForm(month) {
   }
   const safeMonth = month || getCurrentMonth();
   const description = String(document.getElementById('unifiedOutflowDescription')?.value || '').trim();
-  const type = document.getElementById('unifiedOutflowType')?.value === 'spend' ? 'spend' : 'fixed';
+  const typeRaw = String(document.getElementById('unifiedOutflowType')?.value || 'spend').trim().toLowerCase();
+  const type = typeRaw === 'fixed' ? 'fixed' : 'spend';
   const category = String(document.getElementById('unifiedOutflowCategory')?.value || '');
   const newCategory = String(document.getElementById('unifiedOutflowNewCategory')?.value || '').trim();
   const amount = String(document.getElementById('unifiedOutflowAmount')?.value || '').trim();
@@ -2980,7 +2998,7 @@ function applyUnifiedOutflowDraftToForm(month, draft) {
   if (!draft || typeof draft !== 'object') return false;
   const descriptionInput = document.getElementById('unifiedOutflowDescription');
   if (descriptionInput) descriptionInput.value = String(draft.description || '');
-  document.getElementById('unifiedOutflowType').value = draft.type === 'spend' ? 'spend' : 'fixed';
+  document.getElementById('unifiedOutflowType').value = String(draft.type || '').trim().toLowerCase() === 'fixed' ? 'fixed' : 'spend';
   populateUnifiedOutflowCategoryOptions(month, String(draft.category || resolveCategoryName('COMPRAS') || ''));
   document.getElementById('unifiedOutflowNewCategory').value = String(draft.newCategory || '');
   toggleUnifiedOutflowNewCategory();
@@ -3553,6 +3571,7 @@ function renderMes() {
   const unifiedPilotEnabled = isUnifiedMonthPilotEnabled();
   normalizeMonth(m);
   ensureRecurringIncomeNextMonthScheduleAcrossData();
+  if (unifiedPilotEnabled) scheduleUnifiedRecurringFutureCoverage(10);
   if (unifiedPilotEnabled) ensureUnifiedOutflowPilotMonth(m);
   if (unifiedPilotEnabled && unifiedOutflowDefaultFilterPending) {
     if (!m.unifiedOutflowUi || typeof m.unifiedOutflowUi !== 'object') m.unifiedOutflowUi = {};

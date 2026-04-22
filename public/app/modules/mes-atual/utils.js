@@ -8,6 +8,13 @@ function getUnifiedOutflowTypeLabel(item) {
   return item.type === 'fixed' ? 'Despesa fixa' : 'Gasto';
 }
 
+function isUnifiedDirectMethodSpend(item) {
+  if (!item || typeof item !== 'object') return false;
+  return item.type === 'spend'
+    && item.outputKind === 'method'
+    && ['pix', 'dinheiro', 'debito'].includes(String(item.outputMethod || '').trim().toLowerCase());
+}
+
 function normalizeLegacyLookup(value) {
   return String(value || '')
     .normalize('NFD')

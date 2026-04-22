@@ -1,9 +1,84 @@
 let currentSession = null;
 let profileCache = null;
+let autoExitBackupBound = false;
+let autoExitBackupInFlight = false;
+let autoExitBackupLastAt = 0;
+const AUTO_EXIT_BACKUP_MIN_INTERVAL_MS = 60 * 1000;
 
 function buildOperationToken(prefix = 'op') {
   const safePrefix = String(prefix || 'op').replace(/\s+/g, '-').toLowerCase();
   return `${safePrefix}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function canRunAutoExitBackup(force = false) {
+  if (force) return true;
+  const now = Date.now();
+  return (now - autoExitBackupLastAt) >= AUTO_EXIT_BACKUP_MIN_INTERVAL_MS;
+}
+
+async function requestAutoExitBackup(reason = 'exit', options = {}) {
+  const force = options.force === true;
+  const awaitCompletion = options.awaitCompletion === true;
+  const safeReason = String(reason || 'exit').trim().slice(0, 64) || 'exit';
+  if (!canRunAutoExitBackup(force)) return false;
+  if (autoExitBackupInFlight) return false;
+  autoExitBackupInFlight = true;
+  autoExitBackupLastAt = Date.now();
+  const payload = {
+    reason: safeReason,
+    csrfToken: window.__CSRF_TOKEN__ || '',
+    clientAt: new Date().toISOString()
+  };
+  const sendWithFetch = () => fetch('/api/backups/auto-exit', {
+    method: 'POST',
+    credentials: 'same-origin',
+    keepalive: true,
+    headers: getCsrfHeaders({
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    }),
+    body: JSON.stringify(payload)
+  }).then(() => true).catch(() => false);
+
+  const fallbackBeacon = () => {
+    try {
+      if (!navigator.sendBeacon) return false;
+      const body = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      return navigator.sendBeacon('/api/backups/auto-exit', body);
+    } catch {
+      return false;
+    }
+  };
+
+  try {
+    if (awaitCompletion) {
+      await sendWithFetch();
+      return true;
+    }
+    sendWithFetch().then(ok => {
+      if (!ok) fallbackBeacon();
+    });
+    return true;
+  } finally {
+    window.setTimeout(() => {
+      autoExitBackupInFlight = false;
+    }, awaitCompletion ? 0 : 400);
+  }
+}
+
+function bindAutoExitBackupLifecycle() {
+  if (autoExitBackupBound) return;
+  autoExitBackupBound = true;
+  window.addEventListener('pagehide', () => {
+    requestAutoExitBackup('pagehide');
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    requestAutoExitBackup('hidden');
+  });
+  window.addEventListener('beforeunload', () => {
+    requestAutoExitBackup('beforeunload');
+  });
 }
 
 function applySessionPermissions(session) {
@@ -79,6 +154,7 @@ async function syncSessionUser() {
 }
 
 async function initializeProfileState() {
+  bindAutoExitBackupLifecycle();
   const session = await syncSessionUser();
   if (!session) return;
   try {
@@ -299,6 +375,14 @@ async function createManualBackup() {
 
 async function logout() {
   try {
+    try {
+      if (typeof flushServerStorage === 'function') {
+        await flushServerStorage(true, 'logout');
+      }
+    } catch {}
+    try {
+      await requestAutoExitBackup('logout', { force: true, awaitCompletion: true });
+    } catch {}
     if (window.FinCrypto?.clearSessionEncryptionKey) {
       window.FinCrypto.clearSessionEncryptionKey();
     }

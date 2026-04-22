@@ -657,6 +657,13 @@ function init() {
     sortDataChronologically();
     data.forEach(m => normalizeMonth(m));
   }
+  if (typeof ensureUnifiedRecurringFutureCoverage === 'function') {
+    try {
+      ensureUnifiedRecurringFutureCoverage();
+    } catch (error) {
+      console.error('[startup] Falha ao sincronizar recorrencias entre meses:', error);
+    }
+  }
   // Always start each page load with summation checkboxes marked.
   // User changes during the session still work normally.
   const includeDefaultsTouched = (() => {
