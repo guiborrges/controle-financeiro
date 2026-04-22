@@ -261,6 +261,7 @@ function ensureUnifiedRecurringFutureCoverage() {
     const realCurrentMonth = data.find(entry => entry.id === realCurrentMonthId);
     const realCurrentSortValue = realCurrentMonth ? getMonthSortValue(realCurrentMonth) : -Infinity;
     const recurringAnchorTemplates = new Map();
+    const recurringAnchorKeys = new Set();
     let changed = false;
     for (let idx = 0; idx < data.length; idx += 1) {
       const month = data[idx];
@@ -275,10 +276,11 @@ function ensureUnifiedRecurringFutureCoverage() {
       data.forEach(month => {
         const monthSort = getMonthSortValue(month);
         if (monthSort < anchorWindowStart || monthSort > realCurrentSortValue) return;
-        (month.outflows || []).filter(isUnifiedRecurringTemplateItem).forEach(template => {
+        (month.outflows || []).filter(template => isUnifiedRecurringTemplateItem(template) && template?.type === 'fixed').forEach(template => {
           const key = String(template?.recurringGroupId || '').trim();
           if (!key || recurringAnchorTemplates.has(key)) return;
           recurringAnchorTemplates.set(key, template);
+          recurringAnchorKeys.add(key);
         });
       });
     }
@@ -301,6 +303,15 @@ function ensureUnifiedRecurringFutureCoverage() {
         recurringAnchorTemplates.forEach((template, key) => {
           if (!recurringTemplatesByKey.has(key)) recurringTemplatesByKey.set(key, template);
         });
+        const prevRecurringKeys = new Set((prev.outflows || []).map(entry => String(entry?.recurringGroupId || '').trim()).filter(Boolean));
+        const originalLen = (current.outflows || []).length;
+        current.outflows = (current.outflows || []).filter(entry => {
+          const key = String(entry?.recurringGroupId || '').trim();
+          if (!key || !recurringAnchorKeys.has(key)) return true;
+          if (entry?.type === 'fixed') return true;
+          return prevRecurringKeys.has(key);
+        });
+        if ((current.outflows || []).length !== originalLen) changed = true;
       }
       recurringTemplatesByKey.forEach((template, key) => {
         if (!key || blocked.has(key)) return;
