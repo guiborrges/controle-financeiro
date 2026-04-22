@@ -927,6 +927,10 @@
   - sweep no longer gates by current-real-month only; it scans full chronological dataset.
   - installment chains (`installmentsTotal > 1`) are also backfilled between adjacent months when missing.
   - recurring sweep is scheduled during month render for continuous synchronization.
+  - explicit exception (legacy user):
+    - for the legacy account `Guilherme Silva Borges`, historical backfill from old months is restricted.
+    - behavior for this account: recurring backfill only from real current month forward, preventing old fixed expenses from being pushed into current/future invoice context.
+    - behavior for other users remains unchanged (full timeline consistency sweep).
   - files:
     - `public/app/state.js`
     - `public/app/mes-atual.js`

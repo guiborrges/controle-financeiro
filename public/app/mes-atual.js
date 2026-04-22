@@ -154,23 +154,58 @@ function clearRecurringSeriesStopFromMonth(month, seriesKey) {
   });
 }
 
+function shouldRestrictHistoricalRecurringBackfillForCurrentUser() {
+  const session = window.__APP_BOOTSTRAP__?.session || {};
+  const normalize = (value) => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+  const fullName = normalize(session.fullName || session.displayName || '');
+  const username = normalize(session.username || '');
+  const email = normalize(session.email || '');
+  if (fullName.includes('guilherme silva borges')) return true;
+  if (username === 'guilherme' && (fullName.includes('borges') || email.includes('guilherme'))) return true;
+  return false;
+}
+
 function ensureUnifiedRecurringFutureCoverage() {
   if (unifiedRecurringSweepInProgress) return;
   unifiedRecurringSweepInProgress = true;
   try {
     sortDataChronologically();
+    const restrictHistoricalBackfill = shouldRestrictHistoricalRecurringBackfillForCurrentUser();
+    const realCurrentMonthId = getCurrentRealMonthId(false);
+    const realCurrentMonth = data.find(entry => entry.id === realCurrentMonthId);
+    const realCurrentSortValue = realCurrentMonth ? getMonthSortValue(realCurrentMonth) : -Infinity;
     let changed = false;
     for (let idx = 0; idx < data.length; idx += 1) {
       const month = data[idx];
       migrateUnifiedOutflowMonth(month);
       month.outflows = (Array.isArray(month.outflows) ? month.outflows : []).map((item, itemIdx) => normalizeUnifiedOutflowItem(item, itemIdx));
       month.cardBills = (Array.isArray(month.cardBills) ? month.cardBills : []).map((bill, billIdx) => normalizeUnifiedCardBill(month, bill, billIdx));
+      if (restrictHistoricalBackfill && getMonthSortValue(month) >= realCurrentSortValue) {
+        const beforeCount = month.outflows.length;
+        month.outflows = month.outflows.filter(item => {
+          const recurringKey = String(item?.recurringGroupId || '').trim().toLowerCase();
+          if (item?.type !== 'fixed') return true;
+          if (!recurringKey) return true;
+          if (!recurringKey.startsWith('legacy_')) return true;
+          return false;
+        });
+        if (month.outflows.length !== beforeCount) changed = true;
+      }
       getRecurringSeriesStops(month);
     }
 
     for (let idx = 1; idx < data.length; idx += 1) {
       const prev = data[idx - 1];
       const current = data[idx];
+      if (restrictHistoricalBackfill) {
+        const prevSort = getMonthSortValue(prev);
+        const currentSort = getMonthSortValue(current);
+        if (prevSort < realCurrentSortValue || currentSort < realCurrentSortValue) continue;
+      }
       const blocked = new Set(getRecurringSeriesStops(current));
       const recurringTemplates = (prev.outflows || []).filter(isUnifiedRecurringTemplateItem);
       recurringTemplates.forEach(template => {
