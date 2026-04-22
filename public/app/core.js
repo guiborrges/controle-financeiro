@@ -113,8 +113,27 @@ function isMobileUiMode() {
   return MOBILE_UI_STATE.isMobile === true;
 }
 
+function syncResponsiveTableDataLabels(scope = document) {
+  const root = scope || document;
+  const tables = root.querySelectorAll?.('.fin-table');
+  if (!tables) return;
+  tables.forEach(table => {
+    const headerCells = Array.from(table.querySelectorAll('thead th'));
+    if (!headerCells.length) return;
+    const labels = headerCells.map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
+    table.querySelectorAll('tbody tr, tfoot tr').forEach(row => {
+      Array.from(row.children || []).forEach((cell, idx) => {
+        if (!cell || cell.tagName !== 'TD') return;
+        const label = String(labels[idx] || labels[labels.length - 1] || '').trim();
+        cell.setAttribute('data-label', label);
+      });
+    });
+  });
+}
+
 window.isMobileUiMode = isMobileUiMode;
 window.applyMobileUiState = applyMobileUiState;
+window.syncResponsiveTableDataLabels = syncResponsiveTableDataLabels;
 
 function getInlineItem(table, row) {
   const m = getCurrentMonth();
@@ -437,6 +456,9 @@ function nav(page) {
   else if (page === 'patrimonio') renderPatrimonio();
   else if (page === 'historico') renderHistorico();
   else if (page === 'eso') renderEso();
+  requestAnimationFrame(() => {
+    if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels();
+  });
   if (typeof renderNotificationBells === 'function') renderNotificationBells();
   saveUIState();
   restoreScrollPosition();
@@ -449,6 +471,9 @@ function selectMonth(id) {
   if (currentPage === 'mes') renderMes();
   else if (currentPage === 'dashboard') renderDashboard();
   else if (currentPage === 'historico') renderHistorico();
+  requestAnimationFrame(() => {
+    if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels();
+  });
   buildMonthSelect();
 }
 

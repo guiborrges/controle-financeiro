@@ -118,6 +118,7 @@ function renderHistorico() {
     if (btn) btn.classList.add('active');
   }
   updateHistoricoTableHeaders();
+  if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels(document.getElementById('page-historico'));
   if (typeof renderNotificationBells === 'function') renderNotificationBells();
 }
 
@@ -336,6 +337,7 @@ function renderEso() {
     sub.textContent = parts.length ? `Mostrando ${parts.join(' · ')}` : 'Acompanhamento independente dos fechamentos de projetos';
   }
   updateEsoTableHeaders();
+  if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels(document.getElementById('page-eso'));
   saveUIState();
 }
 

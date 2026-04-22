@@ -624,6 +624,7 @@ function renderPatrimonio() {
   if (sortNode) sortNode.value = patrimonioFilters.sort;
   const periodNode = document.getElementById('patrimonioPeriod');
   if (periodNode) periodNode.value = patrimonioFilters.period;
+  if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels(document.getElementById('page-patrimonio'));
   if (typeof renderNotificationBells === 'function') renderNotificationBells();
 }
 
@@ -1164,6 +1165,7 @@ function renderPatrimonio() {
   if (sortNode) sortNode.value = patrimonioFilters.sort;
   const periodNode = document.getElementById('patrimonioPeriod');
   if (periodNode) periodNode.value = patrimonioFilters.period;
+  if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels(document.getElementById('page-patrimonio'));
   if (typeof renderNotificationBells === 'function') renderNotificationBells();
 }
 

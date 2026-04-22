@@ -359,6 +359,13 @@
   - embedded month calendar inputs were removed from dashboard filter panel.
   - month/range selection uses compact month selectors only.
   - calendar interaction remains centralized in month picker trigger flow.
+- Mobile adaptive mode (iPhone/Safari first):
+  - enable with hybrid detector (`viewport + touch + navigator hints`) via `body.mobile-ui`.
+  - sidebar is compact/fixed icon rail; desktop-only tools stay hidden in mobile.
+  - top summary cards render horizontally with snap/scroll (single row) instead of vertical long stacks.
+  - non-critical helper copy (`insight strips`, secondary metric notes/variations) is hidden on mobile to reduce visual noise.
+  - large historical/ESO/patrimônio tables are rendered as stacked card rows with `data-label` headers; avoid broken letter wrapping.
+  - add/edit outflow modal uses stable vertical flow with sticky header/actions and controlled internal scroll.
 - Notification generation rule:
   - generate for items due today where:
     - outflow is fixed OR recurring spend

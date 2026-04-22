@@ -3923,6 +3923,7 @@ function renderMes() {
   setUnifiedOutflowFloatingButtonVisible(unifiedOutflowModalMinimized);
   applyMonthSectionCollapseStates();
   renderNotificationBells();
+  if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels(document.getElementById('page-mes'));
   if (globalThis.FinanceCalendar?.refreshIfOpen) {
     globalThis.FinanceCalendar.refreshIfOpen(m);
   }
