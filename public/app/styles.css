@@ -4024,9 +4024,9 @@ body.mobile-ui .app {
 }
 
 body.mobile-ui .sidebar {
-  width: 74px;
-  min-width: 74px;
-  max-width: 74px;
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
   height: var(--app-dvh, 100dvh);
   position: fixed;
   overflow-x: hidden;
@@ -4035,10 +4035,10 @@ body.mobile-ui .sidebar {
 }
 
 body.mobile-ui .main {
-  margin-left: 74px;
+  margin-left: 64px;
   padding: 12px 10px calc(env(safe-area-inset-bottom, 0) + 20px);
   max-width: none;
-  width: calc(100vw - 74px);
+  width: calc(100vw - 64px);
 }
 
 body.mobile-ui .sidebar-header {
@@ -4066,8 +4066,8 @@ body.mobile-ui .sidebar-session-copy {
 }
 
 body.mobile-ui .sidebar-session {
-  margin: 8px 8px 10px;
-  padding: 6px;
+  margin: 8px 6px 10px;
+  padding: 5px;
   justify-content: center;
 }
 
@@ -4084,7 +4084,7 @@ body.mobile-ui .sidebar-nav {
 body.mobile-ui .nav-item {
   justify-content: center;
   gap: 0;
-  padding: 12px 8px;
+  padding: 11px 6px;
   font-size: 0;
   border-left: none;
   border-right: 3px solid transparent;
@@ -4097,7 +4097,7 @@ body.mobile-ui .nav-item.active {
 
 body.mobile-ui .nav-icon {
   width: auto;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 body.mobile-ui .sidebar-tools {
@@ -4443,7 +4443,7 @@ body.mobile-ui #mesMetrics.metrics-grid,
 body.mobile-ui #patrimonioMetrics.metrics-grid {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(240px, 80vw);
+  grid-auto-columns: minmax(220px, 76vw);
   grid-template-columns: none;
   overflow-x: auto;
   overflow-y: hidden;
@@ -4549,6 +4549,13 @@ body.mobile-ui #page-patrimonio .patrimonio-compact-table td {
   padding: 8px 12px !important;
 }
 
+body.mobile-ui #page-historico #hist-tabela .fin-table td > .badge,
+body.mobile-ui #page-eso #esoTable td > .badge,
+body.mobile-ui #page-patrimonio .patrimonio-table td > .badge,
+body.mobile-ui #page-patrimonio .patrimonio-compact-table td > .badge {
+  white-space: nowrap;
+}
+
 body.mobile-ui #page-historico #hist-tabela .fin-table td:last-child,
 body.mobile-ui #page-eso #esoTable td:last-child,
 body.mobile-ui #page-patrimonio .patrimonio-table td:last-child,
@@ -4598,6 +4605,8 @@ body.mobile-ui #modalUnifiedOutflow .form-grid {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   padding-right: 4px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 body.mobile-ui #modalUnifiedOutflow .unified-outflow-recent-wrap {
@@ -4606,6 +4615,8 @@ body.mobile-ui #modalUnifiedOutflow .unified-outflow-recent-wrap {
 
 body.mobile-ui #modalUnifiedOutflow .unified-outflow-recent-list {
   max-height: 24dvh;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 body.mobile-ui #modalUnifiedOutflow .modal-actions,
