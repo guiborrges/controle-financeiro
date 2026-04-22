@@ -567,6 +567,33 @@ function recoverMissingUnifiedLegacyCommitments(month, legacyExpenses, profile, 
 
     const candidate = migrated.outflow;
     if (candidate?.type !== 'fixed') return;
+    const normalizedDescription = String(candidate?.description || '').trim().toUpperCase();
+    const normalizedDate = String(candidate?.date || '').trim();
+    const normalizedAmount = Number(candidate?.amount || 0);
+    const normalizedMethod = String(candidate?.outputMethod || '').trim().toLowerCase();
+    const misclassifiedLegacyFixed = existingOutflows.find(entry => {
+      if (entry?.type !== 'spend') return false;
+      if (entry?.outputKind !== 'method') return false;
+      const entryMethod = String(entry?.outputMethod || '').trim().toLowerCase();
+      if (entryMethod !== normalizedMethod) return false;
+      const sameDesc = String(entry?.description || '').trim().toUpperCase() === normalizedDescription;
+      const sameDate = String(entry?.date || '').trim() === normalizedDate;
+      const sameAmount = Math.abs(Number(entry?.amount || 0) - normalizedAmount) < 0.01;
+      return sameDesc && sameDate && sameAmount;
+    });
+    if (misclassifiedLegacyFixed) {
+      misclassifiedLegacyFixed.type = 'fixed';
+      misclassifiedLegacyFixed.recurringSpend = false;
+      misclassifiedLegacyFixed.status = misclassifiedLegacyFixed.paid === true ? 'done' : 'planned';
+      if (!misclassifiedLegacyFixed.recurringGroupId || String(misclassifiedLegacyFixed.recurringGroupId || '').startsWith('legacy_spend_')) {
+        misclassifiedLegacyFixed.recurringGroupId = candidate.recurringGroupId || misclassifiedLegacyFixed.recurringGroupId;
+      }
+      if (!misclassifiedLegacyFixed.category) {
+        misclassifiedLegacyFixed.category = candidate.category || 'OUTROS';
+      }
+      changed = true;
+      return;
+    }
     const recurringKey = String(candidate?.recurringGroupId || '').trim();
     const exists = existingOutflows.some(entry => {
       if (entry?.type !== 'fixed') return false;
