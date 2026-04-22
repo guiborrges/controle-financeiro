@@ -763,7 +763,10 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
   const parsedDate = normalizeVarDate(item?.date || item?.data || '') || '';
   const outputKind = ['method', 'card', 'account'].includes(item?.outputKind) ? item.outputKind : 'method';
   const outputMethod = ['boleto', 'dinheiro', 'pix', 'debito'].includes(item?.outputMethod) ? item.outputMethod : 'boleto';
-  const rawType = item?.type === 'fixed' ? 'fixed' : 'spend';
+  const rawRecurringGroupId = String(item?.recurringGroupId || '').trim();
+  const rawId = String(item?.id || '').trim();
+  const inferredLegacyFixed = rawRecurringGroupId.startsWith('legacy_fixed_') || rawId.startsWith('legacy_fixed_');
+  const rawType = (item?.type === 'fixed' || inferredLegacyFixed) ? 'fixed' : 'spend';
   const recurringSpend = item?.recurringSpend === true || (rawType === 'spend' && !!String(item?.recurringGroupId || '').trim() && Number(item?.installmentsTotal || 1) <= 1);
   const type = outputKind === 'card' ? 'spend' : rawType;
   const category = resolveCategoryName(item?.category || item?.categoria || 'OUTROS');
@@ -801,7 +804,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
     recurringSpend,
     status: item?.status === 'done' ? 'done' : 'planned',
     paid: hasPaidFlag ? item?.paid === true : isDirectRealOutflow,
-    recurringGroupId: String(item?.recurringGroupId || '').trim(),
+    recurringGroupId: rawRecurringGroupId,
     installmentsGroupId: String(item?.installmentsGroupId || '').trim(),
     installmentsTotal: Math.max(1, Number(item?.installmentsTotal || 1) || 1),
     installmentIndex: Math.max(1, Number(item?.installmentIndex || 1) || 1),
