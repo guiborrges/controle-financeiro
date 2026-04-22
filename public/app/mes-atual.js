@@ -477,6 +477,9 @@ function buildUnifiedLegacyFixed(month, item, idx, profile, cardsByName) {
   const name = resolveExpenseName(item?.nome || item?.description || 'Despesa fixa');
   const amount = Math.max(0, Number(item?.valor || 0) || 0);
   const paymentMethod = String(item?.paymentMethod || '').trim().toLowerCase();
+  const normalizedMethod = ['pix', 'debito', 'dinheiro', 'boleto'].includes(paymentMethod)
+    ? paymentMethod
+    : 'boleto';
   const explicitCardRef = String(item?.cartaoId || '').trim();
   const cardSpec = profile.isGuilherme ? getGuilhermeRequiredCardSpecFromName(name) : null;
   if (cardSpec) {
@@ -523,7 +526,7 @@ function buildUnifiedLegacyFixed(month, item, idx, profile, cardsByName) {
       category: getLegacyExpenseSemanticCategory(name),
       amount,
       outputKind: 'method',
-      outputMethod: 'boleto',
+      outputMethod: normalizedMethod,
       date: item?.data || '',
       status: item?.pago ? 'done' : 'planned',
       paid: item?.pago === true,
@@ -538,10 +541,6 @@ function recoverMissingUnifiedLegacyCommitments(month, legacyExpenses, profile, 
   const existingBills = Array.isArray(month.cardBills) ? month.cardBills : (month.cardBills = []);
   const billsByCardId = new Map(existingBills.map(bill => [String(bill?.cardId || '').trim(), bill]));
   let changed = false;
-
-  const hasAnyFixed = existingOutflows.some(item => item?.type === 'fixed' && Number(item?.amount || 0) > 0);
-  const hasAnyBill = existingBills.some(item => Number(item?.amount || 0) > 0);
-  if (hasAnyFixed && hasAnyBill) return false;
 
   legacyExpenses.forEach((item, idx) => {
     const migrated = buildUnifiedLegacyFixed(month, item, idx, profile, cardsByName);
