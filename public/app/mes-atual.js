@@ -260,6 +260,7 @@ function ensureUnifiedRecurringFutureCoverage() {
     const realCurrentMonthId = getCurrentRealMonthId(false);
     const realCurrentMonth = data.find(entry => entry.id === realCurrentMonthId);
     const realCurrentSortValue = realCurrentMonth ? getMonthSortValue(realCurrentMonth) : -Infinity;
+    const recurringAnchorTemplates = new Map();
     let changed = false;
     for (let idx = 0; idx < data.length; idx += 1) {
       const month = data[idx];
@@ -269,6 +270,18 @@ function ensureUnifiedRecurringFutureCoverage() {
       getRecurringSeriesStops(month);
     }
     if (ensureUnifiedRecurringSeriesKeysAcrossMonths()) changed = true;
+    if (restrictHistoricalBackfill && Number.isFinite(realCurrentSortValue)) {
+      const anchorWindowStart = realCurrentSortValue - 3;
+      data.forEach(month => {
+        const monthSort = getMonthSortValue(month);
+        if (monthSort < anchorWindowStart || monthSort > realCurrentSortValue) return;
+        (month.outflows || []).filter(isUnifiedRecurringTemplateItem).forEach(template => {
+          const key = String(template?.recurringGroupId || '').trim();
+          if (!key || recurringAnchorTemplates.has(key)) return;
+          recurringAnchorTemplates.set(key, template);
+        });
+      });
+    }
 
     for (let idx = 1; idx < data.length; idx += 1) {
       const prev = data[idx - 1];
@@ -278,9 +291,18 @@ function ensureUnifiedRecurringFutureCoverage() {
         if (currentSort < realCurrentSortValue) continue;
       }
       const blocked = new Set(getRecurringSeriesStops(current));
-      const recurringTemplates = (prev.outflows || []).filter(isUnifiedRecurringTemplateItem);
-      recurringTemplates.forEach(template => {
-        const key = String(template.recurringGroupId || '').trim();
+      const recurringTemplatesByKey = new Map();
+      (prev.outflows || []).filter(isUnifiedRecurringTemplateItem).forEach(template => {
+        const key = String(template?.recurringGroupId || '').trim();
+        if (!key) return;
+        recurringTemplatesByKey.set(key, template);
+      });
+      if (restrictHistoricalBackfill && getMonthSortValue(current) >= realCurrentSortValue) {
+        recurringAnchorTemplates.forEach((template, key) => {
+          if (!recurringTemplatesByKey.has(key)) recurringTemplatesByKey.set(key, template);
+        });
+      }
+      recurringTemplatesByKey.forEach((template, key) => {
         if (!key || blocked.has(key)) return;
         const alreadyExists = (current.outflows || []).some(entry => String(entry.recurringGroupId || '').trim() === key);
         if (alreadyExists) return;
