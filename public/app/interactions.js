@@ -183,6 +183,14 @@ function runStartupSelfCheck() {
 }
 
 let saveUiStateScrollTimer = null;
+function isNotificationsPopoverOpen() {
+  try {
+    return !!document.querySelector('.top-notifications.is-open');
+  } catch {
+    return false;
+  }
+}
+
 function scheduleSaveUiStateFromScroll() {
   if (saveUiStateScrollTimer) return;
   saveUiStateScrollTimer = window.setTimeout(() => {
@@ -210,19 +218,19 @@ function bindGlobalInteractions() {
   });
   window.addEventListener('scroll', scheduleSaveUiStateFromScroll, { passive: true });
   document.addEventListener('click', e => {
-    if (!notificationsPopoverOpen) return;
+    if (!isNotificationsPopoverOpen()) return;
     if (e.target.closest('.top-notifications')) return;
     closeNotificationsPopover();
   });
   window.addEventListener('resize', () => {
     if (typeof applyMobileUiState === 'function') applyMobileUiState();
-    if (!notificationsPopoverOpen) return;
+    if (!isNotificationsPopoverOpen()) return;
     if (typeof repositionOpenNotificationsPopover === 'function') {
       repositionOpenNotificationsPopover();
     }
   });
   window.addEventListener('scroll', () => {
-    if (!notificationsPopoverOpen) return;
+    if (!isNotificationsPopoverOpen()) return;
     if (typeof repositionOpenNotificationsPopover === 'function') {
       repositionOpenNotificationsPopover();
     }
