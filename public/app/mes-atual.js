@@ -652,6 +652,8 @@ function restorePastCardBillsFromLegacyMonth(month) {
   let changed = false;
   month.cardBills.forEach(bill => {
     if (!bill || bill.manualAmountSet === true) return;
+    const currentAmount = Number(Number(bill.amount || 0).toFixed(2));
+    if (currentAmount > 0) return;
     const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
     if (!card) return;
     const cardNameNormalized = String(card.name || '').trim().toLowerCase();
@@ -663,12 +665,18 @@ function restorePastCardBillsFromLegacyMonth(month) {
       const method = String(item?.paymentMethod || '').trim().toLowerCase();
       return String(category || '').includes('CARTÃO') || method === 'credito' || method === 'cartao';
     });
-    if (!legacyRows.length) return;
-    const legacyAmount = Number(legacyRows.reduce((sum, item) => sum + Number(item?.valor || 0), 0).toFixed(2));
-    if (!(legacyAmount > 0)) return;
-    const currentAmount = Number(Number(bill.amount || 0).toFixed(2));
-    if (legacyAmount === currentAmount) return;
-    bill.amount = legacyAmount;
+    const legacyAmount = Number((legacyRows || []).reduce((sum, item) => sum + Number(item?.valor || 0), 0).toFixed(2));
+    const launchesAmount = Number(
+      (month.outflows || []).reduce((sum, item) => {
+        if (item?.outputKind !== 'card') return sum;
+        if (String(item?.outputRef || '') !== String(bill.cardId || '')) return sum;
+        return sum + Number(item?.amount || 0);
+      }, 0).toFixed(2)
+    );
+    const recoveredAmount = legacyAmount > 0 ? legacyAmount : launchesAmount;
+    if (!(recoveredAmount > 0)) return;
+    if (recoveredAmount === currentAmount) return;
+    bill.amount = recoveredAmount;
     changed = true;
   });
   return changed;
@@ -1165,7 +1173,8 @@ function syncUnifiedOutflowLegacyData(month) {
         categoria: 'CARTÃO',
         data: '',
         pago: bill.paid === true,
-        paymentMethod: 'credito'
+        paymentMethod: 'credito',
+        cartaoId: String(bill.cardId || '').trim()
       };
     }))
   ];
