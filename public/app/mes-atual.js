@@ -1190,10 +1190,7 @@ function getUnifiedCardBill(month, cardId) {
 }
 
 function getUnifiedCardRecurringForecastAmount(month, cardId) {
-  if (window.MesAtualCards?.getUnifiedCardRecurringForecastAmount) {
-    return window.MesAtualCards.getUnifiedCardRecurringForecastAmount(month, cardId);
-  }
-  ensureUnifiedOutflowPilotMonth(month);
+  if (!month) return 0;
   return (month.outflows || []).reduce((acc, item) => {
     if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
     if (item?.recurringSpend !== true) return acc;
