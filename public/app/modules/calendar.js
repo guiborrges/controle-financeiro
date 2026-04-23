@@ -250,7 +250,10 @@
       dateLabel: global.FinanceCalendarUtils.formatDateLong(date),
       outflows: ledger.outflows,
       incomes: ledger.incomes,
-      events: state.eventsByDay[safeDay] || []
+      events: state.eventsByDay[safeDay] || [],
+      paymentItems: Array.isArray(ledger.paymentItems) ? ledger.paymentItems : [],
+      paymentTotal: (Array.isArray(ledger.paymentItems) ? ledger.paymentItems : [])
+        .reduce((sum, item) => sum + Number(item?.amount || 0), 0)
     };
   }
 

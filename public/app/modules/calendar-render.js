@@ -344,11 +344,20 @@
     const eventsLabel = payload.events.length
       ? `${payload.events.length} evento(s)`
       : 'Sem eventos';
+    const paymentCount = Array.isArray(payload.paymentItems) ? payload.paymentItems.length : 0;
+    const paymentsLabel = paymentCount > 0
+      ? `${paymentCount} pagamento(s)`
+      : 'Sem pagamentos';
+    const paymentsSummary = paymentCount > 0
+      ? `Resumo: ${paymentsLabel} · ${global.fmt(Number(payload.paymentTotal || 0))}`
+      : 'Resumo: sem pagamentos previstos neste dia.';
     tooltip.innerHTML = `
       <div class="finance-calendar-tooltip-title">${escapeHtml(payload.dateLabel)}</div>
       <div class="finance-calendar-tooltip-row"><span>Saidas</span><strong>${escapeHtml(global.fmt(payload.outflows))}</strong></div>
       <div class="finance-calendar-tooltip-row"><span>Entradas</span><strong>${escapeHtml(global.fmt(payload.incomes))}</strong></div>
       <div class="finance-calendar-tooltip-row"><span>Eventos</span><strong>${escapeHtml(eventsLabel)}</strong></div>
+      <div class="finance-calendar-tooltip-row"><span>Pagamentos</span><strong>${escapeHtml(paymentsLabel)}</strong></div>
+      <div class="finance-calendar-tooltip-note">${escapeHtml(paymentsSummary)}</div>
     `;
   }
 

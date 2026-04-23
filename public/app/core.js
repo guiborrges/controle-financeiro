@@ -9,132 +9,6 @@
   }
 }
 
-const MOBILE_UI_BREAKPOINT = 980;
-const TOUCH_MAX_WIDTH = 1180;
-const MOBILE_UI_STATE = {
-  isMobile: false,
-  isTouch: false,
-  isIOS: false
-};
-
-function hasCoarsePointer() {
-  try {
-    return window.matchMedia?.('(pointer: coarse)')?.matches === true;
-  } catch (_) {
-    return false;
-  }
-}
-
-function getNavigatorUaDataHints() {
-  const uaData = navigator.userAgentData;
-  if (!uaData) {
-    return {
-      hasUaData: false,
-      isMobileHint: false,
-      platformHint: '',
-      brandsHint: ''
-    };
-  }
-  const brands = Array.isArray(uaData.brands) ? uaData.brands.map(entry => String(entry?.brand || '').toLowerCase()) : [];
-  const platform = String(uaData.platform || '').toLowerCase();
-  return {
-    hasUaData: true,
-    isMobileHint: uaData.mobile === true,
-    platformHint: platform,
-    brandsHint: brands.join('|')
-  };
-}
-
-function getNavigatorUserAgentHints() {
-  const userAgent = String(navigator.userAgent || '').toLowerCase();
-  return {
-    isIPhoneFamily: /iphone|ipad|ipod/.test(userAgent),
-    isAndroid: /android/.test(userAgent),
-    isMobileUa: /mobile|iphone|ipod|android/.test(userAgent),
-    raw: userAgent
-  };
-}
-
-function updateDynamicViewportHeightCssVar() {
-  const viewportHeight = Math.max(
-    320,
-    Math.round(
-      window.visualViewport?.height
-      || window.innerHeight
-      || document.documentElement?.clientHeight
-      || 0
-    )
-  );
-  document.documentElement.style.setProperty('--app-dvh', `${viewportHeight}px`);
-}
-
-function detectMobileUiState() {
-  const uaDataHints = getNavigatorUaDataHints();
-  const uaHints = getNavigatorUserAgentHints();
-  const width = Math.max(0, window.innerWidth || document.documentElement?.clientWidth || 0);
-  const touchPoints = Number(navigator.maxTouchPoints || 0);
-  const touchCapable = touchPoints > 0 || hasCoarsePointer();
-  const narrowViewport = width <= MOBILE_UI_BREAKPOINT;
-  const touchFriendlyViewport = width <= TOUCH_MAX_WIDTH;
-  const likelyPhoneViewport = width <= 860;
-  const uaMobile = uaDataHints.isMobileHint || uaHints.isMobileUa;
-  const platformMobile = /android|ios|iphone|ipad|ipod/.test(uaDataHints.platformHint || '');
-  const isIOS = uaHints.isIPhoneFamily
-    || /ios|iphone|ipad|ipod/.test(uaDataHints.platformHint || '')
-    || (navigator.platform === 'MacIntel' && touchPoints > 1);
-  const isMobile =
-    narrowViewport
-    || (touchCapable && touchFriendlyViewport)
-    || (uaMobile && likelyPhoneViewport)
-    || (platformMobile && touchCapable);
-  return {
-    isMobile,
-    isTouch: touchCapable,
-    isIOS,
-    uaData: uaDataHints
-  };
-}
-
-function applyMobileUiState() {
-  const next = detectMobileUiState();
-  MOBILE_UI_STATE.isMobile = next.isMobile;
-  MOBILE_UI_STATE.isTouch = next.isTouch;
-  MOBILE_UI_STATE.isIOS = next.isIOS;
-  const body = document.body;
-  if (body) {
-    body.classList.toggle('mobile-ui', next.isMobile);
-    body.classList.toggle('touch-ui', next.isTouch);
-    body.classList.toggle('ios-ui', next.isIOS);
-  }
-  updateDynamicViewportHeightCssVar();
-}
-
-function isMobileUiMode() {
-  return MOBILE_UI_STATE.isMobile === true;
-}
-
-function syncResponsiveTableDataLabels(scope = document) {
-  const root = scope || document;
-  const tables = root.querySelectorAll?.('.fin-table');
-  if (!tables) return;
-  tables.forEach(table => {
-    const headerCells = Array.from(table.querySelectorAll('thead th'));
-    if (!headerCells.length) return;
-    const labels = headerCells.map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
-    table.querySelectorAll('tbody tr, tfoot tr').forEach(row => {
-      Array.from(row.children || []).forEach((cell, idx) => {
-        if (!cell || cell.tagName !== 'TD') return;
-        const label = String(labels[idx] || labels[labels.length - 1] || '').trim();
-        cell.setAttribute('data-label', label);
-      });
-    });
-  });
-}
-
-window.isMobileUiMode = isMobileUiMode;
-window.applyMobileUiState = applyMobileUiState;
-window.syncResponsiveTableDataLabels = syncResponsiveTableDataLabels;
-
 function getInlineItem(table, row) {
   const m = getCurrentMonth();
   if (table === 'despesa') return m.despesas[row];
@@ -431,13 +305,11 @@ function getCountedVarTotal(m) {
 // NAVIGATION
 // ============================================================
 function nav(page) {
-  if (typeof applyMobileUiState === 'function') applyMobileUiState();
   if (page === 'eso' && !currentSession?.permissions?.canAccessESO) {
     page = 'dashboard';
   }
   if (typeof closeNotificationsPopover === 'function') closeNotificationsPopover();
   activePage = page;
-  if (document.body) document.body.dataset.activePage = page;
   if (page === 'mes') {
     currentMonthId = getCurrentRealMonthId(true);
     buildMonthSelect();
@@ -456,9 +328,6 @@ function nav(page) {
   else if (page === 'patrimonio') renderPatrimonio();
   else if (page === 'historico') renderHistorico();
   else if (page === 'eso') renderEso();
-  requestAnimationFrame(() => {
-    if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels();
-  });
   if (typeof renderNotificationBells === 'function') renderNotificationBells();
   saveUIState();
   restoreScrollPosition();
@@ -466,14 +335,14 @@ function nav(page) {
 
 function selectMonth(id) {
   currentMonthId = id;
+  if (typeof resetUnifiedOutflowViewForMonth === 'function') {
+    resetUnifiedOutflowViewForMonth(id);
+  }
   saveUIState();
   const currentPage = document.querySelector('.page.active').id.replace('page-','');
   if (currentPage === 'mes') renderMes();
   else if (currentPage === 'dashboard') renderDashboard();
   else if (currentPage === 'historico') renderHistorico();
-  requestAnimationFrame(() => {
-    if (typeof syncResponsiveTableDataLabels === 'function') syncResponsiveTableDataLabels();
-  });
   buildMonthSelect();
 }
 
