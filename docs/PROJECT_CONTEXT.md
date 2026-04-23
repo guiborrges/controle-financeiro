@@ -51,7 +51,7 @@
   - Optional backend: SQLite (`data/app-state.sqlite`) when `FIN_STATE_BACKEND=sqlite`.
   - User backups: `data/user-backups/...`.
 - Critical coupling points:
-  - `mes-atual.js` still centralizes most month financial rules.
+  - `mes-atual.js` remains the main orchestrator, but critical financial slices are now progressively delegated to `public/app/modules/mes-atual/*`.
   - `data.js`, `state.js`, `storage.js` define normalization defaults and compatibility.
   - Card, recurrence, and month totals are tightly integrated.
 - Sensitive files:
@@ -725,7 +725,7 @@
   - monthly render boot executes one-time sweep normalization over all loaded months for backward compatibility.
   - per-month guard in `ensureUnifiedOutflowPilotMonth` keeps recurring income schedule normalized for newly touched months.
   - calendar agenda now resolves fixed-payment and recurring-income days by scanning user months against the target month (past/present/future), ensuring continuous behavior across all months.
-  - calendar data-source resolution now uses shared month-state fallback (`window.data` or global lexical `data`) to avoid empty agenda when runtime state is not exposed as window property.
+  - historical note: this cycle temporarily introduced shared-state fallback (`window.data` / lexical `data`) for compatibility; current official contract is `15.1 CALENDAR DATA SOURCE CONTRACT` (fallback removed/deprecated).
 
 - Overlay layering fixes:
   - recurring-scope modal and yes/no modal moved to higher z-index tiers to avoid appearing behind active parent modal.
@@ -734,7 +734,7 @@
   - CLI-level forensic validation of a specific day (`17/04/2026`) cannot be guaranteed from encrypted-at-rest user state without active in-session decryption context.
   - no destructive migration was applied in this update path.
 
-## 26. UPDATE_LOG_2026_04_17_CALENDAR_IMPORT_HISTORY
+## 26. UPDATE_LOG_2026_04_18_CALENDAR_IMPORT_HISTORY
 - Calendar UI sizing and layering:
   - financial calendar modal width/height reduced for less visual dominance.
   - calendar modal now uses internal vertical scroll instead of clipping overflow.
@@ -766,7 +766,7 @@
   - event tag extraction for focused panel scans both unified and legacy sources:
     - `month.outflows` (`tag`/`marca`)
     - `month.gastosVar` (`tag`/`marca`)
-    - and evaluates date range across available user months (`window.data`) for cross-month events.
+    - historical note: this entry originally referenced `window.data`; current contract is explicit month source resolution via `FinanceCalendarUtils.getAllMonthsData()` (see section `15.1`).
   - when event has `tagId`, event linkage prioritizes matching launches by normalized tag (accent/case/spacing-insensitive); if no match exists, fallback is period-only linkage.
   - focused event panel renders linked-launch list (description, date, amount) from the same linkage resolver used by event totals/tags.
 - Import-by-bill parser hardening:
