@@ -956,24 +956,26 @@
           </div>
         </div>
       </div>
-      <label class="month-copy-toggle form-help-label" id="unifiedOutflowRecurringLabel" style="display:none" data-help="Repete esse gasto automaticamente nos próximos meses, com o mesmo valor e a mesma configuração.">
-        <input id="unifiedOutflowRecurringToggle" type="checkbox" onchange="toggleUnifiedOutflowRecurring()">
-        <span>Gasto recorrente</span>
-      </label>
-      <label class="month-copy-toggle form-help-label" data-help="Cria várias parcelas futuras desse mesmo lançamento. Use quando o valor já está dividido em meses definidos.">
-        <input id="unifiedOutflowInstallmentsToggle" type="checkbox" onchange="toggleUnifiedOutflowInstallments()">
-        <span>Parcelado</span>
-      </label>
+      <div class="unified-outflow-toggle-group">
+        <label class="month-copy-toggle form-help-label" id="unifiedOutflowRecurringLabel" style="display:none" data-help="Repete esse gasto automaticamente nos próximos meses, com o mesmo valor e a mesma configuração.">
+          <input id="unifiedOutflowRecurringToggle" type="checkbox" onchange="toggleUnifiedOutflowRecurring()">
+          <span>Gasto recorrente</span>
+        </label>
+        <label class="month-copy-toggle form-help-label" data-help="Cria várias parcelas futuras desse mesmo lançamento. Use quando o valor já está dividido em meses definidos.">
+          <input id="unifiedOutflowInstallmentsToggle" type="checkbox" onchange="toggleUnifiedOutflowInstallments()">
+          <span>Parcelado</span>
+        </label>
+        <label class="month-copy-toggle form-help-label" id="unifiedOutflowSharedToggleLabel" style="display:none" data-help="Ative quando o valor pago será dividido com outras pessoas. Apenas a parte do proprietário entra nas despesas do mês.">
+          <input id="unifiedOutflowSharedToggle" type="checkbox" onchange="toggleUnifiedOutflowShared()">
+          <span>Gasto compartilhado</span>
+        </label>
+      </div>
       <div class="form-row" id="unifiedOutflowInstallmentsWrap" style="display:none">
         <div class="field">
           <label class="form-help-label" data-help="Quantidade total de meses em que esse lançamento será repetido como parcela.">Número de parcelas</label>
           <input id="unifiedOutflowInstallmentsCount" type="number" min="2" max="120" value="2">
         </div>
       </div>
-      <label class="month-copy-toggle form-help-label" id="unifiedOutflowSharedToggleLabel" style="display:none" data-help="Ative quando o valor pago será dividido com outras pessoas. Apenas a parte do proprietário entra nas despesas do mês.">
-        <input id="unifiedOutflowSharedToggle" type="checkbox" onchange="toggleUnifiedOutflowShared()">
-        <span>Gasto compartilhado</span>
-      </label>
       <div id="unifiedOutflowSharedWrap" style="display:none">
         <div class="form-row">
           <div class="field">
