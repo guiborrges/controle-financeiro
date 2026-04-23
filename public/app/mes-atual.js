@@ -276,9 +276,10 @@ function ensureUnifiedRecurringFutureCoverage() {
       data.forEach(month => {
         const monthSort = getMonthSortValue(month);
         if (monthSort < anchorWindowStart || monthSort > realCurrentSortValue) return;
+        const monthStops = new Set(getRecurringSeriesStops(month));
         (month.outflows || []).filter(template => isUnifiedRecurringTemplateItem(template) && template?.type === 'fixed').forEach(template => {
           const key = String(template?.recurringGroupId || '').trim();
-          if (!key || recurringAnchorTemplates.has(key)) return;
+          if (!key || recurringAnchorTemplates.has(key) || monthStops.has(key)) return;
           recurringAnchorTemplates.set(key, template);
           recurringAnchorKeys.add(key);
         });
@@ -292,7 +293,24 @@ function ensureUnifiedRecurringFutureCoverage() {
         const currentSort = getMonthSortValue(current);
         if (currentSort < realCurrentSortValue) continue;
       }
-      const blocked = new Set(getRecurringSeriesStops(current));
+      const blocked = new Set([
+        ...getRecurringSeriesStops(prev),
+        ...getRecurringSeriesStops(current)
+      ]);
+      if (blocked.size) {
+        const currentStops = getRecurringSeriesStops(current);
+        const merged = Array.from(new Set([...currentStops, ...blocked]));
+        if (merged.length !== currentStops.length) {
+          current.recurringSeriesStops = merged;
+          changed = true;
+        }
+        const beforeBlockedCleanup = (current.outflows || []).length;
+        current.outflows = (current.outflows || []).filter(entry => {
+          const key = String(entry?.installmentsGroupId || entry?.recurringGroupId || '').trim();
+          return !key || !blocked.has(key);
+        });
+        if ((current.outflows || []).length !== beforeBlockedCleanup) changed = true;
+      }
       const recurringTemplatesByKey = new Map();
       (prev.outflows || []).filter(isUnifiedRecurringTemplateItem).forEach(template => {
         const key = String(template?.recurringGroupId || '').trim();
@@ -3608,6 +3626,10 @@ function buildUnifiedPilotMonthFromPrevious(prev, newMonthName) {
   normalizeMonth(month);
   normalizeMonth(prev);
   ensureUnifiedOutflowPilotMonth(prev);
+  const inheritedStops = new Set(getRecurringSeriesStops(prev));
+  if (inheritedStops.size) {
+    month.recurringSeriesStops = Array.from(inheritedStops);
+  }
   month.outflowCards = (prev.outflowCards || []).map(card => normalizeUnifiedCard({ ...card }));
   month.cardBills = month.outflowCards.map((card, idx) => {
     const prevBill = getUnifiedCardBill(prev, card.id);
@@ -3619,6 +3641,8 @@ function buildUnifiedPilotMonthFromPrevious(prev, newMonthName) {
     }, idx);
   });
   month.outflows = (prev.outflows || []).flatMap(item => {
+    const seriesKey = String(item?.installmentsGroupId || item?.recurringGroupId || '').trim();
+    if (seriesKey && inheritedStops.has(seriesKey)) return [];
     if (item.installmentsTotal > 1 && item.installmentIndex < item.installmentsTotal) {
       return [cloneUnifiedOutflowForMonth(item, date, prev)];
     }
