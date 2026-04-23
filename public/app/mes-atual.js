@@ -578,7 +578,7 @@ function migrateUnifiedOutflowMonth(month, profile = getUnifiedMigrationProfile(
     });
 
     month.outflows = nextOutflows.map((item, idx) => normalizeUnifiedOutflowItem(item, idx));
-    month.cardBills = (month.outflowCards || []).map((card, idx) => normalizeUnifiedCardBill(month, billsByCardId.get(card.id) || { cardId: card.id }, idx));
+    month.cardBills = reconcileUnifiedCardBillsWithCards(month, Array.from(billsByCardId.values()));
     changed = true;
   }
 
@@ -652,6 +652,59 @@ function normalizeUnifiedCardBill(month, bill, idx = 0) {
     paid: bill?.paid === true,
     description: String(bill?.description || '').trim()
   };
+}
+
+function resolveUnifiedBillCardId(month, rawCardId) {
+  const normalizeLookup = typeof normalizeLegacyLookup === 'function'
+    ? normalizeLegacyLookup
+    : (value => String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, ''));
+  const cardId = String(rawCardId || '').trim();
+  if (!cardId) return '';
+  const cards = Array.isArray(month?.outflowCards) ? month.outflowCards : [];
+  if (cards.some(card => String(card?.id || '').trim() === cardId)) return cardId;
+  const normalizedCardId = normalizeLookup(cardId);
+  if (!normalizedCardId) return cardId;
+  const matchedByName = cards.find(card => normalizeLookup(card?.name || '') === normalizedCardId);
+  return matchedByName ? String(matchedByName.id || '').trim() : cardId;
+}
+
+function reconcileUnifiedCardBillsWithCards(month, rawBills = []) {
+  const normalizedBills = Array.isArray(rawBills) ? rawBills : [];
+  const byCardId = new Map();
+
+  normalizedBills.forEach((bill, idx) => {
+    const resolvedCardId = resolveUnifiedBillCardId(month, bill?.cardId);
+    const normalizedBill = normalizeUnifiedCardBill(month, {
+      ...bill,
+      cardId: resolvedCardId || String(bill?.cardId || '').trim()
+    }, idx);
+    const key = String(normalizedBill?.cardId || '').trim();
+    if (!key) return;
+    const existing = byCardId.get(key);
+    if (!existing) {
+      byCardId.set(key, normalizedBill);
+      return;
+    }
+    byCardId.set(key, normalizeUnifiedCardBill(month, {
+      ...existing,
+      amount: Math.max(0, Number(existing.amount || 0), Number(normalizedBill.amount || 0)),
+      manualAmountSet: existing.manualAmountSet === true || normalizedBill.manualAmountSet === true,
+      paid: existing.paid === true || normalizedBill.paid === true,
+      description: String(existing.description || normalizedBill.description || '').trim()
+    }, idx));
+  });
+
+  (month?.outflowCards || []).forEach((card, idx) => {
+    const cardId = String(card?.id || '').trim();
+    if (!cardId || byCardId.has(cardId)) return;
+    byCardId.set(cardId, normalizeUnifiedCardBill(month, { cardId }, normalizedBills.length + idx));
+  });
+
+  return Array.from(byCardId.values());
 }
 
 function harmonizeUnifiedFixedBillingDates(month) {
@@ -1176,8 +1229,7 @@ function ensureUnifiedOutflowPilotMonth(month) {
   month.unifiedOutflowUi = month.unifiedOutflowUi && typeof month.unifiedOutflowUi === 'object' ? month.unifiedOutflowUi : {};
   if (month._unifiedOutflowMigratedVersion !== UNIFIED_OUTFLOW_GLOBAL_MIGRATION_VERSION) {
     migrateUnifiedOutflowMonth(month);
-    const existingBills = new Map((month.cardBills || []).map(bill => [bill.cardId, bill]));
-    month.cardBills = (month.outflowCards || []).map((card, idx) => normalizeUnifiedCardBill(month, existingBills.get(card.id) || { cardId: card.id }, idx));
+    month.cardBills = reconcileUnifiedCardBillsWithCards(month, month.cardBills || []);
     syncUnifiedOutflowLegacyData(month);
   } else {
     if (!Array.isArray(month.outflowCards)) month.outflowCards = [];
