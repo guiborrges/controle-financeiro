@@ -959,7 +959,7 @@
       <div class="unified-outflow-toggle-group">
         <label class="month-copy-toggle form-help-label" id="unifiedOutflowRecurringLabel" style="display:none" data-help="Repete esse gasto automaticamente nos próximos meses, com o mesmo valor e a mesma configuração.">
           <input id="unifiedOutflowRecurringToggle" type="checkbox" onchange="toggleUnifiedOutflowRecurring()">
-          <span>Gasto recorrente</span>
+          <span id="unifiedOutflowRecurringText">Gasto recorrente</span>
         </label>
         <label class="month-copy-toggle form-help-label" data-help="Cria várias parcelas futuras desse mesmo lançamento. Use quando o valor já está dividido em meses definidos.">
           <input id="unifiedOutflowInstallmentsToggle" type="checkbox" onchange="toggleUnifiedOutflowInstallments()">
@@ -967,7 +967,7 @@
         </label>
         <label class="month-copy-toggle form-help-label" id="unifiedOutflowSharedToggleLabel" style="display:none" data-help="Ative quando o valor pago será dividido com outras pessoas. Apenas a parte do proprietário entra nas despesas do mês.">
           <input id="unifiedOutflowSharedToggle" type="checkbox" onchange="toggleUnifiedOutflowShared()">
-          <span>Gasto compartilhado</span>
+          <span id="unifiedOutflowSharedText">Gasto compartilhado</span>
         </label>
       </div>
       <div class="form-row" id="unifiedOutflowInstallmentsWrap" style="display:none">
@@ -1635,6 +1635,7 @@
   <script src="/app-assets/modules/mes-atual/utils.js"></script>
   <script src="/app-assets/modules/mes-atual/selectors.js"></script>
   <script src="/app-assets/modules/mes-atual/income-dates.js"></script>
+  <script src="/app-assets/modules/mes-atual/outflow-expense-date.js"></script>
   <script src="/app-assets/modules/mes-atual/filters.js"></script>
   <script src="/app-assets/modules/mes-atual/renderers.js"></script>
   <script src="/app-assets/modules/mes-atual/actions.js"></script>

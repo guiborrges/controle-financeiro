@@ -2345,10 +2345,14 @@ function toggleUnifiedOutflowNewCategory() {
 function getUnifiedOutflowBillingDisplayValue(item) {
   const normalized = normalizeVarDate(item?.date || '');
   if (!normalized) return '';
+  if (isUnifiedExpenseType(item)) return normalized;
   return String(Number(normalized.split('/')[0] || ''));
 }
 
 function buildUnifiedFixedBillingDate(dayValue, month = getCurrentMonth()) {
+  if (window.MesAtualOutflowExpenseDate?.buildNextMonthDateFromDay) {
+    return window.MesAtualOutflowExpenseDate.buildNextMonthDateFromDay(dayValue, month);
+  }
   const digits = String(dayValue || '').replace(/\D/g, '').slice(0, 2);
   const day = Math.min(31, Math.max(1, Number(digits || 1)));
   const base = getMonthDateFromMonthObject(month);
@@ -2359,12 +2363,39 @@ function buildUnifiedFixedBillingDate(dayValue, month = getCurrentMonth()) {
   return `${String(safeDay).padStart(2, '0')}/${String(dueMonthIndex + 1).padStart(2, '0')}/${String(dueYear).slice(-2)}`;
 }
 
+function formatUnifiedExpenseDateInput(rawValue) {
+  if (window.MesAtualOutflowExpenseDate?.formatExpenseDateInput) {
+    return window.MesAtualOutflowExpenseDate.formatExpenseDateInput(rawValue);
+  }
+  const digits = String(rawValue || '').replace(/\D/g, '').slice(0, 6);
+  if (!digits) return '';
+  if (digits.length <= 2) return String(Math.min(31, Math.max(1, Number(digits) || 1)));
+  const day = String(Math.min(31, Math.max(1, Number(digits.slice(0, 2)) || 1))).padStart(2, '0');
+  if (digits.length <= 4) return `${day}/${digits.slice(2, 4)}`;
+  const month = String(Math.min(12, Math.max(1, Number(digits.slice(2, 4)) || 1))).padStart(2, '0');
+  return `${day}/${month}/${digits.slice(4, 6)}`;
+}
+
+function resolveUnifiedExpenseDateInput(rawValue, month) {
+  if (window.MesAtualOutflowExpenseDate?.resolveExpenseDate) {
+    return window.MesAtualOutflowExpenseDate.resolveExpenseDate(rawValue, month);
+  }
+  const raw = String(rawValue || '').trim();
+  if (!raw) return '';
+  if (/^\d{1,2}$/.test(raw)) return buildUnifiedFixedBillingDate(raw, month);
+  return normalizeVarDate(raw) || '';
+}
+
 function sanitizeUnifiedOutflowDateInput(input) {
   if (!input) return;
   const typeSelect = document.getElementById('unifiedOutflowType');
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
-  const isFixedDay = normalizeUnifiedOutflowType(typeSelect?.value || 'expense') === 'expense' || recurringToggle?.checked === true;
-  if (isFixedDay) {
+  const type = normalizeUnifiedOutflowType(typeSelect?.value || 'expense');
+  if (type === 'expense') {
+    input.value = formatUnifiedExpenseDateInput(input.value || '');
+    return;
+  }
+  if (recurringToggle?.checked === true) {
     const digits = String(input.value || '').replace(/\D/g, '').slice(0, 2);
     if (!digits) {
       input.value = '';
@@ -2381,9 +2412,27 @@ function shiftUnifiedOutflowDateDay(deltaDays = 0) {
   if (!input) return;
   const typeSelect = document.getElementById('unifiedOutflowType');
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
-  const isFixedDay = normalizeUnifiedOutflowType(typeSelect?.value || 'expense') === 'expense' || recurringToggle?.checked === true;
+  const type = normalizeUnifiedOutflowType(typeSelect?.value || 'expense');
+  const isExpenseType = type === 'expense';
+  const isFixedDay = recurringToggle?.checked === true && !isExpenseType;
   const delta = Number(deltaDays || 0);
   if (!delta) return;
+  if (isExpenseType) {
+    const raw = String(input.value || '').trim();
+    if (!raw || /^\d{1,2}$/.test(raw)) {
+      const currentDay = Math.min(31, Math.max(1, Number(raw.replace(/\D/g, '')) || 1));
+      const nextDay = Math.min(31, Math.max(1, currentDay + delta));
+      input.value = String(nextDay);
+      return;
+    }
+    const normalizedFull = normalizeVarDate(raw);
+    if (!normalizedFull) return;
+    const [day, monthPart, year] = normalizedFull.split('/').map(v => Number(v || 0));
+    const baseDate = new Date(2000 + year, Math.max(0, monthPart - 1), Math.max(1, day));
+    baseDate.setDate(baseDate.getDate() + delta);
+    input.value = `${String(baseDate.getDate()).padStart(2, '0')}/${String(baseDate.getMonth() + 1).padStart(2, '0')}/${String(baseDate.getFullYear()).slice(-2)}`;
+    return;
+  }
   if (isFixedDay) {
     const currentDay = Math.min(31, Math.max(1, Number(String(input.value || '').replace(/\D/g, '')) || 1));
     const nextDay = Math.min(31, Math.max(1, currentDay + delta));
@@ -2408,8 +2457,8 @@ function updateUnifiedOutflowDateFieldState() {
   const type = normalizeUnifiedOutflowType(typeSelect.value);
   const usesBillingDay = type === 'expense' || recurringToggle?.checked === true;
   if (usesBillingDay) {
-    dateLabel.textContent = 'Dia de cobrança';
-    dateInput.placeholder = 'Ex: 10';
+    dateLabel.textContent = type === 'expense' ? 'Data da cobrança' : 'Dia de cobrança';
+    dateInput.placeholder = type === 'expense' ? 'Ex: 10 ou 10/05/26' : 'Ex: 10';
     sanitizeUnifiedOutflowDateInput(dateInput);
   } else {
     dateLabel.textContent = 'Data da compra';
@@ -2452,9 +2501,13 @@ function handleUnifiedOutflowTypeChange() {
   const sharedToggleLabel = document.getElementById('unifiedOutflowSharedToggleLabel');
   const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
   const sharedWrap = document.getElementById('unifiedOutflowSharedWrap');
+  const recurringText = document.getElementById('unifiedOutflowRecurringText');
+  const sharedText = document.getElementById('unifiedOutflowSharedText');
   const isCardOutput = outputValue.startsWith('card:');
   if (typeSelect && isCardOutput && type === 'expense') typeSelect.value = 'spend';
   const effectiveType = typeSelect?.value || type;
+  if (recurringText) recurringText.textContent = effectiveType === 'expense' ? 'Despesa recorrente' : 'Gasto recorrente';
+  if (sharedText) sharedText.textContent = effectiveType === 'expense' ? 'Despesa compartilhada' : 'Gasto compartilhado';
   if (recurringLabel) recurringLabel.style.display = '';
   if (recurringToggle && recurringToggle.checked && installmentsToggle) installmentsToggle.checked = false;
   if (installmentsToggle && installmentsToggle.checked && recurringToggle) recurringToggle.checked = false;
@@ -3471,12 +3524,17 @@ function cloneUnifiedOutflowForMonth(item, targetDate, sourceMonth = null) {
     const nextDay = Math.min(closingDay, maxDay);
     clone.date = `${String(nextDay).padStart(2, '0')}/${String(targetDate.getMonth() + 1).padStart(2, '0')}/${String(targetDate.getFullYear()).slice(-2)}`;
   } else if (isUnifiedExpenseType(clone) && clone.outputKind !== 'card') {
-    const normalized = normalizeVarDate(clone.date || '');
-    if (normalized) {
-      const [day] = normalized.split('/');
-      const monthName = Object.keys(MONTH_INDEX).find(name => MONTH_INDEX[name] === targetDate.getMonth()) || 'JANEIRO';
-      const monthRef = { nome: `${monthName} ${targetDate.getFullYear()}` };
-      clone.date = buildUnifiedFixedBillingDate(String(Number(day || 1)), monthRef);
+    if (window.MesAtualOutflowExpenseDate?.getExpenseDateForTargetMonth) {
+      const resolved = window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(clone.date || '', sourceMonth || getCurrentMonth(), targetDate);
+      if (resolved) clone.date = resolved;
+    } else {
+      const normalized = normalizeVarDate(clone.date || '');
+      if (normalized) {
+        const [day] = normalized.split('/');
+        const monthName = Object.keys(MONTH_INDEX).find(name => MONTH_INDEX[name] === targetDate.getMonth()) || 'JANEIRO';
+        const monthRef = { nome: `${monthName} ${targetDate.getFullYear()}` };
+        clone.date = buildUnifiedFixedBillingDate(String(Number(day || 1)), monthRef);
+      }
     }
   } else if (clone.date) {
     const normalized = normalizeVarDate(clone.date);
@@ -3560,17 +3618,27 @@ function saveUnifiedOutflow() {
   const recurringSpend = type === 'spend' && recurringToggleChecked;
   const expenseRecurring = type === 'expense' && recurringToggleChecked;
   const rawDateValue = document.getElementById('unifiedOutflowDate').value || '';
-  const usesBillingDay = type === 'expense' || recurringSpend || expenseRecurring;
-  if (usesBillingDay) {
+  const usesBillingDay = recurringSpend || expenseRecurring;
+  let resolvedExpenseDate = '';
+  if (type === 'expense') {
+    const date = resolveUnifiedExpenseDateInput(rawDateValue, month);
+    if (!date) {
+      alert('Informe a data da cobrança como dia (1 a 31) ou data completa (dd/mm/aa).');
+      return;
+    }
+    resolvedExpenseDate = date;
+  } else if (usesBillingDay) {
     const day = Number(String(rawDateValue).replace(/\D/g, ''));
     if (!day || day < 1 || day > 31) {
       alert('Preencha o dia de cobrança com um valor entre 1 e 31.');
       return;
     }
   }
-  const date = usesBillingDay
+  const date = type === 'expense'
+    ? resolvedExpenseDate
+    : (usesBillingDay
     ? buildUnifiedFixedBillingDate(rawDateValue, month)
-    : normalizeUnifiedOutflowSpendDateInput(rawDateValue, month);
+    : normalizeUnifiedOutflowSpendDateInput(rawDateValue, month));
   const status = type === 'expense' ? 'planned' : 'done';
   const isInstallment = document.getElementById('unifiedOutflowInstallmentsToggle').checked;
   const installmentsTotal = isInstallment ? Math.max(2, Number(document.getElementById('unifiedOutflowInstallmentsCount').value || 2)) : 1;
@@ -4680,19 +4748,28 @@ function commitInlineEdit(rawValue) {
       next.amount = amount;
     } else if (field === 'date') {
       const raw = String(rawValue || '').trim();
-      if (isUnifiedExpenseType(next) || next.recurringSpend === true) {
+      if (isUnifiedExpenseType(next)) {
         if (!raw) {
           next.date = '';
         } else {
-          const day = Number(String(raw).replace(/\D/g, '').slice(0, 2));
-          if (!day || day < 1 || day > 31) {
+          const expenseDate = resolveUnifiedExpenseDateInput(raw, m);
+          if (!expenseDate) {
             undoStack.pop();
-            alert('Use um dia entre 1 e 31 para a data de cobrança.');
+            alert('Use dia (1 a 31) ou data completa (dd/mm/aa) para a data de cobrança.');
             cancelInlineEdit();
             return;
           }
-          next.date = buildUnifiedFixedBillingDate(String(day), m);
+          next.date = expenseDate;
         }
+      } else if (next.recurringSpend === true) {
+        const day = Number(String(raw).replace(/\D/g, '').slice(0, 2));
+        if (!day || day < 1 || day > 31) {
+          undoStack.pop();
+          alert('Use um dia entre 1 e 31 para a data de cobrança.');
+          cancelInlineEdit();
+          return;
+        }
+        next.date = buildUnifiedFixedBillingDate(String(day), m);
       } else {
         const date = normalizeVarDate(raw);
         if (!date) {
