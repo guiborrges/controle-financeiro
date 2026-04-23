@@ -88,3 +88,12 @@ Este documento resume a estrutura atual do projeto após a reorganização técn
 - Toda nova regra de cálculo deve ser centralizada e reaproveitável.
 - Toda mudança crítica deve manter backup restaurável antes de migração.
 - Evitar renders globais quando apenas um submódulo for alterado.
+
+## Workspace Canonico (Atualizacao 2026-04-23)
+
+- Pasta oficial de edicao e deploy: `C:\Users\guisi\OneDrive\Controle Financeiro\DIretorio Online`
+- Fonte ativa:
+  - backend: `server/`
+  - frontend: `public/`
+- Arquivos da raiz (app.js, core.js, mes-atual.js, index.html, styles.css e similares) estao neutralizados e nao sao fonte ativa.
+- Pastas `render-deploy/` e `render-upload/` sao snapshots auxiliares e nao devem ser usadas como base principal de alteracoes.

@@ -2,6 +2,15 @@
 
 Este projeto roda com backend em Node.js + Express, suporta múltiplos usuários com sessão individual e mantém os dados financeiros separados por conta.
 
+## Workspace canônico (importante)
+
+- Pasta canônica para edição e deploy: `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online`
+- Fonte ativa do app:
+  - backend em `server/`
+  - frontend em `public/`
+- Os arquivos JS/HTML/CSS da raiz foram neutralizados para compatibilidade e **não** são a fonte ativa.
+- As pastas `render-deploy/` e `render-upload/` são cópias de apoio para empacotamento/deploy e não devem ser usadas como base principal de desenvolvimento.
+
 ## Estrutura principal
 
 - `server.js`: composição do servidor e registro de rotas
@@ -41,6 +50,13 @@ npm start
 ```text
 http://localhost:3000
 ```
+
+## Guard de diretório antigo
+
+- Verificação manual:
+  - `npm run check:legacy-paths`
+- O repositório também possui hook local de `pre-commit` para bloquear novos commits com referência ao diretório antigo.
+- No ambiente atual, o `core.hooksPath` já foi configurado para `.githooks`.
 
 ## Deploy no Render
 

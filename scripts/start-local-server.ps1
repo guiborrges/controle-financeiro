@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
-$projectRoot = 'C:\Users\guisi\OneDrive\Controle Financeiro\Controle Financeiro'
+$projectRoot = Split-Path -Parent $PSScriptRoot
 $nodePath = 'C:\Program Files\nodejs\node.exe'
 $serverScript = Join-Path $projectRoot 'server.js'
 $stdoutPath = Join-Path $projectRoot 'server.out.log'

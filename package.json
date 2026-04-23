@@ -12,6 +12,7 @@
     "dev": "node server.js",
     "test": "node --test tests/*.test.js",
     "audit:system": "node scripts/system-audit.js",
+    "check:legacy-paths": "node scripts/check-legacy-paths.js",
     "test:load": "node scripts/load-test.js",
     "test:e2e:import-bill": "node scripts/e2e-import-bill.js",
     "set-password": "node scripts/set-password.js",

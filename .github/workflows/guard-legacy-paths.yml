@@ -1,0 +1,21 @@
+name: Guard Legacy Paths
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  check-legacy-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate repository paths
+        run: npm run check:legacy-paths
