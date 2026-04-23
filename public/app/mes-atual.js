@@ -1229,9 +1229,9 @@ function ensureUnifiedOutflowPilotMonth(month) {
     month.cardBills = reconcileUnifiedCardBillsWithCards(month, month.cardBills || []);
     syncUnifiedOutflowLegacyData(month);
   } else {
-    if (!Array.isArray(month.outflowCards)) month.outflowCards = [];
-    if (!Array.isArray(month.outflows)) month.outflows = [];
-    if (!Array.isArray(month.cardBills)) month.cardBills = [];
+    month.outflowCards = (Array.isArray(month.outflowCards) ? month.outflowCards : []).map(normalizeUnifiedCard);
+    month.outflows = (Array.isArray(month.outflows) ? month.outflows : []).map((item, idx) => normalizeUnifiedOutflowItem(item, idx));
+    month.cardBills = reconcileUnifiedCardBillsWithCards(month, month.cardBills || []);
   }
   (month.outflows || []).forEach(item => {
     const isDirectMethod = item?.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(item?.outputMethod);

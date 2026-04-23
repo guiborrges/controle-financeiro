@@ -12,7 +12,9 @@ function loadMesAtualContext() {
     data: [],
     currentSession: null,
     getMonthSortValue: () => 1,
-    getCurrentRealMonthId: () => 'abril_2026'
+    getCurrentRealMonthId: () => 'abril_2026',
+    recalcTotals: () => {},
+    UNIFIED_OUTFLOW_GLOBAL_MIGRATION_VERSION: 5
   };
   vm.createContext(context);
   vm.runInContext(code, context, { filename: filePath });
@@ -80,4 +82,34 @@ test('historical backup bill is not zeroed by automatic forecast sync after norm
   const changed = ctx.syncUnifiedCardBillForecastAmounts(month);
   assert.equal(changed, false);
   assert.equal(month.cardBills[0].amount, 3173.82);
+});
+
+test('current-version imported backup month normalizes bills before forecast sync', () => {
+  const ctx = loadMesAtualContext();
+  const month = {
+    id: 'fevereiro_2026',
+    renda: [],
+    despesas: [],
+    gastosVar: [],
+    outflowCards: [
+      { id: 'card_xp', name: 'XP', closingDay: 1, paymentDay: 10 },
+      { id: 'card_nubank', name: 'Nubank', closingDay: 1, paymentDay: 10 },
+      { id: 'card_inter', name: 'Inter', closingDay: 1, paymentDay: 10 }
+    ],
+    outflows: [],
+    cardBills: [
+      { cardId: 'card_xp', amount: 3106.65, manualAmountSet: false, paid: true },
+      { cardId: 'card_nubank', amount: 18.9, manualAmountSet: false, paid: true },
+      { cardId: 'card_inter', amount: 197, manualAmountSet: false, paid: true }
+    ],
+    _unifiedOutflowMigratedVersion: 5
+  };
+  ctx.ensureUnifiedOutflowPilotMonth(month);
+  const byCardId = new Map(month.cardBills.map(bill => [bill.cardId, bill]));
+  assert.equal(byCardId.get('card_xp')?.amount, 3106.65);
+  assert.equal(byCardId.get('card_nubank')?.amount, 18.9);
+  assert.equal(byCardId.get('card_inter')?.amount, 197);
+  assert.equal(byCardId.get('card_xp')?.manualAmountSet, true);
+  assert.equal(byCardId.get('card_nubank')?.manualAmountSet, true);
+  assert.equal(byCardId.get('card_inter')?.manualAmountSet, true);
 });
