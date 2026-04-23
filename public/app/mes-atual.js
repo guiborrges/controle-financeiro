@@ -637,6 +637,43 @@ function normalizeUnifiedCardBill(month, bill, idx = 0) {
   };
 }
 
+function shouldSyncCardBillForecastForMonth(month) {
+  if (!month) return false;
+  const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(true) });
+  const monthSort = getMonthSortValue(month || {});
+  return monthSort >= currentRealSort;
+}
+
+function restorePastCardBillsFromLegacyMonth(month) {
+  if (!month || !Array.isArray(month.cardBills) || !Array.isArray(month.outflowCards)) return false;
+  if (shouldSyncCardBillForecastForMonth(month)) return false;
+  const legacyDespesas = Array.isArray(month.despesas) ? month.despesas : [];
+  if (!legacyDespesas.length) return false;
+  let changed = false;
+  month.cardBills.forEach(bill => {
+    if (!bill || bill.manualAmountSet === true) return;
+    const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
+    if (!card) return;
+    const cardNameNormalized = String(card.name || '').trim().toLowerCase();
+    if (!cardNameNormalized) return;
+    const legacyRows = legacyDespesas.filter(item => {
+      const rawName = String(item?.nome || item?.titulo || item?.description || '').trim().toLowerCase();
+      if (!rawName || rawName !== cardNameNormalized) return false;
+      const category = resolveCategoryName(item?.categoria || item?.category || '');
+      const method = String(item?.paymentMethod || '').trim().toLowerCase();
+      return String(category || '').includes('CARTÃO') || method === 'credito' || method === 'cartao';
+    });
+    if (!legacyRows.length) return;
+    const legacyAmount = Number(legacyRows.reduce((sum, item) => sum + Number(item?.valor || 0), 0).toFixed(2));
+    if (!(legacyAmount > 0)) return;
+    const currentAmount = Number(Number(bill.amount || 0).toFixed(2));
+    if (legacyAmount === currentAmount) return;
+    bill.amount = legacyAmount;
+    changed = true;
+  });
+  return changed;
+}
+
 function harmonizeUnifiedFixedBillingDates(month) {
   if (!month || !Array.isArray(month.outflows)) return false;
   let changed = false;
@@ -1173,6 +1210,9 @@ function ensureUnifiedOutflowPilotMonth(month) {
       defaultsChanged = true;
     }
   });
+  if (restorePastCardBillsFromLegacyMonth(month)) {
+    defaultsChanged = true;
+  }
   if (syncUnifiedCardBillForecastAmounts(month)) {
     defaultsChanged = true;
   }
@@ -1200,6 +1240,7 @@ function getUnifiedCardRecurringForecastAmount(month, cardId) {
 
 function syncUnifiedCardBillForecastAmounts(month) {
   if (!month || !Array.isArray(month.cardBills)) return false;
+  if (!shouldSyncCardBillForecastForMonth(month)) return false;
   let changed = false;
   month.cardBills.forEach(bill => {
     if (!bill || bill.manualAmountSet === true) return;
