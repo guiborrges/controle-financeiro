@@ -21,6 +21,15 @@
     }, 0);
   }
 
+  function getUnifiedCardBillEffectiveAmount(month, bill) {
+    const rawAmount = Math.max(0, Number(bill?.amount || 0) || 0);
+    if (!bill) return rawAmount;
+    if (bill?.manualAmountSet === true) return rawAmount;
+    if (rawAmount > 0) return rawAmount;
+    const forecast = getUnifiedCardRecurringForecastAmount(month, bill?.cardId);
+    return Math.max(0, Number(forecast || 0) || 0);
+  }
+
   function getUnifiedCardLaunchesAmount(month, cardId) {
     ensureMonth(month);
     return (month?.outflows || []).reduce((acc, item) => {
@@ -32,6 +41,7 @@
   global.MesAtualCards = {
     getUnifiedCardBill,
     getUnifiedCardRecurringForecastAmount,
+    getUnifiedCardBillEffectiveAmount,
     getUnifiedCardLaunchesAmount
   };
 })(window);
