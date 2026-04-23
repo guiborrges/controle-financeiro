@@ -9,13 +9,13 @@ function renderUnifiedOutflowTagFilterOptions(month, selectedValue) {
 function renderUnifiedOutflowFilterOptions(month, selectedValue) {
   const options = getUnifiedOutflowFilterOptions(month);
   const standalone = options
-    .filter(option => option.value === 'fixed')
+    .filter(option => option.value === 'expense')
     .map(option => `<option value="${option.value}" ${option.value === selectedValue ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
     .join('');
 
   const groups = new Map();
   options
-    .filter(option => option.value !== 'fixed')
+    .filter(option => option.value !== 'expense')
     .forEach(option => {
       const group = option.group || 'Outros';
       if (!groups.has(group)) groups.set(group, []);

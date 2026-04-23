@@ -2,7 +2,8 @@ function setUnifiedOutflowFilter(value) {
   const month = getCurrentMonth();
   if (!month) return;
   ensureUnifiedOutflowPilotMonth(month);
-  month.unifiedOutflowUi.filter = String(value || 'all');
+  const nextValue = String(value || 'expense');
+  month.unifiedOutflowUi.filter = nextValue === 'fixed' ? 'expense' : nextValue;
   saveUIState();
   preserveCurrentScroll(() => renderMes());
 }
@@ -84,14 +85,6 @@ function getMonthSectionConfig() {
 }
 
 function ensureMonthSectionDragHandles() {
-  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) {
-    getMonthSectionConfig().forEach(({ id }) => {
-      const section = document.getElementById(id);
-      const handle = section?.querySelector('.month-section-drag-handle');
-      if (handle) handle.remove();
-    });
-    return;
-  }
   getMonthSectionConfig().forEach(({ id, key }) => {
     const section = document.getElementById(id);
     const head = section?.querySelector('.section-head');
@@ -116,7 +109,6 @@ function ensureMonthSectionDragHandles() {
 }
 
 function onMonthSectionDragStart(event, key) {
-  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   dragMonthSectionKey = key;
   const section = event.currentTarget?.closest('.section');
   if (section) section.classList.add('dragging-section');
@@ -134,7 +126,6 @@ function onMonthSectionDragEnd() {
 }
 
 function onMonthSectionDragOver(event) {
-  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   event.preventDefault();
   const section = event.currentTarget;
   const targetKey = section?.dataset?.sectionKey;
@@ -149,7 +140,6 @@ function onMonthSectionDragLeave(event) {
 }
 
 function onMonthSectionDrop(event) {
-  if (typeof isMobileUiMode === 'function' && isMobileUiMode()) return;
   event.preventDefault();
   const targetKey = event.currentTarget?.dataset?.sectionKey;
   const fromKey = dragMonthSectionKey || (event.dataTransfer ? event.dataTransfer.getData('text/plain') : '');

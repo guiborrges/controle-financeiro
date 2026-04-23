@@ -11,7 +11,7 @@ function getUnifiedOutflowSearchValue(month) {
 
 function getUnifiedOutflowFilterOptions(month) {
   const options = [
-    { value: 'fixed', label: 'Resumo', group: 'Compromissos' },
+    { value: 'expense', label: 'Resumo', group: 'Compromissos' },
     { value: 'all', label: 'Todos', group: 'Visão geral' },
     { value: 'spend', label: 'Gastos', group: 'Consumo' },
     { value: 'method:boleto', label: 'Boleto', group: 'Meios de saída' },

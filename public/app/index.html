@@ -1,16 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Controle Financeiro</title>
-    
-    <script>window.notificationsPopoverOpen = false;</script>
-
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-    
-    <link rel="stylesheet" href="/app-assets/styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle Financeiro</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link rel="stylesheet" href="/app-assets/styles.css">
 </head>
 <body>
 <div id="appStatus" class="app-status" role="status" aria-live="polite">
@@ -56,7 +52,7 @@
   <div class="sidebar-tools">
     <div class="sidebar-section">Ferramentas</div>
     <button class="btn sidebar-tool-btn" type="button" onclick="createManualBackup()">Criar backup</button>
-    <details class="sidebar-tools-panel desktop-only-mobile-hidden">
+    <details class="sidebar-tools-panel">
       <summary class="btn sidebar-tool-btn sidebar-tool-btn-secondary">
         <span class="sidebar-tools-summary-closed">Mais opções</span>
         <span class="sidebar-tools-summary-open">Menos opções</span>
@@ -162,12 +158,12 @@
         <input id="unifiedOutflowSearch" class="btn unified-outflow-search-input" style="display:none" placeholder="Procurar" oninput="setUnifiedOutflowSearch(this.value)">
         <select id="unifiedOutflowTagFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
         <select id="unifiedOutflowFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowFilter(this.value)"></select>
-        <button class="btn btn-ghost desktop-only-mobile-hidden" onclick="openBillImportModal()">Adicionar por fatura</button>
+        <button class="btn btn-ghost" onclick="openBillImportModal()">Adicionar por fatura</button>
         <button class="btn btn-primary" onclick="openUnifiedOutflowModal()">+ Adicionar gasto ou despesa</button>
         <button class="btn btn-primary" onclick="openUnifiedCardModal()">+ Adicionar cartão</button>
       </div>
     </div>
-    <div class="section-body unified-month-scroll-body" style="padding:16px 18px 12px">
+    <div class="section-body" style="padding:16px 18px 12px">
       <div id="unifiedMonthContent"></div>
     </div>
   </div>
@@ -909,9 +905,9 @@
           <div id="unifiedOutflowDescriptionSuggestions" class="unified-desc-suggestions" onmousedown="cancelHideUnifiedOutflowDescriptionSuggestions()"></div>
         </div>
         <div class="field">
-          <label class="form-help-label" data-help="Use despesa fixa para compromissos do mês. Use gasto para consumo e saídas do dia a dia.">Tipo</label>
+                    <label class="form-help-label" data-help="Use despesa para compromissos do mês. Use gasto para consumo e saídas do dia a dia.">Tipo</label>
           <select id="unifiedOutflowType" onchange="handleUnifiedOutflowTypeChange()">
-            <option value="fixed">Despesa fixa</option>
+                      <option value="expense">Despesa</option>
             <option value="spend">Gasto</option>
           </select>
         </div>
@@ -1623,7 +1619,6 @@
 <div id="formHelpTooltip" class="form-help-popover" aria-hidden="true"></div>
 <button id="unifiedOutflowFloatingButton" class="unified-outflow-floating-btn" type="button" onclick="restoreUnifiedOutflowModal()" title="Reabrir lançamento">+</button>
 
-  
   <script src="/shared-assets/crypto-client.js"></script>
   <script src="/app-assets/storage.js"></script>
   <script src="/app-assets/preferences.js"></script>
@@ -1634,7 +1629,6 @@
   <script src="/app-assets/state.js"></script>
   <script src="/app-assets/modules/ui-icons.js"></script>
   <script src="/app-assets/modules/category-editor.js"></script>
-  <script src="/app-assets/modules/mes-atual/notifications.js"></script>
   <script src="/app-assets/modules/mes-atual/constants.js"></script>
   <script src="/app-assets/modules/mes-atual/utils.js"></script>
   <script src="/app-assets/modules/mes-atual/selectors.js"></script>
@@ -1643,14 +1637,10 @@
   <script src="/app-assets/modules/mes-atual/renderers.js"></script>
   <script src="/app-assets/modules/mes-atual/actions.js"></script>
   <script src="/app-assets/modules/mes-atual/cards.js"></script>
-  <script src="/app-assets/modules/mes-atual/card-bill.js"></script>
   <script src="/app-assets/modules/mes-atual/totals.js"></script>
-  <script src="/app-assets/modules/mes-atual/month-totals.js"></script>
-  <script src="/app-assets/modules/mes-atual/outflow-filters.js"></script>
-  <script src="/app-assets/modules/mes-atual/shared-expense.js"></script>
   <script src="/app-assets/modules/mes-atual/recurrence.js"></script>
+  <script src="/app-assets/modules/mes-atual/notifications.js"></script>
   <script src="/app-assets/modules/mes-atual/modals.js"></script>
-  <script src="/app-assets/modules/mes-atual/outflows.js"></script>
   <script src="/app-assets/modules/mes-atual/metric-title-editor.js"></script>
   <script src="/app-assets/modules/shared/dashboard-rules.js"></script>
   <script src="/app-assets/modules/shared/financial-guards.js"></script>

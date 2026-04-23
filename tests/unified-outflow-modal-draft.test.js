@@ -34,7 +34,7 @@ function loadModalsModule(contextOverrides = {}) {
   return baseContext.window.MesAtualModals;
 }
 
-test('buildUnifiedOutflowDraftFromForm defaults type to spend when select is missing/invalid', () => {
+test('buildUnifiedOutflowDraftFromForm defaults type to expense when select is missing/invalid', () => {
   const document = createDocumentStub({
     unifiedOutflowType: { value: '', checked: false },
     unifiedOutflowDescription: { value: 'teste' },
@@ -56,10 +56,10 @@ test('buildUnifiedOutflowDraftFromForm defaults type to spend when select is mis
   const draft = modals.buildUnifiedOutflowDraftFromForm({ id: '2026-04' }, {
     readSharedParticipantsFromDOM: () => []
   });
-  assert.equal(draft.type, 'spend');
+  assert.equal(draft.type, 'expense');
 });
 
-test('applyUnifiedOutflowDraftToForm preserves fixed selection when draft type is fixed', () => {
+test('applyUnifiedOutflowDraftToForm maps legacy fixed type to expense selection', () => {
   const document = createDocumentStub({
     unifiedOutflowType: { value: 'spend' },
     unifiedOutflowDescription: { value: '' },
@@ -91,6 +91,5 @@ test('applyUnifiedOutflowDraftToForm preserves fixed selection when draft type i
     handleTypeChange: () => {},
     renderDescriptionSuggestions: () => {}
   });
-  assert.equal(document.getElementById('unifiedOutflowType').value, 'fixed');
+  assert.equal(document.getElementById('unifiedOutflowType').value, 'expense');
 });
-

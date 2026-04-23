@@ -37,7 +37,8 @@
     const items = [];
     (global.data || []).forEach(month => {
       (month?.outflows || []).forEach(item => {
-        const isRelevant = (item?.type === 'fixed' || item?.recurringSpend === true) && item?.outputKind !== 'card';
+        const normalizedType = String(item?.type || '').toLowerCase();
+        const isRelevant = ((normalizedType === 'expense' || normalizedType === 'fixed') || item?.recurringSpend === true) && item?.outputKind !== 'card';
         if (!isRelevant) return;
         if (item?.paid === true) return;
         const dueKey = toDayKeyFromDateLabel(item?.date || '');

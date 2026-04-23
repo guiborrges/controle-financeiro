@@ -28,8 +28,8 @@ global.getRecurringIncomeReceiveDay = (value) => {
 
 const CalendarUtils = require('../public/app/modules/calendar-utils.js');
 
-test('fixed outflow with explicit month/year only appears in its real due month', () => {
-  const item = { type: 'fixed', outputKind: 'method', date: '10/05/26' };
+test('expense outflow with explicit month/year only appears in its real due month', () => {
+  const item = { type: 'expense', outputKind: 'method', date: '10/05/26' };
   const april = { id: '2026-04', nome: 'ABRIL 2026' };
   const may = { id: '2026-05', nome: 'MAIO 2026' };
   assert.equal(CalendarUtils.getMonthDayFromOutflow(item, april), 0);

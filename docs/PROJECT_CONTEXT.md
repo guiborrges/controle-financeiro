@@ -1,16 +1,16 @@
-﻿# PROJECT_CONTEXT
+# PROJECT_CONTEXT
 
 ## 1. SYSTEM_OVERVIEW
 - Product: multi-user financial control web app with authenticated session, encrypted state, and user-scoped backups.
 - Core scope:
   - Authentication, profile, and per-user encrypted persistence.
-  - Month operation (`MÃªs Atual`) with unified outflow model.
+  - Month operation (`Mês Atual`) with unified outflow model.
   - Dashboard analytics.
   - Patrimony (accounts, movements, transfers, variation).
   - Historical month comparison.
   - Developer admin area for technical audit/backup restore.
 - Financial philosophy:
-  - Competence month (`mÃªs do lanÃ§amento`) is separated from cash flow (`quando o dinheiro saiu`).
+  - Competence month (`mês do lançamento`) is separated from cash flow (`quando o dinheiro saiu`).
   - Credit-card launches and card bill are separate entities.
   - Past months are immutable by default for recurrence propagation.
 - Main entities:
@@ -39,11 +39,6 @@
   - `public/app/modules/mes-atual/notifications.js` (notification bell/popover logic extracted from `mes-atual.js`)
   - `public/app/modules/mes-atual/modals.js` (draft persistence + modal form hydration helpers extracted from `mes-atual.js`)
   - `public/app/modules/mes-atual/income-dates.js` (rules for recurring income receive-day, label rendering and sorting by month context)
-  - `public/app/modules/mes-atual/shared-expense.js` (shared-expense split helpers)
-  - `public/app/modules/mes-atual/card-bill.js` (card bill forecast/effective amount helpers)
-  - `public/app/modules/mes-atual/month-totals.js` (month totals pure helpers)
-  - `public/app/modules/mes-atual/outflow-filters.js` (outflow filtering/list delegates)
-  - `public/app/modules/mes-atual/outflows.js` (outflow draft + recent-list ordering helpers)
   - `public/app/modules/shared/dashboard-rules.js` (isolated temporal eligibility rules for dashboard month scope, shared by UI + tests).
   - `public/app/modules/shared/financial-guards.js` (anti-duplication guards and inclusion-safe selection helpers for critical sums).
 - Persistence:
@@ -51,7 +46,7 @@
   - Optional backend: SQLite (`data/app-state.sqlite`) when `FIN_STATE_BACKEND=sqlite`.
   - User backups: `data/user-backups/...`.
 - Critical coupling points:
-  - `mes-atual.js` remains the main orchestrator, but critical financial slices are now progressively delegated to `public/app/modules/mes-atual/*`.
+  - `mes-atual.js` still centralizes most month financial rules.
   - `data.js`, `state.js`, `storage.js` define normalization defaults and compatibility.
   - Card, recurrence, and month totals are tightly integrated.
 - Sensitive files:
@@ -64,7 +59,7 @@
 - User model fields include:
   - `id`, `username`, `email`, `passwordHash`, `encryptionSalt`, permissions, backup/login metadata.
 - Session user payload includes:
-  - `id`, `username`, `displayName`, `fullName`, `permissions`, `legacyRecurrenceBackfillRestricted`.
+  - `id`, `username`, `displayName`, `fullName`, `permissions`.
 - State isolation model:
   - Every read/write is scoped by session user id.
   - Encrypted payload includes ownership validation.
@@ -76,9 +71,6 @@
 - Default initial behavior:
   - Unified outflow model enabled.
   - Default categories with emoji are preloaded.
-  - `legacyRecurrenceBackfillRestricted` is data-driven:
-    - default `false` for new users
-    - legacy migration keeps `true` for user profile that requires restricted recurrence backfill.
 
 ### REGRAS CRITICAS
 - Never share user data across users.
@@ -128,17 +120,6 @@
       - `DEFAULT_FIN_STATE_SCHEMA_VERSION = '3'`
   - startup archive of orphaned legacy artifacts.
 
-### 5.1 SQLITE SINGLE-INSTANCE CONTRACT
-- SQLite (WAL) supports many readers, but this app requires one writer process in production.
-- Running more than one Node worker against the same `.sqlite` file is unsafe in this architecture.
-- `stateRevision` conflict guard protects tab/user concurrency but does not replace process discipline.
-- Operational rule with SQLite backend:
-  - `pm2 start server.js -i 1`
-- Do not run PM2 cluster (`-i max`) when `FIN_STATE_BACKEND=sqlite`.
-- Horizontal scale path:
-  - migrate state backend via `server/state-store-factory.js` to PostgreSQL (or equivalent).
-- JSON mirror write is compatibility-only and should be removed when SQLite is definitive backend.
-
 ## 6. BACKUP_SYSTEM
 - Modes:
   - Manual backup (user-triggered).
@@ -153,29 +134,12 @@
 - Restore:
   - only same-user backup is restorable.
   - pre-restore safeguards are enforced.
-  - restore is full replacement of active user state (no merge with current state).
   - backup id validation hardened (`^[a-zA-Z0-9_-]{6,120}$`) before path resolution.
   - restore/revalidate path is constrained to the authenticated target user backup directory.
-  - post-restore integrity check validates restored file and checksum match.
 - Validation:
   - backup file schema + ownership + checksum validation.
-  - strict metadata validation on backup payload:
-    - `userId`, `updatedAt`, `monthCount`, `schemaVersion`, `encrypted`, `state`.
   - backup id format validation before file-path resolution.
   - restore/revalidate path is constrained to user backup root.
-
-### Client backup import contract
-- Canonical export/import format:
-  - `format: fin_backup_v2`
-  - `userId`
-  - `appState` (normalized storage payload)
-- Legacy imports are still accepted and normalized before apply.
-- Import ownership guard:
-  - when backup carries `userId`, import is blocked if it differs from authenticated session user.
-- Import undo contract:
-  - after successful import, one transient pre-import snapshot is registered.
-  - `Ctrl+Z` restores this snapshot once.
-  - this special undo is invalidated on first new `recordHistoryState()` after import.
 
 ### Deleted-user archives retention
 - `data/deleted-users` purge is disabled by default.
@@ -188,14 +152,21 @@
 ## 7. CORE_FINANCIAL_MODEL
 - Canonical separation:
   - launch (`gasto/compromisso`) != payment settlement.
+- Unified outflow type model:
+  - active types: `spend` (`gasto`) and `expense` (`despesa`).
+  - legacy `fixed` is accepted only for compatibility/migration and normalized to `expense`.
+  - `expense` supports:
+    - `expenseRecurring=true` (recorrente mensal),
+    - `installmentsTotal > 1` (parcelada),
+    - `sharedExpense=true` (compartilhada).
 - Top month metrics (unified mode):
   - `Renda total`.
-  - `Despesas planejadas para o mÃªs`.
-  - `Despesas do mÃªs`.
-  - `Resultado` (`Renda total - Despesas do mÃªs`).
-- `JÃ¡ saiu`:
+  - `Despesas planejadas para o mês`.
+  - `Despesas do mês`.
+  - `Resultado` (`Renda total - Despesas do mês`).
+- `Já saiu`:
   - no longer a top card.
-  - rendered in `Resumo` footer context inside `Compromissos do mÃªs`.
+  - rendered in `Resumo` footer context inside `Compromissos do mês`.
 - Inclusion controls:
   - checkboxes decide if item participates in primary totals.
   - defaults are marked as included.
@@ -228,7 +199,7 @@
 
 ## 9. MONTH_VIEW (SAIDAS/COMPROMISSOS DO MES)
 - Main unified section name:
-  - `Compromissos do mÃªs`.
+  - `Compromissos do mês`.
 - Top controls:
   - contextual search input (`Procurar`) when primary filter = `Todos`.
   - tag filter.
@@ -237,7 +208,7 @@
   - add outflow button.
   - add card button.
 - Filter behavior:
-  - on page reload, `Compromissos do mÃªs` always boots with `Resumo` (`filter=fixed`) as default entry state.
+  - on page reload, `Compromissos do mês` always boots with `Resumo` (`filter=expense`) as default entry state.
   - `Resumo`: consolidated commitments and real outflows.
   - `Gastos`: grouped by category with expand/collapse and goal progress where applicable.
   - `Todos`: chronological list.
@@ -259,13 +230,13 @@
   - unified outflow draft lifecycle is handled by `MesAtualModals` helper module:
     - keying by `(userId, monthId)`;
     - safe read/write/clear in localStorage;
-    - deterministic formâ†’draft and draftâ†’form mapping.
+    - deterministic form→draft and draft→form mapping.
   - in manual split mode, the last participant amount is auto-computed as remaining value.
   - owner share is the only amount counted in primary monthly expenses.
 
 ## 10. RECURRENCE_ENGINE
 - Supported recurrence types:
-  - fixed outflows.
+  - recurring expenses (`type=expense` + `expenseRecurring=true`).
   - recurring spends.
   - fixed incomes (`renda` with `recurringFixed=true`).
   - installments.
@@ -301,7 +272,7 @@
 
 ## 11. CATEGORY_SYSTEM
 - Official default categories:
-  - Moradia, ServiÃ§os, AlimentaÃ§Ã£o, Transporte, Compras, SaÃºde, Lazer, EducaÃ§Ã£o, Financeiro, Assinaturas, Trabalho, Outros.
+  - Moradia, Serviços, Alimentação, Transporte, Compras, Saúde, Lazer, Educação, Financeiro, Assinaturas, Trabalho, Outros.
 - Category constraints:
   - category is not type.
   - category is not output/payment method.
@@ -338,7 +309,7 @@
 - Period eligibility:
   - future months must not be considered before real day 1 of that month.
   - month eligibility logic is isolated in `public/app/modules/shared/dashboard-rules.js` and consumed by `core.js` wrappers.
-  - month-name parsing is accent/encoding tolerant (`MARÃ‡O`/`MARCO`/legacy-encoded variants).
+  - month-name parsing is accent/encoding tolerant (`MARÇO`/`MARCO`/legacy-encoded variants).
   - eligible month list is deduplicated by month key/id to prevent duplicated-month inflation in cards/charts.
 - Pie chart:
   - only valid real categories.
@@ -350,7 +321,7 @@
 - Metrics consistency:
   - dashboard must use current filtered state, not stale/deleted category residues.
 - Month top-card variation semantics:
-  - for expense cards (`Despesas planejadas`, `Despesas do mÃªs`) variation color is inverted:
+  - for expense cards (`Despesas planejadas`, `Despesas do mês`) variation color is inverted:
     - negative variation = green (improvement)
     - positive variation = red (worse)
 
@@ -359,7 +330,7 @@
   - patrimony accounts and movements.
 - Operations:
   - account creation/edit.
-  - aporte, retirada, transferÃªncia.
+  - aporte, retirada, transferência.
 - Integration:
   - income/goal flows can create patrimony movements through explicit user action.
 - Variation:
@@ -385,7 +356,7 @@
   - recurring-change and yes/no confirmation modals must render above parent modal layers.
   - notifications popover must render in front layer and never be clipped by parent overflow.
 - Notifications UI:
-  - bell icon (SVG, non-emoji) shown on Dashboard, MÃªs Atual, PatrimÃ´nio, HistÃ³rico headers.
+  - bell icon (SVG, non-emoji) shown on Dashboard, Mês Atual, Patrimônio, Histórico headers.
   - red badge shows unseen notifications count for current day.
   - opening bell popover marks day as seen and hides badge.
   - popover remains lightweight, integrated to header button.
@@ -412,7 +383,7 @@
 ## 15.2 PERSISTENCE SAFETY
 - Atomic file writes now include explicit `fsync` before rename in `server/fs-atomic.js`.
 - `readUsersStore()` self-healing persistence now writes through atomic `writeUsersStore()` (no direct non-atomic `writeFileSync` fallback for normalization writes).
-- `readUserAppState()` wraps JSON parse errors with explicit corruption message (`Estado do usuÃ¡rio corrompido...`) to reduce silent failure diagnostics.
+- `readUserAppState()` wraps JSON parse errors with explicit corruption message (`Estado do usuário corrompido...`) to reduce silent failure diagnostics.
 
 ## 16. CRITICAL_RULES (NAO QUEBRAR)
 - Never mix category with type.
@@ -423,7 +394,7 @@
 - Never keep ghost categories in dashboard after edit/delete/rename.
 - Never break card-link or category-link references during edit/delete.
 - Shared expense:
-  - only owner share enters `Despesas do mÃªs`.
+  - only owner share enters `Despesas do mês`.
   - third-party share does not enter owner expenses.
   - reimbursements are control-only (no automatic income impact).
 
@@ -452,11 +423,11 @@
   - duplicate month ids (including repeated March in affected datasets) are normalized during startup by keeping the most complete canonical month per id.
   - fixed-income receive-date now stores only day for recurring income; sorting/display derive month context without rewriting past.
   - `Resumo > Somado` consistency improved for direct-method rows via `entraNaSomatoriaPrincipal` enforcement in core totals path.
-  - `Todos` view footer total now avoids card duplication (`fatura + lanÃ§amentos do mesmo cartÃ£o`).
+  - `Todos` view footer total now avoids card duplication (`fatura + lançamentos do mesmo cartão`).
   - recurring-scope and yes/no confirmation overlays forced to higher z-index to avoid appearing behind parent modal.
   - notification dropdown clipping fixed by fixed-position front-layer popover with explicit runtime positioning.
   - finance calendar modal follows non-blocking floating behavior (draggable, front layer, no close on outside click).
-  - `Compromissos > Todos` now supports live search (`descriÃ§Ã£o` + `data`) with synchronized footer total.
+  - `Compromissos > Todos` now supports live search (`descrição` + `data`) with synchronized footer total.
   - outflow modal overlap reduced by constraining scrolling to two dedicated internal regions.
 - Sensitive areas to monitor:
   - large `mes-atual.js` complexity and render cost.
@@ -481,7 +452,7 @@
 ## 19. PRE_CHANGE_CHECKLIST
 - Validate multi-user isolation impact.
 - Validate card model impact (bill vs launches).
-- Validate top sums impact (`Renda`, `Planejadas`, `Despesas do mÃªs`, `Resultado`, `JÃ¡ saiu` in context tables).
+- Validate top sums impact (`Renda`, `Planejadas`, `Despesas do mês`, `Resultado`, `Já saiu` in context tables).
 - Validate recurrence impact (past immutability, forward sync).
 - Validate dashboard impact (eligible months, pie categories, line baseline).
 - Validate backup impact (create/list/restore ownership).
@@ -509,7 +480,7 @@
 
 ## 20. BILL_IMPORT_FLOW
 - Entry point:
-  - `Compromissos do mÃƒÂªs` action: `Adicionar por fatura`.
+  - `Compromissos do mÃªs` action: `Adicionar por fatura`.
   - Opens `modalBillImport`.
   - Accepts two ingestion modes:
     - JSON file upload
@@ -611,7 +582,7 @@
 - Day coloring rule:
   - based only on variable outflows (`type=spend`, non-recurring, non-fixed).
   - fixed/recurring/predictable commitments do not affect day heatmap.
-  - fixed outflows with explicit month/year are rendered only in their real billing month (no day-only fallback across month boundaries).
+  - expenses with explicit month/year are rendered only in their real billing month (no day-only fallback across month boundaries).
   - heatmap starts only after day 7 for the real current month.
   - scale is relative to month itself; no cross-month comparison.
   - outlier-resistant cap is used to avoid whitening all other days.
@@ -655,7 +626,7 @@
     - daily-goal target (`meta estabelecida` aggregate)
   - direct card bills are not summed directly in planned-expense metric.
 
-- `Compromissos do mÃªs` direct-method controls:
+- `Compromissos do mês` direct-method controls:
   - grouped rows for `pix`, `dinheiro`, `debito` now resolve row sets through a single key-based resolver (`method::<id>` or `category::<name>`) to avoid checkbox/status drift after rerender.
   - `Somado` (`countsInPrimaryTotals`) and `Pago` updates are persisted on the underlying outflows before sync/save.
 
@@ -689,16 +660,16 @@
     - payment day (bell)
     - receiving day (up-arrow).
 
-## 23. UPDATE_LOG_2026_04_18
-- `MÃªs Atual > Compromissos do mÃªs`:
-  - reload boot behavior now forces default filter to `Resumo` (`fixed`) once per app load, preventing stale reopen in `Todos`.
+## 24. UPDATE_LOG_2026_04_18
+- `Mês Atual > Compromissos do mês`:
+  - reload boot behavior now forces default filter to `Resumo` (`expense`) once per app load, preventing stale reopen in `Todos`.
 - Calendar date-feed correction:
   - fixed non-card outflows now require month/year match when a full date is present.
   - fallback to day-only is allowed only for legacy records without explicit month/year in the raw date.
   - prevents showing next/previous-month fixed charges inside the current month calendar.
   - credit-card payment items/markers in calendar now read from previous month `cardBills` (competence), so payment appears in the actual payment month only.
 
-## 24. UPDATE_LOG_2026_04_18_AUDIT_HARDENING
+## 25. UPDATE_LOG_2026_04_18_AUDIT_HARDENING
 - Backend hardening:
   - `writeUserAppState` now sanitizes state defensively before persistence and enforces a 15MB payload limit.
   - `/api/app-state` and `/api/app-state/migrate-legacy` now return controlled `400` on write-validation failures instead of silent server errors.
@@ -725,7 +696,7 @@
   - monthly render boot executes one-time sweep normalization over all loaded months for backward compatibility.
   - per-month guard in `ensureUnifiedOutflowPilotMonth` keeps recurring income schedule normalized for newly touched months.
   - calendar agenda now resolves fixed-payment and recurring-income days by scanning user months against the target month (past/present/future), ensuring continuous behavior across all months.
-  - historical note: this cycle temporarily introduced shared-state fallback (`window.data` / lexical `data`) for compatibility; current official contract is `15.1 CALENDAR DATA SOURCE CONTRACT` (fallback removed/deprecated).
+  - calendar data-source resolution now uses shared month-state fallback (`window.data` or global lexical `data`) to avoid empty agenda when runtime state is not exposed as window property.
 
 - Overlay layering fixes:
   - recurring-scope modal and yes/no modal moved to higher z-index tiers to avoid appearing behind active parent modal.
@@ -734,7 +705,7 @@
   - CLI-level forensic validation of a specific day (`17/04/2026`) cannot be guaranteed from encrypted-at-rest user state without active in-session decryption context.
   - no destructive migration was applied in this update path.
 
-## 26. UPDATE_LOG_2026_04_18_CALENDAR_IMPORT_HISTORY
+## 23. UPDATE_LOG_2026_04_17_CALENDAR_IMPORT_HISTORY
 - Calendar UI sizing and layering:
   - financial calendar modal width/height reduced for less visual dominance.
   - calendar modal now uses internal vertical scroll instead of clipping overflow.
@@ -766,7 +737,7 @@
   - event tag extraction for focused panel scans both unified and legacy sources:
     - `month.outflows` (`tag`/`marca`)
     - `month.gastosVar` (`tag`/`marca`)
-    - historical note: this entry originally referenced `window.data`; current contract is explicit month source resolution via `FinanceCalendarUtils.getAllMonthsData()` (see section `15.1`).
+    - and evaluates date range across available user months (`window.data`) for cross-month events.
   - when event has `tagId`, event linkage prioritizes matching launches by normalized tag (accent/case/spacing-insensitive); if no match exists, fallback is period-only linkage.
   - focused event panel renders linked-launch list (description, date, amount) from the same linkage resolver used by event totals/tags.
 - Import-by-bill parser hardening:
@@ -779,7 +750,7 @@
   - tags remain editable in review through select options from current user tags.
 - History module:
   - historical view now excludes future months (only up to real current month).
-  - table headers are sortable by click (`MÃªs`, `Gastos`, `Renda`, `Projetos`, `Resultado`).
+  - table headers are sortable by click (`Mês`, `Gastos`, `Renda`, `Projetos`, `Resultado`).
   - charts in history also use eligible months only.
 - Fixed income receive-date UX:
   - fixed income form label/placeholder clarifies day-first input:
@@ -787,7 +758,7 @@
 - recurring fixed-income save path now accepts day-only default and full-date override via `normalizeIncomeReceiveDate(..., allowDayOnly=true)`.
   - this supports delayed-salary scenarios without changing past-month immutability rules.
 
-## 27. UPDATE_LOG_2026_04_18_STABILITY_AND_LOAD
+## 26. UPDATE_LOG_2026_04_18_STABILITY_AND_LOAD
 - Persistence hardening:
   - introduced atomic JSON/text writes in backend (`server/fs-atomic.js`) with temp-file + replace flow.
   - critical stores now use atomic writes:
@@ -816,7 +787,7 @@
   - runs in isolated storage (`FIN_STORAGE_DIR` temp directory)
   - seeds 20 users, performs concurrent login/bootstrap/state writes, reports p50/p95/max latencies and failures.
 
-## 28. UPDATE_LOG_2026_04_18_STATE_BACKEND_AND_E2E
+## 27. UPDATE_LOG_2026_04_18_STATE_BACKEND_AND_E2E
 - Mes-atual split (safe extraction step):
   - month-card title editing helpers moved out of `public/app/mes-atual.js` to:
     - `public/app/modules/mes-atual/metric-title-editor.js`
@@ -837,7 +808,7 @@
   - npm command: `npm run test:e2e:import-bill`
   - validates end-to-end bill import review and persistence with real browser automation.
 
-## 29. UPDATE_LOG_2026_04_18_CONFLICT_GUARD
+## 28. UPDATE_LOG_2026_04_18_CONFLICT_GUARD
 - State write anti-overwrite guard:
   - bootstrap now returns `stateRevision` (based on persisted `updatedAt`).
   - `/api/app-state` accepts optional `baseRevision`.
@@ -854,7 +825,7 @@
     - avoids duplicates repeated inside the same import batch (double-click / duplicated lines).
   - prevents silent inflated totals from repeated imports while keeping review behavior unchanged.
 
-## 30. UPDATE_LOG_2026_04_18_IDEMPOTENCY_GUARDS
+## 29. UPDATE_LOG_2026_04_18_IDEMPOTENCY_GUARDS
 - Frontend action lock:
   - `public/app/interactions.js` exports `window.runExclusiveAction(actionKey, handler)`.
   - protects sensitive profile actions from double-click concurrent execution in the same tab.
@@ -877,37 +848,29 @@
 - Tests:
   - `tests/operation-token-store.test.js` added for token dedup behavior.
 
-## 31. UPDATE_LOG_2026_04_23_BACKUP_UNDO_AND_SAFE_SPLIT
-- Backup import hardening (`public/app/backup.js`):
-  - canonical client backup format `fin_backup_v2` with `userId` + `appState`.
-  - strict ownership guard during import when `userId` exists in payload.
-  - legacy backup formats remain accepted through normalization.
-  - import now applies full replacement of runtime state (no merge with prior active runtime state).
-  - successful import forces persistence flush and registers one-time undo snapshot.
-- Backup restore integrity hardening (`server/backup-store.js`):
-  - stricter backup metadata validation (`userId`, `updatedAt`, `monthCount`, `schemaVersion`, `encrypted`, `state`).
-  - readable backups (`encrypted=false`) now require `state.finData` and are marked `ok`.
-  - post-restore checksum verification enforces restored-file identity against selected backup.
-- Backup undo contract (`public/app/state.js`):
-  - added transient backup-import undo snapshot consumed by `Ctrl+Z` when normal undo stack is empty.
-  - special backup undo is invalidated on first new `recordHistoryState()` after import.
-- Hardcode removal by model flag:
-  - recurrence exception no longer depends on literal full-name compare in frontend.
-  - session/bootstrap now carry `legacyRecurrenceBackfillRestricted`; frontend migration profile reads this flag.
-  - server user model and routes expose/persist the flag (`server/user-store.js`, auth/bootstrap/profile routes).
-- Mes-atual safe split progression:
-  - added modules:
-    - `public/app/modules/mes-atual/shared-expense.js`
-    - `public/app/modules/mes-atual/card-bill.js`
-    - `public/app/modules/mes-atual/month-totals.js`
-    - `public/app/modules/mes-atual/outflow-filters.js`
-    - `public/app/modules/mes-atual/outflows.js`
-  - `public/app/mes-atual.js` now delegates safe slices to these modules with fallback preservation.
-  - `outflows.js` now owns recent-list ordering logic used by the add/edit modal.
-- Tests added/updated:
-  - `tests/backup-isolation-integration.test.js` (full replacement restore assertion).
-  - `tests/auth-routes.test.js` (session/login exposure of recurrence restriction flag).
-  - `tests/user-flags.test.js` (model default/migration behavior for user flag).
-  - `tests/mes-atual-extracted-modules.test.js` (module delegates + outflow recent-list ordering).
-- Deploy documentation:
-  - added root `DEPLOY.md` with Oracle/PM2/SQLite guidance, env baseline, health/audit checks, and explicit single-instance contract.
+## 30. UPDATE_LOG_2026_04_23_UNIFIED_EXPENSE_MODEL
+- Business model migration:
+  - outflow type model moved from `spend + fixed` to `spend + expense`.
+  - legacy `fixed` records are normalized to `expense` during migration/normalization.
+  - data migration version bumped to `5` (`public/app/data.js`) to force one-time conversion path.
+- Expense behavior:
+  - `expenseRecurring` added as explicit flag for recurring expenses.
+  - recurring propagation now depends on:
+    - `expenseRecurring=true` for expenses
+    - `recurringSpend=true` for spends
+  - non-recurring expenses no longer auto-propagate to future months.
+- UI/form updates:
+  - add/edit outflow form now uses `Despesa` (`value=expense`) instead of `Despesa fixa`.
+  - recurring toggle in unified modal now supports both spend and expense paths.
+  - summary default filter key updated to `expense` (legacy `fixed` keys are remapped).
+- Consumers updated:
+  - unified filter/render selectors switched from `fixed` to `expense` in current path.
+  - calendar payment relevance now treats `expense` as commitment type (with legacy `fixed` fallback).
+  - notifications now evaluate `expense` with legacy `fixed` fallback for migration safety.
+- Tests updated:
+  - `tests/unified-filter-rows.test.js`
+    - summary filter now validates `expense` rows
+    - legacy `fixed` compatibility covered
+    - spend filter now validated as spend-only
+  - `tests/recurrence-calendar.test.js`
+    - calendar due-month test now uses `type=expense`.

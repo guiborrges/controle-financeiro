@@ -27,6 +27,21 @@ let unifiedLastRenderedMonthId = '';
 const RECURRING_INCOME_NEXT_MONTH_NORMALIZATION_VERSION = 1;
 let recurringIncomeScheduleNormalizationSweepDone = false;
 
+function normalizeUnifiedOutflowType(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'spend' || raw === 'gasto') return 'spend';
+  if (raw === 'fixed' || raw === 'expense' || raw === 'despesa') return 'expense';
+  return 'expense';
+}
+
+function isUnifiedExpenseType(item) {
+  return normalizeUnifiedOutflowType(item?.type) === 'expense';
+}
+
+function isUnifiedRecurringExpense(item) {
+  return isUnifiedExpenseType(item) && item?.expenseRecurring === true;
+}
+
 function resetUnifiedOutflowViewForMonth(monthOrId) {
   const month = typeof monthOrId === 'string'
     ? (data || []).find(entry => entry?.id === monthOrId)
@@ -35,7 +50,7 @@ function resetUnifiedOutflowViewForMonth(monthOrId) {
   if (!month.unifiedOutflowUi || typeof month.unifiedOutflowUi !== 'object') {
     month.unifiedOutflowUi = {};
   }
-  month.unifiedOutflowUi.filter = 'fixed';
+  month.unifiedOutflowUi.filter = 'expense';
   month.unifiedOutflowUi.tagFilter = '';
   month.unifiedOutflowUi.allSearch = '';
   month.unifiedOutflowUi.sortField = 'categoria';
@@ -88,6 +103,7 @@ function getRecurringComparableSnapshot(item) {
     belongsToCard: item?.belongsToCard === true,
     countsInPrimaryTotals: item?.countsInPrimaryTotals !== false,
     recurringSpend: item?.recurringSpend === true,
+    expenseRecurring: item?.expenseRecurring === true,
     status: String(item?.status || '')
   };
 }
@@ -103,7 +119,7 @@ function normalizeRecurringSignatureToken(value) {
 
 function getRecurringSeriesIdentity(item) {
   if (!item) return '';
-  const kind = item.type === 'fixed' ? 'fixed' : (item.recurringSpend === true ? 'recurring-spend' : '');
+  const kind = isUnifiedRecurringExpense(item) ? 'expense-recurring' : (item.recurringSpend === true ? 'recurring-spend' : '');
   if (!kind) return '';
   const installmentsTotal = Math.max(1, Number(item.installmentsTotal || 1) || 1);
   if (installmentsTotal > 1) return '';
@@ -130,7 +146,7 @@ function isUnifiedRecurringSeriesCandidate(item) {
   if (!item) return false;
   const installmentsTotal = Math.max(1, Number(item.installmentsTotal || 1) || 1);
   if (installmentsTotal > 1) return false;
-  return item.type === 'fixed' || item.recurringSpend === true;
+  return isUnifiedRecurringExpense(item) || item.recurringSpend === true;
 }
 
 function ensureUnifiedRecurringSeriesKeysAcrossMonths() {
@@ -176,7 +192,7 @@ function getUnifiedBillingDayFromDateLabel(value) {
 
 function applyRecurringChangedFieldsToItem(targetItem, sourceItem, changedFields, monthRef) {
   changedFields.forEach(field => {
-    if (field === 'date' && sourceItem?.type === 'fixed' && sourceItem?.outputKind !== 'card') {
+    if (field === 'date' && isUnifiedRecurringExpense(sourceItem) && sourceItem?.outputKind !== 'card') {
       const day = getUnifiedBillingDayFromDateLabel(sourceItem?.date || '');
       targetItem.date = buildUnifiedFixedBillingDate(String(day), monthRef);
       return;
@@ -365,12 +381,10 @@ function getUnifiedMigrationProfile() {
   const username = String(currentSession?.username || boot.session?.username || '').trim().toLowerCase();
   const displayName = String(currentSession?.displayName || boot.session?.displayName || '').trim().toLowerCase();
   const fullName = String(currentSession?.fullName || boot.session?.fullName || '').trim().toLowerCase();
-  const legacyRecurrenceBackfillRestricted = !!(
-    currentSession?.legacyRecurrenceBackfillRestricted
-    || boot.session?.legacyRecurrenceBackfillRestricted
-    || boot.profile?.legacyRecurrenceBackfillRestricted
-  );
-  return { username, displayName, fullName, isGuilherme: legacyRecurrenceBackfillRestricted, legacyRecurrenceBackfillRestricted };
+  const isGuilherme = username === 'guilherme'
+    || displayName === 'guilherme silva borges'
+    || fullName === 'guilherme silva borges';
+  return { username, displayName, fullName, isGuilherme };
 }
 
 function ensureUnifiedRequiredCards(month, profile = getUnifiedMigrationProfile()) {
@@ -458,7 +472,7 @@ function reconcileGuilhermeLegacySpendOutputs(month, profile, cardsByName) {
 }
 
 function buildUnifiedLegacyFixed(month, item, idx, profile, cardsByName) {
-  const name = resolveExpenseName(item?.nome || item?.description || 'Despesa fixa');
+  const name = resolveExpenseName(item?.nome || item?.description || 'Despesa');
   const amount = Math.max(0, Number(item?.valor || 0) || 0);
   const paymentMethod = String(item?.paymentMethod || '').trim().toLowerCase();
   const explicitCardRef = String(item?.cartaoId || '').trim();
@@ -502,8 +516,8 @@ function buildUnifiedLegacyFixed(month, item, idx, profile, cardsByName) {
     kind: 'outflow',
     outflow: normalizeUnifiedOutflowItem({
       id: item?.id || `legacy_fixed_${month.id}_${idx}`,
-      description: String(name || 'Despesa fixa').trim(),
-      type: 'fixed',
+      description: String(name || 'Despesa').trim(),
+      type: 'expense',
       category: getLegacyExpenseSemanticCategory(name),
       amount,
       outputKind: 'method',
@@ -511,6 +525,7 @@ function buildUnifiedLegacyFixed(month, item, idx, profile, cardsByName) {
       date: item?.data || '',
       status: item?.pago ? 'done' : 'planned',
       paid: item?.pago === true,
+      expenseRecurring: true,
       recurringGroupId: `legacy_fixed_${normalizeLegacyLookup(name) || idx}`
     }, idx)
   };
@@ -568,7 +583,7 @@ function migrateUnifiedOutflowMonth(month, profile = getUnifiedMigrationProfile(
   }
 
   (month.outflows || []).forEach((item, idx) => {
-    if (item.type === 'fixed' && item.outputKind === 'card') {
+    if (isUnifiedExpenseType(item) && item.outputKind === 'card') {
       item.type = 'spend';
       item.status = 'done';
       item.belongsToCard = false;
@@ -639,56 +654,11 @@ function normalizeUnifiedCardBill(month, bill, idx = 0) {
   };
 }
 
-function shouldSyncCardBillForecastForMonth(month) {
-  if (!month) return false;
-  const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(true) });
-  const monthSort = getMonthSortValue(month || {});
-  return monthSort >= currentRealSort;
-}
-
-function restorePastCardBillsFromLegacyMonth(month) {
-  if (!month || !Array.isArray(month.cardBills) || !Array.isArray(month.outflowCards)) return false;
-  if (shouldSyncCardBillForecastForMonth(month)) return false;
-  const legacyDespesas = Array.isArray(month.despesas) ? month.despesas : [];
-  if (!legacyDespesas.length) return false;
-  let changed = false;
-  month.cardBills.forEach(bill => {
-    if (!bill || bill.manualAmountSet === true) return;
-    const currentAmount = Number(Number(bill.amount || 0).toFixed(2));
-    if (currentAmount > 0) return;
-    const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
-    if (!card) return;
-    const cardNameNormalized = String(card.name || '').trim().toLowerCase();
-    if (!cardNameNormalized) return;
-    const legacyRows = legacyDespesas.filter(item => {
-      const rawName = String(item?.nome || item?.titulo || item?.description || '').trim().toLowerCase();
-      if (!rawName || rawName !== cardNameNormalized) return false;
-      const category = resolveCategoryName(item?.categoria || item?.category || '');
-      const method = String(item?.paymentMethod || '').trim().toLowerCase();
-      return String(category || '').includes('CARTÃO') || method === 'credito' || method === 'cartao';
-    });
-    const legacyAmount = Number((legacyRows || []).reduce((sum, item) => sum + Number(item?.valor || 0), 0).toFixed(2));
-    const launchesAmount = Number(
-      (month.outflows || []).reduce((sum, item) => {
-        if (item?.outputKind !== 'card') return sum;
-        if (String(item?.outputRef || '') !== String(bill.cardId || '')) return sum;
-        return sum + Number(item?.amount || 0);
-      }, 0).toFixed(2)
-    );
-    const recoveredAmount = legacyAmount > 0 ? legacyAmount : launchesAmount;
-    if (!(recoveredAmount > 0)) return;
-    if (recoveredAmount === currentAmount) return;
-    bill.amount = recoveredAmount;
-    changed = true;
-  });
-  return changed;
-}
-
 function harmonizeUnifiedFixedBillingDates(month) {
   if (!month || !Array.isArray(month.outflows)) return false;
   let changed = false;
   month.outflows.forEach(item => {
-    if (item?.type !== 'fixed' || item?.outputKind === 'card') return;
+    if (!isUnifiedExpenseType(item) || item?.outputKind === 'card') return;
     const normalized = normalizeVarDate(item?.date || '');
     if (!normalized) return;
     const [day] = normalized.split('/');
@@ -705,11 +675,12 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
   const parsedDate = normalizeVarDate(item?.date || item?.data || '') || '';
   const outputKind = ['method', 'card', 'account'].includes(item?.outputKind) ? item.outputKind : 'method';
   const outputMethod = ['boleto', 'dinheiro', 'pix', 'debito'].includes(item?.outputMethod) ? item.outputMethod : 'boleto';
-  const rawType = item?.type === 'fixed' ? 'fixed' : 'spend';
+  const rawType = normalizeUnifiedOutflowType(item?.type);
   const recurringSpend = item?.recurringSpend === true || (rawType === 'spend' && !!String(item?.recurringGroupId || '').trim() && Number(item?.installmentsTotal || 1) <= 1);
+  const expenseRecurring = item?.expenseRecurring === true || rawType === 'fixed';
   const type = outputKind === 'card' ? 'spend' : rawType;
   const category = resolveCategoryName(item?.category || item?.categoria || 'OUTROS');
-  const belongsToCard = item?.belongsToCard === true || (type === 'fixed' && outputKind === 'card');
+  const belongsToCard = item?.belongsToCard === true || (type === 'expense' && outputKind === 'card');
   const countsInPrimaryTotals = item?.countsInPrimaryTotals === false ? false : !belongsToCard;
   const rawDescription = String(item?.description ?? item?.descricao ?? '').trim();
   const tag = String(item?.tag || item?.marca || '').trim();
@@ -729,7 +700,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
   const hasPaidFlag = Object.prototype.hasOwnProperty.call(item || {}, 'paid');
   return {
     id: item?.id || `out_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
-    description: rawDescription || (type === 'fixed' ? 'Despesa fixa' : ''),
+    description: rawDescription || (type === 'expense' ? 'Despesa' : ''),
     type,
     category,
     amount: Math.max(0, Number(item?.amount || item?.valor || 0) || 0),
@@ -741,6 +712,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
     belongsToCard,
     countsInPrimaryTotals,
     recurringSpend,
+    expenseRecurring,
     status: item?.status === 'done' ? 'done' : 'planned',
     paid: hasPaidFlag ? item?.paid === true : isDirectRealOutflow,
     recurringGroupId: String(item?.recurringGroupId || '').trim(),
@@ -903,9 +875,6 @@ function getSharedParticipantNameSuggestions() {
 }
 
 function getUnifiedSharedComputedValues(totalAmount, peopleCount, mode, peopleRows = []) {
-  if (window.MesAtualSharedExpense?.getUnifiedSharedComputedValues) {
-    return window.MesAtualSharedExpense.getUnifiedSharedComputedValues(totalAmount, peopleCount, mode, peopleRows);
-  }
   const safeTotal = Math.max(0, Number(totalAmount || 0) || 0);
   const safeCount = Math.max(1, Math.min(20, Number(peopleCount || 1) || 1));
   const normalizedMode = String(mode || 'equal').toLowerCase() === 'manual' ? 'manual' : 'equal';
@@ -1079,7 +1048,7 @@ function getUnifiedOutflowCategories(month) {
   (month?.dailyCategorySeeds || []).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
   Object.keys(month?.dailyGoals || {}).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
   return Array.from(categories)
-    .filter(cat => !['DESPESA FIXA', 'DESPESA VARIÁVEL'].includes(cat))
+    .filter(cat => !['DESPESA FIXA', 'DESPESA VARIÁVEL', 'DESPESA'].includes(cat))
     .filter(cat => !(typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(cat)))
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
@@ -1154,7 +1123,7 @@ function pruneDailyGoalsWithoutSpendValue(month) {
 
 function syncUnifiedOutflowLegacyData(month) {
   if (!month) return;
-  const fixedItems = (month.outflows || []).filter(item => item.type === 'fixed');
+  const fixedItems = (month.outflows || []).filter(item => isUnifiedExpenseType(item));
   const spendItems = (month.outflows || []).filter(item => item.type === 'spend');
   month.despesas = [
     ...fixedItems.map(item => ({
@@ -1178,8 +1147,7 @@ function syncUnifiedOutflowLegacyData(month) {
         categoria: 'CARTÃO',
         data: '',
         pago: bill.paid === true,
-        paymentMethod: 'credito',
-        cartaoId: String(bill.cardId || '').trim()
+        paymentMethod: 'credito'
       };
     }))
   ];
@@ -1224,9 +1192,6 @@ function ensureUnifiedOutflowPilotMonth(month) {
       defaultsChanged = true;
     }
   });
-  if (restorePastCardBillsFromLegacyMonth(month)) {
-    defaultsChanged = true;
-  }
   if (syncUnifiedCardBillForecastAmounts(month)) {
     defaultsChanged = true;
   }
@@ -1236,9 +1201,6 @@ function ensureUnifiedOutflowPilotMonth(month) {
 }
 
 function getUnifiedCardBill(month, cardId) {
-  if (window.MesAtualCardBill?.getUnifiedCardBill) {
-    return window.MesAtualCardBill.getUnifiedCardBill(month, cardId);
-  }
   if (window.MesAtualCards?.getUnifiedCardBill) {
     return window.MesAtualCards.getUnifiedCardBill(month, cardId);
   }
@@ -1247,9 +1209,6 @@ function getUnifiedCardBill(month, cardId) {
 }
 
 function getUnifiedCardRecurringForecastAmount(month, cardId) {
-  if (window.MesAtualCardBill?.getUnifiedCardRecurringForecastAmount) {
-    return window.MesAtualCardBill.getUnifiedCardRecurringForecastAmount(month, cardId);
-  }
   if (!month) return 0;
   return (month.outflows || []).reduce((acc, item) => {
     if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
@@ -1260,7 +1219,6 @@ function getUnifiedCardRecurringForecastAmount(month, cardId) {
 
 function syncUnifiedCardBillForecastAmounts(month) {
   if (!month || !Array.isArray(month.cardBills)) return false;
-  if (!shouldSyncCardBillForecastForMonth(month)) return false;
   let changed = false;
   month.cardBills.forEach(bill => {
     if (!bill || bill.manualAmountSet === true) return;
@@ -1276,9 +1234,6 @@ function syncUnifiedCardBillForecastAmounts(month) {
 }
 
 function getUnifiedCardLaunchesAmount(month, cardId) {
-  if (window.MesAtualCardBill?.getUnifiedCardLaunchesAmount) {
-    return window.MesAtualCardBill.getUnifiedCardLaunchesAmount(month, cardId);
-  }
   if (window.MesAtualCards?.getUnifiedCardLaunchesAmount) {
     return window.MesAtualCards.getUnifiedCardLaunchesAmount(month, cardId);
   }
@@ -1290,9 +1245,6 @@ function getUnifiedCardLaunchesAmount(month, cardId) {
 }
 
 function getUnifiedRecurringSpendPlannedTotal(month) {
-  if (window.MesAtualMonthTotals?.getUnifiedRecurringSpendPlannedTotal) {
-    return window.MesAtualMonthTotals.getUnifiedRecurringSpendPlannedTotal(month);
-  }
   if (window.MesAtualTotals?.getUnifiedRecurringSpendPlannedTotal) {
     return window.MesAtualTotals.getUnifiedRecurringSpendPlannedTotal(month);
   }
@@ -1319,7 +1271,7 @@ function getUnifiedMonthPilotMetrics(month) {
     if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return true;
     const sourceOutflow = outflowById.get(String(item?.id || ''));
     if (!sourceOutflow) return true;
-    return sourceOutflow.type === 'fixed';
+    return isUnifiedExpenseType(sourceOutflow);
   };
   const fixedPlannedTotal = selectedDespesas.reduce((acc, item) => {
     if (!isFixedOrBillDespesa(item)) return acc;
@@ -1332,7 +1284,7 @@ function getUnifiedMonthPilotMetrics(month) {
     const category = resolveCategoryName(item?.categoria || '');
     if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc + Number(item?.valor || 0);
     const sourceOutflow = outflowById.get(String(item?.id || ''));
-    const isDirectMethodFixed = sourceOutflow?.type === 'fixed'
+    const isDirectMethodFixed = isUnifiedExpenseType(sourceOutflow)
       && sourceOutflow?.outputKind === 'method'
       && ['pix', 'dinheiro', 'debito'].includes(String(sourceOutflow?.outputMethod || ''));
     if (isDirectMethodFixed && sourceOutflow?.paid !== true) return acc;
@@ -1382,7 +1334,8 @@ function getUnifiedMonthPilotMetrics(month) {
 }
 
 function getUnifiedOutflowFilterValue(month) {
-  const current = String(month?.unifiedOutflowUi?.filter || 'fixed');
+  const currentRaw = String(month?.unifiedOutflowUi?.filter || 'expense');
+  const current = currentRaw === 'fixed' ? 'expense' : currentRaw;
   if (current.startsWith('tag:')) {
     const legacyTag = decodeURIComponent(current.slice(4));
     if (month?.unifiedOutflowUi && typeof month.unifiedOutflowUi === 'object') {
@@ -1394,9 +1347,9 @@ function getUnifiedOutflowFilterValue(month) {
   const allowed = new Set(getUnifiedOutflowFilterOptions(month).map(option => String(option.value || '')));
   if (allowed.has(current)) return current;
   if (month?.unifiedOutflowUi && typeof month.unifiedOutflowUi === 'object') {
-    month.unifiedOutflowUi.filter = 'fixed';
+    month.unifiedOutflowUi.filter = 'expense';
   }
-  return 'fixed';
+  return 'expense';
 }
 
 function getUnifiedOutflowTagFilterValue(month) {
@@ -1413,7 +1366,7 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
   const metrics = getUnifiedMonthPilotMetrics(month);
   const countOutflows = rows.filter(row => row.kind === 'outflow').length;
   const countBills = rows.filter(row => row.kind === 'bill').length;
-  if (filterValue === 'fixed') {
+  if (filterValue === 'expense') {
     const fixedOutflows = rows.filter(row => row.kind === 'outflow').map(row => row.item);
     const bills = rows.filter(row => row.kind === 'bill').map(row => row.item);
     const total = fixedOutflows.reduce((acc, item) => acc + Number(item.amount || 0), 0) + bills.reduce((acc, item) => acc + Number(item.amount || 0), 0);
@@ -1439,12 +1392,12 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
   }
   if (filterValue.startsWith('account:') || filterValue.startsWith('method:')) {
     const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
-    const fixedCount = rows.filter(row => row.kind === 'outflow' && row.item.type === 'fixed').length;
+    const fixedCount = rows.filter(row => row.kind === 'outflow' && isUnifiedExpenseType(row.item)).length;
     const spendCount = rows.filter(row => row.kind === 'outflow' && row.item.type === 'spend').length;
     const title = filterValue.startsWith('account:')
       ? 'Saídas por conta'
       : String(filterValue.split(':')[1] || 'Saída').replace(/^./, c => c.toUpperCase());
-    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(title)}</div><div class="unified-summary-text">Visualize tudo o que passou por esse meio de saída, sem misturar com o restante do mês.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total nesta visão', fmt(total), `${countOutflows + countBills} itens filtrados`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas fixas', String(fixedCount), 'Compromissos nessa saída')}${renderUnifiedSummaryCard('Gastos', String(spendCount), 'Lançamentos de consumo nessa saída')}</div></div>`;
+    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(title)}</div><div class="unified-summary-text">Visualize tudo o que passou por esse meio de saída, sem misturar com o restante do mês.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total nesta visão', fmt(total), `${countOutflows + countBills} itens filtrados`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas', String(fixedCount), 'Compromissos nessa saída')}${renderUnifiedSummaryCard('Gastos', String(spendCount), 'Lançamentos de consumo nessa saída')}</div></div>`;
   }
   const allTotal = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0) + rows.filter(row => row.kind === 'bill').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
   return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Visão geral das saídas</div><div class="unified-summary-text">Use esta aba para ver o mês inteiro junto. Se quiser mais clareza, troque o filtro para compromissos ou consumo.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total na lista', fmt(allTotal), `${countOutflows + countBills} itens nesta visão`, allTotal > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas planejadas', fmt(metrics.plannedExpenses), 'Compromissos e metas do mês')}${renderUnifiedSummaryCard('Lançamentos', String(countOutflows + countBills), 'Itens que compõem esta visão')}</div></div>`;
@@ -1494,7 +1447,7 @@ function isUnifiedDirectMethodSummaryRow(row) {
   const item = row?.item;
   return row?.kind === 'outflow'
     && item?.outputKind === 'method'
-    && item?.type !== 'fixed'
+    && !isUnifiedExpenseType(item)
     && ['pix', 'dinheiro', 'debito'].includes(item?.outputMethod);
 }
 
@@ -1807,7 +1760,7 @@ function renderUnifiedAllRows(month, rows) {
         ${renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'date', kind:'var-date', value:item.date || '', displayValue:escapeHtml(item.date || '—'), style:'padding-left:22px' })}
         ${renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'description', kind:'text', value:item.description, displayValue:descriptionDisplay, className:'unified-outflow-description-cell' })}
         ${renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'category', kind:'unified-category', value:item.category, displayValue:renderCategoryLabel(item.category) })}
-        <td><span class="unified-kind-chip ${item.recurringSpend === true ? 'recurring' : (item.type === 'fixed' ? 'fixed' : 'spend')}">${escapeHtml(getUnifiedOutflowTypeLabel(item))}</span></td>
+        <td><span class="unified-kind-chip ${item.recurringSpend === true ? 'recurring' : (isUnifiedExpenseType(item) ? 'fixed' : 'spend')}">${escapeHtml(getUnifiedOutflowTypeLabel(item))}</span></td>
         ${renderInlineCell({
           table:'unifiedOutflow',
           row:item.id,
@@ -1925,7 +1878,7 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
 
 function renderUnifiedSpendGroups(month, rows) {
   const monthCategoryItems = rows
-    .filter(row => row.kind === 'outflow' && (row.item.type === 'spend' || row.item.type === 'fixed'))
+    .filter(row => row.kind === 'outflow' && row.item.type === 'spend')
     .map(row => row.item);
   const goalCategories = Object.entries(month?.dailyGoals || {})
     .filter(([, value]) => Number(value || 0) > 0)
@@ -2005,7 +1958,7 @@ function renderUnifiedMethodRows(month, rows, filterValue) {
         </tr>`;
     }
     const item = row.item;
-    const paidCell = item.type === 'fixed' && isBoleto
+    const paidCell = isUnifiedExpenseType(item) && isBoleto
       ? `<label class="unified-paid-toggle"><input type="checkbox" ${item.paid ? 'checked' : ''} onchange="toggleUnifiedOutflowPaid('${item.id}', this.checked)"><span>Pago</span></label>`
       : '';
     const categoryCell = renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'category', kind:'unified-category', value:item.category, displayValue:renderCategoryLabel(item.category) });
@@ -2015,7 +1968,7 @@ function renderUnifiedMethodRows(month, rows, filterValue) {
         ${renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'date', kind:'var-date', value:item.date || '', displayValue:escapeHtml(item.date || '—'), style:'padding-left:22px' })}
         ${descriptionCell}
         ${categoryCell}
-        <td><span class="unified-kind-chip ${item.recurringSpend === true ? 'recurring' : (item.type === 'fixed' ? 'fixed' : 'spend')}">${escapeHtml(getUnifiedOutflowTypeLabel(item))}</span></td>
+        <td><span class="unified-kind-chip ${item.recurringSpend === true ? 'recurring' : (isUnifiedExpenseType(item) ? 'fixed' : 'spend')}">${escapeHtml(getUnifiedOutflowTypeLabel(item))}</span></td>
         ${renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'amount', kind:'number', value:item.amount, displayValue:fmt(item.amount), className:'amount amount-neg' })}
         <td>${paidCell}</td>
         <td><button class="btn-icon" onclick="openUnifiedOutflowModal('${item.id}')">✎</button><button class="btn-icon" onclick="deleteUnifiedOutflow('${item.id}')">✕</button></td>
@@ -2094,10 +2047,8 @@ function renderUnifiedMonthPilot(month) {
     saveUIState();
   }
   section.style.display = '';
-  const rows = window.MesAtualOutflowFilters?.getRows
-    ? window.MesAtualOutflowFilters.getRows(month, currentFilter, currentTagFilter, showSearch ? currentSearch : '')
-    : getUnifiedFilterRows(month, currentFilter, currentTagFilter, showSearch ? currentSearch : '');
-  content.innerHTML = currentFilter === 'fixed'
+  const rows = getUnifiedFilterRows(month, currentFilter, currentTagFilter, showSearch ? currentSearch : '');
+  content.innerHTML = currentFilter === 'expense'
     ? renderUnifiedFixedRows(month, rows)
     : currentFilter === 'spend'
     ? renderUnifiedSpendGroups(month, rows)
@@ -2412,7 +2363,7 @@ function sanitizeUnifiedOutflowDateInput(input) {
   if (!input) return;
   const typeSelect = document.getElementById('unifiedOutflowType');
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
-  const isFixedDay = (typeSelect?.value || 'fixed') === 'fixed' || recurringToggle?.checked === true;
+  const isFixedDay = normalizeUnifiedOutflowType(typeSelect?.value || 'expense') === 'expense' || recurringToggle?.checked === true;
   if (isFixedDay) {
     const digits = String(input.value || '').replace(/\D/g, '').slice(0, 2);
     if (!digits) {
@@ -2430,7 +2381,7 @@ function shiftUnifiedOutflowDateDay(deltaDays = 0) {
   if (!input) return;
   const typeSelect = document.getElementById('unifiedOutflowType');
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
-  const isFixedDay = (typeSelect?.value || 'fixed') === 'fixed' || recurringToggle?.checked === true;
+  const isFixedDay = normalizeUnifiedOutflowType(typeSelect?.value || 'expense') === 'expense' || recurringToggle?.checked === true;
   const delta = Number(deltaDays || 0);
   if (!delta) return;
   if (isFixedDay) {
@@ -2454,8 +2405,8 @@ function updateUnifiedOutflowDateFieldState() {
   const dateInput = document.getElementById('unifiedOutflowDate');
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
   if (!typeSelect || !dateLabel || !dateInput) return;
-  const type = typeSelect.value === 'fixed' ? 'fixed' : 'spend';
-  const usesBillingDay = type === 'fixed' || recurringToggle?.checked === true;
+  const type = normalizeUnifiedOutflowType(typeSelect.value);
+  const usesBillingDay = type === 'expense' || recurringToggle?.checked === true;
   if (usesBillingDay) {
     dateLabel.textContent = 'Dia de cobrança';
     dateInput.placeholder = 'Ex: 10';
@@ -2490,7 +2441,7 @@ function toggleUnifiedOutflowRecurring() {
 
 function handleUnifiedOutflowTypeChange() {
   const typeSelect = document.getElementById('unifiedOutflowType');
-  const type = typeSelect?.value || 'fixed';
+  const type = normalizeUnifiedOutflowType(typeSelect?.value || 'expense');
   const outputValue = document.getElementById('unifiedOutflowOutput')?.value || '';
   const outputHelp = document.getElementById('unifiedOutflowOutputHelp');
   const recurringLabel = document.getElementById('unifiedOutflowRecurringLabel');
@@ -2502,17 +2453,16 @@ function handleUnifiedOutflowTypeChange() {
   const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
   const sharedWrap = document.getElementById('unifiedOutflowSharedWrap');
   const isCardOutput = outputValue.startsWith('card:');
-  if (typeSelect && isCardOutput && type === 'fixed') typeSelect.value = 'spend';
+  if (typeSelect && isCardOutput && type === 'expense') typeSelect.value = 'spend';
   const effectiveType = typeSelect?.value || type;
-  if (recurringLabel) recurringLabel.style.display = effectiveType === 'spend' ? '' : 'none';
-  if (recurringToggle && effectiveType !== 'spend') recurringToggle.checked = false;
+  if (recurringLabel) recurringLabel.style.display = '';
   if (recurringToggle && recurringToggle.checked && installmentsToggle) installmentsToggle.checked = false;
   if (installmentsToggle && installmentsToggle.checked && recurringToggle) recurringToggle.checked = false;
-  const canUseInstallments = effectiveType === 'spend' && recurringToggle?.checked !== true;
+  const canUseInstallments = recurringToggle?.checked !== true;
   if (installmentsLabel) installmentsLabel.style.display = canUseInstallments ? '' : 'none';
   if (installmentsToggle && !canUseInstallments) installmentsToggle.checked = false;
   if (installmentsWrap) installmentsWrap.style.display = installmentsToggle?.checked && canUseInstallments ? 'flex' : 'none';
-  const canUseShared = effectiveType === 'spend';
+  const canUseShared = true;
   if (sharedToggleLabel) sharedToggleLabel.style.display = canUseShared ? '' : 'none';
   if (!canUseShared && sharedToggle) sharedToggle.checked = false;
   if (sharedWrap) sharedWrap.style.display = canUseShared && sharedToggle?.checked === true ? '' : 'none';
@@ -3103,12 +3053,6 @@ function clearUnifiedOutflowDraft(month) {
 }
 
 function buildUnifiedOutflowDraftFromForm(month) {
-  if (window.MesAtualOutflows?.buildDraftFromForm) {
-    return window.MesAtualOutflows.buildDraftFromForm(month, {
-      getCurrentMonth,
-      readSharedParticipantsFromDOM: readUnifiedOutflowSharedParticipantsFromDOM
-    });
-  }
   if (window.MesAtualModals?.buildUnifiedOutflowDraftFromForm) {
     return window.MesAtualModals.buildUnifiedOutflowDraftFromForm(month, {
       getCurrentMonth,
@@ -3117,7 +3061,7 @@ function buildUnifiedOutflowDraftFromForm(month) {
   }
   const safeMonth = month || getCurrentMonth();
   const description = String(document.getElementById('unifiedOutflowDescription')?.value || '').trim();
-  const type = document.getElementById('unifiedOutflowType')?.value === 'spend' ? 'spend' : 'fixed';
+  const type = normalizeUnifiedOutflowType(document.getElementById('unifiedOutflowType')?.value);
   const category = String(document.getElementById('unifiedOutflowCategory')?.value || '');
   const newCategory = String(document.getElementById('unifiedOutflowNewCategory')?.value || '').trim();
   const amount = String(document.getElementById('unifiedOutflowAmount')?.value || '').trim();
@@ -3156,20 +3100,6 @@ function buildUnifiedOutflowDraftFromForm(month) {
 }
 
 function applyUnifiedOutflowDraftToForm(month, draft) {
-  if (window.MesAtualOutflows?.applyDraftToForm) {
-    return window.MesAtualOutflows.applyDraftToForm(month, draft, {
-      populateCategoryOptions: populateUnifiedOutflowCategoryOptions,
-      resolveDefaultCategory: resolveCategoryName,
-      toggleNewCategory: toggleUnifiedOutflowNewCategory,
-      getOutputOptions: getUnifiedOutflowOutputOptions,
-      populateTagOptions: populateUnifiedOutflowTagOptions,
-      toggleNewTag: toggleUnifiedOutflowNewTag,
-      toggleInstallments: toggleUnifiedOutflowInstallments,
-      handleTypeChange: handleUnifiedOutflowTypeChange,
-      renderSharedPeople: renderUnifiedOutflowSharedPeople,
-      renderDescriptionSuggestions: renderUnifiedOutflowDescriptionSuggestions
-    });
-  }
   if (window.MesAtualModals?.applyUnifiedOutflowDraftToForm) {
     return window.MesAtualModals.applyUnifiedOutflowDraftToForm(month, draft, {
       populateCategoryOptions: populateUnifiedOutflowCategoryOptions,
@@ -3187,7 +3117,7 @@ function applyUnifiedOutflowDraftToForm(month, draft) {
   if (!draft || typeof draft !== 'object') return false;
   const descriptionInput = document.getElementById('unifiedOutflowDescription');
   if (descriptionInput) descriptionInput.value = String(draft.description || '');
-  document.getElementById('unifiedOutflowType').value = draft.type === 'spend' ? 'spend' : 'fixed';
+  document.getElementById('unifiedOutflowType').value = normalizeUnifiedOutflowType(draft.type) === 'spend' ? 'spend' : 'expense';
   populateUnifiedOutflowCategoryOptions(month, String(draft.category || resolveCategoryName('COMPRAS') || ''));
   document.getElementById('unifiedOutflowNewCategory').value = String(draft.newCategory || '');
   toggleUnifiedOutflowNewCategory();
@@ -3246,7 +3176,7 @@ function fillUnifiedOutflowFormFromItem(month, item) {
   const descriptionInput = document.getElementById('unifiedOutflowDescription');
   if (descriptionInput) descriptionInput.value = item?.description || '';
   const preferredSpendCategory = resolveCategoryName('COMPRAS') || 'OUTROS';
-  document.getElementById('unifiedOutflowType').value = item ? (item?.type || 'fixed') : 'spend';
+  document.getElementById('unifiedOutflowType').value = item ? normalizeUnifiedOutflowType(item?.type || 'expense') : 'spend';
   populateUnifiedOutflowCategoryOptions(month, item?.category || preferredSpendCategory);
   document.getElementById('unifiedOutflowNewCategory').value = '';
   toggleUnifiedOutflowNewCategory();
@@ -3262,11 +3192,11 @@ function fillUnifiedOutflowFormFromItem(month, item) {
   const today = new Date();
   const currentDateMask = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getFullYear()).slice(-2)}`;
   document.getElementById('unifiedOutflowDate').value = item
-    ? (item?.type === 'fixed' || item?.recurringSpend === true
+    ? (isUnifiedExpenseType(item) || item?.recurringSpend === true
       ? getUnifiedOutflowBillingDisplayValue(item)
       : (item?.date || ''))
     : currentDateMask;
-  document.getElementById('unifiedOutflowRecurringToggle').checked = item?.recurringSpend === true;
+  document.getElementById('unifiedOutflowRecurringToggle').checked = item?.recurringSpend === true || item?.expenseRecurring === true;
   document.getElementById('unifiedOutflowInstallmentsToggle').checked = !!(item?.installmentsTotal > 1);
   document.getElementById('unifiedOutflowInstallmentsCount').value = item?.installmentsTotal > 1 ? item.installmentsTotal : 2;
   const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
@@ -3349,14 +3279,11 @@ function setUnifiedOutflowModalMode(isSimpleEditMode) {
 }
 
 function getUnifiedOutflowRowsForRecentList(month) {
-  if (window.MesAtualOutflows?.getRowsForRecentList) {
-    return window.MesAtualOutflows.getRowsForRecentList(month, { parseData });
-  }
   return (month?.outflows || [])
     .slice()
     .sort((a, b) => {
-      const aTail = a?.type === 'fixed' || a?.recurringSpend === true;
-      const bTail = b?.type === 'fixed' || b?.recurringSpend === true;
+      const aTail = isUnifiedExpenseType(a) || a?.recurringSpend === true;
+      const bTail = isUnifiedExpenseType(b) || b?.recurringSpend === true;
       if (aTail !== bTail) return aTail ? 1 : -1;
       const createdDiff = new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
       if (createdDiff !== 0) return createdDiff;
@@ -3543,7 +3470,7 @@ function cloneUnifiedOutflowForMonth(item, targetDate, sourceMonth = null) {
     const maxDay = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
     const nextDay = Math.min(closingDay, maxDay);
     clone.date = `${String(nextDay).padStart(2, '0')}/${String(targetDate.getMonth() + 1).padStart(2, '0')}/${String(targetDate.getFullYear()).slice(-2)}`;
-  } else if (clone.type === 'fixed' && clone.outputKind !== 'card') {
+  } else if (isUnifiedExpenseType(clone) && clone.outputKind !== 'card') {
     const normalized = normalizeVarDate(clone.date || '');
     if (normalized) {
       const [day] = normalized.split('/');
@@ -3585,7 +3512,7 @@ function buildUnifiedPilotMonthFromPrevious(prev, newMonthName) {
     if (item.installmentsTotal > 1 && item.installmentIndex < item.installmentsTotal) {
       return [cloneUnifiedOutflowForMonth(item, date, prev)];
     }
-    if (item.type === 'fixed' && item.installmentsTotal <= 1) {
+    if (isUnifiedExpenseType(item) && item.installmentsTotal <= 1) {
       return [cloneUnifiedOutflowForMonth(item, date, prev)];
     }
     if (item.type === 'spend' && item.recurringSpend === true && item.installmentsTotal <= 1) {
@@ -3617,7 +3544,7 @@ function saveUnifiedOutflow() {
     ? (month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId) || null
     : null;
   const description = document.getElementById('unifiedOutflowDescription').value.trim();
-  const requestedType = document.getElementById('unifiedOutflowType').value === 'spend' ? 'spend' : 'fixed';
+  const requestedType = normalizeUnifiedOutflowType(document.getElementById('unifiedOutflowType').value);
   let category = document.getElementById('unifiedOutflowCategory').value;
   if (category === 'nova') category = document.getElementById('unifiedOutflowNewCategory').value.trim();
   category = resolveCategoryName(category || 'OUTROS');
@@ -3629,9 +3556,11 @@ function saveUnifiedOutflow() {
   const amount = Number(document.getElementById('unifiedOutflowAmount').value || 0);
   const output = parseUnifiedOutflowOutputValue(document.getElementById('unifiedOutflowOutput').value || '');
   const type = output.outputKind === 'card' ? 'spend' : requestedType;
-  const recurringSpend = type === 'spend' && document.getElementById('unifiedOutflowRecurringToggle').checked;
+  const recurringToggleChecked = document.getElementById('unifiedOutflowRecurringToggle').checked;
+  const recurringSpend = type === 'spend' && recurringToggleChecked;
+  const expenseRecurring = type === 'expense' && recurringToggleChecked;
   const rawDateValue = document.getElementById('unifiedOutflowDate').value || '';
-  const usesBillingDay = type === 'fixed' || recurringSpend;
+  const usesBillingDay = type === 'expense' || recurringSpend || expenseRecurring;
   if (usesBillingDay) {
     const day = Number(String(rawDateValue).replace(/\D/g, ''));
     if (!day || day < 1 || day > 31) {
@@ -3642,7 +3571,7 @@ function saveUnifiedOutflow() {
   const date = usesBillingDay
     ? buildUnifiedFixedBillingDate(rawDateValue, month)
     : normalizeUnifiedOutflowSpendDateInput(rawDateValue, month);
-  const status = type === 'fixed' ? 'planned' : 'done';
+  const status = type === 'expense' ? 'planned' : 'done';
   const isInstallment = document.getElementById('unifiedOutflowInstallmentsToggle').checked;
   const installmentsTotal = isInstallment ? Math.max(2, Number(document.getElementById('unifiedOutflowInstallmentsCount').value || 2)) : 1;
   const isDirectRealOutflow = output.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(output.outputMethod);
@@ -3657,7 +3586,7 @@ function saveUnifiedOutflow() {
     participants: [],
     mode: 'equal'
   };
-  if (type === 'spend') {
+  if (type === 'spend' || type === 'expense') {
     try {
       sharedState = collectUnifiedOutflowSharedFromForm(amount);
     } catch (error) {
@@ -3675,6 +3604,7 @@ function saveUnifiedOutflow() {
     ...output,
     date,
     recurringSpend,
+    expenseRecurring,
     status,
     paid: editingUnifiedOutflowId
       ? ((month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId)?.paid === true)
@@ -3682,7 +3612,7 @@ function saveUnifiedOutflow() {
     installmentsTotal,
     installmentIndex: editingUnifiedOutflowId ? ((month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId)?.installmentIndex || 1) : 1,
     installmentsGroupId: editingUnifiedOutflowId ? ((month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId)?.installmentsGroupId || '') : (installmentsTotal > 1 ? `inst_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : ''),
-    recurringGroupId: (type === 'fixed' || recurringSpend) && installmentsTotal <= 1
+    recurringGroupId: (expenseRecurring || recurringSpend) && installmentsTotal <= 1
       ? (editingUnifiedOutflowId ? ((month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId)?.recurringGroupId || `rec_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`) : `rec_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`)
       : '',
     sharedExpense: sharedState.enabled,
@@ -3716,7 +3646,7 @@ function saveUnifiedOutflow() {
         futureMonth.outflows.push(cloneUnifiedOutflowForMonth({ ...baseItem, installmentIndex: offset }, futureDate, month));
       }
     }
-    if (!editingUnifiedOutflowId && (type === 'fixed' || recurringSpend) && installmentsTotal <= 1) {
+    if (!editingUnifiedOutflowId && (expenseRecurring || recurringSpend) && installmentsTotal <= 1) {
       const currentSort = getMonthSortValue(month);
       data.forEach(otherMonth => {
         if (getMonthSortValue(otherMonth) <= currentSort) return;
@@ -3772,7 +3702,7 @@ function renderMes() {
   if (unifiedPilotEnabled) ensureUnifiedOutflowPilotMonth(m);
   if (unifiedPilotEnabled && unifiedOutflowDefaultFilterPending) {
     if (!m.unifiedOutflowUi || typeof m.unifiedOutflowUi !== 'object') m.unifiedOutflowUi = {};
-    m.unifiedOutflowUi.filter = 'fixed';
+    m.unifiedOutflowUi.filter = 'expense';
     unifiedOutflowDefaultFilterPending = false;
   }
   ensureMonthSectionOrder();
@@ -4303,7 +4233,7 @@ function editItem(type, idx) {
 function buildItemForm(type, item) {
   const f = document.getElementById('modalItemForm');
   if (type === 'despesa') {
-    const cats = ['DESPESA FIXA', 'DESPESA VARIÁVEL'];
+    const cats = ['DESPESA', 'GASTO'];
     const buildExpenseCategoryOption = (name) => `<option ${item&&item.categoria===name?'selected':''}>${escapeHtml(formatCategoryOptionLabel(name))}</option>`;
     f.innerHTML = `
       <div class="form-row">
@@ -4750,7 +4680,7 @@ function commitInlineEdit(rawValue) {
       next.amount = amount;
     } else if (field === 'date') {
       const raw = String(rawValue || '').trim();
-      if (next.type === 'fixed' || next.recurringSpend === true) {
+      if (isUnifiedExpenseType(next) || next.recurringSpend === true) {
         if (!raw) {
           next.date = '';
         } else {
@@ -4782,7 +4712,7 @@ function commitInlineEdit(rawValue) {
       if (parsed.outputKind === 'card') {
         next.type = 'spend';
         next.countsInPrimaryTotals = false;
-      } else if (next.type === 'fixed') {
+      } else if (isUnifiedExpenseType(next)) {
         next.countsInPrimaryTotals = true;
       }
     }

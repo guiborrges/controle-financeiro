@@ -23,7 +23,7 @@ function getInlineItem(table, row) {
 }
 
 function getInlineDespesaCategoryOptions(currentCat) {
-  const base = ['DESPESA FIXA', 'DESPESA VARIÁVEL'];
+  const base = ['DESPESA', 'GASTO'];
   const current = resolveCategoryName(currentCat || 'OUTROS');
   if (!base.includes(current)) base.unshift(current);
   return Array.from(new Set(base));

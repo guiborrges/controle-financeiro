@@ -70,6 +70,11 @@
     return date;
   }
 
+  function isExpenseType(item) {
+    const normalized = String(item?.type || '').toLowerCase();
+    return normalized === 'expense' || normalized === 'fixed';
+  }
+
   function getFixedOutflowDayIfDueInTargetMonth(item, targetMonth) {
     const rawDate = String(item?.date || '').trim();
     if (!rawDate) return 0;
@@ -86,7 +91,7 @@
     const list = getAllMonthsData();
     list.forEach(sourceMonth => {
       (sourceMonth?.outflows || []).forEach(item => {
-        const isFixedPayment = item?.type === 'fixed' && item?.outputKind !== 'card';
+        const isFixedPayment = isExpenseType(item) && item?.outputKind !== 'card';
         if (!isFixedPayment) return;
         const amount = Number(item?.amount || 0);
         if (!(amount > 0)) return;
@@ -247,7 +252,7 @@
     const parsedDate = parseDateFromVarDate(rawDate, month);
     if (parsedDate) return parsedDate.getDate();
     const hasExplicitMonthYear = /[\/-]/.test(rawDate);
-    if (item.type === 'fixed' && item.outputKind !== 'card') {
+    if (isExpenseType(item) && item.outputKind !== 'card') {
       // Despesas fixas com mês/ano explícitos devem aparecer apenas no mês real de cobrança.
       // Fallback de "somente dia" é permitido apenas para legado sem mês/ano no campo.
       if (hasExplicitMonthYear) return 0;
@@ -263,7 +268,7 @@
   function isVariableOutflow(item) {
     if (!item || item.type !== 'spend') return false;
     if (item.recurringSpend === true) return false;
-    if (item.type === 'fixed') return false;
+    if (isExpenseType(item)) return false;
     if (item.installmentsTotal > 1 && item.installmentIndex > 1 && item.outputKind === 'card') {
       return false;
     }
@@ -297,7 +302,7 @@
       if (!(amount > 0)) return;
       outflows += amount;
       launches.push(item);
-      const isPaymentRelevant = (item?.type === 'fixed' || item?.recurringSpend === true) && item?.outputKind !== 'card';
+      const isPaymentRelevant = (isExpenseType(item) || item?.recurringSpend === true) && item?.outputKind !== 'card';
       if (!isPaymentRelevant) return;
       paymentItems.push({
         id: String(item?.id || ''),
@@ -376,7 +381,7 @@
       markers[day] = { payment: false, receiving: false };
     }
     (month?.outflows || []).forEach(item => {
-      const isPaymentRelevant = (item?.type === 'fixed' || item?.recurringSpend === true) && item?.outputKind !== 'card';
+      const isPaymentRelevant = (isExpenseType(item) || item?.recurringSpend === true) && item?.outputKind !== 'card';
       if (!isPaymentRelevant) return;
       if (!(Number(item?.amount || 0) > 0)) return;
       const day = getMonthDayFromOutflow(item, month);

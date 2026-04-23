@@ -34,22 +34,38 @@ test('card filter returns only launches for selected card (no bill)', () => {
   assert.equal(rows[0].item.id, 'o1');
 });
 
-test('fixed filter includes fixed rows, direct real methods and bills', () => {
+test('expense filter includes expense rows, direct real methods and bills', () => {
   const { getUnifiedFilterRows } = loadFilterFunctions();
   const month = {
     outflows: [
-      { id: 'fixed_a', type: 'fixed', outputKind: 'method', outputMethod: 'boleto' },
+      { id: 'expense_a', type: 'expense', outputKind: 'method', outputMethod: 'boleto' },
+      { id: 'legacy_fixed', type: 'fixed', outputKind: 'method', outputMethod: 'boleto' },
       { id: 'spend_pix', type: 'spend', outputKind: 'method', outputMethod: 'pix' },
       { id: 'spend_card', type: 'spend', outputKind: 'card', outputRef: 'c1' }
     ],
     cardBills: [{ id: 'bill_1', cardId: 'c1' }]
   };
-  const rows = getUnifiedFilterRows(month, 'fixed', '');
+  const rows = getUnifiedFilterRows(month, 'expense', '');
   const ids = rows.map(row => row.item.id);
-  assert.equal(ids.includes('fixed_a'), true);
+  assert.equal(ids.includes('expense_a'), true);
+  assert.equal(ids.includes('legacy_fixed'), true);
   assert.equal(ids.includes('spend_pix'), true);
   assert.equal(ids.includes('spend_card'), false);
   assert.equal(ids.includes('bill_1'), true);
+});
+
+test('spend filter keeps only spend launches (excludes expense)', () => {
+  const { getUnifiedFilterRows } = loadFilterFunctions();
+  const month = {
+    outflows: [
+      { id: 'expense_a', type: 'expense', outputKind: 'method', outputMethod: 'boleto' },
+      { id: 'spend_a', type: 'spend', outputKind: 'method', outputMethod: 'pix' }
+    ],
+    cardBills: []
+  };
+  const rows = getUnifiedFilterRows(month, 'spend', '');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].item.id, 'spend_a');
 });
 
 test('all filter keeps outflows plus bills and tag filter narrows outflows only', () => {
@@ -57,7 +73,7 @@ test('all filter keeps outflows plus bills and tag filter narrows outflows only'
   const month = {
     outflows: [
       { id: 'a', type: 'spend', outputKind: 'method', outputMethod: 'dinheiro', tag: 'viagem' },
-      { id: 'b', type: 'fixed', outputKind: 'method', outputMethod: 'boleto', tag: 'casa' }
+      { id: 'b', type: 'expense', outputKind: 'method', outputMethod: 'boleto', tag: 'casa' }
     ],
     cardBills: [{ id: 'bill' }]
   };

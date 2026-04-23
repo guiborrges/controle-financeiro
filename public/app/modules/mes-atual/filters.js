@@ -63,14 +63,18 @@ function getUnifiedFilterRows(month, filterValue, tagFilterValue = '', searchVal
       return String(row.item?.tag || '').trim().toLowerCase() === normalizedTagFilter;
     });
   };
-  if (filterValue === 'fixed') {
+  if (filterValue === 'fixed') filterValue = 'expense';
+  if (filterValue === 'expense') {
     return applyTagFilter([
-      ...rows.filter(row => row.item.type === 'fixed'),
+      ...rows.filter(row => {
+        const type = String(row.item?.type || '').toLowerCase();
+        return type === 'expense' || type === 'fixed';
+      }),
       ...rows.filter(row => row.item.type === 'spend' && row.item.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(row.item.outputMethod)),
       ...billRows
     ]);
   }
-  if (filterValue === 'spend') return applyTagFilter(rows.filter(row => row.item.type === 'spend' || row.item.type === 'fixed'));
+  if (filterValue === 'spend') return applyTagFilter(rows.filter(row => String(row.item?.type || '').toLowerCase() === 'spend'));
   if (filterValue.startsWith('card:')) {
     const cardId = filterValue.slice(5);
     return applyTagFilter(rows.filter(row => row.item.outputKind === 'card' && row.item.outputRef === cardId));
