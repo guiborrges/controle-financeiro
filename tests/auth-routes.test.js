@@ -55,6 +55,7 @@ function createBaseDeps(overrides = {}) {
       displayName: 'Tester',
       fullName: 'Tester',
       encryptionSalt: 'salt',
+      legacyRecurrenceBackfillRestricted: false,
       permissions: {}
     }),
     findUserById: () => null,
@@ -115,11 +116,13 @@ test('auth login success populates authenticated session payload', () => {
     fullName: 'Tester',
     email: 't@x.com',
     encryptionSalt: 'salt',
+    legacyRecurrenceBackfillRestricted: true,
     permissions: { canAccessESO: true }
   };
   registerAuthRoutes(app, createBaseDeps({
     findUserByEmail: () => user,
-    verifyPassword: () => true
+    verifyPassword: () => true,
+    registerUserLogin: () => user
   }));
   const handler = app.routes.get('POST /api/auth/login');
   const req = {
@@ -135,6 +138,28 @@ test('auth login success populates authenticated session payload', () => {
   assert.equal(res.payload?.ok, true);
   assert.equal(req.session?.authenticated, true);
   assert.equal(req.session?.user?.id, user.id);
+  assert.equal(req.session?.user?.legacyRecurrenceBackfillRestricted, true);
   assert.equal(typeof req.session?.dataEncryptionKey, 'string');
+});
+
+test('auth session payload exposes recurrence restriction flag', () => {
+  const app = createMockApp();
+  registerAuthRoutes(app, createBaseDeps({
+    getAuthenticatedUser: () => ({
+      id: 'u-auth-2',
+      username: 'legacy',
+      displayName: 'Legacy',
+      fullName: 'Legacy',
+      email: 'legacy@test.local',
+      legacyRecurrenceBackfillRestricted: true,
+      permissions: { canAccessESO: false }
+    })
+  }));
+  const handler = app.routes.get('GET /api/auth/session');
+  const req = { session: { authenticated: true } };
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload?.legacyRecurrenceBackfillRestricted, true);
 });
 

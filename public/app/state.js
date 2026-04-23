@@ -934,6 +934,29 @@ function createHistorySnapshot() {
   });
 }
 
+let backupRestoreUndoSnapshot = '';
+let backupRestoreUndoAvailable = false;
+
+function registerBackupRestoreUndoSnapshot(snapshot) {
+  const normalized = String(snapshot || '').trim();
+  if (!normalized) return false;
+  backupRestoreUndoSnapshot = normalized;
+  backupRestoreUndoAvailable = true;
+  return true;
+}
+
+function clearBackupRestoreUndoSnapshot() {
+  backupRestoreUndoSnapshot = '';
+  backupRestoreUndoAvailable = false;
+}
+
+function consumeBackupRestoreUndoSnapshot() {
+  if (!backupRestoreUndoAvailable || !backupRestoreUndoSnapshot) return '';
+  const snapshot = backupRestoreUndoSnapshot;
+  clearBackupRestoreUndoSnapshot();
+  return snapshot;
+}
+
 function restoreHistorySnapshot(snapshot) {
   const state = JSON.parse(snapshot);
   data = state.data || [];
@@ -968,6 +991,7 @@ function restoreHistorySnapshot(snapshot) {
 }
 
 function recordHistoryState() {
+  if (backupRestoreUndoAvailable) clearBackupRestoreUndoSnapshot();
   undoStack.push(createHistorySnapshot());
   if (undoStack.length > MAX_HISTORY) undoStack.shift();
   redoStack = [];
@@ -982,7 +1006,21 @@ function updateHistoryButtons() {
 }
 
 function undoLastChange() {
-  if (undoStack.length === 0) return;
+  if (undoStack.length === 0) {
+    const restoreSnapshot = consumeBackupRestoreUndoSnapshot();
+    if (!restoreSnapshot) return;
+    restoreHistorySnapshot(restoreSnapshot);
+    redoStack = [];
+    updateHistoryButtons();
+    if (typeof showAppStatus === 'function') {
+      showAppStatus(
+        'Importacao de backup desfeita com sucesso. O estado anterior foi restaurado.',
+        'Backup restaurado via undo',
+        'ok'
+      );
+    }
+    return;
+  }
   redoStack.push(createHistorySnapshot());
   const snapshot = undoStack.pop();
   restoreHistorySnapshot(snapshot);

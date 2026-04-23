@@ -102,6 +102,7 @@ function registerAppStateRoutes(app, deps) {
         email: refreshedUser.email || '',
         displayName: refreshedUser.displayName,
         fullName: refreshedUser.fullName || refreshedUser.displayName,
+        legacyRecurrenceBackfillRestricted: !!refreshedUser.legacyRecurrenceBackfillRestricted,
         csrfToken: ensureCsrfToken(req),
         permissions: {
           canAccessESO: !!refreshedUser.permissions?.canAccessESO

@@ -365,10 +365,12 @@ function getUnifiedMigrationProfile() {
   const username = String(currentSession?.username || boot.session?.username || '').trim().toLowerCase();
   const displayName = String(currentSession?.displayName || boot.session?.displayName || '').trim().toLowerCase();
   const fullName = String(currentSession?.fullName || boot.session?.fullName || '').trim().toLowerCase();
-  const isGuilherme = username === 'guilherme'
-    || displayName === 'guilherme silva borges'
-    || fullName === 'guilherme silva borges';
-  return { username, displayName, fullName, isGuilherme };
+  const legacyRecurrenceBackfillRestricted = !!(
+    currentSession?.legacyRecurrenceBackfillRestricted
+    || boot.session?.legacyRecurrenceBackfillRestricted
+    || boot.profile?.legacyRecurrenceBackfillRestricted
+  );
+  return { username, displayName, fullName, isGuilherme: legacyRecurrenceBackfillRestricted, legacyRecurrenceBackfillRestricted };
 }
 
 function ensureUnifiedRequiredCards(month, profile = getUnifiedMigrationProfile()) {
@@ -901,6 +903,9 @@ function getSharedParticipantNameSuggestions() {
 }
 
 function getUnifiedSharedComputedValues(totalAmount, peopleCount, mode, peopleRows = []) {
+  if (window.MesAtualSharedExpense?.getUnifiedSharedComputedValues) {
+    return window.MesAtualSharedExpense.getUnifiedSharedComputedValues(totalAmount, peopleCount, mode, peopleRows);
+  }
   const safeTotal = Math.max(0, Number(totalAmount || 0) || 0);
   const safeCount = Math.max(1, Math.min(20, Number(peopleCount || 1) || 1));
   const normalizedMode = String(mode || 'equal').toLowerCase() === 'manual' ? 'manual' : 'equal';
@@ -1231,6 +1236,9 @@ function ensureUnifiedOutflowPilotMonth(month) {
 }
 
 function getUnifiedCardBill(month, cardId) {
+  if (window.MesAtualCardBill?.getUnifiedCardBill) {
+    return window.MesAtualCardBill.getUnifiedCardBill(month, cardId);
+  }
   if (window.MesAtualCards?.getUnifiedCardBill) {
     return window.MesAtualCards.getUnifiedCardBill(month, cardId);
   }
@@ -1239,6 +1247,9 @@ function getUnifiedCardBill(month, cardId) {
 }
 
 function getUnifiedCardRecurringForecastAmount(month, cardId) {
+  if (window.MesAtualCardBill?.getUnifiedCardRecurringForecastAmount) {
+    return window.MesAtualCardBill.getUnifiedCardRecurringForecastAmount(month, cardId);
+  }
   if (!month) return 0;
   return (month.outflows || []).reduce((acc, item) => {
     if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
@@ -1265,6 +1276,9 @@ function syncUnifiedCardBillForecastAmounts(month) {
 }
 
 function getUnifiedCardLaunchesAmount(month, cardId) {
+  if (window.MesAtualCardBill?.getUnifiedCardLaunchesAmount) {
+    return window.MesAtualCardBill.getUnifiedCardLaunchesAmount(month, cardId);
+  }
   if (window.MesAtualCards?.getUnifiedCardLaunchesAmount) {
     return window.MesAtualCards.getUnifiedCardLaunchesAmount(month, cardId);
   }
@@ -1276,6 +1290,9 @@ function getUnifiedCardLaunchesAmount(month, cardId) {
 }
 
 function getUnifiedRecurringSpendPlannedTotal(month) {
+  if (window.MesAtualMonthTotals?.getUnifiedRecurringSpendPlannedTotal) {
+    return window.MesAtualMonthTotals.getUnifiedRecurringSpendPlannedTotal(month);
+  }
   if (window.MesAtualTotals?.getUnifiedRecurringSpendPlannedTotal) {
     return window.MesAtualTotals.getUnifiedRecurringSpendPlannedTotal(month);
   }
@@ -2077,7 +2094,9 @@ function renderUnifiedMonthPilot(month) {
     saveUIState();
   }
   section.style.display = '';
-  const rows = getUnifiedFilterRows(month, currentFilter, currentTagFilter, showSearch ? currentSearch : '');
+  const rows = window.MesAtualOutflowFilters?.getRows
+    ? window.MesAtualOutflowFilters.getRows(month, currentFilter, currentTagFilter, showSearch ? currentSearch : '')
+    : getUnifiedFilterRows(month, currentFilter, currentTagFilter, showSearch ? currentSearch : '');
   content.innerHTML = currentFilter === 'fixed'
     ? renderUnifiedFixedRows(month, rows)
     : currentFilter === 'spend'
@@ -3084,6 +3103,12 @@ function clearUnifiedOutflowDraft(month) {
 }
 
 function buildUnifiedOutflowDraftFromForm(month) {
+  if (window.MesAtualOutflows?.buildDraftFromForm) {
+    return window.MesAtualOutflows.buildDraftFromForm(month, {
+      getCurrentMonth,
+      readSharedParticipantsFromDOM: readUnifiedOutflowSharedParticipantsFromDOM
+    });
+  }
   if (window.MesAtualModals?.buildUnifiedOutflowDraftFromForm) {
     return window.MesAtualModals.buildUnifiedOutflowDraftFromForm(month, {
       getCurrentMonth,
@@ -3131,6 +3156,20 @@ function buildUnifiedOutflowDraftFromForm(month) {
 }
 
 function applyUnifiedOutflowDraftToForm(month, draft) {
+  if (window.MesAtualOutflows?.applyDraftToForm) {
+    return window.MesAtualOutflows.applyDraftToForm(month, draft, {
+      populateCategoryOptions: populateUnifiedOutflowCategoryOptions,
+      resolveDefaultCategory: resolveCategoryName,
+      toggleNewCategory: toggleUnifiedOutflowNewCategory,
+      getOutputOptions: getUnifiedOutflowOutputOptions,
+      populateTagOptions: populateUnifiedOutflowTagOptions,
+      toggleNewTag: toggleUnifiedOutflowNewTag,
+      toggleInstallments: toggleUnifiedOutflowInstallments,
+      handleTypeChange: handleUnifiedOutflowTypeChange,
+      renderSharedPeople: renderUnifiedOutflowSharedPeople,
+      renderDescriptionSuggestions: renderUnifiedOutflowDescriptionSuggestions
+    });
+  }
   if (window.MesAtualModals?.applyUnifiedOutflowDraftToForm) {
     return window.MesAtualModals.applyUnifiedOutflowDraftToForm(month, draft, {
       populateCategoryOptions: populateUnifiedOutflowCategoryOptions,
@@ -3310,6 +3349,9 @@ function setUnifiedOutflowModalMode(isSimpleEditMode) {
 }
 
 function getUnifiedOutflowRowsForRecentList(month) {
+  if (window.MesAtualOutflows?.getRowsForRecentList) {
+    return window.MesAtualOutflows.getRowsForRecentList(month, { parseData });
+  }
   return (month?.outflows || [])
     .slice()
     .sort((a, b) => {

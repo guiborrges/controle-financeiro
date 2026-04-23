@@ -130,6 +130,20 @@ function validateBackupStateFile(filePath, expectedUserId = '') {
   if (!parsed.userId || !parsed.updatedAt || !Object.prototype.hasOwnProperty.call(parsed, 'state')) {
     return { status: 'corrupted', message: 'Estrutura minima ausente.', checksum, size };
   }
+  const updatedAtMs = Date.parse(String(parsed.updatedAt || ''));
+  if (!Number.isFinite(updatedAtMs) || updatedAtMs <= 0) {
+    return { status: 'corrupted', message: 'updatedAt invalido.', checksum, size };
+  }
+  const monthCount = Number(parsed.monthCount || 0);
+  if (!Number.isFinite(monthCount) || monthCount < 0) {
+    return { status: 'corrupted', message: 'monthCount invalido.', checksum, size };
+  }
+  if (!parsed.schemaVersion || typeof parsed.schemaVersion !== 'string') {
+    return { status: 'corrupted', message: 'schemaVersion ausente.', checksum, size };
+  }
+  if (typeof parsed.encrypted !== 'boolean') {
+    return { status: 'corrupted', message: 'Flag encrypted invalida.', checksum, size };
+  }
   if (parsed.encrypted === true) {
     if (typeof parsed.state !== 'string' || !parsed.state.startsWith('enc$')) {
       return { status: 'corrupted', message: 'Payload criptografado invalido.', checksum, size };
@@ -137,7 +151,10 @@ function validateBackupStateFile(filePath, expectedUserId = '') {
     return { status: 'ok', message: 'Backup valido.', checksum, size };
   }
   if (parsed.encrypted === false && parsed.state && typeof parsed.state === 'object' && !Array.isArray(parsed.state)) {
-    return { status: 'alert', message: 'Estado legivel encontrado.', checksum, size };
+    if (!Array.isArray(parsed.state.finData)) {
+      return { status: 'corrupted', message: 'Estado legivel sem finData.', checksum, size };
+    }
+    return { status: 'ok', message: 'Backup valido.', checksum, size };
   }
   return { status: 'corrupted', message: 'Formato de estado nao reconhecido.', checksum, size };
 }
@@ -419,6 +436,13 @@ function restoreUserBackup(userId, backupId) {
   const targetFile = getUserDataPath(user.id);
   fs.mkdirSync(path.dirname(targetFile), { recursive: true });
   fs.copyFileSync(sourceFile, targetFile);
+  const restoredIntegrity = validateBackupStateFile(targetFile, user.id);
+  if (restoredIntegrity.status !== 'ok') {
+    throw new Error('Falha de integridade apos restauracao do backup.');
+  }
+  if (restoredIntegrity.checksum !== selected.checksum) {
+    throw new Error('Checksum divergente apos restauracao do backup.');
+  }
 
   const restoredAt = new Date().toISOString();
   const index = readBackupIndex(user);

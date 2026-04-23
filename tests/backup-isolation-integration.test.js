@@ -135,3 +135,47 @@ test('backup retention is non-pruning by default (no loss on inactivity policy)'
   const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
   assert.equal(out.count, 7);
 });
+
+test('backup restore performs full replacement (no merge residues)', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-replace-'));
+  const script = `
+    const { createUser } = require('./server/user-store.js');
+    const { writeUserAppState, readUserAppState } = require('./server/app-state-store.js');
+    const { createUserBackup, restoreUserBackup } = require('./server/backup-store.js');
+    const user = createUser({
+      id: 'u_replace',
+      username: 'ureplace',
+      email: 'ureplace@test.local',
+      fullName: 'User Replace',
+      displayName: 'Replace',
+      passwordHash: 'hash'
+    });
+    const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
+    const sourceState = {
+      finStateSchemaVersion: '3',
+      finData: [{ id: '2026-04', nome: 'ABRIL 2026' }],
+      finMetas: { casa: 1000 }
+    };
+    writeUserAppState(user.id, sourceState, key);
+    const backup = createUserBackup(user.id, { type: 'manual', note: 'source' });
+    writeUserAppState(user.id, {
+      finStateSchemaVersion: '3',
+      finData: [{ id: '2026-05', nome: 'MAIO 2026' }],
+      finMetas: { carro: 999 },
+      finGhostField: { shouldDisappear: true }
+    }, key);
+    restoreUserBackup(user.id, backup.id);
+    const restored = readUserAppState(user.id, key);
+    console.log(JSON.stringify({
+      monthId: restored?.state?.finData?.[0]?.id || '',
+      hasCasaMeta: Object.prototype.hasOwnProperty.call(restored?.state?.finMetas || {}, 'casa'),
+      hasCarroMeta: Object.prototype.hasOwnProperty.call(restored?.state?.finMetas || {}, 'carro'),
+      hasGhostField: Object.prototype.hasOwnProperty.call(restored?.state || {}, 'finGhostField')
+    }));
+  `;
+  const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
+  assert.equal(out.monthId, '2026-04');
+  assert.equal(out.hasCasaMeta, true);
+  assert.equal(out.hasCarroMeta, false);
+  assert.equal(out.hasGhostField, false);
+});

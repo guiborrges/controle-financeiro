@@ -124,6 +124,7 @@ function registerProfileRoutes(app, deps) {
       if (req.session?.user) {
         req.session.user.displayName = nextUser.displayName;
         req.session.user.fullName = nextUser.fullName || nextUser.displayName;
+        req.session.user.legacyRecurrenceBackfillRestricted = !!nextUser.legacyRecurrenceBackfillRestricted;
       }
       res.json({
         ok: true,

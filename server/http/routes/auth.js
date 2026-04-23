@@ -51,6 +51,7 @@ function registerAuthRoutes(app, deps) {
       email: user.email || '',
       displayName: user.displayName,
       fullName: user.fullName || user.displayName,
+      legacyRecurrenceBackfillRestricted: !!user.legacyRecurrenceBackfillRestricted,
       csrfToken: ensureCsrfToken(req),
       permissions: {
         canAccessESO: !!user.permissions?.canAccessESO
@@ -97,6 +98,7 @@ function registerAuthRoutes(app, deps) {
           username: loggedUser.username,
           displayName: loggedUser.displayName,
           fullName: loggedUser.fullName || loggedUser.displayName,
+          legacyRecurrenceBackfillRestricted: !!loggedUser.legacyRecurrenceBackfillRestricted,
           permissions: {
             canAccessESO: !!loggedUser.permissions?.canAccessESO
           }
@@ -176,6 +178,7 @@ function registerAuthRoutes(app, deps) {
           username: user.username,
           displayName: user.displayName,
           fullName: user.fullName || user.displayName,
+          legacyRecurrenceBackfillRestricted: !!user.legacyRecurrenceBackfillRestricted,
           permissions: {
             canAccessESO: !!user.permissions?.canAccessESO
           }

@@ -89,6 +89,11 @@ function readUsersStore() {
       nextUser.lastRestoreAt = '';
       nextChanged = true;
     }
+    if (typeof nextUser.legacyRecurrenceBackfillRestricted !== 'boolean') {
+      const normalizedUsername = normalizeUsername(nextUser.username || '');
+      nextUser.legacyRecurrenceBackfillRestricted = normalizedUsername === 'guilherme';
+      nextChanged = true;
+    }
     if (!nextUser.backupStats || typeof nextUser.backupStats !== 'object') {
       nextUser.backupStats = {
         lastBackupAt: '',
@@ -180,6 +185,7 @@ function buildPublicProfile(user) {
     email: user.email || '',
     displayName: user.displayName || user.fullName || user.username,
     fullName: user.fullName || user.displayName || user.username,
+    legacyRecurrenceBackfillRestricted: !!user.legacyRecurrenceBackfillRestricted,
     permissions: {
       canAccessESO: !!user.permissions?.canAccessESO
     }
@@ -196,6 +202,7 @@ function buildPrivateProfile(user) {
     birthDate: user.birthDate || '',
     phone: user.phone || '',
     passwordHint: user.passwordHint || '',
+    legacyRecurrenceBackfillRestricted: !!user.legacyRecurrenceBackfillRestricted,
     permissions: {
       canAccessESO: !!user.permissions?.canAccessESO
     }
@@ -234,6 +241,9 @@ function createUser(payload) {
       lastBackupType: String(payload?.backupStats?.lastBackupType || ''),
       loginsSinceBackup: Number(payload?.backupStats?.loginsSinceBackup || 0)
     },
+    legacyRecurrenceBackfillRestricted: payload.legacyRecurrenceBackfillRestricted !== undefined
+      ? !!payload.legacyRecurrenceBackfillRestricted
+      : normalizeUsername(payload.username || buildUsernameFromEmail(payload.email)) === 'guilherme',
     permissions: {
       canAccessESO: !!payload.permissions?.canAccessESO
     },
@@ -265,6 +275,9 @@ function updateUser(userId, patch) {
       ...(current.backupStats || {}),
       ...((patch.backupStats && typeof patch.backupStats === 'object') ? patch.backupStats : {})
     },
+    legacyRecurrenceBackfillRestricted: patch.legacyRecurrenceBackfillRestricted !== undefined
+      ? !!patch.legacyRecurrenceBackfillRestricted
+      : !!current.legacyRecurrenceBackfillRestricted,
     permissions: {
       ...current.permissions,
       ...(patch.permissions || {})
