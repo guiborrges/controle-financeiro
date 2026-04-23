@@ -1,5 +1,31 @@
 # PROJECT_CONTEXT
 
+## 0. CODEX_ECONOMY_MODE
+- Default communication:
+  - Keep responses short.
+  - Do not repeat prior context unless the user asks.
+  - Prefer execution-focused updates over long explanations.
+- Work scope:
+  - For specific bugs, inspect only directly affected files first.
+  - Avoid broad audits or "search everything" unless the request is architectural, security-critical, or unclear.
+  - Keep the workspace rooted at `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online`.
+  - Do not compare against old project directories.
+- Request batching:
+  - Prefer grouping related requests into one work round.
+  - Use handoff files instead of retyping long chat history.
+- Test policy:
+  - Simple hotfix: focused test only.
+  - Medium change: focused test + smoke check.
+  - Release or broad refactor: full test suite.
+  - During implementation, run only targeted tests; run the full suite only at final verification when warranted.
+- Closing checklist:
+  - Review diff.
+  - Run the appropriate targeted test/check.
+  - Commit and push to GitHub with date/time in the message.
+  - Avoid extra steps unless they are needed for safety.
+- Explicit fast-execution command:
+  - If the user says "sem explicacao, so alterar e subir", make the change, run the minimum appropriate check, commit, push, and answer briefly.
+
 ## 1. SYSTEM_OVERVIEW
 - Product: multi-user financial control web app with authenticated session, encrypted state, and user-scoped backups.
 - Core scope:
