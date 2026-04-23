@@ -55,3 +55,29 @@ test('reconcileUnifiedCardBillsWithCards preserves orphan historical bills and a
   assert.equal(byCardId.get('cartao_legacy_antigo')?.manualAmountSet, true);
   assert.equal(byCardId.get('card_inter')?.amount, 0);
 });
+
+test('normalizeUnifiedCardBill preserves positive historical backup amounts even with manual flag false', () => {
+  const ctx = loadMesAtualContext();
+  const bill = ctx.normalizeUnifiedCardBill(
+    { id: 'marco_2026' },
+    { cardId: 'card_xp', amount: 3173.82, manualAmountSet: false },
+    0
+  );
+  assert.equal(bill.amount, 3173.82);
+  assert.equal(bill.manualAmountSet, true);
+});
+
+test('historical backup bill is not zeroed by automatic forecast sync after normalization', () => {
+  const ctx = loadMesAtualContext();
+  const month = {
+    id: 'marco_2026',
+    outflows: [],
+    cardBills: [
+      { cardId: 'card_xp', amount: 3173.82, manualAmountSet: false }
+    ]
+  };
+  month.cardBills = month.cardBills.map((bill, idx) => ctx.normalizeUnifiedCardBill(month, bill, idx));
+  const changed = ctx.syncUnifiedCardBillForecastAmounts(month);
+  assert.equal(changed, false);
+  assert.equal(month.cardBills[0].amount, 3173.82);
+});

@@ -638,12 +638,9 @@ function normalizeUnifiedCard(card, idx = 0) {
 
 function normalizeUnifiedCardBill(month, bill, idx = 0) {
   const amount = Math.max(0, Number(bill?.amount || bill?.valor || 0) || 0);
-  const hasManualFlag = Object.prototype.hasOwnProperty.call(bill || {}, 'manualAmountSet');
   const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(true) });
   const monthSort = getMonthSortValue(month || {});
-  const inferredManual = hasManualFlag
-    ? bill?.manualAmountSet === true
-    : (monthSort <= currentRealSort && amount > 0);
+  const inferredManual = bill?.manualAmountSet === true || (monthSort <= currentRealSort && amount > 0);
   return {
     id: bill?.id || `bill_${month?.id || 'month'}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
     cardId: String(bill?.cardId || '').trim(),
