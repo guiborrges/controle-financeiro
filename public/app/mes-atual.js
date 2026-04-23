@@ -2491,7 +2491,8 @@ function toggleUnifiedOutflowRecurring() {
 function handleUnifiedOutflowTypeChange() {
   const typeSelect = document.getElementById('unifiedOutflowType');
   const type = normalizeUnifiedOutflowType(typeSelect?.value || 'expense');
-  const outputValue = document.getElementById('unifiedOutflowOutput')?.value || '';
+  const outputSelect = document.getElementById('unifiedOutflowOutput');
+  const outputValue = outputSelect?.value || '';
   const outputHelp = document.getElementById('unifiedOutflowOutputHelp');
   const recurringLabel = document.getElementById('unifiedOutflowRecurringLabel');
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
@@ -2504,7 +2505,12 @@ function handleUnifiedOutflowTypeChange() {
   const recurringText = document.getElementById('unifiedOutflowRecurringText');
   const sharedText = document.getElementById('unifiedOutflowSharedText');
   const isCardOutput = outputValue.startsWith('card:');
-  if (typeSelect && isCardOutput && type === 'expense') typeSelect.value = 'spend';
+  if (type === 'expense' && isCardOutput && outputSelect) {
+    const fallbackValue = Array.from(outputSelect.options || []).some(option => option.value === 'method:debito')
+      ? 'method:debito'
+      : (outputSelect.options?.[0]?.value || 'method:debito');
+    outputSelect.value = fallbackValue;
+  }
   const effectiveType = typeSelect?.value || type;
   if (recurringText) recurringText.textContent = effectiveType === 'expense' ? 'Despesa recorrente' : 'Gasto recorrente';
   if (sharedText) sharedText.textContent = effectiveType === 'expense' ? 'Despesa compartilhada' : 'Gasto compartilhado';
@@ -2522,7 +2528,11 @@ function handleUnifiedOutflowTypeChange() {
   if (canUseShared && sharedToggle?.checked === true) renderUnifiedOutflowSharedPeople();
   updateUnifiedOutflowDateFieldState();
   if (!outputHelp) return;
-  outputHelp.textContent = '';
+  if (effectiveType === 'expense' && (outputSelect?.value || '').startsWith('card:')) {
+    outputHelp.textContent = 'Despesa nao usa cartao diretamente. Selecione pix, debito, dinheiro, boleto ou conta.';
+  } else {
+    outputHelp.textContent = '';
+  }
 }
 
 function toggleUnifiedOutflowShared() {
