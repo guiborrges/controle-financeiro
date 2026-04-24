@@ -1,15 +1,15 @@
 /* Mobile app shell: presentation only, financial logic remains shared. */
 @media (max-width: 900px) {
   html.mobile-ui {
-    --mobile-bg: #111317;
-    --mobile-surface: #181b20;
-    --mobile-surface-2: #20242b;
-    --mobile-line: rgba(255,255,255,.1);
-    --mobile-text: #f6f4ef;
-    --mobile-muted: rgba(246,244,239,.58);
-    --mobile-accent: #cf1020;
-    --mobile-green: #54c26d;
-    --mobile-red: #ff5f63;
+    --mobile-bg: var(--bg);
+    --mobile-surface: var(--surface-strong);
+    --mobile-surface-2: var(--surface2);
+    --mobile-line: var(--border);
+    --mobile-text: var(--text);
+    --mobile-muted: var(--text3);
+    --mobile-accent: var(--accent);
+    --mobile-green: var(--green);
+    --mobile-red: var(--red);
     background: var(--mobile-bg);
   }
 
@@ -22,9 +22,7 @@
 
   body.mobile-ui {
     min-height: calc(var(--app-vh, 1vh) * 100);
-    background:
-      radial-gradient(circle at 10% 0%, rgba(207,16,32,.18), transparent 30%),
-      linear-gradient(180deg, #14161b 0%, #101216 55%, #0c0e12 100%);
+    background: var(--mobile-bg);
     color: var(--mobile-text);
     -webkit-font-smoothing: antialiased;
     padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
@@ -56,9 +54,8 @@
     grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 4px;
     padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 8px;
-    background: rgba(17,19,23,.88);
-    border-bottom: 1px solid rgba(255,255,255,.08);
-    backdrop-filter: blur(18px);
+    background: var(--mobile-surface);
+    border-bottom: 1px solid var(--mobile-line);
   }
 
   .mobile-ui .mobile-app-header {
@@ -70,7 +67,7 @@
     height: 40px;
     border: 0;
     border-radius: 15px;
-    color: rgba(255,255,255,.72);
+    color: var(--text2);
     background: transparent;
     display: inline-flex;
     align-items: center;
@@ -78,9 +75,9 @@
   }
 
   .mobile-nav-btn.active {
-    color: #fff;
-    background: rgba(207,16,32,.18);
-    box-shadow: inset 0 0 0 1px rgba(207,16,32,.28);
+    color: var(--accent);
+    background: var(--accent-light);
+    box-shadow: inset 0 0 0 1px rgba(36,74,121,.16);
   }
 
   .system-icon {
@@ -93,9 +90,9 @@
   .mobile-ui .page-top-band,
   .mobile-ui .section,
   .mobile-ui .dashboard-widget .section {
-    border: 0;
-    border-radius: 0;
-    background: transparent;
+    border: 1px solid var(--mobile-line);
+    border-radius: 16px;
+    background: var(--mobile-surface);
     box-shadow: none;
   }
 
@@ -183,11 +180,11 @@
 
   .mobile-ui .metric-card {
     min-width: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent !important;
+    border: 1px solid var(--mobile-line);
+    border-radius: 14px;
+    background: var(--mobile-surface) !important;
     box-shadow: none;
-    padding: 4px 2px;
+    padding: 8px;
   }
 
   .mobile-ui .mc-label {
@@ -257,7 +254,7 @@
 
   .mobile-ui #section-unified-month {
     background: var(--mobile-surface);
-    border-radius: 28px;
+    border-radius: 16px;
     padding: 14px;
     margin-bottom: 18px;
     border: 1px solid var(--mobile-line);
@@ -282,8 +279,8 @@
     border: 0;
     border-radius: 50%;
     color: #fff;
-    background: linear-gradient(145deg, #ef2635, #b90014);
-    box-shadow: 0 18px 38px rgba(207,16,32,.34);
+    background: var(--mobile-accent);
+    box-shadow: none;
     display: none;
     align-items: center;
     justify-content: center;
@@ -301,21 +298,21 @@
     right: 0;
     bottom: 0;
     padding: 10px 18px calc(20px + env(safe-area-inset-bottom, 0px));
-    border-radius: 28px 28px 0 0;
-    background: #1a1d23;
-    color: #fff;
-    border-top: 1px solid rgba(255,255,255,.12);
-    box-shadow: 0 -22px 50px rgba(0,0,0,.38);
+    border-radius: 18px 18px 0 0;
+    background: var(--mobile-surface);
+    color: var(--mobile-text);
+    border-top: 1px solid var(--mobile-line);
+    box-shadow: none;
     display: grid;
     gap: 10px;
   }
-  .mobile-add-grip { width: 42px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.22); margin: 0 auto 4px; }
+  .mobile-add-grip { width: 42px; height: 4px; border-radius: 999px; background: var(--mobile-line); margin: 0 auto 4px; }
   .mobile-add-panel button:not(.mobile-add-scrim) {
     min-height: 54px;
-    border: 1px solid rgba(255,255,255,.1);
+    border: 1px solid var(--mobile-line);
     border-radius: 18px;
-    background: rgba(255,255,255,.06);
-    color: #fff;
+    background: var(--surface);
+    color: var(--mobile-text);
     display: flex;
     gap: 12px;
     align-items: center;
@@ -353,14 +350,7 @@
     color: var(--mobile-text);
   }
 
-  .mobile-ui .fin-table td[data-label]::before {
-    content: attr(data-label);
-    display: inline-block;
-    min-width: 86px;
-    margin-right: 10px;
-    color: var(--mobile-muted);
-    font-size: 11px;
-  }
+  .mobile-ui .fin-table td[data-label]::before { content: none !important; display: none !important; }
 
   /* Mobile-only: hide "Somado/Somar" column for gastos, despesas e receitas. */
   .mobile-ui .unified-outflow-table tbody td:first-child,
@@ -385,6 +375,20 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px 12px;
   }
+
+  .mobile-ui .unified-outflow-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+    align-items: center;
+  }
+  .mobile-ui .unified-outflow-table tbody td:nth-child(2) { grid-column: 1; grid-row: 1; }
+  .mobile-ui .unified-outflow-table tbody td:nth-child(5) { grid-column: 2; grid-row: 1; text-align: right; }
+  .mobile-ui .unified-outflow-table tbody td:nth-child(3) { grid-column: 1; grid-row: 2; color: var(--mobile-muted); font-size: 12px; }
+  .mobile-ui .unified-outflow-table tbody td:nth-child(4) { grid-column: 2; grid-row: 2; color: var(--mobile-muted); font-size: 12px; text-align: right; }
+  .mobile-ui .unified-outflow-table tbody td:nth-child(6) { grid-column: 2; grid-row: 3; text-align: right; }
+  .mobile-ui .unified-outflow-table tbody td:nth-child(7) { grid-column: 1; grid-row: 3; }
+  .mobile-ui .unified-outflow-table .unified-paid-toggle span { display: none !important; }
 
   .mobile-ui #despBody td,
   .mobile-ui #rendaBody td,
@@ -473,15 +477,14 @@
   .mobile-ui .form-actions {
     position: sticky;
     bottom: 0;
-    background: linear-gradient(180deg, transparent, rgba(255,255,255,.95) 25%);
+    background: var(--mobile-surface);
     padding-top: 14px;
   }
 
   .mobile-ui #modalFinanceCalendar {
     align-items: flex-end;
     justify-content: stretch;
-    background: rgba(0,0,0,.42);
-    backdrop-filter: blur(10px);
+    background: rgba(20,24,31,.12);
     pointer-events: auto;
   }
 
@@ -534,12 +537,12 @@
   .mobile-ui .tabs {
     width: 100%;
     overflow-x: auto;
-    background: rgba(255,255,255,.06);
+    background: var(--surface);
     border-color: var(--mobile-line);
   }
 
   .mobile-ui .tab-btn { color: var(--mobile-muted); white-space: nowrap; }
-  .mobile-ui .tab-btn.active { color: #fff; background: rgba(207,16,32,.22); }
+  .mobile-ui .tab-btn.active { color: var(--accent); background: var(--accent-light); }
 
   .mobile-ui .top-notifications-popover,
   .mobile-ui .month-calendar-modal {
