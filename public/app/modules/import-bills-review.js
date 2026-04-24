@@ -114,6 +114,21 @@
     return candidate || '';
   }
 
+  function getDateMonthContext(item) {
+    return getMonthById(item?.monthId)
+      || getMonthById(global.currentMonthId)
+      || (global.data || [])[0]
+      || null;
+  }
+
+  function resolveManualReviewDate(value, item) {
+    if (global.DateUtils?.resolveDateFromInput) {
+      return global.DateUtils.resolveDateFromInput(value, getDateMonthContext(item), { simpleDayMonthOffset: 1 }).date;
+    }
+    const normalized = global.normalizeVarDate?.(value) || '';
+    return normalized || normalizeText(value);
+  }
+
   function normalizeMonthComparable(value) {
     return normalizeText(value)
       .toLowerCase()
@@ -323,7 +338,7 @@
         return `
           <tr class="${item.include ? '' : 'is-disabled'}">
             <td><input type="checkbox" ${item.include ? 'checked' : ''} onchange="BillImportReview.toggleInclude('${item.id}', this.checked)"></td>
-            <td><input class="bill-import-input" value="${escapeHtml(item.date)}" oninput="BillImportReview.updateField('${item.id}','date', this.value)"></td>
+            <td><input class="bill-import-input" value="${escapeHtml(item.date)}" oninput="if(window.DateUtils?.formatDateInputProgressive){this.value=window.DateUtils.formatDateInputProgressive(this.value)}" onblur="BillImportReview.updateField('${item.id}','date', this.value)"></td>
             <td><input class="bill-import-input" value="${escapeHtml(item.description)}" oninput="BillImportReview.updateField('${item.id}','description', this.value)"></td>
             <td><input class="bill-import-input" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}" oninput="BillImportReview.updateField('${item.id}','amount', this.value)"></td>
             <td>
@@ -785,7 +800,7 @@
         item.category = normalizeText(value);
         if (item.category) item.needsReview = false;
       } else if (field === 'date') {
-        item.date = normalizeText(value);
+        item.date = resolveManualReviewDate(value, item);
         const inferredMonthId = inferMonthIdFromDate(item.date);
         item.monthId = normalizeMonthIdCandidate(inferredMonthId || item.monthId, item.date || '');
       } else if (field === 'description') {
@@ -819,6 +834,9 @@
       renderReview();
     },
     applyImport,
+    _test: {
+      resolveManualReviewDate
+    },
     closeReview() {
       if (typeof global.closeModal === 'function') global.closeModal('modalBillImportReview');
     }

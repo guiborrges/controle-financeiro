@@ -20,6 +20,9 @@
   }
 
   function getMonthDateByDayForMonth(day, month, monthOffset = 0) {
+    if (globalScope.DateUtils?.resolveDateFromInput) {
+      return globalScope.DateUtils.resolveDateFromInput(day, month, { simpleDayMonthOffset: monthOffset }).date;
+    }
     if (typeof globalScope.getMonthDateFromMonthObject !== 'function') return '';
     const parsedDay = Math.max(1, Math.min(31, Number(day || 1) || 1));
     const baseDate = globalScope.getMonthDateFromMonthObject(month);
@@ -35,8 +38,10 @@
     const raw = normalizeDateLike(rawValue);
     if (!raw) return '';
     if (allowDayOnly && /^\d{1,2}$/.test(raw)) {
-      const day = Math.max(1, Math.min(31, Number(raw) || 1));
-      return String(day).padStart(2, '0');
+      if (globalScope.DateUtils?.resolveDateFromInput) {
+        return globalScope.DateUtils.resolveDateFromInput(raw, month, { simpleDayMonthOffset: 1 }).date;
+      }
+      return getMonthDateByDayForMonth(raw, month, 1);
     }
     return typeof globalScope.normalizeVarDate === 'function'
       ? (globalScope.normalizeVarDate(raw) || '')

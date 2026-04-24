@@ -44,6 +44,12 @@ test('despesa com data completa respeita mes/ano informados', () => {
   assert.equal(date, '10/04/26');
 });
 
+test('despesa com data completa em outro mes respeita mes/ano informados', () => {
+  const mod = loadModule();
+  const date = mod.resolveExpenseDate('10/06/2026', buildMonth('ABRIL 2026'));
+  assert.equal(date, '10/06/26');
+});
+
 test('parcelamento/recorrencia continua a partir da primeira data informada', () => {
   const mod = loadModule();
   const nextMonth = new Date(2026, 4, 1); // maio/2026

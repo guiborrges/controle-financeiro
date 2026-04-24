@@ -262,7 +262,9 @@ function openEsoModal(id = null) {
 }
 
 function saveEsoItem() {
-  const dataTxt = normalizeVarDate(document.getElementById('esoDataInput').value);
+  const dataTxt = window.DateUtils?.normalizeDateInputForMonthContext
+    ? window.DateUtils.normalizeDateInputForMonthContext(document.getElementById('esoDataInput').value, getCurrentMonth(), { simpleDayMonthOffset: 1 })
+    : normalizeVarDate(document.getElementById('esoDataInput').value);
   const cliente = document.getElementById('esoClienteInput').value.trim();
   const tipo = document.getElementById('esoTipoInput').value.trim();
   const valor = parseFloat(document.getElementById('esoValorInput').value);

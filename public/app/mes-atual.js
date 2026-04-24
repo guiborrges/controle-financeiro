@@ -190,15 +190,59 @@ function getUnifiedBillingDayFromDateLabel(value) {
   return Math.max(1, Math.min(31, day || 1));
 }
 
-function applyRecurringChangedFieldsToItem(targetItem, sourceItem, changedFields, monthRef) {
+function applyRecurringChangedFieldsToItem(targetItem, sourceItem, changedFields, monthRef, sourceMonthRef = null) {
   changedFields.forEach(field => {
-    if (field === 'date' && isUnifiedRecurringExpense(sourceItem) && sourceItem?.outputKind !== 'card') {
+    if (field === 'date' && (isUnifiedRecurringExpense(sourceItem) || sourceItem?.recurringSpend === true)) {
+      if (window.MesAtualOutflowExpenseDate?.getExpenseDateForTargetMonth) {
+        const targetMonthDate = getMonthDateFromMonthObject(monthRef);
+        const resolved = window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(
+          sourceItem?.date || '',
+          sourceMonthRef || getCurrentMonth(),
+          targetMonthDate
+        );
+        if (resolved) {
+          targetItem.date = resolved;
+          return;
+        }
+      }
       const day = getUnifiedBillingDayFromDateLabel(sourceItem?.date || '');
       targetItem.date = buildUnifiedFixedBillingDate(String(day), monthRef);
       return;
     }
     targetItem[field] = sourceItem[field];
   });
+}
+
+function resolveFlexibleDateInput(rawValue, month, options = {}) {
+  if (window.DateUtils?.resolveDateFromInput) {
+    return window.DateUtils.resolveDateFromInput(rawValue, month || getCurrentMonth(), options);
+  }
+  const raw = String(rawValue || '').trim();
+  if (!raw) return { date: '', mode: 'empty', hasExplicitMonthYear: false, warning: '' };
+  if (/^\d{1,2}$/.test(raw)) {
+    const base = getMonthDateFromMonthObject(month || getCurrentMonth());
+    const offset = Number.isFinite(Number(options.simpleDayMonthOffset)) ? Math.trunc(Number(options.simpleDayMonthOffset)) : 1;
+    const target = new Date(base.getFullYear(), base.getMonth() + offset, 1);
+    const maxDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    const day = Math.min(Math.max(Number(raw) || 1, 1), maxDay);
+    return {
+      date: `${String(day).padStart(2, '0')}/${String(target.getMonth() + 1).padStart(2, '0')}/${String(target.getFullYear()).slice(-2)}`,
+      mode: 'simple-day',
+      hasExplicitMonthYear: false,
+      warning: ''
+    };
+  }
+  const normalized = normalizeVarDate(raw);
+  return {
+    date: normalized || '',
+    mode: normalized ? 'full-date' : 'invalid',
+    hasExplicitMonthYear: Boolean(normalized),
+    warning: normalized ? '' : 'invalid-date'
+  };
+}
+
+function normalizeFlexibleDateInput(rawValue, month, options = {}) {
+  return resolveFlexibleDateInput(rawValue, month, options).date;
 }
 
 function applyRecurringForwardChanges(month, seriesKey, sourceItem, changedFields, matchItem = null) {
@@ -228,7 +272,7 @@ function applyRecurringForwardChanges(month, seriesKey, sourceItem, changedField
       if (!String(otherItem.recurringGroupId || '').trim() && !String(otherItem.installmentsGroupId || '').trim()) {
         otherItem.recurringGroupId = seriesKey;
       }
-      applyRecurringChangedFieldsToItem(otherItem, sourceItem, changedFields, otherMonth);
+      applyRecurringChangedFieldsToItem(otherItem, sourceItem, changedFields, otherMonth, month);
     });
     syncUnifiedCardBillForecastAmounts(otherMonth);
     syncUnifiedOutflowLegacyData(otherMonth);
@@ -823,6 +867,14 @@ function harmonizeRecurringIncomeReceiveDays(month) {
   month.renda.forEach(item => {
     if (!item || item.recurringFixed === false) return;
     const current = String(item.dataRecebimento || '').trim();
+    const fullDate = normalizeVarDate(current);
+    if (fullDate) {
+      if (current !== fullDate) {
+        item.dataRecebimento = fullDate;
+        changed = true;
+      }
+      return;
+    }
     const day = getRecurringIncomeReceiveDay(current);
     if (!day) return;
     if (current !== day) {
@@ -850,19 +902,7 @@ function ensureRecurringIncomeNextMonthScheduleAcrossData() {
 }
 
 function normalizeUnifiedOutflowSpendDateInput(rawValue, month) {
-  const raw = String(rawValue || '').trim();
-  if (!raw) return '';
-  const normalized = normalizeVarDate(raw);
-  if (normalized) return normalized;
-  const justDay = Number(raw.replace(/\D/g, ''));
-  if (!justDay || justDay < 1 || justDay > 31) return '';
-  const monthDate = getMonthDateFromMonthObject(month || getCurrentMonth());
-  const maxDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-  const day = Math.min(justDay, maxDay);
-  const dd = String(day).padStart(2, '0');
-  const mm = String(monthDate.getMonth() + 1).padStart(2, '0');
-  const yy = String(monthDate.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
+  return normalizeFlexibleDateInput(rawValue, month, { simpleDayMonthOffset: 1 });
 }
 
 function normalizeIncomeReceiveDate(rawValue, month, allowDayOnly = true) {
@@ -872,8 +912,7 @@ function normalizeIncomeReceiveDate(rawValue, month, allowDayOnly = true) {
   const raw = String(rawValue || '').trim();
   if (!raw) return '';
   if (allowDayOnly && /^\d{1,2}$/.test(raw)) {
-    const day = Math.max(1, Math.min(31, Number(raw) || 1));
-    return String(day).padStart(2, '0');
+    return normalizeFlexibleDateInput(raw, month, { simpleDayMonthOffset: 1 });
   }
   return normalizeVarDate(raw) || '';
 }
@@ -2457,14 +2496,15 @@ function toggleUnifiedOutflowNewCategory() {
 function getUnifiedOutflowBillingDisplayValue(item) {
   const normalized = normalizeVarDate(item?.date || '');
   if (!normalized) return '';
-  if (isUnifiedExpenseType(item)) return normalized;
-  return String(Number(normalized.split('/')[0] || ''));
+  return normalized;
 }
 
 function buildUnifiedFixedBillingDate(dayValue, month = getCurrentMonth()) {
   if (window.MesAtualOutflowExpenseDate?.buildNextMonthDateFromDay) {
     return window.MesAtualOutflowExpenseDate.buildNextMonthDateFromDay(dayValue, month);
   }
+  const resolved = normalizeFlexibleDateInput(dayValue, month, { simpleDayMonthOffset: 1 });
+  if (resolved) return resolved;
   const digits = String(dayValue || '').replace(/\D/g, '').slice(0, 2);
   const day = Math.min(31, Math.max(1, Number(digits || 1)));
   const base = getMonthDateFromMonthObject(month);
@@ -2500,23 +2540,7 @@ function resolveUnifiedExpenseDateInput(rawValue, month) {
 
 function sanitizeUnifiedOutflowDateInput(input) {
   if (!input) return;
-  const typeSelect = document.getElementById('unifiedOutflowType');
-  const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
-  const type = normalizeUnifiedOutflowType(typeSelect?.value || 'expense');
-  if (type === 'expense') {
-    input.value = formatUnifiedExpenseDateInput(input.value || '');
-    return;
-  }
-  if (recurringToggle?.checked === true) {
-    const digits = String(input.value || '').replace(/\D/g, '').slice(0, 2);
-    if (!digits) {
-      input.value = '';
-      return;
-    }
-    input.value = String(Math.min(31, Math.max(1, Number(digits) || 1)));
-    return;
-  }
-  input.value = String(input.value || '').replace(/[^\d/]/g, '').slice(0, 8);
+  input.value = formatUnifiedExpenseDateInput(input.value || '');
 }
 
 function shiftUnifiedOutflowDateDay(deltaDays = 0) {
@@ -2569,8 +2593,8 @@ function updateUnifiedOutflowDateFieldState() {
   const type = normalizeUnifiedOutflowType(typeSelect.value);
   const usesBillingDay = type === 'expense' || recurringToggle?.checked === true;
   if (usesBillingDay) {
-    dateLabel.textContent = type === 'expense' ? 'Data da cobrança' : 'Dia de cobrança';
-    dateInput.placeholder = type === 'expense' ? 'Ex: 10 ou 10/05/26' : 'Ex: 10';
+    dateLabel.textContent = 'Data da cobrança';
+    dateInput.placeholder = 'Ex: 10 ou 10/05/26';
     sanitizeUnifiedOutflowDateInput(dateInput);
   } else {
     dateLabel.textContent = 'Data da compra';
@@ -3754,16 +3778,16 @@ function saveUnifiedOutflow() {
     }
     resolvedExpenseDate = date;
   } else if (usesBillingDay) {
-    const day = Number(String(rawDateValue).replace(/\D/g, ''));
-    if (!day || day < 1 || day > 31) {
-      alert('Preencha o dia de cobrança com um valor entre 1 e 31.');
+    const date = normalizeFlexibleDateInput(rawDateValue, month, { simpleDayMonthOffset: 1 });
+    if (!date) {
+      alert('Preencha a data de cobrança como dia (1 a 31) ou data completa (dd/mm/aa).');
       return;
     }
   }
   const date = type === 'expense'
     ? resolvedExpenseDate
     : (usesBillingDay
-    ? buildUnifiedFixedBillingDate(rawDateValue, month)
+    ? normalizeFlexibleDateInput(rawDateValue, month, { simpleDayMonthOffset: 1 })
     : normalizeUnifiedOutflowSpendDateInput(rawDateValue, month));
   const status = type === 'expense' ? 'planned' : 'done';
   const isInstallment = document.getElementById('unifiedOutflowInstallmentsToggle').checked;
@@ -4447,7 +4471,7 @@ function buildItemForm(type, item) {
   } else if (type === 'renda') {
     const paid = item?.paid === true;
     const rendaReceiveValue = item?.recurringFixed !== false
-      ? getRecurringIncomeReceiveDay(item?.dataRecebimento || '')
+      ? String(item?.dataRecebimento || '')
       : String(item?.dataRecebimento || '');
     f.innerHTML = `
       <div class="form-row">
@@ -4552,7 +4576,13 @@ function saveItem() {
   const m = getCurrentMonth();
   if (editingType === 'despesa') {
     const previousName = editingItem !== null && m.despesas[editingItem] ? m.despesas[editingItem].nome : '';
-    const data_val = document.getElementById('fi_data')?.value || '';
+    const dataRaw = document.getElementById('fi_data')?.value || '';
+    const data_val = dataRaw ? normalizeFlexibleDateInput(dataRaw, m, { simpleDayMonthOffset: 1 }) : '';
+    if (dataRaw && !data_val) {
+      undoStack.pop();
+      alert('Informe a data como dia (1 a 31) ou data completa.');
+      return;
+    }
     let cat = document.getElementById('fi_cat')?.value || 'OUTROS';
     if (cat === 'nova') cat = document.getElementById('fi_cat_nova').value.trim() || 'OUTROS';
     applyDespesaUpdate(m, { nome, valor, categoria: cat, data: data_val }, previousName, editingItem);
@@ -4642,7 +4672,7 @@ function saveItem() {
     const previousMovementId = editingItem !== null && m.projetos[editingItem]
       ? String(m.projetos[editingItem].patrimonioMovementId || '')
       : '';
-    const dataRecebimento = normalizeIncomeReceiveDate(document.getElementById('fi_recebimento')?.value || '', m, false);
+    const dataRecebimento = normalizeIncomeReceiveDate(document.getElementById('fi_recebimento')?.value || '', m, true);
     const includeInTotals = editingItem !== null && m.projetos[editingItem]
       ? m.projetos[editingItem].includeInTotals !== false
       : true;
@@ -4684,11 +4714,8 @@ function commitInlineEdit(rawValue) {
       const raw = String(rawValue || '').trim();
       if (!raw) {
         next.data = '';
-      } else if (/^\d{1,2}$/.test(raw)) {
-        const day = Math.min(31, Math.max(1, Number(raw) || 1));
-        next.data = String(day);
       } else {
-        const normalized = normalizeVarDate(raw);
+        const normalized = normalizeFlexibleDateInput(raw, m, { simpleDayMonthOffset: 1 });
         if (!normalized) { undoStack.pop(); cancelInlineEdit(); return; }
         next.data = normalized;
       }
@@ -4775,7 +4802,7 @@ function commitInlineEdit(rawValue) {
       changed = valor !== item.valor;
       item.valor = valor;
     } else if (field === 'dataRecebimento') {
-      const normalized = normalizeIncomeReceiveDate(rawValue, m, false);
+      const normalized = normalizeIncomeReceiveDate(rawValue, m, true);
       changed = normalized !== String(item.dataRecebimento || '');
       item.dataRecebimento = normalized;
     }
@@ -4835,10 +4862,10 @@ function commitInlineEdit(rawValue) {
       if (isNaN(valor) || valor <= 0) { undoStack.pop(); cancelInlineEdit(); return; }
       next.valor = valor;
     } else if (field === 'data') {
-      const dataNormalizada = normalizeVarDate(rawValue);
+      const dataNormalizada = normalizeFlexibleDateInput(rawValue, m, { simpleDayMonthOffset: 1 });
       if (!dataNormalizada) {
         undoStack.pop();
-        alert('Use a data no formato dd/mm/aa ou dd/mm/aaaa.');
+        alert('Use dia (1 a 31) ou data completa (dd/mm/aa).');
         cancelInlineEdit();
         return;
       }
@@ -4888,19 +4915,19 @@ function commitInlineEdit(rawValue) {
           next.date = expenseDate;
         }
       } else if (next.recurringSpend === true) {
-        const day = Number(String(raw).replace(/\D/g, '').slice(0, 2));
-        if (!day || day < 1 || day > 31) {
+        const date = normalizeFlexibleDateInput(raw, m, { simpleDayMonthOffset: 1 });
+        if (!date) {
           undoStack.pop();
-          alert('Use um dia entre 1 e 31 para a data de cobrança.');
+          alert('Use dia (1 a 31) ou data completa (dd/mm/aa) para a data de cobrança.');
           cancelInlineEdit();
           return;
         }
-        next.date = buildUnifiedFixedBillingDate(String(day), m);
+        next.date = date;
       } else {
-        const date = normalizeVarDate(raw);
+        const date = normalizeFlexibleDateInput(raw, m, { simpleDayMonthOffset: 1 });
         if (!date) {
           undoStack.pop();
-          alert('Use a data no formato dd/mm/aa ou dd/mm/aaaa.');
+          alert('Use dia (1 a 31) ou data completa (dd/mm/aa).');
           cancelInlineEdit();
           return;
         }
@@ -4962,7 +4989,7 @@ function commitInlineEdit(rawValue) {
   } else if (table === 'eso') {
     const next = { ...item };
     if (field === 'data') {
-      const dataNormalizada = normalizeVarDate(rawValue);
+      const dataNormalizada = normalizeFlexibleDateInput(rawValue, m, { simpleDayMonthOffset: 1 });
       if (!dataNormalizada) { undoStack.pop(); cancelInlineEdit(); return; }
       next.data = dataNormalizada;
     } else if (field === 'cliente') {
@@ -5372,14 +5399,14 @@ function addVarGasto() {
   const titulo = document.getElementById('varTitulo').value.trim();
   const valor = parseFloat(document.getElementById('varValor').value);
   const dataTxt = document.getElementById('varData').value.trim();
-  const dataNormalizada = normalizeVarDate(dataTxt);
+  const dataNormalizada = normalizeFlexibleDateInput(dataTxt, getCurrentMonth(), { simpleDayMonthOffset: 1 });
   let cat = document.getElementById('varCat').value;
   const selectedCatValue = cat;
   if (cat === 'nova') {
     cat = document.getElementById('varNovaCat').value.trim();
   }
   if (!titulo || isNaN(valor) || valor <= 0 || !cat) { alert('Preencha título, valor e categoria.'); return; }
-  if (!dataNormalizada) { alert('Informe a data no formato dd/mm/aa ou dd/mm/aaaa.'); return; }
+  if (!dataNormalizada) { alert('Informe dia (1 a 31) ou data completa (dd/mm/aa).'); return; }
 
   const m = getCurrentMonth();
   normalizeMonth(m);

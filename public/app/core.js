@@ -53,6 +53,9 @@ function getInlineEsoStatusOptions(currentStatus) {
 }
 
 function formatVarDateTyping(txt) {
+  if (window.DateUtils?.formatDateInputProgressive) {
+    return window.DateUtils.formatDateInputProgressive(txt);
+  }
   const digits = String(txt || '').replace(/\D/g, '').slice(0, 8);
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;

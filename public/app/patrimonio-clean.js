@@ -11,6 +11,23 @@ function formatPatrimonioDate(value) {
   return value;
 }
 
+function getPatrimonioDateInputValue(value) {
+  return formatPatrimonioDate(value || todayIsoDate()).replace('â€”', '');
+}
+
+function resolvePatrimonioMovementDateInput(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return todayIsoDate();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const monthContext = typeof getCurrentMonth === 'function' ? getCurrentMonth() : null;
+  const resolved = window.DateUtils?.normalizeDateInputForMonthContext
+    ? window.DateUtils.normalizeDateInputForMonthContext(raw, monthContext, { simpleDayMonthOffset: 1 })
+    : (normalizeVarDate(raw) || '');
+  if (!resolved) return '';
+  const [day, month, year] = resolved.split('/');
+  return `20${year}-${month}-${day}`;
+}
+
 function parsePatrimonioDate(value) {
   if (!value) return 0;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -908,7 +925,7 @@ function openPatrimonioMovementModal(options = {}) {
   document.getElementById('patrimonioMovementTo').innerHTML = getPatrimonioAccountOptions(movement?.toAccountId || '', false);
   document.getElementById('patrimonioMovementValue').value = movement?.value ?? options.value ?? '';
   document.getElementById('patrimonioMovementDescription').value = movement?.description ?? options.description ?? '';
-  document.getElementById('patrimonioMovementDate').value = movement?.date || options.date || todayIsoDate();
+  document.getElementById('patrimonioMovementDate').value = getPatrimonioDateInputValue(movement?.date || options.date || todayIsoDate());
   const extras = document.getElementById('patrimonioMovementExtras');
   if (extras) extras.open = Boolean(movement?.description);
   syncPatrimonioMovementModalVisibility();
@@ -1387,7 +1404,7 @@ function openPatrimonioMovementModal(options = {}) {
   document.getElementById('patrimonioMovementTo').innerHTML = getPatrimonioAccountOptions(movement?.toAccountId || '', false);
   document.getElementById('patrimonioMovementValue').value = movement?.value || '';
   document.getElementById('patrimonioMovementDescription').value = movement?.description || '';
-  document.getElementById('patrimonioMovementDate').value = movement?.date || todayIsoDate();
+  document.getElementById('patrimonioMovementDate').value = getPatrimonioDateInputValue(movement?.date || todayIsoDate());
   const extras = document.getElementById('patrimonioMovementExtras');
   if (extras) extras.open = Boolean(movement?.description);
   syncPatrimonioMovementModalVisibility();
@@ -1404,12 +1421,16 @@ function savePatrimonioMovement() {
   const type = document.getElementById('patrimonioMovementType').value;
   const value = Number(document.getElementById('patrimonioMovementValue').value || 0);
   const description = document.getElementById('patrimonioMovementDescription').value.trim();
-  const date = document.getElementById('patrimonioMovementDate').value || todayIsoDate();
+  const date = resolvePatrimonioMovementDateInput(document.getElementById('patrimonioMovementDate').value);
   const accountId = document.getElementById('patrimonioMovementAccount').value;
   const fromAccountId = document.getElementById('patrimonioMovementFrom').value;
   const toAccountId = document.getElementById('patrimonioMovementTo').value;
   if (!Number.isFinite(value) || value <= 0) {
     alert('Informe um valor válido para a movimentação.');
+    return;
+  }
+  if (!date) {
+    alert('Informe a data como dia (1 a 31) ou data completa.');
     return;
   }
   if (type === 'transferencia') {
@@ -1669,3 +1690,4 @@ function renderPatrimonioDetail() {
     </div>
   `;
 }
+

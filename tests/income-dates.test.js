@@ -48,6 +48,16 @@ test('recurring income keeps explicit month/year when manually informed', () => 
   assert.equal(label, '10/07/26');
 });
 
+test('income manual edit with simple day resolves to next month', () => {
+  const date = IncomeDateRules.normalizeIncomeReceiveDate('10', { nome: 'ABRIL 2026' }, true);
+  assert.equal(date, '10/05/26');
+});
+
+test('income manual edit with full date keeps explicit month', () => {
+  const date = IncomeDateRules.normalizeIncomeReceiveDate('10/04/26', { nome: 'ABRIL 2026' }, true);
+  assert.equal(date, '10/04/26');
+});
+
 test('non recurring income keeps full date semantics', () => {
   const label = IncomeDateRules.getIncomeReceiveDateLabel(
     { recurringFixed: false, dataRecebimento: '02/03/26' },

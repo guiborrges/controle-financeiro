@@ -900,3 +900,27 @@
     - spend filter now validated as spend-only
   - `tests/recurrence-calendar.test.js`
     - calendar due-month test now uses `type=expense`.
+
+## 31. UPDATE_LOG_2026_04_24_GLOBAL_FLEXIBLE_DATES
+- Global manual date rule:
+  - simple day input, e.g. `10`, resolves to day 10 of the month after the selected competence month.
+  - full date input, e.g. `10/04/2026`, is respected exactly and normalized to `DD/MM/YY`.
+  - old saved dates remain readable; this change targets new manual creates/edits and future propagation from those records.
+- Central helper:
+  - `public/app/modules/shared/dates.js` now exposes `DateUtils.resolveDateFromInput`, `parseFlexibleDateInput`, `normalizeDateInputForMonthContext`, `formatDateInputProgressive`, and `buildDateByDayForMonth`.
+  - helper returns date, input mode (`simple-day`, `full-date`, `empty`, `invalid`), explicit month/year flag, and warning.
+- Flows using the central rule:
+  - unified outflow create/edit for gastos, despesas, recurring spends, card spends, and installment/recurring base dates.
+  - inline edits for legacy despesas, variable spends, unified outflows, incomes, projects, and ESO dates.
+  - fixed income/project receive dates keep support for overdue/manual full dates.
+  - patrimonio manual movement date field now uses the same parser while still storing ISO dates internally.
+  - import-by-bill review keeps AI-imported dates untouched, but manual edits in the review use the global parser on blur.
+- Recurrence and installment continuity:
+  - first resolved date is the source date.
+  - future recurring outflows now shift from that source date instead of copying the same month to every future record.
+- Tests:
+  - `tests/shared-dates.test.js`
+  - `tests/outflow-expense-date.test.js`
+  - `tests/income-dates.test.js`
+  - `tests/import-bills-review-date.test.js`
+  - full suite: `npm.cmd test`

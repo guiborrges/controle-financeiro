@@ -21,6 +21,9 @@
   }
 
   function buildDateByDayForMonth(dayValue, year, monthIndex) {
+    if (global.DateUtils?.buildDateByDayForMonth) {
+      return global.DateUtils.buildDateByDayForMonth(dayValue, year, monthIndex);
+    }
     const maxDay = new Date(year, monthIndex + 1, 0).getDate();
     const safeDay = clamp(dayValue, 1, maxDay);
     const dd = String(safeDay).padStart(2, '0');
@@ -30,6 +33,9 @@
   }
 
   function buildNextMonthDateFromDay(dayValue, monthRef) {
+    if (global.DateUtils?.resolveDateFromInput) {
+      return global.DateUtils.resolveDateFromInput(dayValue, monthRef, { simpleDayMonthOffset: 1 }).date;
+    }
     const base = toMonthDate(monthRef);
     const year = base.getMonth() === 11 ? base.getFullYear() + 1 : base.getFullYear();
     const monthIndex = (base.getMonth() + 1) % 12;
@@ -57,6 +63,9 @@
   }
 
   function formatExpenseDateInput(rawValue) {
+    if (global.DateUtils?.formatDateInputProgressive) {
+      return global.DateUtils.formatDateInputProgressive(rawValue);
+    }
     const raw = String(rawValue || '').replace(/[^\d/]/g, '');
     if (!raw) return '';
     const digits = raw.replace(/\D/g, '').slice(0, 6);
@@ -73,11 +82,12 @@
   }
 
   function resolveExpenseDate(rawValue, monthRef) {
+    if (global.DateUtils?.resolveDateFromInput) {
+      return global.DateUtils.resolveDateFromInput(rawValue, monthRef, { simpleDayMonthOffset: 1 }).date;
+    }
     const raw = String(rawValue || '').trim();
     if (!raw) return '';
-    if (/^\d{1,2}$/.test(raw)) {
-      return buildNextMonthDateFromDay(raw, monthRef);
-    }
+    if (/^\d{1,2}$/.test(raw)) return buildNextMonthDateFromDay(raw, monthRef);
     return normalizeDate(raw);
   }
 
