@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <link rel="stylesheet" href="/app-assets/styles.css">
+  <link rel="stylesheet" href="/app-assets/mobile-layout.css">
 </head>
 <body>
 <div id="appStatus" class="app-status" role="status" aria-live="polite">
@@ -33,11 +34,11 @@
     <button class="btn btn-ghost sidebar-logout" type="button" onclick="logout()">Sair</button>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard')"><span class="nav-icon">◉</span> Dashboard</div>
-    <div class="nav-item" data-page="mes" onclick="nav('mes')"><span class="nav-icon">📋</span> Mês Atual</div>
-    <div class="nav-item" data-page="patrimonio" onclick="nav('patrimonio')"><span class="nav-icon">🏦</span> Patrimônio</div>
-    <div class="nav-item" data-page="historico" onclick="nav('historico')"><span class="nav-icon">📈</span> Histórico</div>
-    <div id="esoNavItem" class="nav-item" data-page="eso" onclick="nav('eso')"><span class="nav-icon">🏗</span> Fechamentos ESO</div>
+    <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard')"><span class="nav-icon" data-system-icon="dashboard"></span> Dashboard</div>
+    <div class="nav-item" data-page="mes" onclick="nav('mes')"><span class="nav-icon" data-system-icon="month"></span> Mês Atual</div>
+    <div class="nav-item" data-page="patrimonio" onclick="nav('patrimonio')"><span class="nav-icon" data-system-icon="wealth"></span> Patrimônio</div>
+    <div class="nav-item" data-page="historico" onclick="nav('historico')"><span class="nav-icon" data-system-icon="history"></span> Histórico</div>
+    <div id="esoNavItem" class="nav-item" data-page="eso" onclick="nav('eso')"><span class="nav-icon" data-system-icon="work"></span> Fechamentos ESO</div>
   </div>
   <div id="sidebarMonthControls">
     <div class="sidebar-section">Mês selecionado</div>
@@ -60,7 +61,7 @@
       <div class="sidebar-tools-list">
         <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="exportData()">⬇ Exportar</button>
         <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="document.getElementById('importInput').click()">⬆ Importar</button>
-        <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="openCategoryEditorModal()">🏷 Edição de categorias</button>
+        <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="openCategoryEditorModal()">Edição de categorias</button>
       </div>
     </details>
     <button class="btn sidebar-tool-btn sidebar-tool-btn-secondary" type="button" onclick="openModal('modalHelp')">Ajuda</button>
@@ -1463,7 +1464,7 @@
       <input id="categoryEditNameInput" placeholder="Nome da categoria">
     </div>
     <div class="field" style="margin-top:10px">
-      <label>Emoji da categoria</label>
+      <label>Símbolo da categoria</label>
       <div id="categoryEditEmojiGrid" class="category-emoji-grid"></div>
     </div>
     <div class="form-actions" style="margin-top:18px">
@@ -1655,6 +1656,9 @@
   <script src="/app-assets/modules/calendar-events.js"></script>
   <script src="/app-assets/modules/calendar-render.js"></script>
   <script src="/app-assets/modules/calendar.js"></script>
+  <script src="/app-assets/modules/mobile/mobile-shell.js"></script>
+  <script src="/app-assets/modules/mobile/mobile-nav.js"></script>
+  <script src="/app-assets/modules/mobile/mobile-layout.js"></script>
   <script src="/app-assets/mobile-ui.js"></script>
   <script src="/app-assets/core.js"></script>
   <script src="/app-assets/dashboard.js"></script>

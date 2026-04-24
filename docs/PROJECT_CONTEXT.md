@@ -947,3 +947,30 @@
 - Tests:
   - `tests/financial-guards.test.js` covers ignoring bill rows in all-view totals and keeping card bill rows in selected month expenses.
   - full suite: `npm.cmd test`.
+
+## 34. UPDATE_LOG_2026_04_24_MOBILE_APP_SHELL
+- Mobile architecture split into dedicated modules (UI-only):
+  - `public/app/modules/mobile/mobile-shell.js`
+  - `public/app/modules/mobile/mobile-nav.js`
+  - `public/app/modules/mobile/mobile-layout.js`
+  - `public/app/mobile-layout.css`
+  - `public/app/mobile-ui.js` kept as compatibility bridge.
+- Mobile header/navigation:
+  - left sidebar is hidden on mobile and replaced by a compact top icon header.
+  - mandatory actions included as icons (mês atual, dashboard, patrimônio, histórico, mês, ajuda, sair, perfil).
+- Mobile month actions:
+  - `Adicionar por fatura` hidden only on mobile.
+  - red floating `+` button opens a bottom sheet with `Gasto` / `Despesa`.
+  - outflow modal/calendar modal become bottom-sheet style on mobile (no drag/minimize/resize).
+- Mobile layout behavior:
+  - dashboard and month metrics compressed for narrow screens.
+  - month shows compact top metrics and row-style lists with no horizontal scroll.
+  - tables and unified lists become vertical/stacked rows on mobile.
+  - calendar hides chart toggle and `+ Evento` on mobile; side panel flows below the calendar.
+- System icon language:
+  - UI migrated from emoji rendering to internal SVG icon set in `modules/ui-icons.js`.
+  - sidebar nav and category visual badges use system icons.
+  - category editor now selects icon ids (not literal emojis).
+- Shared business logic preserved:
+  - financial calculations, storage, backup, imports and month rules remain shared.
+  - changes are presentation-layer focused.

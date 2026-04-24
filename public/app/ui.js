@@ -17,7 +17,7 @@ function renderMetas() {
   const cats = m.categorias || {};
   const keys = Object.keys(metas);
   if (keys.length === 0) {
-    el.innerHTML = '<div class="empty"><span>🎯</span><p>Nenhuma meta definida. Adicione limites mensais por categoria.</p></div>';
+    el.innerHTML = '<div class="empty"><span>◎</span><p>Nenhuma meta definida. Adicione limites mensais por categoria.</p></div>';
     return;
   }
   el.innerHTML = '<div style="display:flex;flex-direction:column;gap:14px">' + keys.map(k => {

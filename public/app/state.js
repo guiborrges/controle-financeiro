@@ -120,18 +120,18 @@ function getSystemDefaultCategoryPresets() {
       .filter(item => item.name);
   }
   return [
-    { name: 'MORADIA', emoji: '🏠' },
-    { name: 'SERVIÇOS', emoji: '🛠️' },
-    { name: 'ALIMENTAÇÃO', emoji: '🍽️' },
-    { name: 'TRANSPORTE', emoji: '🚗' },
-    { name: 'COMPRAS', emoji: '🛍️' },
-    { name: 'SAÚDE', emoji: '💊' },
-    { name: 'LAZER', emoji: '🎬' },
-    { name: 'EDUCAÇÃO', emoji: '🎓' },
-    { name: 'FINANCEIRO', emoji: '💳' },
-    { name: 'ASSINATURAS', emoji: '📱' },
-    { name: 'TRABALHO', emoji: '💼' },
-    { name: 'OUTROS', emoji: '📦' }
+    { name: 'MORADIA', emoji: 'home' },
+    { name: 'SERVIÇOS', emoji: 'work' },
+    { name: 'ALIMENTAÇÃO', emoji: 'food' },
+    { name: 'TRANSPORTE', emoji: 'car' },
+    { name: 'COMPRAS', emoji: 'shopping' },
+    { name: 'SAÚDE', emoji: 'health' },
+    { name: 'LAZER', emoji: 'fun' },
+    { name: 'EDUCAÇÃO', emoji: 'education' },
+    { name: 'FINANCEIRO', emoji: 'card' },
+    { name: 'ASSINATURAS', emoji: 'phone' },
+    { name: 'TRABALHO', emoji: 'work' },
+    { name: 'OUTROS', emoji: 'tag' }
   ];
 }
 

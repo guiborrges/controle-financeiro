@@ -123,7 +123,8 @@ body {
   background: linear-gradient(90deg, rgba(121,196,160,.2) 0%, rgba(255,255,255,.08) 100%);
   border-left-color: #7cc7a1;
 }
-.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-icon { font-size: 16px; width: 20px; text-align: center; display:inline-flex; align-items:center; justify-content:center; }
+.nav-icon .system-icon { width: 16px; height: 16px; }
 .sidebar-section { padding: 8px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.3); }
 .sidebar-tools {
   padding: 0 12px 16px;
@@ -1236,15 +1237,15 @@ body {
   vertical-align: middle;
 }
 #section-renda .section-head h3::before { content: "↗"; color: var(--green); background: rgba(45,90,61,.12); }
-#section-goals .section-head h3::before { content: "🎯"; color: var(--gold); background: rgba(142,106,31,.12); }
+#section-goals .section-head h3::before { content: "◎"; color: var(--gold); background: rgba(142,106,31,.12); }
 #section-despesas .section-head h3::before { content: "↘"; color: var(--red); background: rgba(192,57,43,.12); }
-#section-daily .section-head h3::before { content: "🧾"; background: rgba(40,85,160,.08); }
+#section-daily .section-head h3::before { content: "§"; background: rgba(40,85,160,.08); }
 #section-projetos .section-head h3::before { content: "✦"; color: var(--blue); background: rgba(40,85,160,.12); }
 #section-observacoes .section-head h3::before { content: "✎"; background: rgba(84,73,60,.08); }
-.patrimonio-accounts-section .section-head h3::before { content: "🏦"; background: rgba(40,85,160,.08); }
+.patrimonio-accounts-section .section-head h3::before { content: "P"; background: rgba(40,85,160,.08); }
 .patrimonio-detail-section .section-head h3::before { content: "⇄"; background: rgba(45,90,61,.12); }
-.patrimonio-charts-section .section-head h3::before { content: "📈"; background: rgba(40,85,160,.08); }
-.patrimonio-forecast-section .section-head h3::before { content: "🎯"; background: rgba(142,106,31,.12); }
+.patrimonio-charts-section .section-head h3::before { content: "↗"; background: rgba(40,85,160,.08); }
+.patrimonio-forecast-section .section-head h3::before { content: "◎"; background: rgba(142,106,31,.12); }
 .section-head h3[data-editable="true"] { cursor: text; }
 .section-body { padding: 22px; }
 .section-body-table { padding: 0; }
@@ -1315,6 +1316,7 @@ body {
   font-size:13px;
   flex-shrink:0;
 }
+.smart-icon-badge .system-icon{ width:14px; height:14px; }
 .smart-icon-badge.tone-expense{ background:rgba(192,57,43,.12); color:var(--red); }
 .smart-icon-badge.tone-income{ background:rgba(45,90,61,.12); color:var(--green); }
 .smart-icon-badge.tone-goals{ background:rgba(142,106,31,.12); color:var(--gold); }
@@ -1867,11 +1869,13 @@ body {
   border: 1px solid rgba(132,147,168,.24);
   border-radius: 10px;
   background: rgba(255,255,255,.86);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  font-size: 22px;
-  line-height: 1;
   transition: transform .12s ease, border-color .16s ease, background .16s ease;
 }
+.category-emoji-choice .system-icon { width: 20px; height: 20px; }
 .category-emoji-choice:hover {
   transform: translateY(-1px);
   border-color: rgba(44,95,168,.34);

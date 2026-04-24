@@ -300,7 +300,7 @@
     });
     categories.forEach(category => {
       const comparable = comparableFn(category.name);
-      base.push(`<option value="${escapeHtml(category.name)}" ${comparable === selectedComparable ? 'selected' : ''}>${escapeHtml(category.emoji ? `${category.emoji} ${category.name}` : category.name)}</option>`);
+      base.push(`<option value="${escapeHtml(category.name)}" ${comparable === selectedComparable ? 'selected' : ''}>${escapeHtml(category.name)}</option>`);
     });
     return base.join('');
   }

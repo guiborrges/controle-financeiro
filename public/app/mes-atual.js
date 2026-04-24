@@ -1615,9 +1615,9 @@ function getUnifiedDirectMethodCategoryLabel(month, item) {
 
 function getUnifiedDirectMethodGroupDisplay(method) {
   const normalized = String(method || '').toLowerCase();
-  if (normalized === 'pix') return '💰 PIX';
-  if (normalized === 'dinheiro') return '💵 DINHEIRO';
-  if (normalized === 'debito') return '💳 DÉBITO';
+  if (normalized === 'pix') return 'PIX';
+  if (normalized === 'dinheiro') return 'DINHEIRO';
+  if (normalized === 'debito') return 'DEBITO';
   return String(getUnifiedOutflowPaymentLabel({ outputKind: 'method', outputMethod: method }, getCurrentMonth()) || method || 'SAÍDA').toUpperCase();
 }
 
@@ -2494,10 +2494,7 @@ function getUnifiedCardPaymentDateLabel(month, card) {
 
 function formatCategoryOptionLabel(category) {
   const resolved = resolveCategoryName(category || 'OUTROS');
-  const icon = typeof inferCategoryVisual === 'function'
-    ? String(inferCategoryVisual(resolved)?.icon || '🏷️')
-    : '🏷️';
-  return `${icon} ${resolved}`;
+  return resolved;
 }
 
 function populateUnifiedOutflowCategoryOptions(month, selected = '') {
@@ -4497,7 +4494,7 @@ function buildItemForm(type, item) {
         <div class="field"><label>Data pagamento (opcional)</label><input id="fi_data" value="${item&&item.data?item.data:''}" placeholder="ex: 10"></div>
         <div class="field"><label>Categoria</label>
           <select id="fi_cat" onchange="toggleDespNovaCat()">
-            ${cats.map(buildExpenseCategoryOption).join('') || '<option>🏷️ OUTROS</option>'}
+            ${cats.map(buildExpenseCategoryOption).join('') || '<option>OUTROS</option>'}
             <option value="nova">+ Nova categoria</option>
           </select>
         </div>
@@ -5743,7 +5740,7 @@ function renderDailyGoalProgress(meta, valor, percentual, compact = false) {
   const barColor = `hsl(${hue} 62% 46%)`;
   const remaining = Number((meta - valor).toFixed(2));
   const isOver = remaining < 0;
-  const moodEmoji = getDailyGoalMoodEmoji(percentual || 0);
+  const moodEmoji = getDailyGoalMoodSymbol(percentual || 0);
   const percentLabel = `${Math.abs(Number(percentual || 0)).toFixed(0)}%`;
   return `
     <div class="daily-goal-progress ${compact ? 'is-compact' : ''}">
@@ -5760,14 +5757,14 @@ function renderDailyGoalProgress(meta, valor, percentual, compact = false) {
   `;
 }
 
-function getDailyGoalMoodEmoji(percentual) {
+function getDailyGoalMoodSymbol(percentual) {
   const usage = Number(percentual) || 0;
-  if (usage < 35) return '😌';
-  if (usage < 55) return '🙂';
-  if (usage < 75) return '😐';
-  if (usage < 90) return '😬';
-  if (usage <= 100) return '😰';
-  return '😤';
+  if (usage < 35) return 'OK';
+  if (usage < 55) return 'A';
+  if (usage < 75) return 'B';
+  if (usage < 90) return '!';
+  if (usage <= 100) return '!!';
+  return 'X';
 }
 
 function getPreviousMonthFor(currentMonth) {

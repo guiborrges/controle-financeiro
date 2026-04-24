@@ -1,22 +1,12 @@
 const CATEGORY_EDITOR_EMOJI_OPTIONS_GRID = [
-  '🏷️','🍽️','🚗','💊','🎬','🛍️','📱','🏠','🎓','🐶','🧾','🎁','💼','🛡️','📈','💳','🏦','📦','🎯','✈️',
-  '🧠','💡','🍔','☕','🍕','🥗','🛒','🚕','🚌','⚽','🅿️','🏥','🧪','🧴','🎮','🎵','📚','🏋️','🧘','🏖️',
-  '🧳','🏨','🎟️','🎉','👶','🐱','🐾','🏡','🔧','🧰','🧺','💰','💵','💸','📓','📝','🌐','🔒','🧱','🧑‍💻',
-  '📸','🎨','🏐','🏐','🎾','🚴','🧑‍🍳','🪙','🪪','🧷'
+  'tag','food','car','health','fun','shopping','phone','home','education','invoice','gift','work','shield','trend','card','bank','cash','bitcoin'
 ];
 
 let expandedCategoryEditorGroups = {};
 let expandedTagEditorGroups = {};
 let categoryEditorEntriesCache = { key: '', entries: [] };
-let categoryEditorEditStateV2 = { category: '', emoji: '🏷️' };
+let categoryEditorEditStateV2 = { category: '', emoji: 'tag' };
 let categoryEditorDeleteStateV2 = { category: '' };
-
-CATEGORY_EDITOR_EMOJI_OPTIONS_GRID.push(
-  '🛠️','🪴','🧹','🧽','🧯','🔌','🛜','🏪','🏢','🏭','🏗️','🚇','🚆','🛵','⛽','🛞','🛣️','🚘','🏍️','🛻',
-  '📺','🖥️','⌚','🧮','🗂️','📅','📤','📥','📊','📉','🩺','🩹','⚕️','🍼','🧒','👶','🍎','🥛','🥐','🍣',
-  '🌽','🧃','🍞','🥩','🧀','🫒','🧇','🍝','🍱','🪥','🪒','🧼','🧻','🪠','🚿','🛁','🧊','🌳','🪵','🌱',
-  '🌸','🧳','🗺️','🪙','🏛️','🏫','🧑‍💻','🧑‍🏫','🧑‍🔧','🧑‍⚕️','🧑‍🌾','🧑‍🚒','🧑‍⚖️','🧑‍🎓','🏁','🏅','⚙️'
-);
 
 function categoryEditorSafeText(value) {
   if (value === null || value === undefined) return '';
@@ -154,7 +144,7 @@ function openCategoryEditModal(category) {
   const input = document.getElementById('categoryEditNameInput');
   const grid = document.getElementById('categoryEditEmojiGrid');
   if (!input || !grid) return;
-  const currentEmoji = categoryEmojiOverrides[resolved] || inferCategoryVisual(resolved).icon || '🏷️';
+  const currentEmoji = inferCategoryVisual(resolved).icon || 'tag';
   categoryEditorEditStateV2 = { category: resolved, emoji: currentEmoji };
   input.value = resolved;
   renderCategoryEditEmojiGrid();
@@ -166,12 +156,12 @@ function renderCategoryEditEmojiGrid() {
   if (!grid) return;
   const selected = categoryEditorEditStateV2.emoji;
   grid.innerHTML = CATEGORY_EDITOR_EMOJI_OPTIONS_GRID.map(emoji => (
-    `<button type="button" class="category-emoji-choice ${emoji === selected ? 'is-selected' : ''}" onclick="selectCategoryEditEmoji('${emoji}')">${emoji}</button>`
+    `<button type="button" class="category-emoji-choice ${emoji === selected ? 'is-selected' : ''}" onclick="selectCategoryEditEmoji('${emoji}')">${renderSystemIcon(emoji)}</button>`
   )).join('');
 }
 
 function selectCategoryEditEmoji(emoji) {
-  categoryEditorEditStateV2.emoji = String(emoji || '').trim() || '🏷️';
+  categoryEditorEditStateV2.emoji = String(emoji || '').trim() || 'tag';
   renderCategoryEditEmojiGrid();
 }
 
@@ -183,7 +173,7 @@ function saveCategoryEditModal() {
   const source = resolveCategoryName(categoryEditorEditStateV2.category || '');
   const input = document.getElementById('categoryEditNameInput');
   const nextName = resolveCategoryName(input?.value || '');
-  const nextEmoji = String(categoryEditorEditStateV2.emoji || '').trim() || '🏷️';
+  const nextEmoji = String(categoryEditorEditStateV2.emoji || '').trim() || 'tag';
   if (!source || !nextName) {
     alert('Informe um nome válido para a categoria.');
     return;
@@ -227,10 +217,7 @@ function openCategoryDeleteModal(category) {
   categoryEditorDeleteStateV2 = { category: source };
   copy.textContent = `Todos os lançamentos de "${source}" serão transferidos para a categoria escolhida.`;
   targetSelect.innerHTML = targets.map(target => {
-    const icon = typeof inferCategoryVisual === 'function'
-      ? String(inferCategoryVisual(target)?.icon || '🏷️')
-      : '🏷️';
-    return `<option value="${escapeHtml(target)}">${escapeHtml(`${icon} ${target}`)}</option>`;
+    return `<option value="${escapeHtml(target)}">${escapeHtml(target)}</option>`;
   }).join('');
   openModal('modalCategoryDelete');
 }

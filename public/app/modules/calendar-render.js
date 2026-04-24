@@ -184,14 +184,17 @@
     return launches.map(item => {
       const visual = typeof global.inferCategoryVisual === 'function'
         ? global.inferCategoryVisual(item?.category || 'OUTROS')
-        : { icon: '🏷️', label: String(item?.category || 'OUTROS') };
+        : { icon: 'tag', label: String(item?.category || 'OUTROS') };
+      const badge = typeof global.renderSmartIconBadge === 'function'
+        ? global.renderSmartIconBadge(visual.icon || 'tag', visual.tone || 'neutral')
+        : '';
       return `
         <div class="finance-calendar-launch-row">
           <div class="finance-calendar-launch-main">
-            <span class="finance-calendar-launch-emoji">${escapeHtml(visual.icon || '🏷️')}</span>
+            <span class="finance-calendar-launch-emoji">${badge}</span>
             <div>
               <div class="finance-calendar-launch-title">${escapeHtml(item?.description || 'Sem descricao')}</div>
-              <div class="finance-calendar-launch-sub">${escapeHtml(visual.label || item?.category || 'Categoria')}</div>
+              <div class="finance-calendar-launch-sub">${escapeHtml(item?.category || 'Categoria')}</div>
             </div>
           </div>
           <div class="finance-calendar-launch-value">${escapeHtml(global.fmt(item?.amount || 0))}</div>

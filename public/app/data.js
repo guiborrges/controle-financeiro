@@ -704,18 +704,18 @@ const CAT_COLORS = {
   'OUTROS':'#95a5a6','ESO ARQUITETURA':'#1a5276'
 };
 const SYSTEM_DEFAULT_CATEGORY_PRESETS = [
-  { name: 'MORADIA', emoji: '🏠' },
-  { name: 'SERVIÇOS', emoji: '🛠️' },
-  { name: 'ALIMENTAÇÃO', emoji: '🍽️' },
-  { name: 'TRANSPORTE', emoji: '🚗' },
-  { name: 'COMPRAS', emoji: '🛍️' },
-  { name: 'SAÚDE', emoji: '💊' },
-  { name: 'LAZER', emoji: '🎬' },
-  { name: 'EDUCAÇÃO', emoji: '🎓' },
-  { name: 'FINANCEIRO', emoji: '💳' },
-  { name: 'ASSINATURAS', emoji: '📱' },
-  { name: 'TRABALHO', emoji: '💼' },
-  { name: 'OUTROS', emoji: '📦' }
+  { name: 'MORADIA', emoji: 'home' },
+  { name: 'SERVIÇOS', emoji: 'work' },
+  { name: 'ALIMENTAÇÃO', emoji: 'food' },
+  { name: 'TRANSPORTE', emoji: 'car' },
+  { name: 'COMPRAS', emoji: 'shopping' },
+  { name: 'SAÚDE', emoji: 'health' },
+  { name: 'LAZER', emoji: 'fun' },
+  { name: 'EDUCAÇÃO', emoji: 'education' },
+  { name: 'FINANCEIRO', emoji: 'card' },
+  { name: 'ASSINATURAS', emoji: 'phone' },
+  { name: 'TRABALHO', emoji: 'work' },
+  { name: 'OUTROS', emoji: 'tag' }
 ];
 if (typeof window !== 'undefined') {
   window.SYSTEM_DEFAULT_CATEGORY_PRESETS = SYSTEM_DEFAULT_CATEGORY_PRESETS;

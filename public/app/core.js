@@ -91,10 +91,7 @@ function renderInlineCell({ table, row, field, kind, value, displayValue, classN
     : `'${String(row).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   if (isInlineEditing(table, row, field)) {
     const categoryOptionLabel = (name) => {
-      const icon = typeof inferCategoryVisual === 'function'
-        ? String(inferCategoryVisual(name)?.icon || '🏷️')
-        : '🏷️';
-      return `${icon} ${name}`;
+      return String(name || 'OUTROS');
     };
     if (kind === 'unified-output') {
       const m = getCurrentMonth();
