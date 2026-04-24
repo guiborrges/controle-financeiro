@@ -1268,7 +1268,7 @@ function syncUnifiedOutflowLegacyData(month) {
         data: '',
         pago: bill.paid === true,
         paymentMethod: 'credito',
-        entraNaSomatoriaPrincipal: false
+        entraNaSomatoriaPrincipal: true
       };
     }))
   ];
@@ -1440,7 +1440,7 @@ function getUnifiedMonthPilotMetrics(month) {
   const fixedDoneTotal = selectedDespesas.reduce((acc, item) => {
     if (!isFixedOrBillDespesa(item)) return acc;
     const category = resolveCategoryName(item?.categoria || '');
-    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc;
+    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc + Number(item?.valor || 0);
     const sourceOutflow = outflowById.get(String(item?.id || ''));
     const isDirectMethodFixed = isUnifiedExpenseType(sourceOutflow)
       && sourceOutflow?.outputKind === 'method'
@@ -1467,7 +1467,6 @@ function getUnifiedMonthPilotMetrics(month) {
   const doneExpenses = fixedDoneTotal + totalGoals + spendsDoneOutsideCard;
   const paidFixedAndBills = selectedDespesas.reduce((acc, item) => {
     const category = resolveCategoryName(item?.categoria || '');
-    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc;
     return acc + (item?.pago === true && isFixedOrBillDespesa(item) ? Number(item.valor || 0) : 0);
   }, 0);
   const paidOut = paidFixedAndBills

@@ -61,12 +61,12 @@ test('selected despesas respect include flag and checkbox selection', () => {
   assert.equal(selected[0].valor, 100);
 });
 
-test('selected despesas excludes card bill legacy rows from totals', () => {
+test('selected despesas keeps card bill rows when they belong to month expenses', () => {
   const despesas = [
-    { valor: 500, categoria: 'CARTÃO', entraNaSomatoriaPrincipal: false },
+    { valor: 500, categoria: 'CARTAO', entraNaSomatoriaPrincipal: true },
     { valor: 120, categoria: 'MORADIA', entraNaSomatoriaPrincipal: true }
   ];
   const selected = FinancialGuards.getSelectedDespesasRespectingIncludeFlag(despesas, [true, true]);
-  assert.equal(selected.length, 1);
-  assert.equal(selected[0].valor, 120);
+  assert.equal(selected.length, 2);
+  assert.equal(selected.reduce((acc, item) => acc + item.valor, 0), 620);
 });

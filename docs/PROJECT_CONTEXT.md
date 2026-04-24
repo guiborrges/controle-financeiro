@@ -940,9 +940,10 @@
 ## 33. UPDATE_LOG_2026_04_24_CARD_BILL_NO_DUPLICATE_TOTALS
 - Card bill no-duplication rule:
   - card bill rows remain visible as fatura/status controls.
-  - card bill rows do not enter `month.despesas` primary totals (`entraNaSomatoriaPrincipal=false`).
+  - card bill rows enter `Despesas do mês` / realized totals as the monthly card invoice.
   - all-view totals ignore `bill` rows and use launch rows as the source of truth.
-  - paid/done expenses also ignore card bill rows to avoid duplicating card launches.
+  - `Despesas planejadas` still ignores card bill rows to avoid duplicating card launches/forecasts.
+  - paid/done expenses include paid card bill rows because they represent the actual monthly invoice payment.
 - Tests:
-  - `tests/financial-guards.test.js` covers ignoring bill rows and excluding legacy card bill rows from selected expenses.
+  - `tests/financial-guards.test.js` covers ignoring bill rows in all-view totals and keeping card bill rows in selected month expenses.
   - full suite: `npm.cmd test`.
