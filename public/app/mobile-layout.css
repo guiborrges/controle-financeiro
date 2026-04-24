@@ -362,6 +362,18 @@
     font-size: 11px;
   }
 
+  /* Mobile-only: hide "Somado/Somar" column for gastos, despesas e receitas. */
+  .mobile-ui .unified-outflow-table tbody td:first-child,
+  .mobile-ui #despTable tbody td:first-child,
+  .mobile-ui #rendaTable tbody td:first-child,
+  .mobile-ui #projTable tbody td:first-child,
+  .mobile-ui .fin-table td[data-label="Somado"],
+  .mobile-ui .fin-table td[data-label="SOMADO"],
+  .mobile-ui .fin-table td[data-label="Somar"],
+  .mobile-ui .fin-table td[data-label="SOMAR"] {
+    display: none !important;
+  }
+
   .mobile-ui #despBody tr,
   .mobile-ui #rendaBody tr,
   .mobile-ui #goalsBody tr,
