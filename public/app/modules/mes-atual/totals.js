@@ -13,8 +13,14 @@
     }, 0);
   }
 
+  function calculateUnifiedPlannedExpenses(parts = {}) {
+    return Number(parts.fixedPlannedTotal || 0)
+      + Number(parts.dailyGoalTarget || 0);
+  }
+
   global.MesAtualTotals = {
-    getUnifiedRecurringSpendPlannedTotal
+    getUnifiedRecurringSpendPlannedTotal,
+    calculateUnifiedPlannedExpenses
   };
 })(window);
 

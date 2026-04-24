@@ -54,6 +54,18 @@ test('month-totals module returns recurring card spend planned total', () => {
   assert.equal(win.MesAtualMonthTotals.calculateMonthResult(100, 20), 80);
 });
 
+test('planned expenses excludes card bills and financial goals', () => {
+  const win = runModule('../public/app/modules/mes-atual/month-totals.js');
+  const planned = win.MesAtualMonthTotals.calculateUnifiedPlannedExpenses({
+    fixedPlannedTotal: 500,
+    recurringSpendPlannedTotal: 300,
+    totalGoals: 1000,
+    dailyGoalTarget: 200,
+    cardBillsTotal: 700
+  });
+  assert.equal(planned, 700);
+});
+
 test('outflow-filters module delegates to global filter functions', () => {
   const calls = [];
   const win = runModule('../public/app/modules/mes-atual/outflow-filters.js', {

@@ -17,8 +17,14 @@
     return Number(totalIncome || 0) - Number(monthExpense || 0);
   }
 
+  function calculateUnifiedPlannedExpenses(parts = {}) {
+    return Number(parts.fixedPlannedTotal || 0)
+      + Number(parts.dailyGoalTarget || 0);
+  }
+
   global.MesAtualMonthTotals = {
     getUnifiedRecurringSpendPlannedTotal,
-    calculateMonthResult
+    calculateMonthResult,
+    calculateUnifiedPlannedExpenses
   };
 })(window);

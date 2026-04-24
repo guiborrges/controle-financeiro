@@ -925,3 +925,14 @@
   - `tests/income-dates.test.js`
   - `tests/import-bills-review-date.test.js`
   - full suite: `npm.cmd test`
+
+## 32. UPDATE_LOG_2026_04_24_PLANNED_EXPENSES_SCOPE
+- Planned expenses metric scope:
+  - `Despesas planejadas` now excludes card bills / card recurring forecast.
+  - `Despesas planejadas` now excludes financial goals / patrimonio goals.
+  - It keeps planned expenses/commitments plus daily/category spend target.
+- Shared calculation:
+  - `MesAtualTotals.calculateUnifiedPlannedExpenses`
+  - `MesAtualMonthTotals.calculateUnifiedPlannedExpenses`
+- Tests:
+  - `tests/mes-atual-extracted-modules.test.js` covers exclusion of card bills and financial goals.

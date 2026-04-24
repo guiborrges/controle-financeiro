@@ -1460,7 +1460,9 @@ function getUnifiedMonthPilotMetrics(month) {
     return acc + Number(item.amount || 0);
   }, 0);
   const recurringSpendPlannedTotal = getUnifiedRecurringSpendPlannedTotal(month);
-  const plannedExpenses = fixedPlannedTotal + recurringSpendPlannedTotal + totalGoals + dailyGoalTarget;
+  const plannedExpenses = window.MesAtualTotals?.calculateUnifiedPlannedExpenses
+    ? window.MesAtualTotals.calculateUnifiedPlannedExpenses({ fixedPlannedTotal, dailyGoalTarget })
+    : fixedPlannedTotal + dailyGoalTarget;
   const doneExpenses = fixedDoneTotal + totalGoals + spendsDoneOutsideCard;
   const paidFixedAndBills = selectedDespesas.reduce((acc, item) => (
     acc + (item?.pago === true && isFixedOrBillDespesa(item) ? Number(item.valor || 0) : 0)
