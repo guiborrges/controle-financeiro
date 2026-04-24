@@ -914,6 +914,7 @@
   - inline edits for legacy despesas, variable spends, unified outflows, incomes, projects, and ESO dates.
   - fixed income/project receive dates keep support for overdue/manual full dates.
   - patrimonio manual movement date field now uses the same parser while still storing ISO dates internally.
+  - card edit modal now accepts full closing/payment dates (`closingDate`/`paymentDate`) while preserving legacy `closingDay`/`paymentDay`.
   - import-by-bill review keeps AI-imported dates untouched, but manual edits in the review use the global parser on blur.
 - Recurrence and installment continuity:
   - first resolved date is the source date.

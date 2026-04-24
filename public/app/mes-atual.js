@@ -669,12 +669,22 @@ function normalizeUnifiedCardVisualId(value) {
   return PATRIMONIO_INSTITUTION_META[raw] ? `institution:${raw}` : raw;
 }
 
+function normalizeUnifiedCardDateValue(value) {
+  return typeof normalizeVarDate === 'function' ? (normalizeVarDate(value) || '') : '';
+}
+
 function normalizeUnifiedCard(card, idx = 0) {
+  const closingDate = normalizeUnifiedCardDateValue(card?.closingDate || card?.dataFechamento || '');
+  const paymentDate = normalizeUnifiedCardDateValue(card?.paymentDate || card?.dataPagamento || '');
+  const closingDaySource = closingDate ? closingDate.split('/')[0] : (card?.closingDay || card?.fechamento || 1);
+  const paymentDaySource = paymentDate ? paymentDate.split('/')[0] : (card?.paymentDay || card?.pagamento || 1);
   return {
     id: card?.id || `card_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
     name: String(card?.name || card?.nome || '').trim() || `Cartão ${idx + 1}`,
-    closingDay: Math.min(31, Math.max(1, Number(card?.closingDay || card?.fechamento || 1) || 1)),
-    paymentDay: Math.min(31, Math.max(1, Number(card?.paymentDay || card?.pagamento || 1) || 1)),
+    closingDay: Math.min(31, Math.max(1, Number(closingDaySource) || 1)),
+    paymentDay: Math.min(31, Math.max(1, Number(paymentDaySource) || 1)),
+    closingDate,
+    paymentDate,
     description: String(card?.description || card?.descricao || '').trim(),
     visualId: normalizeUnifiedCardVisualId(card?.visualId || card?.institution || card?.associatedVisualId || '')
   };
@@ -1535,7 +1545,7 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
     const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
     const bill = (month.cardBills || []).find(entry => entry.cardId === cardId);
     const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
-    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(card?.name || 'Cartão')}</div><div class="unified-summary-text">Aqui você vê o consumo lançado nesse cartão por categoria. A fatura mensal continua sendo controlada separadamente.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total lançado', fmt(total), `${countOutflows} lançamentos neste cartão`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Fechamento', card ? `Dia ${String(card.closingDay).padStart(2, '0')}` : '—', 'Data de fechamento do cartão')}${renderUnifiedSummaryCard('Fatura do mês', fmt(billAmount), card ? `Pagamento dia ${String(card.paymentDay).padStart(2, '0')}` : 'Sem data definida', bill?.paid ? 'positive' : 'warning')}</div></div>`;
+    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(card?.name || 'Cartão')}</div><div class="unified-summary-text">Aqui você vê o consumo lançado nesse cartão por categoria. A fatura mensal continua sendo controlada separadamente.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total lançado', fmt(total), `${countOutflows} lançamentos neste cartão`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Fechamento', card ? getUnifiedCardClosingDateLabel(month, card) : '—', 'Data de fechamento do cartão')}${renderUnifiedSummaryCard('Fatura do mês', fmt(billAmount), card ? `Pagamento ${getUnifiedCardPaymentDateLabel(month, card)}` : 'Sem data definida', bill?.paid ? 'positive' : 'warning')}</div></div>`;
   }
   if (filterValue.startsWith('account:') || filterValue.startsWith('method:')) {
     const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
@@ -1577,11 +1587,7 @@ function isUnifiedSpendCategorySelected(month, category) {
 }
 
 function getUnifiedCardBillingDateLabel(month, card) {
-  if (!month || !card) return '—';
-  const base = getMonthDateFromMonthObject(month);
-  const day = Math.max(1, Math.min(31, Number(card.paymentDay || 1) || 1));
-  const billingDate = new Date(base.getFullYear(), base.getMonth() + 1, day);
-  return normalizeVarDate(`${String(billingDate.getDate()).padStart(2, '0')}/${String(billingDate.getMonth() + 1).padStart(2, '0')}/${billingDate.getFullYear()}`) || '—';
+  return getUnifiedCardPaymentDateLabel(month, card);
 }
 
 function getUnifiedFixedSelectionIndex(month, row) {
@@ -1684,9 +1690,7 @@ function renderUnifiedFixedRows(month, rows) {
     const dateA = a.kind === 'bill'
       ? (() => {
         const card = (month.outflowCards || []).find(entry => entry.id === a.item.cardId);
-        const day = Math.max(1, Math.min(31, Number(card?.paymentDay || 1) || 1));
-        const base = getMonthDateFromMonthObject(month);
-        return new Date(base.getFullYear(), base.getMonth() + 1, day).getTime();
+        return parseData(getUnifiedCardPaymentDateLabel(month, card)) || 0;
       })()
       : a.kind === 'methodGroup'
       ? 0
@@ -1694,9 +1698,7 @@ function renderUnifiedFixedRows(month, rows) {
     const dateB = b.kind === 'bill'
       ? (() => {
         const card = (month.outflowCards || []).find(entry => entry.id === b.item.cardId);
-        const day = Math.max(1, Math.min(31, Number(card?.paymentDay || 1) || 1));
-        const base = getMonthDateFromMonthObject(month);
-        return new Date(base.getFullYear(), base.getMonth() + 1, day).getTime();
+        return parseData(getUnifiedCardPaymentDateLabel(month, card)) || 0;
       })()
       : b.kind === 'methodGroup'
       ? 0
@@ -1897,7 +1899,7 @@ function renderUnifiedAllRows(month, rows) {
           <td class="unified-outflow-description-cell">${renderUnifiedCardLabel(card, 'Cartão')}</td>
           <td>${renderCategoryLabel('CARTÃO DE CRÉDITO')}</td>
           <td><span class="unified-kind-chip card">Cartão de crédito</span></td>
-          <td>${escapeHtml(card ? `Fecha ${card.closingDay} · paga ${card.paymentDay}` : 'Conta mensal')}</td>
+          <td>${escapeHtml(card ? `Fecha ${getUnifiedCardClosingDateLabel(m, card)} · paga ${getUnifiedCardPaymentDateLabel(m, card)}` : 'Conta mensal')}</td>
           ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:billAmount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
           <td><button class="btn-icon" onclick="openUnifiedCardModal('${card?.id || ''}')">✎</button></td>
         </tr>`;
@@ -2455,13 +2457,39 @@ function toggleUnifiedCardOtherBank() {
 
 function sanitizeUnifiedCardDayInput(input) {
   if (!input) return;
-  const digits = String(input.value || '').replace(/\D/g, '').slice(0, 2);
-  if (!digits) {
-    input.value = '';
-    return;
+  input.value = formatUnifiedExpenseDateInput(input.value || '');
+}
+
+function resolveUnifiedCardDateInput(rawValue, month = getCurrentMonth()) {
+  const date = normalizeFlexibleDateInput(rawValue, month, { simpleDayMonthOffset: 1 });
+  if (!date) return null;
+  const day = Math.max(1, Math.min(31, Number(date.split('/')[0] || 1) || 1));
+  return { date, day };
+}
+
+function getUnifiedCardDateForMonth(sourceDate, sourceMonth, targetMonth) {
+  const normalized = normalizeVarDate(sourceDate || '');
+  if (!normalized) return '';
+  if (window.MesAtualOutflowExpenseDate?.getExpenseDateForTargetMonth) {
+    const targetMonthDate = getMonthDateFromMonthObject(targetMonth);
+    return window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(normalized, sourceMonth, targetMonthDate) || normalized;
   }
-  const day = Math.min(31, Math.max(1, Number(digits) || 1));
-  input.value = String(day);
+  return normalized;
+}
+
+function getUnifiedCardClosingDateLabel(month, card) {
+  if (!card) return '—';
+  return normalizeVarDate(card.closingDate || '') || `Dia ${String(card.closingDay || 1).padStart(2, '0')}`;
+}
+
+function getUnifiedCardPaymentDateLabel(month, card) {
+  if (!month || !card) return '—';
+  const explicit = normalizeVarDate(card.paymentDate || '');
+  if (explicit) return explicit;
+  const base = getMonthDateFromMonthObject(month);
+  const day = Math.max(1, Math.min(31, Number(card.paymentDay || 1) || 1));
+  const billingDate = new Date(base.getFullYear(), base.getMonth() + 1, day);
+  return normalizeVarDate(`${String(billingDate.getDate()).padStart(2, '0')}/${String(billingDate.getMonth() + 1).padStart(2, '0')}/${billingDate.getFullYear()}`) || '—';
 }
 
 function formatCategoryOptionLabel(category) {
@@ -2876,8 +2904,8 @@ function openUnifiedCardModal(cardId = '') {
   const selectedBank = card?.visualId?.startsWith('institution:') ? card.visualId.slice(12) : (card?.visualId ? 'outro' : '');
   renderUnifiedCardBankPicker(selectedBank);
   document.getElementById('unifiedCardOtherBank').value = selectedBank === 'outro' ? (card?.name || '') : '';
-  document.getElementById('unifiedCardClosingDay').value = card?.closingDay || '';
-  document.getElementById('unifiedCardPaymentDay').value = card?.paymentDay || '';
+  document.getElementById('unifiedCardClosingDay').value = card?.closingDate || card?.closingDay || '';
+  document.getElementById('unifiedCardPaymentDay').value = card?.paymentDate || card?.paymentDay || '';
   document.getElementById('unifiedCardDescription').value = card?.description || '';
   toggleUnifiedCardOtherBank();
   const menu = document.getElementById('unifiedCardBankMenu');
@@ -3051,20 +3079,22 @@ function saveUnifiedCard() {
   const bankValue = document.getElementById('unifiedCardBank').value || '';
   const otherBank = document.getElementById('unifiedCardOtherBank').value.trim();
   const name = bankValue === 'outro' ? otherBank : (PATRIMONIO_INSTITUTION_META[bankValue]?.label || '');
-  const closingDay = Number(document.getElementById('unifiedCardClosingDay').value || 0);
-  const paymentDay = Number(document.getElementById('unifiedCardPaymentDay').value || 0);
+  const closing = resolveUnifiedCardDateInput(document.getElementById('unifiedCardClosingDay').value || '', month);
+  const payment = resolveUnifiedCardDateInput(document.getElementById('unifiedCardPaymentDay').value || '', month);
   const description = document.getElementById('unifiedCardDescription').value.trim();
   const visualId = bankValue && bankValue !== 'outro' ? normalizeUnifiedCardVisualId(`institution:${bankValue}`) : '';
-  if (!name || !closingDay || !paymentDay || closingDay < 1 || closingDay > 31 || paymentDay < 1 || paymentDay > 31) {
-    alert('Preencha instituição, fechamento e pagamento com dias entre 1 e 31.');
+  if (!name || !closing || !payment) {
+    alert('Preencha instituição, fechamento e pagamento como dia (1 a 31) ou data completa.');
     return;
   }
   recordHistoryState();
   const nextCard = normalizeUnifiedCard({
     id: editingUnifiedCardId || '',
     name,
-    closingDay,
-    paymentDay,
+    closingDay: closing.day,
+    paymentDay: payment.day,
+    closingDate: closing.date,
+    paymentDate: payment.date,
     description,
     visualId
   });
@@ -3077,11 +3107,16 @@ function saveUnifiedCard() {
     if (otherMonth.id === month.id) return;
     ensureUnifiedOutflowPilotMonth(otherMonth);
     const otherIndex = (otherMonth.outflowCards || []).findIndex(entry => entry.id === nextCard.id);
+    const propagatedCard = normalizeUnifiedCard({
+      ...nextCard,
+      closingDate: getUnifiedCardDateForMonth(nextCard.closingDate, month, otherMonth),
+      paymentDate: getUnifiedCardDateForMonth(nextCard.paymentDate, month, otherMonth)
+    });
     if (otherIndex >= 0) {
-      otherMonth.outflowCards[otherIndex] = normalizeUnifiedCard(nextCard);
+      otherMonth.outflowCards[otherIndex] = propagatedCard;
     } else {
       // Exceção do domínio: criação de cartão em mês passado propaga dali para frente.
-      otherMonth.outflowCards.push(normalizeUnifiedCard(nextCard));
+      otherMonth.outflowCards.push(propagatedCard);
     }
     const otherBill = getUnifiedCardBill(otherMonth, nextCard.id);
     if (!otherBill) {

@@ -759,11 +759,11 @@
       <div class="form-row">
         <div class="field">
           <label class="form-help-label" data-help="Dia em que a fatura do cartão fecha. Compras feitas depois desse dia normalmente entram na próxima fatura.">Fechamento</label>
-          <input id="unifiedCardClosingDay" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Ex: 25" oninput="sanitizeUnifiedCardDayInput(this)">
+          <input id="unifiedCardClosingDay" type="text" inputmode="numeric" placeholder="Ex: 25 ou 25/04/26" oninput="sanitizeUnifiedCardDayInput(this)">
         </div>
         <div class="field">
           <label class="form-help-label" data-help="Dia em que a fatura costuma ser paga. Essa data é usada como referência de cobrança do cartão.">Pagamento</label>
-          <input id="unifiedCardPaymentDay" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Ex: 05" oninput="sanitizeUnifiedCardDayInput(this)">
+          <input id="unifiedCardPaymentDay" type="text" inputmode="numeric" placeholder="Ex: 05 ou 05/05/26" oninput="sanitizeUnifiedCardDayInput(this)">
         </div>
       </div>
       <div class="field">

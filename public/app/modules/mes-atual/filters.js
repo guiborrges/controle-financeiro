@@ -36,19 +36,27 @@ function getUnifiedMonthDateForFilters(month) {
   return new Date(year, monthIndex, 1);
 }
 
+function getUnifiedCardPaymentDateLabelForFilters(month, card) {
+  const explicit = typeof normalizeVarDate === 'function'
+    ? (normalizeVarDate(card?.paymentDate || '') || '')
+    : '';
+  if (explicit) return explicit;
+  const monthDate = getUnifiedMonthDateForFilters(month);
+  const day = Math.max(1, Math.min(31, Number(card?.paymentDay || 1) || 1));
+  const dueDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, day);
+  return normalizeVarDate(`${String(dueDate.getDate()).padStart(2, '0')}/${String(dueDate.getMonth() + 1).padStart(2, '0')}/${dueDate.getFullYear()}`) || '';
+}
+
 function getUnifiedFilterRows(month, filterValue, tagFilterValue = '', searchValue = '') {
   const rows = (month.outflows || []).map(item => ({ kind: 'outflow', item, sortTime: parseData(item.date || '') || 0 }));
   const billRows = (month.cardBills || []).map(bill => ({ kind: 'bill', item: bill, sortTime: 0 }));
   const normalizedTagFilter = String(tagFilterValue || '').trim().toLowerCase();
   const normalizedSearch = normalizeUnifiedSearchToken(searchValue);
-  const monthDate = getUnifiedMonthDateForFilters(month);
   const matchesSearch = (row) => {
     if (!normalizedSearch) return true;
     if (row.kind === 'bill') {
       const card = (month.outflowCards || []).find(entry => entry.id === row.item.cardId);
-      const day = Math.max(1, Math.min(31, Number(card?.paymentDay || 1) || 1));
-      const dueDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, day);
-      const dateLabel = normalizeVarDate(`${String(dueDate.getDate()).padStart(2, '0')}/${String(dueDate.getMonth() + 1).padStart(2, '0')}/${dueDate.getFullYear()}`) || '';
+      const dateLabel = getUnifiedCardPaymentDateLabelForFilters(month, card);
       const billText = normalizeUnifiedSearchToken(`${card?.name || 'cartao'} ${dateLabel}`);
       return billText.includes(normalizedSearch);
     }
@@ -122,12 +130,10 @@ function compareUnifiedRows(a, b, field, direction, month) {
     const bType = b.kind === 'bill' ? 'Cartão mensal' : getUnifiedOutflowTypeLabel(b.item);
     return aType.localeCompare(bType, 'pt-BR') * factor;
   }
-  const monthDate = getMonthDateFromMonthObject(month);
   const getRowDate = row => {
     if (row.kind !== 'bill') return parseData(row.item.date || '') || 0;
     const card = (month.outflowCards || []).find(entry => entry.id === row.item.cardId);
-    const day = Math.max(1, Math.min(31, Number(card?.paymentDay || 1) || 1));
-    return new Date(monthDate.getFullYear(), monthDate.getMonth(), day).getTime();
+    return parseData(getUnifiedCardPaymentDateLabelForFilters(month, card)) || 0;
   };
   const aDate = getRowDate(a);
   const bDate = getRowDate(b);
