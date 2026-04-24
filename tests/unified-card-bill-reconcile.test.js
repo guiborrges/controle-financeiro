@@ -84,6 +84,87 @@ test('historical backup bill is not zeroed by automatic forecast sync after norm
   assert.equal(month.cardBills[0].amount, 3173.82);
 });
 
+test('future bill without manual amount stores forecast separately from amount', () => {
+  const ctx = loadMesAtualContext();
+  const month = {
+    id: 'maio_2026',
+    outflows: [
+      { outputKind: 'card', outputRef: 'card_xp', recurringSpend: true, amount: 120 },
+      { outputKind: 'card', outputRef: 'card_xp', recurringSpend: false, amount: 999 }
+    ],
+    cardBills: [
+      { cardId: 'card_xp' }
+    ]
+  };
+  month.cardBills = month.cardBills.map((bill, idx) => ctx.normalizeUnifiedCardBill(month, bill, idx));
+  const changed = ctx.syncUnifiedCardBillForecastAmounts(month);
+  assert.equal(changed, true);
+  assert.equal(month.cardBills[0].amount, 0);
+  assert.equal(month.cardBills[0].forecastAmount, 120);
+  assert.equal(month.cardBills[0].manualAmountSet, false);
+  assert.equal(ctx.getUnifiedCardBillEffectiveAmount(month, month.cardBills[0]), 120);
+});
+
+test('future bill with manual zero is not treated as missing value', () => {
+  const ctx = loadMesAtualContext();
+  const month = {
+    id: 'maio_2026',
+    outflows: [
+      { outputKind: 'card', outputRef: 'card_xp', recurringSpend: true, amount: 120 }
+    ],
+    cardBills: [
+      { cardId: 'card_xp', amount: 0, manualAmountSet: true }
+    ]
+  };
+  month.cardBills = month.cardBills.map((bill, idx) => ctx.normalizeUnifiedCardBill(month, bill, idx));
+  const changed = ctx.syncUnifiedCardBillForecastAmounts(month);
+  assert.equal(changed, false);
+  assert.equal(month.cardBills[0].amount, 0);
+  assert.equal(month.cardBills[0].manualAmountSet, true);
+  assert.equal(ctx.getUnifiedCardBillEffectiveAmount(month, month.cardBills[0]), 0);
+});
+
+test('future bill with manual amount is not overwritten by recurring forecast', () => {
+  const ctx = loadMesAtualContext();
+  const month = {
+    id: 'maio_2026',
+    outflows: [
+      { outputKind: 'card', outputRef: 'card_xp', recurringSpend: true, amount: 120 }
+    ],
+    cardBills: [
+      { cardId: 'card_xp', amount: 450, manualAmountSet: true }
+    ]
+  };
+  month.cardBills = month.cardBills.map((bill, idx) => ctx.normalizeUnifiedCardBill(month, bill, idx));
+  const changed = ctx.syncUnifiedCardBillForecastAmounts(month);
+  assert.equal(changed, false);
+  assert.equal(month.cardBills[0].amount, 450);
+  assert.equal(month.cardBills[0].forecastAmount, 0);
+  assert.equal(ctx.getUnifiedCardBillEffectiveAmount(month, month.cardBills[0]), 450);
+});
+
+test('recurring card spend update only changes future forecast bills without manual override', () => {
+  const ctx = loadMesAtualContext();
+  const month = {
+    id: 'maio_2026',
+    outflows: [
+      { outputKind: 'card', outputRef: 'card_xp', recurringSpend: true, amount: 200 },
+      { outputKind: 'card', outputRef: 'card_nubank', recurringSpend: true, amount: 80 }
+    ],
+    cardBills: [
+      { cardId: 'card_xp', forecastAmount: 120, source: 'forecast' },
+      { cardId: 'card_nubank', amount: 50, manualAmountSet: true }
+    ]
+  };
+  month.cardBills = month.cardBills.map((bill, idx) => ctx.normalizeUnifiedCardBill(month, bill, idx));
+  const changed = ctx.syncUnifiedCardBillForecastAmounts(month);
+  assert.equal(changed, true);
+  assert.equal(month.cardBills[0].amount, 0);
+  assert.equal(month.cardBills[0].forecastAmount, 200);
+  assert.equal(month.cardBills[1].amount, 50);
+  assert.equal(month.cardBills[1].forecastAmount, 0);
+});
+
 test('current-version imported backup month normalizes bills before forecast sync', () => {
   const ctx = loadMesAtualContext();
   const month = {

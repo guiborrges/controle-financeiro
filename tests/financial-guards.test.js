@@ -31,6 +31,24 @@ test('all-view deduplication happens per card id and keeps other card launches',
   assert.equal(FinancialGuards.getAllViewTotalWithoutCardDuplication(rows), 670);
 });
 
+test('all-view total uses forecast amount without duplicating card launches', () => {
+  const rows = [
+    { kind: 'bill', item: { amount: 0, forecastAmount: 120, manualAmountSet: false, source: 'forecast', cardId: 'card_x' } },
+    { kind: 'outflow', item: { amount: 120, outputKind: 'card', outputRef: 'card_x' } },
+    { kind: 'outflow', item: { amount: 80, outputKind: 'method' } }
+  ];
+  assert.equal(FinancialGuards.getAllViewTotalWithoutCardDuplication(rows), 200);
+});
+
+test('all-view total keeps manual zero as authoritative', () => {
+  const rows = [
+    { kind: 'bill', item: { amount: 0, forecastAmount: 120, manualAmountSet: true, source: 'manual', cardId: 'card_x' } },
+    { kind: 'outflow', item: { amount: 120, outputKind: 'card', outputRef: 'card_x' } },
+    { kind: 'outflow', item: { amount: 80, outputKind: 'method' } }
+  ];
+  assert.equal(FinancialGuards.getAllViewTotalWithoutCardDuplication(rows), 80);
+});
+
 test('selected despesas respect include flag and checkbox selection', () => {
   const despesas = [
     { valor: 100, entraNaSomatoriaPrincipal: true },

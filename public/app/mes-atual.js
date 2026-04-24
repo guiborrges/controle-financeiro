@@ -637,18 +637,39 @@ function normalizeUnifiedCard(card, idx = 0) {
 }
 
 function normalizeUnifiedCardBill(month, bill, idx = 0) {
-  const amount = Math.max(0, Number(bill?.amount || bill?.valor || 0) || 0);
+  const hasAmountValue = Object.prototype.hasOwnProperty.call(bill || {}, 'amount')
+    || Object.prototype.hasOwnProperty.call(bill || {}, 'valor');
+  const amount = Math.max(0, Number(bill?.amount ?? bill?.valor ?? 0) || 0);
+  const forecastAmount = Math.max(0, Number(bill?.forecastAmount || 0) || 0);
   const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(true) });
   const monthSort = getMonthSortValue(month || {});
-  const inferredManual = bill?.manualAmountSet === true || (monthSort <= currentRealSort && amount > 0);
+  const explicitSource = String(bill?.source || '').trim().toLowerCase();
+  const isAuthoritativeSource = ['manual', 'backup', 'historical', 'imported'].includes(explicitSource);
+  const inferredManual = bill?.manualAmountSet === true
+    || bill?.isManual === true
+    || isAuthoritativeSource
+    || (hasAmountValue && monthSort <= currentRealSort)
+    || (hasAmountValue && amount > 0);
   return {
     id: bill?.id || `bill_${month?.id || 'month'}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
     cardId: String(bill?.cardId || '').trim(),
-    amount,
+    amount: inferredManual ? amount : 0,
+    forecastAmount: inferredManual ? forecastAmount : (forecastAmount || amount),
     manualAmountSet: inferredManual,
+    source: inferredManual ? (explicitSource && explicitSource !== 'forecast' ? explicitSource : 'manual') : 'forecast',
     paid: bill?.paid === true,
     description: String(bill?.description || '').trim()
   };
+}
+
+function getUnifiedCardBillEffectiveAmount(month, bill) {
+  if (!bill) return 0;
+  const source = String(bill.source || '').toLowerCase();
+  const amount = Math.max(0, Number(bill.amount || 0) || 0);
+  if (bill.manualAmountSet === true || (source !== 'forecast' && amount > 0)) {
+    return Math.max(0, Number(bill.amount || 0) || 0);
+  }
+  return Math.max(0, Number(bill.forecastAmount || 0) || 0);
 }
 
 function resolveUnifiedBillCardId(month, rawCardId) {
@@ -1193,7 +1214,7 @@ function syncUnifiedOutflowLegacyData(month) {
       return {
         id: bill.id,
         nome: card ? card.name : 'Cartão',
-        valor: Number(bill.amount || 0),
+        valor: getUnifiedCardBillEffectiveAmount(month, bill),
         categoria: 'CARTÃO',
         data: '',
         pago: bill.paid === true,
@@ -1274,12 +1295,50 @@ function syncUnifiedCardBillForecastAmounts(month) {
     const forecastAmount = Number(getUnifiedCardRecurringForecastAmount(month, bill.cardId) || 0);
     if (!Number.isFinite(forecastAmount)) return;
     const normalizedForecast = Number(forecastAmount.toFixed(2));
-    const currentAmount = Number(Number(bill.amount || 0).toFixed(2));
-    if (normalizedForecast === currentAmount) return;
-    bill.amount = normalizedForecast;
+    const currentForecast = Number(Number(bill.forecastAmount || 0).toFixed(2));
+    if (bill.amount !== 0) {
+      bill.amount = 0;
+      changed = true;
+    }
+    if (normalizedForecast === currentForecast && bill.source === 'forecast') return;
+    bill.forecastAmount = normalizedForecast;
+    bill.source = 'forecast';
     changed = true;
   });
   return changed;
+}
+
+function diagnoseSuspiciousUnifiedCardBills(months = data) {
+  const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(true) });
+  const findings = [];
+  (months || []).forEach(month => {
+    const monthSort = getMonthSortValue(month || {});
+    const isPastOrCurrent = monthSort <= currentRealSort;
+    (month?.cardBills || []).forEach(bill => {
+      if (!bill) return;
+      const amount = Math.max(0, Number(bill.amount || 0) || 0);
+      const forecast = Math.max(0, Number(getUnifiedCardRecurringForecastAmount(month, bill.cardId) || bill.forecastAmount || 0) || 0);
+      const reasons = [];
+      if (isPastOrCurrent && amount === 0) reasons.push('past_or_current_bill_zero');
+      if (isPastOrCurrent && bill.manualAmountSet !== true) reasons.push('past_or_current_without_authoritative_flag');
+      if (isPastOrCurrent && forecast > 0 && Number(amount.toFixed(2)) === Number(forecast.toFixed(2)) && bill.manualAmountSet !== true) {
+        reasons.push('matches_recurring_forecast_without_manual_flag');
+      }
+      if (!reasons.length) return;
+      findings.push({
+        monthId: month.id || '',
+        monthName: month.nome || '',
+        cardId: bill.cardId || '',
+        billId: bill.id || '',
+        amount,
+        forecastAmount: forecast,
+        manualAmountSet: bill.manualAmountSet === true,
+        source: bill.source || '',
+        reasons
+      });
+    });
+  });
+  return findings;
 }
 
 function getUnifiedCardLaunchesAmount(month, cardId) {
@@ -1436,7 +1495,7 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
     const card = (month.outflowCards || []).find(entry => entry.id === cardId);
     const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
     const bill = (month.cardBills || []).find(entry => entry.cardId === cardId);
-    const billAmount = Math.max(0, Number(bill?.amount || 0));
+    const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
     return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(card?.name || 'Cartão')}</div><div class="unified-summary-text">Aqui você vê o consumo lançado nesse cartão por categoria. A fatura mensal continua sendo controlada separadamente.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total lançado', fmt(total), `${countOutflows} lançamentos neste cartão`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Fechamento', card ? `Dia ${String(card.closingDay).padStart(2, '0')}` : '—', 'Data de fechamento do cartão')}${renderUnifiedSummaryCard('Fatura do mês', fmt(billAmount), card ? `Pagamento dia ${String(card.paymentDay).padStart(2, '0')}` : 'Sem data definida', bill?.paid ? 'positive' : 'warning')}</div></div>`;
   }
   if (filterValue.startsWith('account:') || filterValue.startsWith('method:')) {
@@ -1448,7 +1507,7 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
       : String(filterValue.split(':')[1] || 'Saída').replace(/^./, c => c.toUpperCase());
     return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(title)}</div><div class="unified-summary-text">Visualize tudo o que passou por esse meio de saída, sem misturar com o restante do mês.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total nesta visão', fmt(total), `${countOutflows + countBills} itens filtrados`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas', String(fixedCount), 'Compromissos nessa saída')}${renderUnifiedSummaryCard('Gastos', String(spendCount), 'Lançamentos de consumo nessa saída')}</div></div>`;
   }
-  const allTotal = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0) + rows.filter(row => row.kind === 'bill').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
+  const allTotal = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0) + rows.filter(row => row.kind === 'bill').reduce((acc, row) => acc + getUnifiedCardBillEffectiveAmount(month, row.item), 0);
   return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Visão geral das saídas</div><div class="unified-summary-text">Use esta aba para ver o mês inteiro junto. Se quiser mais clareza, troque o filtro para compromissos ou consumo.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total na lista', fmt(allTotal), `${countOutflows + countBills} itens nesta visão`, allTotal > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas planejadas', fmt(metrics.plannedExpenses), 'Compromissos e metas do mês')}${renderUnifiedSummaryCard('Lançamentos', String(countOutflows + countBills), 'Itens que compõem esta visão')}</div></div>`;
 }
 
@@ -1611,7 +1670,7 @@ function renderUnifiedFixedRows(month, rows) {
     if (row.kind === 'bill') {
       const selectionIdx = getUnifiedFixedSelectionIndex(month, row);
       const selected = selectionIdx === -1 ? true : isDespesaSelected(month.id, selectionIdx);
-      return acc + (selected ? Number(row.item?.amount || 0) : 0);
+      return acc + (selected ? getUnifiedCardBillEffectiveAmount(month, row.item) : 0);
     }
     const item = row.item;
     const selectionIdx = getUnifiedFixedSelectionIndex(month, row);
@@ -1646,7 +1705,8 @@ function renderUnifiedFixedRows(month, rows) {
       const bill = row.item;
       const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
       const cardLaunchesAmount = getUnifiedCardLaunchesAmount(month, bill.cardId);
-      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(Number(bill.amount || 0))}</span>`;
+      const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
+      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(billAmount)}</span>`;
       const selectionControl = selectionIdx === -1
         ? '<input type="checkbox" checked disabled>'
         : `<input type="checkbox" ${selected ? 'checked' : ''} onchange="toggleDespesaSelection(${selectionIdx})">`;
@@ -1656,7 +1716,7 @@ function renderUnifiedFixedRows(month, rows) {
           <td class="unified-outflow-description-cell" style="padding-left:22px">${renderUnifiedCardLabel(card, 'Cartão')}</td>
           <td>${renderCategoryLabel('CARTÃO DE CRÉDITO')}</td>
           <td>${escapeHtml(getUnifiedCardBillingDateLabel(month, card))}</td>
-          ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:bill.amount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
+          ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:billAmount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
           <td><label class="unified-paid-toggle"><input type="checkbox" ${bill.paid ? 'checked' : ''} onchange="toggleUnifiedCardBillPaid('${bill.id}', this.checked)"><span>Pago</span></label></td>
           <td><button class="btn-icon" onclick="openUnifiedCardModal('${card?.id || ''}')">✎</button></td>
         </tr>`;
@@ -1781,7 +1841,7 @@ function renderUnifiedAllRows(month, rows) {
   const totalWithoutCardDuplication = window.FinancialGuards?.getAllViewTotalWithoutCardDuplication
     ? window.FinancialGuards.getAllViewTotalWithoutCardDuplication(sortedRows)
     : sortedRows.reduce((acc, row) => {
-      if (row.kind === 'bill') return acc + Number(row.item?.amount || 0);
+      if (row.kind === 'bill') return acc + getUnifiedCardBillEffectiveAmount(month, row.item);
       if (row.kind === 'outflow' && row.item?.outputKind === 'card') return acc;
       return acc + Number(row.item?.amount || 0);
     }, 0);
@@ -1790,7 +1850,8 @@ function renderUnifiedAllRows(month, rows) {
       const bill = row.item;
       const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
       const cardLaunchesAmount = getUnifiedCardLaunchesAmount(month, bill.cardId);
-      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(Number(bill.amount || 0))}</span>`;
+      const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
+      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(billAmount)}</span>`;
       return `
         <tr>
           <td style="padding-left:22px">${escapeHtml(getUnifiedCardBillingDateLabel(month, card))}</td>
@@ -1798,7 +1859,7 @@ function renderUnifiedAllRows(month, rows) {
           <td>${renderCategoryLabel('CARTÃO DE CRÉDITO')}</td>
           <td><span class="unified-kind-chip card">Cartão de crédito</span></td>
           <td>${escapeHtml(card ? `Fecha ${card.closingDay} · paga ${card.paymentDay}` : 'Conta mensal')}</td>
-          ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:bill.amount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
+          ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:billAmount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
           <td><button class="btn-icon" onclick="openUnifiedCardModal('${card?.id || ''}')">✎</button></td>
         </tr>`;
     }
@@ -1986,7 +2047,7 @@ function renderUnifiedMethodRows(month, rows, filterValue) {
   const isCardFilter = filterValue.startsWith('card:');
   const isTagFilter = filterValue.startsWith('tag:');
   const total = sortedRows.reduce((acc, row) => {
-    if (row.kind === 'bill') return acc + Number(row.item?.amount || 0);
+    if (row.kind === 'bill') return acc + getUnifiedCardBillEffectiveAmount(month, row.item);
     return acc + Number(row.item?.amount || 0);
   }, 0);
   const body = sortedRows.map(row => {
@@ -1994,14 +2055,15 @@ function renderUnifiedMethodRows(month, rows, filterValue) {
       const bill = row.item;
       const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
       const cardLaunchesAmount = getUnifiedCardLaunchesAmount(month, bill.cardId);
-      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(Number(bill.amount || 0))}</span>`;
+      const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
+      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(billAmount)}</span>`;
       return `
         <tr>
           <td style="padding-left:22px">${escapeHtml(getUnifiedCardBillingDateLabel(month, card))}</td>
           <td class="unified-outflow-description-cell">${renderUnifiedCardLabel(card, 'Cartão')}</td>
           <td>${renderCategoryLabel('CARTÃO DE CRÉDITO')}</td>
           <td><span class="unified-kind-chip card">Cartão de crédito</span></td>
-          ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:bill.amount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
+          ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:billAmount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
           <td>${isBoleto ? '<label class="unified-paid-toggle"><input type="checkbox" ' + (bill.paid ? 'checked' : '') + ' onchange="toggleUnifiedCardBillPaid(\'' + bill.id + '\', this.checked)"><span>Pago</span></label>' : ''}</td>
           <td>${!isCardFilter ? '<button class="btn-icon" onclick="openUnifiedCardModal(\'' + (card?.id || '') + '\')">✎</button>' : ''}</td>
         </tr>`;
@@ -2213,6 +2275,7 @@ function updateUnifiedCardBillAmount(billId, value) {
   recordHistoryState();
   bill.amount = Math.max(0, Number(value || 0) || 0);
   bill.manualAmountSet = true;
+  bill.source = 'manual';
   syncUnifiedOutflowLegacyData(month);
   save(true);
   preserveCurrentScroll(() => renderMes());
@@ -2921,14 +2984,16 @@ function confirmUnifiedCardDelete() {
       if (!deleteMode && transferTarget) {
         const targetBill = (targetMonth.cardBills || []).find(bill => bill.cardId === transferTarget);
         if (targetBill) {
-          targetBill.amount = Number(targetBill.amount || 0) + Number(sourceBill.amount || 0);
+          targetBill.amount = getUnifiedCardBillEffectiveAmount(targetMonth, targetBill) + getUnifiedCardBillEffectiveAmount(targetMonth, sourceBill);
           targetBill.manualAmountSet = targetBill.manualAmountSet === true || sourceBill.manualAmountSet === true;
+          targetBill.source = targetBill.manualAmountSet === true ? 'manual' : 'forecast';
           targetBill.paid = targetBill.paid === true || sourceBill.paid === true;
         } else {
           targetMonth.cardBills.push(normalizeUnifiedCardBill(targetMonth, {
             cardId: transferTarget,
-            amount: Number(sourceBill.amount || 0),
+            amount: getUnifiedCardBillEffectiveAmount(targetMonth, sourceBill),
             manualAmountSet: sourceBill.manualAmountSet === true,
+            source: sourceBill.source || (sourceBill.manualAmountSet === true ? 'manual' : 'forecast'),
             paid: sourceBill.paid === true
           }, (targetMonth.cardBills || []).length));
         }
@@ -3620,8 +3685,10 @@ function buildUnifiedPilotMonthFromPrevious(prev, newMonthName) {
     const prevBill = getUnifiedCardBill(prev, card.id);
     return normalizeUnifiedCardBill(month, {
       cardId: card.id,
-      amount: prevBill?.manualAmountSet === true ? Number(prevBill?.amount || 0) : 0,
+      amount: 0,
+      forecastAmount: prevBill?.manualAmountSet === true ? Number(prevBill?.amount || 0) : 0,
       manualAmountSet: false,
+      source: 'forecast',
       paid: false
     }, idx);
   });
