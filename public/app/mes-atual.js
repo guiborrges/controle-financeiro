@@ -1267,7 +1267,8 @@ function syncUnifiedOutflowLegacyData(month) {
         categoria: 'CARTÃO',
         data: '',
         pago: bill.paid === true,
-        paymentMethod: 'credito'
+        paymentMethod: 'credito',
+        entraNaSomatoriaPrincipal: false
       };
     }))
   ];
@@ -1439,7 +1440,7 @@ function getUnifiedMonthPilotMetrics(month) {
   const fixedDoneTotal = selectedDespesas.reduce((acc, item) => {
     if (!isFixedOrBillDespesa(item)) return acc;
     const category = resolveCategoryName(item?.categoria || '');
-    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc + Number(item?.valor || 0);
+    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc;
     const sourceOutflow = outflowById.get(String(item?.id || ''));
     const isDirectMethodFixed = isUnifiedExpenseType(sourceOutflow)
       && sourceOutflow?.outputKind === 'method'
@@ -1464,9 +1465,11 @@ function getUnifiedMonthPilotMetrics(month) {
     ? window.MesAtualTotals.calculateUnifiedPlannedExpenses({ fixedPlannedTotal, dailyGoalTarget })
     : fixedPlannedTotal + dailyGoalTarget;
   const doneExpenses = fixedDoneTotal + totalGoals + spendsDoneOutsideCard;
-  const paidFixedAndBills = selectedDespesas.reduce((acc, item) => (
-    acc + (item?.pago === true && isFixedOrBillDespesa(item) ? Number(item.valor || 0) : 0)
-  ), 0);
+  const paidFixedAndBills = selectedDespesas.reduce((acc, item) => {
+    const category = resolveCategoryName(item?.categoria || '');
+    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc;
+    return acc + (item?.pago === true && isFixedOrBillDespesa(item) ? Number(item.valor || 0) : 0);
+  }, 0);
   const paidOut = paidFixedAndBills
     + (month.outflows || []).reduce((acc, item) => {
       if (item.type !== 'spend' || item.status !== 'done') return acc;
@@ -1558,7 +1561,7 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
       : String(filterValue.split(':')[1] || 'Saída').replace(/^./, c => c.toUpperCase());
     return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(title)}</div><div class="unified-summary-text">Visualize tudo o que passou por esse meio de saída, sem misturar com o restante do mês.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total nesta visão', fmt(total), `${countOutflows + countBills} itens filtrados`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas', String(fixedCount), 'Compromissos nessa saída')}${renderUnifiedSummaryCard('Gastos', String(spendCount), 'Lançamentos de consumo nessa saída')}</div></div>`;
   }
-  const allTotal = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0) + rows.filter(row => row.kind === 'bill').reduce((acc, row) => acc + getUnifiedCardBillEffectiveAmount(month, row.item), 0);
+  const allTotal = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
   return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Visão geral das saídas</div><div class="unified-summary-text">Use esta aba para ver o mês inteiro junto. Se quiser mais clareza, troque o filtro para compromissos ou consumo.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total na lista', fmt(allTotal), `${countOutflows + countBills} itens nesta visão`, allTotal > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas planejadas', fmt(metrics.plannedExpenses), 'Compromissos e metas do mês')}${renderUnifiedSummaryCard('Lançamentos', String(countOutflows + countBills), 'Itens que compõem esta visão')}</div></div>`;
 }
 
@@ -1710,11 +1713,7 @@ function renderUnifiedFixedRows(month, rows) {
   if (!rows.length) return '<div class="unified-empty-state">Nenhuma saída relevante registrada ainda.</div>';
   const totalSelected = sortedRows.reduce((acc, row) => {
     if (row.kind === 'methodGroup') return acc + (row.item?.included !== false ? Number(row.item?.amount || 0) : 0);
-    if (row.kind === 'bill') {
-      const selectionIdx = getUnifiedFixedSelectionIndex(month, row);
-      const selected = selectionIdx === -1 ? true : isDespesaSelected(month.id, selectionIdx);
-      return acc + (selected ? getUnifiedCardBillEffectiveAmount(month, row.item) : 0);
-    }
+    if (row.kind === 'bill') return acc;
     const item = row.item;
     const selectionIdx = getUnifiedFixedSelectionIndex(month, row);
     const selected = selectionIdx === -1
@@ -2090,7 +2089,7 @@ function renderUnifiedMethodRows(month, rows, filterValue) {
   const isCardFilter = filterValue.startsWith('card:');
   const isTagFilter = filterValue.startsWith('tag:');
   const total = sortedRows.reduce((acc, row) => {
-    if (row.kind === 'bill') return acc + getUnifiedCardBillEffectiveAmount(month, row.item);
+    if (row.kind === 'bill') return acc;
     return acc + Number(row.item?.amount || 0);
   }, 0);
   const body = sortedRows.map(row => {

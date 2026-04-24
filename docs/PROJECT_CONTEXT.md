@@ -936,3 +936,13 @@
   - `MesAtualMonthTotals.calculateUnifiedPlannedExpenses`
 - Tests:
   - `tests/mes-atual-extracted-modules.test.js` covers exclusion of card bills and financial goals.
+
+## 33. UPDATE_LOG_2026_04_24_CARD_BILL_NO_DUPLICATE_TOTALS
+- Card bill no-duplication rule:
+  - card bill rows remain visible as fatura/status controls.
+  - card bill rows do not enter `month.despesas` primary totals (`entraNaSomatoriaPrincipal=false`).
+  - all-view totals ignore `bill` rows and use launch rows as the source of truth.
+  - paid/done expenses also ignore card bill rows to avoid duplicating card launches.
+- Tests:
+  - `tests/financial-guards.test.js` covers ignoring bill rows and excluding legacy card bill rows from selected expenses.
+  - full suite: `npm.cmd test`.
