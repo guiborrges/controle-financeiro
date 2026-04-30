@@ -2859,7 +2859,7 @@ body {
   --calendar-layout-gap: 12px;
   width: fit-content;
   max-width: calc(100vw - 32px);
-  max-height: none;
+  max-height: calc(100dvh - 64px);
   pointer-events: auto;
   position: fixed;
   left: max(16px, calc((100vw - var(--calendar-base-width)) / 2));
@@ -2904,7 +2904,7 @@ body {
   --calendar-side-width: 320px;
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 12px;
   width: fit-content;
   max-width: 100%;
@@ -3138,7 +3138,7 @@ body {
   border-radius: 16px;
   background: rgba(255,255,255,.76);
   padding: 10px 10px 10px 10px;
-  max-height: 100%;
+  max-height: calc(100dvh - 140px);
   overflow: hidden;
   flex-direction: column;
   gap: 8px;
@@ -3216,11 +3216,154 @@ body {
 
 .finance-calendar-side-panel-body {
   flex: 1 1 auto;
-  max-height: 100%;
+  max-height: calc(100dvh - 220px);
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
   min-height: 0;
+}
+
+.finance-calendar-side-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.finance-calendar-side-block-head > h5 {
+  margin: 0;
+}
+
+.finance-calendar-side-block > .finance-calendar-side-block-head + h5 {
+  display: none;
+}
+
+.finance-calendar-shared-btn {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.finance-calendar-shared-btn.is-disabled {
+  opacity: .56;
+}
+
+.finance-calendar-shared-summary {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.finance-calendar-shared-sheet-body {
+  max-height: calc(84vh - 140px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+.finance-calendar-shared-sheet-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.finance-calendar-shared-sheet-summary > div {
+  border: 1px solid rgba(132,147,168,.18);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(255,255,255,.72);
+}
+
+.finance-calendar-shared-sheet-summary span {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text3);
+  letter-spacing: .08em;
+}
+
+.finance-calendar-shared-sheet-summary strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.finance-calendar-shared-person {
+  border: 1px solid rgba(132,147,168,.18);
+  border-radius: 10px;
+  background: rgba(255,255,255,.66);
+  margin-bottom: 8px;
+}
+
+.finance-calendar-shared-person > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 10px;
+}
+
+.finance-calendar-shared-person > summary::-webkit-details-marker { display: none; }
+
+.finance-calendar-shared-person-name {
+  font-weight: 600;
+  color: #233245;
+}
+
+.finance-calendar-shared-person-total {
+  font-weight: 700;
+  color: #4f4394;
+}
+
+.finance-calendar-shared-person-rows {
+  border-top: 1px solid rgba(132,147,168,.15);
+  padding: 8px;
+}
+
+.finance-calendar-shared-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(132,147,168,.14);
+  border-radius: 10px;
+  padding: 7px 8px;
+  margin-bottom: 6px;
+}
+
+.finance-calendar-shared-entry-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.finance-calendar-shared-entry-main strong {
+  font-size: 12px;
+}
+
+.finance-calendar-shared-entry-main small {
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.finance-calendar-shared-entry-values {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.finance-calendar-shared-entry-values span {
+  display: block;
+  font-weight: 700;
+}
+
+.finance-calendar-shared-entry-values small {
+  color: var(--text3);
+  font-size: 10px;
 }
 
 .finance-calendar-side-panel-body::-webkit-scrollbar {

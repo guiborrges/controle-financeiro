@@ -1202,6 +1202,22 @@
   </div>
 </div>
 
+<div class="modal-bg" id="modalCalendarSharedExpenses" onclick="closeModalBg(event,'modalCalendarSharedExpenses')">
+  <div class="modal" style="max-width:680px;max-height:84vh;overflow:hidden">
+    <div class="modal-header">
+      <div>
+        <h3 id="calendarSharedExpensesTitle">Gastos compartilhados</h3>
+        <p id="calendarSharedExpensesSubtitle" class="modal-subcopy">Resumo de reembolsos por pessoa</p>
+      </div>
+      <button class="btn-icon" type="button" onclick="closeFinanceCalendarSharedExpenses()">✕</button>
+    </div>
+    <div id="calendarSharedExpensesBody" class="finance-calendar-shared-sheet-body"></div>
+    <div class="form-actions" style="margin-top:14px">
+      <button class="btn btn-primary" type="button" onclick="closeFinanceCalendarSharedExpenses()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div id="financeCalendarTooltip" class="finance-calendar-tooltip" style="display:none"></div>
 
 <!-- MODAL ADD CAT -->

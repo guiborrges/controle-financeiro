@@ -476,9 +476,86 @@
     renderDailyChart(month);
   }
 
+  function renderSharedExpensesModal(eventModel, sharedData) {
+    const mount = document.getElementById('calendarSharedExpensesBody');
+    if (!mount) return;
+    const month = getCurrentMonthSafe();
+    const title = document.getElementById('calendarSharedExpensesTitle');
+    const subtitle = document.getElementById('calendarSharedExpensesSubtitle');
+    if (title) title.textContent = eventModel?.name ? `Gastos compartilhados • ${eventModel.name}` : 'Gastos compartilhados';
+    if (subtitle) {
+      const start = global.FinanceCalendarUtils.parseDateInputToDate(eventModel?.startDate);
+      const end = global.FinanceCalendarUtils.parseDateInputToDate(eventModel?.endDate);
+      const periodLabel = start && end
+        ? `${start.toLocaleDateString('pt-BR')} até ${end.toLocaleDateString('pt-BR')}`
+        : 'Período do evento';
+      subtitle.textContent = `${periodLabel} • ${sharedData?.launchesCount || 0} compra(s) compartilhada(s)`;
+    }
+    const people = Array.isArray(sharedData?.people) ? sharedData.people : [];
+    if (!people.length) {
+      mount.innerHTML = '<div class="finance-calendar-empty">Não há gastos compartilhados nessa tag/período.</div>';
+      return;
+    }
+    mount.innerHTML = `
+      <div class="finance-calendar-shared-sheet-summary">
+        <div><span>Total compartilhado</span><strong>${global.fmt(sharedData.totalShared || 0)}</strong></div>
+        <div><span>Pendente</span><strong>${global.fmt(sharedData.totalPending || 0)}</strong></div>
+      </div>
+      <div class="finance-calendar-shared-sheet-list">
+        ${people.map(person => `
+          <details class="finance-calendar-shared-person">
+            <summary>
+              <span class="finance-calendar-shared-person-name">${escapeHtml(person.name)}</span>
+              <span class="finance-calendar-shared-person-total">${escapeHtml(global.fmt(person.pending || 0))}</span>
+            </summary>
+            <div class="finance-calendar-shared-person-rows">
+              ${person.entries.map(entry => `
+                <div class="finance-calendar-shared-entry">
+                  <div class="finance-calendar-shared-entry-main">
+                    <strong>${escapeHtml(entry.description)}</strong>
+                    <small>${escapeHtml(entry.dateLabel)} • ${escapeHtml(entry.monthLabel)}</small>
+                  </div>
+                  <div class="finance-calendar-shared-entry-values">
+                    <span>${escapeHtml(global.fmt(entry.personAmount || 0))}</span>
+                    <small>Total ${escapeHtml(global.fmt(entry.totalExpense || 0))}${entry.paid ? ' • Pago' : ''}</small>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </details>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function openSharedExpensesPanel(eventId = '') {
+    const month = getCurrentMonthSafe();
+    if (!month) return;
+    ensureMonthCalendarState(month);
+    const targetId = String(eventId || state.selectedEventId || '').trim();
+    const eventModel = (month.calendarEvents || []).find(item => String(item?.id || '') === targetId);
+    if (!eventModel) {
+      if (typeof global.showAppStatus === 'function') {
+        global.showAppStatus('Evento não encontrado para abrir gastos compartilhados.', 'Calendário', 'warning');
+      }
+      return;
+    }
+    const sharedData = typeof global.FinanceCalendarEvents.getEventSharedExpensesByPerson === 'function'
+      ? global.FinanceCalendarEvents.getEventSharedExpensesByPerson(month, eventModel)
+      : { people: [], totalShared: 0, totalPending: 0, launchesCount: 0 };
+    renderSharedExpensesModal(eventModel, sharedData);
+    if (typeof global.openModal === 'function') global.openModal('modalCalendarSharedExpenses');
+  }
+
+  function closeSharedExpensesPanel() {
+    if (typeof global.closeModal === 'function') global.closeModal('modalCalendarSharedExpenses');
+  }
+
   global.openFinanceCalendarModal = openCalendarModal;
   global.closeFinanceCalendarModal = closeCalendarModal;
   global.toggleFinanceCalendarChart = toggleChart;
+  global.openFinanceCalendarSharedExpenses = openSharedExpensesPanel;
+  global.closeFinanceCalendarSharedExpenses = closeSharedExpensesPanel;
   global.openFinanceCalendarEventModal = openEventModal;
   global.closeFinanceCalendarEventModal = closeEventModal;
   global.saveFinanceCalendarEvent = saveEvent;

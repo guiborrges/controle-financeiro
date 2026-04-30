@@ -202,6 +202,98 @@
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }
 
+  function getEventSharedExpensesByPerson(month, event) {
+    if (!event) return { people: [], totalShared: 0, totalPending: 0, launchesCount: 0 };
+    const start = global.FinanceCalendarUtils.parseDateInputToDate(event.startDate);
+    const end = global.FinanceCalendarUtils.parseDateInputToDate(event.endDate);
+    if (!start || !end) return { people: [], totalShared: 0, totalPending: 0, launchesCount: 0 };
+    const startTime = start.getTime();
+    const endTime = end.getTime();
+    const eventTagComparable = normalizeTagComparable(event?.tagId || '');
+    const monthsFromUtils = typeof global?.FinanceCalendarUtils?.getAllMonthsData === 'function'
+      ? global.FinanceCalendarUtils.getAllMonthsData()
+      : [];
+    const sourceMonths = Array.isArray(monthsFromUtils) && monthsFromUtils.length
+      ? monthsFromUtils
+      : [month].filter(Boolean);
+    const peopleMap = new Map();
+    let totalShared = 0;
+    let totalPending = 0;
+    let launchesCount = 0;
+
+    sourceMonths.forEach(monthRef => {
+      const monthLabel = String(monthRef?.nome || '').trim() || 'Mês';
+      (monthRef?.outflows || []).forEach(item => {
+        if (!(item?.sharedExpense === true)) return;
+        const date = parseOutflowDate(item, monthRef);
+        if (!date) return;
+        const time = date.getTime();
+        if (time < startTime || time > endTime) return;
+        if (eventTagComparable) {
+          const itemTagComparable = normalizeTagComparable(item?.tag || '');
+          if (itemTagComparable !== eventTagComparable) return;
+        }
+        if (!Array.isArray(item?.sharedParticipants) || !item.sharedParticipants.length) return;
+        launchesCount += 1;
+        totalShared += Math.max(0, Number(item?.sharedOthersAmount || 0) || 0);
+        const dateLabel = global.normalizeVarDate?.(String(item?.date || item?.data || '').trim()) || date.toLocaleDateString('pt-BR');
+        const description = String(item?.description || item?.descricao || 'Sem descrição').trim() || 'Sem descrição';
+        const totalExpense = Math.max(0, Number(item?.sharedOriginalAmount || item?.amount || 0) || 0);
+        item.sharedParticipants.forEach(participant => {
+          if (participant?.isOwner === true) return;
+          const personName = String(participant?.name || '').trim() || 'Pessoa sem nome';
+          const personKey = personName
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLocaleLowerCase('pt-BR');
+          if (!personKey) return;
+          const amount = Math.max(0, Number(participant?.amount || 0) || 0);
+          const paid = participant?.paid === true;
+          if (!peopleMap.has(personKey)) {
+            peopleMap.set(personKey, {
+              key: personKey,
+              name: personName,
+              total: 0,
+              pending: 0,
+              paid: 0,
+              entries: []
+            });
+          }
+          const bucket = peopleMap.get(personKey);
+          bucket.total += amount;
+          if (paid) bucket.paid += amount;
+          else {
+            bucket.pending += amount;
+            totalPending += amount;
+          }
+          bucket.entries.push({
+            monthLabel,
+            dateLabel,
+            description,
+            personAmount: amount,
+            totalExpense,
+            paid
+          });
+        });
+      });
+    });
+
+    const people = Array.from(peopleMap.values())
+      .map(person => ({
+        ...person,
+        entries: person.entries.sort((a, b) => (global.parseData?.(b.dateLabel) || 0) - (global.parseData?.(a.dateLabel) || 0))
+      }))
+      .sort((a, b) => b.pending - a.pending || b.total - a.total || a.name.localeCompare(b.name, 'pt-BR'));
+    return {
+      people,
+      totalShared: Number(totalShared.toFixed(2)),
+      totalPending: Number(totalPending.toFixed(2)),
+      launchesCount
+    };
+  }
+
   global.FinanceCalendarEvents = {
     ensureMonthEvents,
     normalizeEvent,
@@ -210,6 +302,7 @@
     getEventSpentValue,
     getEventTags,
     getEventLinkedLaunches,
-    collectReusableParticipantNames
+    collectReusableParticipantNames,
+    getEventSharedExpensesByPerson
   };
 })(window);

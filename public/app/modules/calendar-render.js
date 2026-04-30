@@ -225,6 +225,9 @@
       const linkedLaunches = typeof global.FinanceCalendarEvents.getEventLinkedLaunches === 'function'
         ? global.FinanceCalendarEvents.getEventLinkedLaunches(month, focusedEvent)
         : [];
+      const sharedSummary = typeof global.FinanceCalendarEvents.getEventSharedExpensesByPerson === 'function'
+        ? global.FinanceCalendarEvents.getEventSharedExpensesByPerson(month, focusedEvent)
+        : { people: [], totalPending: 0 };
       const startDate = global.FinanceCalendarUtils.parseDateInputToDate(focusedEvent.startDate);
       const endDate = global.FinanceCalendarUtils.parseDateInputToDate(focusedEvent.endDate);
       const periodLabel = startDate && endDate
@@ -254,10 +257,22 @@
             <div><span>Tag</span><strong>${escapeHtml(focusedEvent.tagId || 'Sem tag')}</strong></div>
           </div>
           <div class="finance-calendar-side-block" style="margin-top:8px;margin-bottom:0">
+            <div class="finance-calendar-side-block-head">
+              <h5>Tags dos gastos no período</h5>
+              <button
+                class="btn btn-ghost finance-calendar-shared-btn ${sharedSummary.people.length ? '' : 'is-disabled'}"
+                type="button"
+                ${sharedSummary.people.length ? '' : 'disabled'}
+                onclick="openFinanceCalendarSharedExpenses('${escapeHtml(focusedEvent.id || '')}')"
+              >Gastos compartilhados</button>
+            </div>
             <h5>Tags dos gastos no período</h5>
             ${eventTags.length
               ? `<div class="finance-calendar-event-tags-wrap">${eventTags.map(tag => `<span class="finance-calendar-event-tag-chip">${escapeHtml(tag)}</span>`).join('')}</div>`
               : '<div class="finance-calendar-empty">Sem tags vinculadas aos gastos deste evento.</div>'}
+            ${sharedSummary.people.length
+              ? `<div class="finance-calendar-shared-summary">Pendentes: <strong>${escapeHtml(global.fmt(sharedSummary.totalPending || 0))}</strong></div>`
+              : ''}
           </div>
           <div class="finance-calendar-side-block" style="margin-top:10px;margin-bottom:0">
             <h5>Gastos vinculados</h5>
