@@ -3310,6 +3310,25 @@ body {
 
 .finance-calendar-shared-person > summary::-webkit-details-marker { display: none; }
 
+.finance-calendar-shared-person-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.finance-calendar-shared-person-caret {
+  color: var(--text2);
+  font-size: 11px;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform .16s ease;
+}
+
+.finance-calendar-shared-person[open] .finance-calendar-shared-person-caret {
+  transform: rotate(90deg);
+}
+
 .finance-calendar-shared-person-name {
   font-weight: 600;
   color: #233245;

@@ -505,7 +505,10 @@
         ${people.map(person => `
           <details class="finance-calendar-shared-person">
             <summary>
-              <span class="finance-calendar-shared-person-name">${escapeHtml(person.name)}</span>
+              <span class="finance-calendar-shared-person-title">
+                <span class="finance-calendar-shared-person-caret" aria-hidden="true">▸</span>
+                <span class="finance-calendar-shared-person-name">${escapeHtml(person.name)}</span>
+              </span>
               <span class="finance-calendar-shared-person-total">${escapeHtml(global.fmt(person.pending || 0))}</span>
             </summary>
             <div class="finance-calendar-shared-person-rows">
