@@ -165,7 +165,7 @@
   function getDayIntensityColor(intensity) {
     const value = clamp(Number(intensity || 0), 0, 1);
     const from = { r: 255, g: 255, b: 255 };
-    const to = { r: 203, g: 183, b: 245 };
+    const to = { r: 186, g: 160, b: 240 };
     const r = Math.round(from.r + (to.r - from.r) * value);
     const g = Math.round(from.g + (to.g - from.g) * value);
     const b = Math.round(from.b + (to.b - from.b) * value);

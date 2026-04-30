@@ -1,6 +1,14 @@
-const CATEGORY_EDITOR_EMOJI_OPTIONS_GRID = [
-  'tag','food','car','health','fun','shopping','phone','home','education','invoice','gift','work','shield','trend','card','bank','cash','bitcoin'
-];
+const CATEGORY_EDITOR_EMOJI_OPTIONS_GRID = (() => {
+  const fromIcons = typeof window.getCategoryIconChoices === 'function'
+    ? window.getCategoryIconChoices()
+    : [];
+  const fallback = ['tag','food','car','health','fun','shopping','phone','home','education','invoice','gift','work','shield','trend','card','bank','cash','bitcoin'];
+  const merged = Array.from(new Set([
+    ...fallback,
+    ...fromIcons
+  ]));
+  return merged;
+})();
 
 let expandedCategoryEditorGroups = {};
 let expandedTagEditorGroups = {};

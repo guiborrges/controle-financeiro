@@ -123,6 +123,7 @@ function getSystemDefaultCategoryPresets() {
     { name: 'MORADIA', emoji: 'home' },
     { name: 'SERVIÇOS', emoji: 'work' },
     { name: 'ALIMENTAÇÃO', emoji: 'food' },
+    { name: 'MERCADO', emoji: 'market' },
     { name: 'TRANSPORTE', emoji: 'car' },
     { name: 'COMPRAS', emoji: 'shopping' },
     { name: 'SAÚDE', emoji: 'health' },

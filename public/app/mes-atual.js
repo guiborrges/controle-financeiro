@@ -1621,6 +1621,21 @@ function getUnifiedDirectMethodGroupDisplay(method) {
   return String(getUnifiedOutflowPaymentLabel({ outputKind: 'method', outputMethod: method }, getCurrentMonth()) || method || 'SAÍDA').toUpperCase();
 }
 
+function getUnifiedDirectMethodGroupBadge(method) {
+  const normalized = String(method || '').toLowerCase();
+  const iconName = normalized === 'pix'
+    ? 'pix'
+    : normalized === 'debito'
+    ? 'debit'
+    : normalized === 'dinheiro'
+    ? 'money'
+    : 'cash';
+  if (typeof renderSmartIconBadge === 'function') {
+    return renderSmartIconBadge(iconName, 'info');
+  }
+  return '';
+}
+
 function renderUnifiedFixedRows(month, rows) {
   const groupedDirectMethods = new Map();
   const regularRows = [];
@@ -1739,7 +1754,7 @@ function renderUnifiedFixedRows(month, rows) {
         <tr>
           <td style="padding-left:22px"><input type="checkbox" ${item.included !== false ? 'checked' : ''} onchange="toggleUnifiedDirectMethodCategoryIncluded('${groupKey}', this.checked)"></td>
           <td class="unified-outflow-description-cell" style="padding-left:22px">${escapeHtml(methodsLabel)}</td>
-          <td>${item.groupKey.startsWith('method::') ? `<span class="category-inline-label"><span>${escapeHtml(item.categoryDisplay || item.category || 'SAÍDA')}</span></span>` : renderCategoryLabel(category)}</td>
+          <td>${item.groupKey.startsWith('method::') ? `<span class="category-inline-label">${getUnifiedDirectMethodGroupBadge(method)}<span>${escapeHtml(item.categoryDisplay || item.category || 'SAÍDA')}</span></span>` : renderCategoryLabel(category)}</td>
           <td></td>
           <td class="amount amount-neg">${amountLabel}</td>
           <td><label class="unified-paid-toggle"><input type="checkbox" ${item.paid ? 'checked' : ''} onchange="toggleUnifiedDirectMethodCategoryPaid('${groupKey}', this.checked)"><span>Pago</span></label></td>
@@ -3925,6 +3940,11 @@ function saveUnifiedOutflow() {
     showUnifiedOutflowQuickToast(editingUnifiedOutflowId ? 'Atualizado' : 'Adicionado');
     if (!wasEditing) {
       clearUnifiedOutflowDraft(month);
+      const sharedToggleEl = document.getElementById('unifiedOutflowSharedToggle');
+      if (sharedToggleEl) {
+        sharedToggleEl.checked = false;
+        toggleUnifiedOutflowSharedSection();
+      }
     }
     if (wasEditing) {
       closeUnifiedOutflowModal();

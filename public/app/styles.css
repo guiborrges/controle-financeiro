@@ -470,6 +470,23 @@ body {
   padding:10px 11px;
   background: rgba(255,255,255,.72);
   margin-bottom:8px;
+  position: relative;
+}
+.notification-dismiss-btn{
+  position:absolute;
+  top:6px;
+  right:7px;
+  width:20px;
+  height:20px;
+  border:0;
+  border-radius:999px;
+  background:rgba(145,160,178,.16);
+  color:var(--text2);
+  line-height:1;
+  cursor:pointer;
+}
+.notification-dismiss-btn:hover{
+  background:rgba(145,160,178,.26);
 }
 .notification-item:last-child{
   margin-bottom:0;
@@ -1309,14 +1326,14 @@ body {
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:24px;
-  height:24px;
+  width:28px;
+  height:28px;
   border-radius:999px;
   background:rgba(84,73,60,.08);
-  font-size:13px;
+  font-size:14px;
   flex-shrink:0;
 }
-.smart-icon-badge .system-icon{ width:14px; height:14px; }
+.smart-icon-badge .system-icon{ width:16px; height:16px; }
 .smart-icon-badge.tone-expense{ background:rgba(192,57,43,.12); color:var(--red); }
 .smart-icon-badge.tone-income{ background:rgba(45,90,61,.12); color:var(--green); }
 .smart-icon-badge.tone-goals{ background:rgba(142,106,31,.12); color:var(--gold); }
@@ -2891,6 +2908,20 @@ body {
   letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--text2);
+}
+.finance-calendar-month-nav{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.finance-calendar-nav-btn{
+  width:28px;
+  height:28px;
+  border-radius:10px;
+  padding:0;
+  font-size:18px;
+  line-height:1;
+  font-weight:700;
 }
 
 .finance-calendar-head-actions {

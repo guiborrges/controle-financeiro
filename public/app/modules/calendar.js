@@ -3,6 +3,8 @@
 
   const state = {
     monthId: '',
+    viewYear: 0,
+    viewMonthIndex: -1,
     selectedDay: 0,
     selectedEventId: '',
     editingEventId: '',
@@ -14,6 +16,23 @@
     tooltipDay: 0
   };
   let dailyChartInstance = null;
+
+  function getViewMonthSafe() {
+    if (state.viewYear > 0 && state.viewMonthIndex >= 0) {
+      const byYm = typeof global.FinanceCalendarUtils?.getMonthByYearMonth === 'function'
+        ? global.FinanceCalendarUtils.getMonthByYearMonth(state.viewYear, state.viewMonthIndex)
+        : null;
+      if (byYm) return byYm;
+      if (typeof global.ensureMonthExists === 'function' && global.MONTH_INDEX) {
+        const monthName = Object.keys(global.MONTH_INDEX)
+          .find(name => global.MONTH_INDEX[name] === state.viewMonthIndex);
+        if (monthName) {
+          try { return global.ensureMonthExists(monthName, state.viewYear); } catch {}
+        }
+      }
+    }
+    return getCurrentMonthSafe();
+  }
 
   function ensureMonthCalendarState(month) {
     if (!month) return;
@@ -146,7 +165,7 @@
   }
 
   function renderCalendarContent() {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return;
     state.monthId = month.id;
     recomputeCalendarState(month);
@@ -171,7 +190,7 @@
   }
 
   function renderSelectedDayPanel() {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     const layout = document.querySelector('#modalFinanceCalendar .finance-calendar-layout');
     if (!month || !state.selectedDay || state.selectedDay < 1) {
       if (layout) layout.classList.remove('has-side-panel');
@@ -191,6 +210,9 @@
     const month = getCurrentMonthSafe();
     if (!month) return;
     ensureMonthCalendarState(month);
+    const context = global.FinanceCalendarUtils.getMonthContext(month);
+    state.viewYear = context.year;
+    state.viewMonthIndex = context.monthIndex;
     state.selectedDay = 0;
     state.selectedEventId = '';
     if (typeof global.openModal === 'function') global.openModal('modalFinanceCalendar');
@@ -219,7 +241,7 @@
   }
 
   function focusEvent(eventId) {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return;
     const targetId = String(eventId || '').trim();
     if (!targetId) return;
@@ -240,7 +262,7 @@
   }
 
   function getTooltipPayload(day) {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return null;
     const context = global.FinanceCalendarUtils.getMonthContext(month);
     const safeDay = global.FinanceCalendarUtils.clamp(Number(day || 0), 1, context.daysInMonth);
@@ -295,7 +317,7 @@
   }
 
   function openEventModal() {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return;
     const context = global.FinanceCalendarUtils.getMonthContext(month);
     const defaultDate = new Date(context.year, context.monthIndex, Math.max(1, state.selectedDay || 1));
@@ -324,7 +346,7 @@
   }
 
   function openEditEventModal(eventId) {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return;
     ensureMonthCalendarState(month);
     const id = String(eventId || '').trim();
@@ -355,7 +377,7 @@
   }
 
   function removeEvent(eventId) {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return;
     ensureMonthCalendarState(month);
     const id = String(eventId || '').trim();
@@ -418,7 +440,7 @@
   }
 
   function saveEvent() {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return;
     ensureMonthCalendarState(month);
     const name = String(document.getElementById('calendarEventName')?.value || '').trim();
@@ -471,7 +493,7 @@
 
   function toggleChart() {
     state.chartExpanded = !state.chartExpanded;
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return;
     renderDailyChart(month);
   }
@@ -479,7 +501,7 @@
   function renderSharedExpensesModal(eventModel, sharedData) {
     const mount = document.getElementById('calendarSharedExpensesBody');
     if (!mount) return;
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     const title = document.getElementById('calendarSharedExpensesTitle');
     const subtitle = document.getElementById('calendarSharedExpensesSubtitle');
     if (title) title.textContent = eventModel?.name ? `Gastos compartilhados • ${eventModel.name}` : 'Gastos compartilhados';
@@ -532,7 +554,7 @@
   }
 
   function openSharedExpensesPanel(eventId = '') {
-    const month = getCurrentMonthSafe();
+    const month = getViewMonthSafe();
     if (!month) return;
     ensureMonthCalendarState(month);
     const targetId = String(eventId || state.selectedEventId || '').trim();
@@ -554,6 +576,20 @@
     if (typeof global.closeModal === 'function') global.closeModal('modalCalendarSharedExpenses');
   }
 
+  function shiftMonth(delta) {
+    const offset = Number(delta || 0);
+    if (!offset) return;
+    const baseMonth = getViewMonthSafe() || getCurrentMonthSafe();
+    if (!baseMonth) return;
+    const context = global.FinanceCalendarUtils.getMonthContext(baseMonth);
+    const target = new Date(context.year, context.monthIndex + offset, 1);
+    state.viewYear = target.getFullYear();
+    state.viewMonthIndex = target.getMonth();
+    state.selectedDay = 0;
+    state.selectedEventId = '';
+    renderCalendarContent();
+  }
+
   global.openFinanceCalendarModal = openCalendarModal;
   global.closeFinanceCalendarModal = closeCalendarModal;
   global.toggleFinanceCalendarChart = toggleChart;
@@ -571,6 +607,7 @@
   global.FinanceCalendar = {
     selectDay,
     focusEvent,
+    shiftMonth,
     handleDayHover,
     handleDayHoverMove,
     hideDayTooltip,

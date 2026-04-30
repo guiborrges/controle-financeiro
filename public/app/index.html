@@ -1125,7 +1125,11 @@
     <div class="modal-drag-handle finance-calendar-head" onmousedown="startModalDrag(event, 'modalFinanceCalendarDialog')">
       <div class="finance-calendar-head-copy">
         <h3 style="margin:0">Calendário financeiro</h3>
-        <p id="financeCalendarMonthLabel" class="finance-calendar-month-label">Mês</p>
+        <div class="finance-calendar-month-nav">
+          <button class="btn-inline-chart finance-calendar-nav-btn" type="button" onclick="FinanceCalendar.shiftMonth(-1)" title="Mês anterior" aria-label="Mês anterior">‹</button>
+          <p id="financeCalendarMonthLabel" class="finance-calendar-month-label">Mês</p>
+          <button class="btn-inline-chart finance-calendar-nav-btn" type="button" onclick="FinanceCalendar.shiftMonth(1)" title="Próximo mês" aria-label="Próximo mês">›</button>
+        </div>
       </div>
       <div class="finance-calendar-head-actions">
         <button id="financeCalendarChartToggleBtn" class="btn-inline-chart" type="button" onclick="toggleFinanceCalendarChart()" title="Mostrar gráfico diário" aria-label="Mostrar gráfico diário">
