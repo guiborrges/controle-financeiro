@@ -1712,7 +1712,13 @@ function renderUnifiedFixedRows(month, rows) {
   if (!rows.length) return '<div class="unified-empty-state">Nenhuma saída relevante registrada ainda.</div>';
   const totalSelected = sortedRows.reduce((acc, row) => {
     if (row.kind === 'methodGroup') return acc + (row.item?.included !== false ? Number(row.item?.amount || 0) : 0);
-    if (row.kind === 'bill') return acc;
+    if (row.kind === 'bill') {
+      const selectionIdx = getUnifiedFixedSelectionIndex(month, row);
+      const selected = selectionIdx === -1
+        ? true
+        : isDespesaSelected(month.id, selectionIdx);
+      return acc + (selected ? getUnifiedCardBillEffectiveAmount(month, row.item) : 0);
+    }
     const item = row.item;
     const selectionIdx = getUnifiedFixedSelectionIndex(month, row);
     const selected = selectionIdx === -1
