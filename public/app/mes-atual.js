@@ -3417,7 +3417,10 @@ function fillUnifiedOutflowFormFromItem(month, item) {
   const inlineTagInput = document.getElementById('unifiedOutflowNewTagInline');
   if (inlineTagInput) inlineTagInput.value = '';
   toggleUnifiedOutflowNewTag();
-  document.getElementById('unifiedOutflowAmount').value = item?.amount || '';
+  const editAmount = item?.sharedExpense === true
+    ? Math.max(0, Number(item?.sharedOriginalAmount || item?.amount || 0) || 0)
+    : Number(item?.amount || 0);
+  document.getElementById('unifiedOutflowAmount').value = editAmount > 0 ? editAmount : '';
   const outputValue = item
     ? (item.outputKind === 'method' ? `method:${item.outputMethod}` : `${item.outputKind}:${item.outputRef}`)
     : 'method:debito';
