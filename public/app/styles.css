@@ -3647,6 +3647,15 @@ body {
   z-index: 7701;
 }
 
+#modalCalendarSharedExpenses {
+  z-index: 7750;
+}
+
+#modalCalendarSharedExpenses .modal {
+  position: relative;
+  z-index: 7751;
+}
+
 #modalUnifiedOutflow.unified-outflow-simple-edit {
   align-items: center;
   justify-content: center;
