@@ -33,6 +33,28 @@
     card: '<path d="M4 6h16v12H4z"/><path d="M4 10h16M8 15h4"/>'
   };
 
+  const LEGACY_ICON_ALIASES = {
+    '🏷️': 'tag',
+    '🍽️': 'food',
+    '🚗': 'car',
+    '💊': 'health',
+    '🎬': 'fun',
+    '🛍️': 'shopping',
+    '📱': 'phone',
+    '🏠': 'home',
+    '🎓': 'education',
+    '🧾': 'invoice',
+    '🎁': 'gift',
+    '💼': 'work',
+    '🛡️': 'shield',
+    '📈': 'trend',
+    '💳': 'card',
+    '🏦': 'bank',
+    '💵': 'cash',
+    '📦': 'tag',
+    '🎯': 'gift'
+  };
+
   const CATEGORY_ICON_RULES = [
     { icon: 'food', tone: 'expense', keywords: ['alimentacao', 'almoco', 'janta', 'cafe', 'restaurante', 'mercado', 'supermercado', 'feira', 'padaria', 'ifood', 'lanche', 'comida'] },
     { icon: 'car', tone: 'info', keywords: ['transporte', 'uber', '99', 'combustivel', 'gasolina', 'etanol', 'diesel', 'estacionamento', 'pedagio', 'onibus', 'metro', 'carro'] },
@@ -71,8 +93,18 @@
     return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   }
 
+  function normalizeCategoryIconId(raw) {
+    const value = String(raw || '').trim();
+    if (!value) return 'tag';
+    if (ICONS[value]) return value;
+    if (LEGACY_ICON_ALIASES[value]) return LEGACY_ICON_ALIASES[value];
+    const normalized = normalizeIconLookup(value);
+    if (ICONS[normalized]) return normalized;
+    return 'tag';
+  }
+
   function renderSystemIcon(name, extraClass = '') {
-    const key = String(name || 'tag').trim();
+    const key = normalizeCategoryIconId(name);
     const path = ICONS[key] || ICONS.tag;
     return `<svg class="system-icon${extraClass ? ` ${escape(extraClass)}` : ''}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${path}</g></svg>`;
   }
@@ -91,7 +123,7 @@
   function inferCategoryVisual(label) {
     const resolved = typeof global.resolveCategoryName === 'function' ? global.resolveCategoryName(label || 'OUTROS') : String(label || 'OUTROS');
     const override = global.categoryEmojiOverrides && global.categoryEmojiOverrides[resolved];
-    if (override && ICONS[String(override).trim()]) return { icon: String(override).trim(), tone: 'neutral' };
+    if (override) return { icon: normalizeCategoryIconId(override), tone: 'neutral' };
     return inferIconFromRules(resolved, CATEGORY_ICON_RULES, 'tag', 'neutral');
   }
 
@@ -100,7 +132,7 @@
   }
 
   function renderSmartIconBadge(icon, tone = 'neutral', extraClass = '') {
-    return `<span class="smart-icon-badge tone-${escape(tone)}${extraClass ? ` ${escape(extraClass)}` : ''}" aria-hidden="true">${renderSystemIcon(icon)}</span>`;
+    return `<span class="smart-icon-badge tone-${escape(tone)}${extraClass ? ` ${escape(extraClass)}` : ''}" aria-hidden="true">${renderSystemIcon(normalizeCategoryIconId(icon))}</span>`;
   }
 
   function renderCategoryLabel(label) {
@@ -110,6 +142,7 @@
 
   global.SystemIcons = { render: renderSystemIcon, paths: ICONS };
   global.renderSystemIcon = renderSystemIcon;
+  global.normalizeCategoryIconId = normalizeCategoryIconId;
   global.normalizeIconLookup = normalizeIconLookup;
   global.inferIconFromRules = inferIconFromRules;
   global.inferCategoryVisual = inferCategoryVisual;

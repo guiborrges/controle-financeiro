@@ -1899,7 +1899,7 @@ function renderUnifiedAllRows(month, rows) {
           <td class="unified-outflow-description-cell">${renderUnifiedCardLabel(card, 'Cartão')}</td>
           <td>${renderCategoryLabel('CARTÃO DE CRÉDITO')}</td>
           <td><span class="unified-kind-chip card">Cartão de crédito</span></td>
-          <td>${escapeHtml(card ? `Fecha ${getUnifiedCardClosingDateLabel(m, card)} · paga ${getUnifiedCardPaymentDateLabel(m, card)}` : 'Conta mensal')}</td>
+          <td>${escapeHtml(card ? `Fecha ${getUnifiedCardClosingDateLabel(month, card)} · paga ${getUnifiedCardPaymentDateLabel(month, card)}` : 'Conta mensal')}</td>
           ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:billAmount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
           <td><button class="btn-icon" onclick="openUnifiedCardModal('${card?.id || ''}')">✎</button></td>
         </tr>`;
@@ -5759,12 +5759,12 @@ function renderDailyGoalProgress(meta, valor, percentual, compact = false) {
 
 function getDailyGoalMoodSymbol(percentual) {
   const usage = Number(percentual) || 0;
-  if (usage < 35) return 'OK';
-  if (usage < 55) return 'A';
-  if (usage < 75) return 'B';
-  if (usage < 90) return '!';
-  if (usage <= 100) return '!!';
-  return 'X';
+  if (usage < 35) return '😌';
+  if (usage < 55) return '🙂';
+  if (usage < 75) return '😐';
+  if (usage < 90) return '😳';
+  if (usage <= 100) return '⚠️';
+  return '🚨';
 }
 
 function getPreviousMonthFor(currentMonth) {
