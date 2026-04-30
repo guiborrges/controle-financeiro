@@ -1754,7 +1754,7 @@ function renderUnifiedFixedRows(month, rows) {
         <tr>
           <td style="padding-left:22px"><input type="checkbox" ${item.included !== false ? 'checked' : ''} onchange="toggleUnifiedDirectMethodCategoryIncluded('${groupKey}', this.checked)"></td>
           <td class="unified-outflow-description-cell" style="padding-left:22px">${escapeHtml(methodsLabel)}</td>
-          <td>${item.groupKey.startsWith('method::') ? `<span class="category-inline-label">${getUnifiedDirectMethodGroupBadge(method)}<span>${escapeHtml(item.categoryDisplay || item.category || 'SAÍDA')}</span></span>` : renderCategoryLabel(category)}</td>
+          <td>${item.groupKey.startsWith('method::') ? `<span class="category-inline-label">${getUnifiedDirectMethodGroupBadge(String(item.groupKey || '').split('::')[1] || '')}<span>${escapeHtml(item.categoryDisplay || item.category || 'SAÍDA')}</span></span>` : renderCategoryLabel(category)}</td>
           <td></td>
           <td class="amount amount-neg">${amountLabel}</td>
           <td><label class="unified-paid-toggle"><input type="checkbox" ${item.paid ? 'checked' : ''} onchange="toggleUnifiedDirectMethodCategoryPaid('${groupKey}', this.checked)"><span>Pago</span></label></td>
