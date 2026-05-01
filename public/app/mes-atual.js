@@ -2131,10 +2131,13 @@ function renderUnifiedSpendGroups(month, rows) {
     .filter(row => row.kind === 'outflow' && row.item.type === 'spend')
     .map(row => row.item);
   const goalCategories = Object.entries(month?.dailyGoals || {})
-    .filter(([, value]) => Number(value || 0) > 0)
     .map(([category]) => resolveCategoryName(category || 'OUTROS'));
+  const seededCategories = Array.isArray(month?.dailyCategorySeeds)
+    ? month.dailyCategorySeeds.map(category => resolveCategoryName(category || 'OUTROS'))
+    : [];
   const spendCategories = monthCategoryItems.map(item => resolveCategoryName(item.category || 'OUTROS'));
   const categories = Array.from(new Set([
+    ...seededCategories,
     ...goalCategories,
     ...spendCategories
   ].map(cat => resolveCategoryName(cat || 'OUTROS'))));
