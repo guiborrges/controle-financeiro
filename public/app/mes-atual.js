@@ -1177,14 +1177,9 @@ function getUnifiedOutflowCategories(month) {
 function getUsedDailyGoalCategoriesFromMonth(month) {
   const categories = new Set();
   (month?.outflows || []).forEach(item => {
-    if (!isComparableDailyGoalSpend(item)) return;
+    if (item?.type !== 'spend') return;
     categories.add(resolveCategoryName(item?.category || 'OUTROS'));
   });
-  (month?.gastosVar || []).forEach(item => {
-    categories.add(resolveCategoryName(item?.categoria || 'OUTROS'));
-  });
-  (month?.dailyCategorySeeds || []).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
-  Object.keys(month?.dailyGoals || {}).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
   return Array.from(categories).filter(Boolean);
 }
 
@@ -1193,18 +1188,23 @@ function ensureInheritedDailyGoalCategories(month) {
   const prev = getPreviousMonthFor(month);
   if (!prev) return false;
   const inherited = getUsedDailyGoalCategoriesFromMonth(prev);
-  if (!inherited.length) return false;
+  const currentSpendCategories = getUsedDailyGoalCategoriesFromMonth(month);
+  const goalCategories = Object.entries(month?.dailyGoals || {})
+    .filter(([, value]) => Number(value || 0) > 0)
+    .map(([cat]) => resolveCategoryName(cat || 'OUTROS'));
+  const expectedSeeds = Array.from(new Set([
+    ...inherited,
+    ...currentSpendCategories,
+    ...goalCategories
+  ]));
   if (!Array.isArray(month.dailyCategorySeeds)) month.dailyCategorySeeds = [];
-  const current = new Set(month.dailyCategorySeeds.map(cat => resolveCategoryName(cat || 'OUTROS')));
-  let changed = false;
-  inherited.forEach(cat => {
-    const normalized = resolveCategoryName(cat || 'OUTROS');
-    if (!normalized || current.has(normalized)) return;
-    month.dailyCategorySeeds.push(normalized);
-    current.add(normalized);
-    changed = true;
-  });
-  return changed;
+  const currentNormalized = Array.from(new Set(month.dailyCategorySeeds.map(cat => resolveCategoryName(cat || 'OUTROS')).filter(Boolean)));
+  const expectedNormalized = expectedSeeds.map(cat => resolveCategoryName(cat || 'OUTROS')).filter(Boolean);
+  const hasSameLength = currentNormalized.length === expectedNormalized.length;
+  const hasSameValues = hasSameLength && currentNormalized.every((cat, idx) => cat === expectedNormalized[idx]);
+  if (hasSameValues) return false;
+  month.dailyCategorySeeds = expectedNormalized;
+  return true;
 }
 
 function ensureInheritedDailyGoalCategoriesAcrossData() {
@@ -2130,14 +2130,13 @@ function renderUnifiedSpendGroups(month, rows) {
   const monthCategoryItems = rows
     .filter(row => row.kind === 'outflow' && row.item.type === 'spend')
     .map(row => row.item);
+  const prevMonth = getPreviousMonthFor(month);
+  const inheritedPrevCategories = prevMonth ? getUsedDailyGoalCategoriesFromMonth(prevMonth) : [];
   const goalCategories = Object.entries(month?.dailyGoals || {})
     .map(([category]) => resolveCategoryName(category || 'OUTROS'));
-  const seededCategories = Array.isArray(month?.dailyCategorySeeds)
-    ? month.dailyCategorySeeds.map(category => resolveCategoryName(category || 'OUTROS'))
-    : [];
   const spendCategories = monthCategoryItems.map(item => resolveCategoryName(item.category || 'OUTROS'));
   const categories = Array.from(new Set([
-    ...seededCategories,
+    ...inheritedPrevCategories,
     ...goalCategories,
     ...spendCategories
   ].map(cat => resolveCategoryName(cat || 'OUTROS'))));
