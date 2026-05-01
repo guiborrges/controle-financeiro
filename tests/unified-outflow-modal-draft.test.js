@@ -57,6 +57,12 @@ test('buildUnifiedOutflowDraftFromForm defaults type to expense when select is m
     readSharedParticipantsFromDOM: () => []
   });
   assert.equal(draft.type, 'expense');
+  assert.equal(draft.entryKind, 'launch');
+  assert.equal(draft.launchType, 'expense');
+  assert.equal(draft.launchRecurring, false);
+  assert.equal(draft.launchInstallment, false);
+  assert.equal(draft.launchShared, false);
+  assert.equal(draft.showInMonthPlanning, true);
 });
 
 test('applyUnifiedOutflowDraftToForm maps legacy fixed type to expense selection', () => {
@@ -92,4 +98,45 @@ test('applyUnifiedOutflowDraftToForm maps legacy fixed type to expense selection
     renderDescriptionSuggestions: () => {}
   });
   assert.equal(document.getElementById('unifiedOutflowType').value, 'expense');
+});
+
+test('applyUnifiedOutflowDraftToForm prioritizes launch flags when present', () => {
+  const document = createDocumentStub({
+    unifiedOutflowType: { value: 'expense' },
+    unifiedOutflowDescription: { value: '' },
+    unifiedOutflowCategory: { value: '' },
+    unifiedOutflowNewCategory: { value: '' },
+    unifiedOutflowAmount: { value: '' },
+    unifiedOutflowOutput: { value: '', innerHTML: '' },
+    unifiedOutflowDate: { value: '' },
+    unifiedOutflowRecurringToggle: { checked: false },
+    unifiedOutflowInstallmentsToggle: { checked: false },
+    unifiedOutflowInstallmentsCount: { value: '2' },
+    unifiedOutflowTag: { value: '' },
+    unifiedOutflowNewTagInline: { value: '' },
+    unifiedOutflowSharedToggle: { checked: false },
+    unifiedOutflowSharedPeopleCount: { value: '2' },
+    unifiedOutflowSharedMode: { value: 'equal' }
+  });
+  const modals = loadModalsModule({ document });
+  modals.applyUnifiedOutflowDraftToForm({ id: '2026-04' }, {
+    launchType: 'spend',
+    launchRecurring: true,
+    launchInstallment: true,
+    launchShared: true,
+    outputValue: 'method:pix'
+  }, {
+    populateCategoryOptions: () => {},
+    toggleNewCategory: () => {},
+    getOutputOptions: () => '',
+    populateTagOptions: () => {},
+    toggleNewTag: () => {},
+    toggleInstallments: () => {},
+    handleTypeChange: () => {},
+    renderDescriptionSuggestions: () => {}
+  });
+  assert.equal(document.getElementById('unifiedOutflowType').value, 'spend');
+  assert.equal(document.getElementById('unifiedOutflowRecurringToggle').checked, true);
+  assert.equal(document.getElementById('unifiedOutflowInstallmentsToggle').checked, true);
+  assert.equal(document.getElementById('unifiedOutflowSharedToggle').checked, true);
 });

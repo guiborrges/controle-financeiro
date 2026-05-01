@@ -59,10 +59,21 @@
     const sharedMode = document.getElementById('unifiedOutflowSharedMode')?.value === 'manual' ? 'manual' : 'equal';
     const sharedParticipants = deps.readSharedParticipantsFromDOM?.() || [];
 
+    const launchRecurring = recurringToggle === true;
+    const launchInstallment = installmentsToggle === true;
+    const launchShared = sharedToggle === true;
+    const showInMonthPlanning = launchRecurring || type === 'expense';
+
     return {
       monthId: safeMonth?.id || '',
       description,
       type,
+      entryKind: 'launch',
+      launchType: type,
+      launchRecurring,
+      launchInstallment,
+      launchShared,
+      showInMonthPlanning,
       category,
       newCategory,
       amount,
@@ -85,7 +96,8 @@
     if (!draft || typeof draft !== 'object') return false;
     const descriptionInput = document.getElementById('unifiedOutflowDescription');
     if (descriptionInput) descriptionInput.value = String(draft.description || '');
-    document.getElementById('unifiedOutflowType').value = String(draft.type || '').toLowerCase() === 'spend' ? 'spend' : 'expense';
+    const resolvedType = String(draft.launchType || draft.type || '').toLowerCase() === 'spend' ? 'spend' : 'expense';
+    document.getElementById('unifiedOutflowType').value = resolvedType;
     deps.populateCategoryOptions?.(month, String(draft.category || deps.resolveDefaultCategory?.('COMPRAS') || ''));
     document.getElementById('unifiedOutflowNewCategory').value = String(draft.newCategory || '');
     deps.toggleNewCategory?.();
@@ -93,8 +105,11 @@
     const outputEl = document.getElementById('unifiedOutflowOutput');
     if (outputEl) outputEl.innerHTML = deps.getOutputOptions?.(month, String(draft.outputValue || 'method:debito')) || '';
     document.getElementById('unifiedOutflowDate').value = String(draft.date || '');
-    document.getElementById('unifiedOutflowRecurringToggle').checked = draft.recurringToggle === true;
-    document.getElementById('unifiedOutflowInstallmentsToggle').checked = draft.installmentsToggle === true;
+    const recurringChecked = draft.launchRecurring === true || draft.recurringToggle === true;
+    const installmentChecked = draft.launchInstallment === true || draft.installmentsToggle === true;
+    const sharedChecked = draft.launchShared === true || draft.sharedToggle === true;
+    document.getElementById('unifiedOutflowRecurringToggle').checked = recurringChecked;
+    document.getElementById('unifiedOutflowInstallmentsToggle').checked = installmentChecked;
     document.getElementById('unifiedOutflowInstallmentsCount').value = String(draft.installmentsCount || '2');
     deps.populateTagOptions?.(String(draft.tag || ''));
     document.getElementById('unifiedOutflowNewTagInline').value = String(draft.newTag || '');
@@ -102,7 +117,7 @@
     const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
     const sharedCount = document.getElementById('unifiedOutflowSharedPeopleCount');
     const sharedMode = document.getElementById('unifiedOutflowSharedMode');
-    if (sharedToggle) sharedToggle.checked = draft.sharedToggle === true;
+    if (sharedToggle) sharedToggle.checked = sharedChecked;
     if (sharedCount) sharedCount.value = String(draft.sharedPeopleCount || '2');
     if (sharedMode) sharedMode.value = draft.sharedMode === 'manual' ? 'manual' : 'equal';
     deps.toggleInstallments?.();
