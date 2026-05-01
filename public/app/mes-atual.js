@@ -44,6 +44,19 @@ function isUnifiedRecurringExpense(item) {
   return isUnifiedExpenseType(item) && item?.expenseRecurring === true;
 }
 
+function resolveUnifiedLaunchFlags(item, resolvedType, recurringSpend, expenseRecurring, installmentsTotal, sharedExpense) {
+  const explicitPlanning = item?.showInMonthPlanning === true || item?.includeInMonthPlanning === true;
+  const recurring = recurringSpend === true || expenseRecurring === true;
+  const installment = Math.max(1, Number(installmentsTotal || 1) || 1) > 1;
+  return {
+    entryKind: 'launch',
+    launchRecurring: recurring,
+    launchInstallment: installment,
+    launchShared: sharedExpense === true,
+    showInMonthPlanning: explicitPlanning || recurring || resolvedType === 'expense'
+  };
+}
+
 function getUnifiedEffectiveOutflowAmount(item) {
   const resolver = window.OutflowAmounts?.getEffectiveOutflowAmount;
   const raw = typeof resolver === 'function'
@@ -833,6 +846,15 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
   const sharedOthersAmount = Math.max(0, Number(item?.sharedOthersAmount || 0) || 0);
   const isDirectRealOutflow = outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(outputMethod);
   const hasPaidFlag = Object.prototype.hasOwnProperty.call(item || {}, 'paid');
+  const installmentsTotal = Math.max(1, Number(item?.installmentsTotal || 1) || 1);
+  const launchFlags = resolveUnifiedLaunchFlags(
+    item,
+    type,
+    recurringSpend,
+    expenseRecurring,
+    installmentsTotal,
+    sharedExpense
+  );
   return {
     id: item?.id || `out_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
     description: rawDescription || (type === 'expense' ? 'Despesa' : ''),
@@ -852,7 +874,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
     paid: hasPaidFlag ? item?.paid === true : isDirectRealOutflow,
     recurringGroupId: String(item?.recurringGroupId || '').trim(),
     installmentsGroupId: String(item?.installmentsGroupId || '').trim(),
-    installmentsTotal: Math.max(1, Number(item?.installmentsTotal || 1) || 1),
+    installmentsTotal,
     installmentIndex: Math.max(1, Number(item?.installmentIndex || 1) || 1),
     createdAt: item?.createdAt || new Date().toISOString(),
     sharedExpense,
@@ -860,7 +882,12 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
     sharedOriginalAmount,
     sharedOwnerName,
     sharedOthersAmount,
-    sharedParticipants
+    sharedParticipants,
+    entryKind: launchFlags.entryKind,
+    launchRecurring: launchFlags.launchRecurring,
+    launchInstallment: launchFlags.launchInstallment,
+    launchShared: launchFlags.launchShared,
+    showInMonthPlanning: launchFlags.showInMonthPlanning
   };
 }
 
