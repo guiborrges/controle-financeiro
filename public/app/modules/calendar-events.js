@@ -13,6 +13,14 @@
       .toLocaleLowerCase('pt-BR');
   }
 
+  function getEffectiveAmount(item) {
+    const resolver = global.OutflowAmounts?.getEffectiveOutflowAmount;
+    const raw = typeof resolver === 'function'
+      ? resolver(item)
+      : (item?.amount ?? item?.valor ?? 0);
+    return Math.max(0, Number(raw || 0) || 0);
+  }
+
   function ensureMonthEvents(month) {
     if (!month || typeof month !== 'object') return [];
     if (!Array.isArray(month.calendarEvents)) month.calendarEvents = [];
@@ -167,7 +175,7 @@
           description: String(item?.description || item?.descricao || '').trim() || 'Sem descrição',
           dateLabel,
           tag: String(item?.tag || item?.marca || '').trim(),
-          amount: Math.max(0, Number(item?.amount || item?.valor || 0))
+          amount: getEffectiveAmount(item)
         });
       });
       (monthRef?.gastosVar || []).forEach(item => {

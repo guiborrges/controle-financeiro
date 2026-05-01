@@ -25,6 +25,7 @@ let unifiedOutflowDraftListenersBound = false;
 let unifiedOutflowDefaultFilterPending = true;
 let unifiedLastRenderedMonthId = '';
 let inheritedDailyGoalCategoriesSweepDone = false;
+const INHERITED_DAILY_GOAL_SWEEP_VERSION = 2;
 const RECURRING_INCOME_NEXT_MONTH_NORMALIZATION_VERSION = 1;
 let recurringIncomeScheduleNormalizationSweepDone = false;
 
@@ -41,6 +42,14 @@ function isUnifiedExpenseType(item) {
 
 function isUnifiedRecurringExpense(item) {
   return isUnifiedExpenseType(item) && item?.expenseRecurring === true;
+}
+
+function getUnifiedEffectiveOutflowAmount(item) {
+  const resolver = window.OutflowAmounts?.getEffectiveOutflowAmount;
+  const raw = typeof resolver === 'function'
+    ? resolver(item)
+    : (item?.amount ?? item?.valor ?? 0);
+  return Math.max(0, Number(raw || 0) || 0);
 }
 
 function resetUnifiedOutflowViewForMonth(monthOrId) {
@@ -1178,7 +1187,11 @@ function getUsedDailyGoalCategoriesFromMonth(month) {
   const categories = new Set();
   (month?.outflows || []).forEach(item => {
     if (item?.type !== 'spend') return;
-    categories.add(resolveCategoryName(item?.category || 'OUTROS'));
+    if (item?.outputKind === 'card') return;
+    const normalizedCategory = resolveCategoryName(item?.category || 'OUTROS');
+    if (normalizedCategory === 'PIX' || normalizedCategory === 'DÉBITO' || normalizedCategory === 'DEBITO' || normalizedCategory === 'DINHEIRO') return;
+    if (!(getUnifiedEffectiveOutflowAmount(item) > 0)) return;
+    categories.add(normalizedCategory);
   });
   return Array.from(categories).filter(Boolean);
 }
@@ -1217,12 +1230,16 @@ function ensureInheritedDailyGoalCategoriesAcrossData() {
   for (let idx = 1; idx < orderedMonths.length; idx += 1) {
     const month = orderedMonths[idx];
     if (!month) continue;
+    const alreadyOnCurrentVersion = Number(month?.dailyCategorySeedSweepVersion || 0) >= INHERITED_DAILY_GOAL_SWEEP_VERSION;
+    if (alreadyOnCurrentVersion) continue;
     if (ensureInheritedDailyGoalCategories(month)) {
       changed = true;
       if (isUnifiedMonthPilotEnabled()) {
         syncUnifiedOutflowLegacyData(month);
       }
     }
+    month.dailyCategorySeedSweepVersion = INHERITED_DAILY_GOAL_SWEEP_VERSION;
+    changed = true;
   }
   inheritedDailyGoalCategoriesSweepDone = true;
   if (changed) save();
@@ -1277,7 +1294,7 @@ function pruneDailyGoalsWithoutSpendValue(month) {
   (month.outflows || []).forEach(item => {
     if (!isComparableDailyGoalSpend(item)) return;
     const category = resolveCategoryName(item?.category || 'OUTROS');
-    totalsByCategory.set(category, Number(totalsByCategory.get(category) || 0) + Number(item?.amount || 0));
+    totalsByCategory.set(category, Number(totalsByCategory.get(category) || 0) + getUnifiedEffectiveOutflowAmount(item));
   });
   let changed = false;
   Object.keys(month.dailyGoals).forEach(categoryKey => {
@@ -1389,7 +1406,7 @@ function getUnifiedCardRecurringForecastAmount(month, cardId) {
   return (month.outflows || []).reduce((acc, item) => {
     if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
     if (item?.recurringSpend !== true) return acc;
-    return acc + Number(item?.amount || 0);
+    return acc + getUnifiedEffectiveOutflowAmount(item);
   }, 0);
 }
 
@@ -1454,7 +1471,7 @@ function getUnifiedCardLaunchesAmount(month, cardId) {
   ensureUnifiedOutflowPilotMonth(month);
   return (month.outflows || []).reduce((acc, item) => {
     if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
-    return acc + Number(item?.amount || 0);
+    return acc + getUnifiedEffectiveOutflowAmount(item);
   }, 0);
 }
 
@@ -1469,7 +1486,7 @@ function getUnifiedRecurringSpendPlannedTotal(month) {
     // Regra de planejamento: não somar fatura/cartão diretamente.
     // Entram apenas gastos recorrentes vinculados a cartão.
     if (item?.outputKind !== 'card') return acc;
-    return acc + Number(item?.amount || 0);
+    return acc + getUnifiedEffectiveOutflowAmount(item);
   }, 0);
 }
 
@@ -1507,7 +1524,7 @@ function getUnifiedMonthPilotMetrics(month) {
     if (item?.countsInPrimaryTotals === false) return acc;
     const id = String(item?.id || '').trim();
     if (selectedDespesaIds.size > 0 && id && !selectedDespesaIds.has(id)) return acc;
-    return acc + Number(item?.amount || 0);
+    return acc + getUnifiedEffectiveOutflowAmount(item);
   }, 0);
   const fixedDoneTotal = selectedDespesas.reduce((acc, item) => {
     if (!isFixedOrBillDespesa(item)) return acc;
@@ -1531,7 +1548,7 @@ function getUnifiedMonthPilotMetrics(month) {
     if (item.outputKind === 'card') return acc;
     if (item.countsInPrimaryTotals === false) return acc;
     if (item.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(item.outputMethod) && item.paid !== true) return acc;
-    return acc + Number(item.amount || 0);
+    return acc + getUnifiedEffectiveOutflowAmount(item);
   }, 0);
   const recurringSpendPlannedTotal = getUnifiedRecurringSpendPlannedTotal(month);
   // Regra autoritativa:
@@ -1549,8 +1566,8 @@ function getUnifiedMonthPilotMetrics(month) {
       if (item.outputKind === 'card') return acc;
       if (item.countsInPrimaryTotals === false) return acc;
       if (item.paid !== true) return acc;
-      if (item.outputKind === 'account') return acc + Number(item.amount || 0);
-      if (item.outputKind === 'method' && ['boleto', 'dinheiro', 'pix', 'debito'].includes(item.outputMethod)) return acc + Number(item.amount || 0);
+      if (item.outputKind === 'account') return acc + getUnifiedEffectiveOutflowAmount(item);
+      if (item.outputKind === 'method' && ['boleto', 'dinheiro', 'pix', 'debito'].includes(item.outputMethod)) return acc + getUnifiedEffectiveOutflowAmount(item);
       return acc;
     }, 0);
   return {
@@ -1604,15 +1621,15 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
   if (filterValue === 'expense') {
     const fixedOutflows = rows.filter(row => row.kind === 'outflow').map(row => row.item);
     const bills = rows.filter(row => row.kind === 'bill').map(row => row.item);
-    const total = fixedOutflows.reduce((acc, item) => acc + Number(item.amount || 0), 0) + bills.reduce((acc, item) => acc + Number(item.amount || 0), 0);
-    const paid = fixedOutflows.filter(item => item.paid).reduce((acc, item) => acc + Number(item.amount || 0), 0) + bills.filter(item => item.paid).reduce((acc, item) => acc + Number(item.amount || 0), 0);
+    const total = fixedOutflows.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0) + bills.reduce((acc, item) => acc + Number(item.amount || 0), 0);
+    const paid = fixedOutflows.filter(item => item.paid).reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0) + bills.filter(item => item.paid).reduce((acc, item) => acc + Number(item.amount || 0), 0);
     const pending = Math.max(0, total - paid);
     return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Compromissos do mês</div><div class="unified-summary-text">Veja o que precisa ser cobrado neste mês e o que já foi marcado como pago.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total previsto', fmt(total), `${fixedOutflows.length + bills.length} itens nesta visão`)}${renderUnifiedSummaryCard('Já pago', fmt(paid), 'Valores já marcados como quitados', paid > 0 ? 'positive' : '')}${renderUnifiedSummaryCard('Ainda pendente', fmt(pending), 'Valor restante nesta aba', pending > 0 ? 'warning' : 'positive')}</div></div>`;
   }
   if (filterValue === 'spend') {
     const total = rows
       .filter(row => row.kind === 'outflow' && isComparableDailyGoalSpend(row.item))
-      .reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
+      .reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
     const target = Number(getDailyGoalTarget(month) || 0);
     const remaining = target - total;
     return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Consumo por categoria</div><div class="unified-summary-text">Acompanhe o que já foi gasto por categoria e quanto ainda cabe dentro da meta planejada.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total gasto', fmt(total), `${countOutflows} lançamentos nesta visão`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Meta planejada', target > 0 ? fmt(target) : '—', 'Soma das metas das categorias')}${renderUnifiedSummaryCard(remaining >= 0 ? 'Ainda resta' : 'Ultrapassou', fmt(Math.abs(remaining)), remaining >= 0 ? 'Espaço restante dentro da meta' : 'Valor acima da meta', remaining >= 0 ? 'positive' : 'negative')}</div></div>`;
@@ -1620,13 +1637,13 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
   if (filterValue.startsWith('card:')) {
     const cardId = filterValue.slice(5);
     const card = (month.outflowCards || []).find(entry => entry.id === cardId);
-    const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
+    const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
     const bill = (month.cardBills || []).find(entry => entry.cardId === cardId);
     const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
     return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(card?.name || 'Cartão')}</div><div class="unified-summary-text">Aqui você vê o consumo lançado nesse cartão por categoria. A fatura mensal continua sendo controlada separadamente.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total lançado', fmt(total), `${countOutflows} lançamentos neste cartão`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Fechamento', card ? getUnifiedCardClosingDateLabel(month, card) : '—', 'Data de fechamento do cartão')}${renderUnifiedSummaryCard('Fatura do mês', fmt(billAmount), card ? `Pagamento ${getUnifiedCardPaymentDateLabel(month, card)}` : 'Sem data definida', bill?.paid ? 'positive' : 'warning')}</div></div>`;
   }
   if (filterValue.startsWith('account:') || filterValue.startsWith('method:')) {
-    const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
+    const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
     const fixedCount = rows.filter(row => row.kind === 'outflow' && isUnifiedExpenseType(row.item)).length;
     const spendCount = rows.filter(row => row.kind === 'outflow' && row.item.type === 'spend').length;
     const title = filterValue.startsWith('account:')
@@ -1634,7 +1651,7 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
       : String(filterValue.split(':')[1] || 'Saída').replace(/^./, c => c.toUpperCase());
     return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(title)}</div><div class="unified-summary-text">Visualize tudo o que passou por esse meio de saída, sem misturar com o restante do mês.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total nesta visão', fmt(total), `${countOutflows + countBills} itens filtrados`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas', String(fixedCount), 'Compromissos nessa saída')}${renderUnifiedSummaryCard('Gastos', String(spendCount), 'Lançamentos de consumo nessa saída')}</div></div>`;
   }
-  const allTotal = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + Number(row.item.amount || 0), 0);
+  const allTotal = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
   return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Visão geral das saídas</div><div class="unified-summary-text">Use esta aba para ver o mês inteiro junto. Se quiser mais clareza, troque o filtro para compromissos ou consumo.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total na lista', fmt(allTotal), `${countOutflows + countBills} itens nesta visão`, allTotal > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas planejadas', fmt(metrics.plannedExpenses), 'Compromissos e metas do mês')}${renderUnifiedSummaryCard('Lançamentos', String(countOutflows + countBills), 'Itens que compõem esta visão')}</div></div>`;
 }
 
@@ -1738,7 +1755,7 @@ function renderUnifiedFixedRows(month, rows) {
       });
     }
     const groupRow = groupedDirectMethods.get(groupKey);
-    groupRow.item.amount += Number(row.item?.amount || 0);
+    groupRow.item.amount += getUnifiedEffectiveOutflowAmount(row.item);
     groupRow.item.paid = groupRow.item.paid || row.item?.paid === true;
     groupRow.item.included = groupRow.item.included && row.item?.countsInPrimaryTotals !== false;
     groupRow.item.methods.add(String(getUnifiedOutflowPaymentLabel(row.item, month) || '').toUpperCase());
@@ -1774,7 +1791,7 @@ function renderUnifiedFixedRows(month, rows) {
       const catB = b.kind === 'methodGroup' ? String(b.item.category || '') : (b.kind === 'bill' ? 'CARTÃO DE CRÉDITO' : String(b.item.category || ''));
       return catA.localeCompare(catB, 'pt-BR') * direction;
     }
-    if (field === 'valor') return (Number(a.item?.amount || 0) - Number(b.item?.amount || 0)) * direction;
+    if (field === 'valor') return (getUnifiedEffectiveOutflowAmount(a.item) - getUnifiedEffectiveOutflowAmount(b.item)) * direction;
     if (field === 'pago') {
       const paidA = a.kind === 'bill' ? (a.item?.paid === true ? 1 : 0) : (a.item?.paid === true ? 1 : 0);
       const paidB = b.kind === 'bill' ? (b.item?.paid === true ? 1 : 0) : (b.item?.paid === true ? 1 : 0);
@@ -1813,7 +1830,7 @@ function renderUnifiedFixedRows(month, rows) {
     const selected = selectionIdx === -1
       ? true
       : isDespesaSelected(month.id, selectionIdx);
-    return acc + (selected ? Number(row.item?.amount || 0) : 0);
+    return acc + (selected ? getUnifiedEffectiveOutflowAmount(row.item) : 0);
   }, 0);
   const body = sortedRows.map(row => {
     if (row.kind === 'methodGroup') {
@@ -2047,14 +2064,13 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
     const categoryItems = totals.get(category) || [];
     const spendItemsInCategory = categoryItems.filter(item => item?.type === 'spend');
     const nonRecurringSpendItemsInCategory = spendItemsInCategory.filter(item => isComparableDailyGoalSpend(item));
-    const nonRecurringSpendTotalInCategory = nonRecurringSpendItemsInCategory.reduce((acc, item) => acc + Number(item.amount || 0), 0);
+    const nonRecurringSpendTotalInCategory = nonRecurringSpendItemsInCategory.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
     const hasSpendInCategory = nonRecurringSpendItemsInCategory.length > 0;
     const hasItems = categoryItems.length > 0;
-    const total = categoryItems.reduce((acc, item) => acc + Number(item.amount || 0), 0);
-    const meta = hasSpendInCategory && month.dailyGoals && month.dailyGoals[category] !== undefined
-      ? Number(month.dailyGoals[category] || 0)
-      : null;
-    const percentual = meta > 0 ? (nonRecurringSpendTotalInCategory / meta) * 100 : 0;
+    const total = categoryItems.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
+    const hasConfiguredGoal = month.dailyGoals && Object.prototype.hasOwnProperty.call(month.dailyGoals, category);
+    const meta = hasConfiguredGoal ? Number(month.dailyGoals[category] || 0) : null;
+    const percentual = meta > 0 ? (total / meta) * 100 : 0;
     const selected = isUnifiedSpendCategorySelected(month, category);
     return { category, categoryItems, hasSpendInCategory, hasItems, total, meta, percentual, nonRecurringSpendTotalInCategory, selected };
   });
@@ -2074,7 +2090,7 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
   const body = categoryRows.map(({ category, categoryItems, hasSpendInCategory, hasItems, total, meta, percentual, nonRecurringSpendTotalInCategory, selected }) => {
     const hasConfiguredGoal = month.dailyGoals && Object.prototype.hasOwnProperty.call(month.dailyGoals, category);
     const editableGoalValue = hasConfiguredGoal ? Number(month.dailyGoals[category] || 0) : '';
-    const editableGoalDisplay = hasConfiguredGoal ? fmt(Number(month.dailyGoals[category] || 0)) : '—';
+    const editableGoalDisplay = hasConfiguredGoal ? fmt(Number(month.dailyGoals[category] || 0)) : fmt(0);
     const metaCell = renderInlineCell({
       table:'daily',
       row:category,
@@ -2115,28 +2131,39 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
         </td>
         <td class="amount amount-neg">${fmt(total)}</td>
         ${metaCell}
-        <td colspan="2">${hasSpendInCategory ? renderDailyGoalProgress(meta, nonRecurringSpendTotalInCategory, percentual) : '<span class="text-muted">—</span>'}</td>
+        <td colspan="2">${meta !== null ? renderDailyGoalProgress(meta, total, percentual) : '<span class="text-muted">—</span>'}</td>
         <td>${showCategoryRemove ? `<button class="btn-icon" onclick="removeUnifiedSpendCategory('${category.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" title="Remover categoria da lista">✕</button>` : ''}</td>
       </tr>
       ${list}`;
   }).join('');
   const selectedCategorySet = new Set(categoryRows.filter(row => row.selected).map(row => row.category));
   const selectedItems = items.filter(item => selectedCategorySet.has(resolveCategoryName(item.category || 'OUTROS')));
-  const totalSpent = selectedItems.reduce((acc, item) => acc + Number(item.amount || 0), 0);
-  const totalSpendOnly = selectedItems
-    .filter(item => isComparableDailyGoalSpend(item))
-    .reduce((acc, item) => acc + Number(item.amount || 0), 0);
+  const totalSpent = selectedItems.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
+  const totalSpendOnly = selectedItems.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
   const totalMeta = Number(getDailyGoalTarget(month) || 0);
   const totalPercentual = totalMeta > 0 ? (totalSpendOnly / totalMeta) * 100 : 0;
-  return `<table class="fin-table unified-outflow-table"><thead><tr><th style="padding-left:22px">Somado</th><th style="padding-left:22px" class="sortable" onclick="setUnifiedOutflowSort('categoria')">${renderUnifiedSortLabel(month, 'categoria', 'Categoria')}</th><th class="sortable" onclick="setUnifiedOutflowSort('valor')">${renderUnifiedSortLabel(month, 'valor', 'Total gasto')}</th><th class="sortable" onclick="setUnifiedOutflowSort('meta')">${renderUnifiedSortLabel(month, 'meta', 'Meta estabelecida')}</th><th colspan="2" class="sortable" onclick="setUnifiedOutflowSort('percentual')">${renderUnifiedSortLabel(month, 'percentual', 'Resultado')}</th><th></th></tr></thead><tbody>${body}</tbody><tfoot><tr class="totals-row"><td></td><td style="padding-left:22px;padding-top:12px;padding-bottom:12px">${escapeHtml(totalLabel)}</td><td class="amount amount-neg">${fmt(totalSpent)}</td><td class="text-muted">${totalMeta > 0 ? fmt(totalMeta) : '—'}</td><td colspan="2">${renderDailyGoalProgress(totalMeta > 0 ? totalMeta : null, totalSpendOnly, totalPercentual, true)}</td><td></td></tr></tfoot></table>`;
+  return `<table class="fin-table unified-outflow-table"><thead><tr><th style="padding-left:22px">Somado</th><th style="padding-left:22px" class="sortable" onclick="setUnifiedOutflowSort('categoria')">${renderUnifiedSortLabel(month, 'categoria', 'Categoria')}</th><th class="sortable" onclick="setUnifiedOutflowSort('valor')">${renderUnifiedSortLabel(month, 'valor', 'Total gasto')}</th><th class="sortable" onclick="setUnifiedOutflowSort('meta')">${renderUnifiedSortLabel(month, 'meta', 'Meta estabelecida')}</th><th colspan="2" class="sortable" onclick="setUnifiedOutflowSort('percentual')">${renderUnifiedSortLabel(month, 'percentual', 'Resultado')}</th><th></th></tr></thead><tbody>${body}</tbody><tfoot><tr class="totals-row"><td></td><td style="padding-left:22px;padding-top:12px;padding-bottom:12px">${escapeHtml(totalLabel)}</td><td class="amount amount-neg">${fmt(totalSpent)}</td><td class="text-muted">${totalMeta > 0 ? fmt(totalMeta) : '—'}</td><td colspan="2"></td><td></td></tr></tfoot></table>`;
 }
 
 function renderUnifiedSpendGroups(month, rows) {
-  const monthCategoryItems = rows
-    .filter(row => row.kind === 'outflow' && row.item.type === 'spend')
-    .map(row => row.item);
+  const directMethodCategoryKeys = new Set(['PIX', 'DÉBITO', 'DEBITO', 'DINHEIRO']);
+  const isDirectMethodCategory = (value) => directMethodCategoryKeys.has(resolveCategoryName(value || ''));
+  const monthCategoryItems = (month.outflows || [])
+    .filter(item => item?.outputKind !== 'card')
+    .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
+    .filter(item => {
+      if (item?.type === 'expense') return true;
+      if (item?.type !== 'spend') return false;
+      return !isDirectMethodCategory(item?.category || '');
+    });
   const prevMonth = getPreviousMonthFor(month);
-  const inheritedPrevCategories = prevMonth ? getUsedDailyGoalCategoriesFromMonth(prevMonth) : [];
+  const inheritedPrevCategories = prevMonth
+    ? (prevMonth.outflows || [])
+      .filter(item => item?.type === 'spend')
+      .filter(item => !isDirectMethodCategory(item?.category || ''))
+      .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
+      .map(item => resolveCategoryName(item?.category || 'OUTROS'))
+    : [];
   const spendCategories = monthCategoryItems.map(item => resolveCategoryName(item.category || 'OUTROS'));
   const categories = Array.from(new Set([
     ...inheritedPrevCategories,
@@ -3895,6 +3922,75 @@ function buildUnifiedPilotMonthFromPrevious(prev, newMonthName) {
   return month;
 }
 
+function getProjetoRecurringGroupId(item, fallbackName = '') {
+  const existing = String(item?.recurringGroupId || '').trim();
+  if (existing) return existing;
+  const normalized = normalizeIncomeName(String(item?.nome || fallbackName || 'RENDA_EXTRA'));
+  return `proj_${normalized.replace(/[^A-Z0-9]+/g, '_')}`;
+}
+
+function getMonthNameFromDate(date) {
+  return Object.keys(MONTH_INDEX).find(name => MONTH_INDEX[name] === date.getMonth()) || 'JANEIRO';
+}
+
+function ensureUnifiedMonthByDate(targetDate) {
+  const monthName = getMonthNameFromDate(targetDate);
+  const monthId = getMonthIdFromParts(monthName, targetDate.getFullYear());
+  let month = (data || []).find(entry => entry?.id === monthId);
+  if (month) return month;
+  month = buildSmartMonthForSelection(monthName, targetDate.getFullYear());
+  if (!month?.id) month.id = monthId;
+  if (!month?.nome) month.nome = `${monthName} ${targetDate.getFullYear()}`;
+  data.push(month);
+  sortDataChronologically();
+  return (data || []).find(entry => entry?.id === monthId) || month;
+}
+
+function cloneProjetoRecurringForMonth(sourceProject, targetDate, installmentIndex) {
+  const normalizedDate = normalizeFlexibleDateInput(String(sourceProject?.dataRecebimento || ''), {
+    nome: `${getMonthNameFromDate(targetDate)} ${targetDate.getFullYear()}`
+  }, { simpleDayMonthOffset: 0 }) || String(sourceProject?.dataRecebimento || '');
+  return {
+    nome: String(sourceProject?.nome || '').trim(),
+    valor: Number(sourceProject?.valor || 0) || 0,
+    paid: false,
+    includeInTotals: sourceProject?.includeInTotals !== false,
+    patrimonioMovementId: '',
+    dataRecebimento: normalizedDate,
+    recurringExtra: true,
+    recurringInstallmentsTotal: Math.max(2, Number(sourceProject?.recurringInstallmentsTotal || 2) || 2),
+    recurringInstallmentIndex: Math.max(1, Number(installmentIndex || 1) || 1),
+    recurringGroupId: getProjetoRecurringGroupId(sourceProject, sourceProject?.nome || 'RENDA_EXTRA')
+  };
+}
+
+function removeProjetoRecurringForward(baseMonth, groupId) {
+  const sourceSort = getMonthSortValue(baseMonth);
+  data.forEach(month => {
+    if (getMonthSortValue(month) <= sourceSort) return;
+    const before = (month?.projetos || []).length;
+    month.projetos = (month?.projetos || []).filter(item => String(item?.recurringGroupId || '').trim() !== groupId);
+    if ((month?.projetos || []).length !== before) recalcTotals(month);
+  });
+}
+
+function applyProjetoRecurringForwardChanges(baseMonth, sourceProject) {
+  const groupId = getProjetoRecurringGroupId(sourceProject, sourceProject?.nome || 'RENDA_EXTRA');
+  const total = Math.max(2, Number(sourceProject?.recurringInstallmentsTotal || 2) || 2);
+  removeProjetoRecurringForward(baseMonth, groupId);
+  for (let offset = 1; offset < total; offset += 1) {
+    const futureDate = addMonthsToMonthObject(baseMonth, offset);
+    const futureMonth = ensureUnifiedMonthByDate(futureDate);
+    if (!futureMonth) continue;
+    const clone = cloneProjetoRecurringForMonth(sourceProject, futureDate, offset + 1);
+    futureMonth.projetos = Array.isArray(futureMonth.projetos) ? futureMonth.projetos : [];
+    const existingIdx = futureMonth.projetos.findIndex(item => String(item?.recurringGroupId || '').trim() === groupId && Number(item?.recurringInstallmentIndex || 0) === clone.recurringInstallmentIndex);
+    if (existingIdx >= 0) futureMonth.projetos[existingIdx] = clone;
+    else futureMonth.projetos.push(clone);
+    recalcTotals(futureMonth);
+  }
+}
+
 function buildSmartMonthForSelection(monthName, year) {
   if (!isUnifiedMonthPilotEnabled()) {
     return buildBlankMonth(new Date(Number(year), MONTH_INDEX[monthName] ?? 0, 1));
@@ -4682,6 +4778,8 @@ function buildItemForm(type, item) {
         </div>`;
   } else {
     const paid = item?.paid === true;
+    const recurringExtra = item?.recurringExtra === true;
+    const recurringInstallmentsTotal = Math.max(2, Number(item?.recurringInstallmentsTotal || 2) || 2);
     f.innerHTML = `
       <div class="form-row">
         <div class="field"><label>Descrição</label><input id="fi_nome" value="${item?item.nome:''}" placeholder="ex: Cliente X"></div>
@@ -4690,12 +4788,26 @@ function buildItemForm(type, item) {
       <div class="form-row">
         <div class="field"><label>Data de recebimento</label><input id="fi_recebimento" value="${item?.dataRecebimento || ''}" placeholder="dd/mm/aa"></div>
       </div>
+      <label class="month-copy-toggle form-help-label">
+        <input id="fi_proj_recorrente" type="checkbox" ${recurringExtra ? 'checked' : ''} onchange="toggleProjetoRecurringInstallments(this.checked)">
+        <span>Renda extra recorrente</span>
+      </label>
+      <div id="fi_proj_recorrente_wrap" class="field" style="${recurringExtra ? '' : 'display:none'}">
+        <label>Quantidade de parcelas/meses</label>
+        <input id="fi_proj_recorrente_qtd" type="number" min="2" step="1" value="${recurringInstallmentsTotal}">
+      </div>
       <label class="month-copy-toggle form-help-label" data-help="Marque quando essa renda extra já entrou no caixa e está disponível de verdade.">
         <input id="fi_renda_pago" type="checkbox" ${paid ? 'checked' : ''} onchange="toggleRendaFormPaid(this.checked)">
         <span>Pago</span>
       </label>
       <input id="fi_renda_send_patrimonio" type="hidden" value="0">`;
   }
+}
+
+function toggleProjetoRecurringInstallments(enabled) {
+  const wrap = document.getElementById('fi_proj_recorrente_wrap');
+  if (!wrap) return;
+  wrap.style.display = enabled ? '' : 'none';
 }
 
 function applyDespesaUpdate(m, obj, previousName = '', editingIndex = null) {
@@ -4847,6 +4959,10 @@ function saveItem() {
   } else {
     const paid = document.getElementById('fi_renda_pago')?.checked === true;
     const shouldSendToPatrimonio = document.getElementById('fi_renda_send_patrimonio')?.value === '1';
+    const recurringExtra = document.getElementById('fi_proj_recorrente')?.checked === true;
+    const recurringInstallmentsTotal = recurringExtra
+      ? Math.max(2, Number(document.getElementById('fi_proj_recorrente_qtd')?.value || 2) || 2)
+      : 1;
     const previousMovementId = editingItem !== null && m.projetos[editingItem]
       ? String(m.projetos[editingItem].patrimonioMovementId || '')
       : '';
@@ -4854,9 +4970,31 @@ function saveItem() {
     const includeInTotals = editingItem !== null && m.projetos[editingItem]
       ? m.projetos[editingItem].includeInTotals !== false
       : true;
-    const obj = { nome, valor, paid, includeInTotals, patrimonioMovementId: previousMovementId, dataRecebimento };
+    const previousProject = editingItem !== null && m.projetos[editingItem]
+      ? { ...m.projetos[editingItem] }
+      : null;
+    const recurringGroupId = recurringExtra
+      ? getProjetoRecurringGroupId(previousProject, nome)
+      : '';
+    const obj = {
+      nome,
+      valor,
+      paid,
+      includeInTotals,
+      patrimonioMovementId: previousMovementId,
+      dataRecebimento,
+      recurringExtra,
+      recurringInstallmentsTotal,
+      recurringInstallmentIndex: previousProject?.recurringInstallmentIndex || 1,
+      recurringGroupId
+    };
     if (editingItem !== null) m.projetos[editingItem] = obj;
     else m.projetos.push(obj);
+    if (recurringExtra && canPropagateRecurringFromMonth(m)) {
+      applyProjetoRecurringForwardChanges(m, obj);
+    } else if (previousProject?.recurringExtra === true && previousProject?.recurringGroupId) {
+      removeProjetoRecurringForward(m, String(previousProject.recurringGroupId));
+    }
     m._projectSource = 'manual';
     if (paid && shouldSendToPatrimonio) {
       setTimeout(() => openRendaPatrimonioModalPreset(nome, valor), 20);
@@ -5235,6 +5373,30 @@ function deleteItem(type, idx) {
     if (recurring && canPropagateRecurringFromMonth(m)) {
       openRecurringChangeScopeModal({
         message: 'Esta receita fixa se repete em outros meses. Como você deseja aplicar a exclusão?',
+        onThisMonth: () => performDelete(false),
+        onForward: () => performDelete(true),
+        onCancel: () => {}
+      });
+      return;
+    }
+    performDelete(false);
+    return;
+  }
+  if (type === 'projeto' && m?.projetos?.[idx]) {
+    const item = m.projetos[idx];
+    const recurring = item?.recurringExtra === true;
+    const groupId = String(item?.recurringGroupId || '').trim();
+    const performDelete = (applyForward) => {
+      recordHistoryState();
+      m.projetos.splice(idx, 1);
+      if (applyForward && recurring && groupId && canPropagateRecurringFromMonth(m)) {
+        removeProjetoRecurringForward(m, groupId);
+      }
+      finalizeDelete();
+    };
+    if (recurring && groupId && canPropagateRecurringFromMonth(m)) {
+      openRecurringChangeScopeModal({
+        message: 'Esta renda extra recorrente se repete em outros meses. Como você deseja aplicar a exclusão?',
         onThisMonth: () => performDelete(false),
         onForward: () => performDelete(true),
         onCancel: () => {}

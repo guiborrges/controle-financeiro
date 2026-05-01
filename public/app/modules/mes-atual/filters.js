@@ -6,6 +6,14 @@ function normalizeUnifiedSearchToken(value) {
     .trim();
 }
 
+function getUnifiedEffectiveOutflowAmountForFilters(item) {
+  const resolver = window.OutflowAmounts?.getEffectiveOutflowAmount;
+  const raw = typeof resolver === 'function'
+    ? resolver(item)
+    : (item?.amount ?? item?.valor ?? 0);
+  return Math.max(0, Number(raw || 0) || 0);
+}
+
 function getUnifiedMonthDateForFilters(month) {
   if (typeof getMonthDateFromMonthObject === 'function') {
     return getMonthDateFromMonthObject(month);
@@ -114,7 +122,7 @@ function compareUnifiedRows(a, b, field, direction, month) {
     const bCategory = b.kind === 'bill' ? 'CARTÃO' : String(b.item.category || '');
     return aCategory.localeCompare(bCategory, 'pt-BR') * factor;
   }
-  if (field === 'valor') return ((Number(a.item.amount || 0) - Number(b.item.amount || 0)) * factor);
+  if (field === 'valor') return ((getUnifiedEffectiveOutflowAmountForFilters(a.item) - getUnifiedEffectiveOutflowAmountForFilters(b.item)) * factor);
   if (field === 'pago') {
     const aPaid = a.kind === 'bill' ? (a.item.paid ? 1 : 0) : ((a.item.paid || a.item.status === 'done') ? 1 : 0);
     const bPaid = b.kind === 'bill' ? (b.item.paid ? 1 : 0) : ((b.item.paid || b.item.status === 'done') ? 1 : 0);

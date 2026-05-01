@@ -282,7 +282,8 @@
       if (!isVariableOutflow(item)) return;
       const day = getMonthDayFromOutflow(item, month);
       if (!day || day > context.daysInMonth) return;
-      byDay[day] = (byDay[day] || 0) + Number(item.amount || 0);
+      const amount = Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0);
+      byDay[day] = (byDay[day] || 0) + Math.max(0, amount);
     });
     return byDay;
   }
@@ -298,7 +299,7 @@
     (month?.outflows || []).forEach(item => {
       const itemDay = getMonthDayFromOutflow(item, month);
       if (itemDay !== safeDay) return;
-      const amount = Number(item.amount || 0);
+      const amount = Math.max(0, Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0));
       if (!(amount > 0)) return;
       outflows += amount;
       launches.push(item);
