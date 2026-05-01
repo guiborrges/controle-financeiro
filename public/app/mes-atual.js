@@ -1424,6 +1424,9 @@ function getUnifiedMonthPilotMetrics(month) {
   const totalGoals = Number(totals.totalFinancialGoals || 0);
   const selectedDespesas = getSelectedDespesas(month);
   const outflowById = new Map((month.outflows || []).map(item => [String(item.id || ''), item]));
+  const selectedDespesaIds = new Set(
+    (selectedDespesas || []).map(item => String(item?.id || '').trim()).filter(Boolean)
+  );
   const normalizeCategoryKey = (value) => String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -1442,14 +1445,13 @@ function getUnifiedMonthPilotMetrics(month) {
     if (!sourceOutflow) return true;
     return isUnifiedExpenseType(sourceOutflow);
   };
-  const fixedPlannedTotal = selectedDespesas.reduce((acc, item) => {
-    if (!isFixedOrBillDespesa(item)) return acc;
-    const category = resolveCategoryName(item?.categoria || '');
-    if (isCardCategory(category)) return acc;
-    const sourceOutflow = outflowById.get(String(item?.id || ''));
-    if (sourceOutflow?.outputKind === 'card') return acc;
-    if (sourceOutflow && !isUnifiedExpenseType(sourceOutflow)) return acc;
-    return acc + Number(item?.valor || 0);
+  const fixedPlannedTotal = (month.outflows || []).reduce((acc, item) => {
+    if (!isUnifiedExpenseType(item)) return acc;
+    if (item?.outputKind === 'card') return acc;
+    if (item?.countsInPrimaryTotals === false) return acc;
+    const id = String(item?.id || '').trim();
+    if (selectedDespesaIds.size > 0 && id && !selectedDespesaIds.has(id)) return acc;
+    return acc + Number(item?.amount || 0);
   }, 0);
   const fixedDoneTotal = selectedDespesas.reduce((acc, item) => {
     if (!isFixedOrBillDespesa(item)) return acc;
@@ -1462,9 +1464,10 @@ function getUnifiedMonthPilotMetrics(month) {
     if (isDirectMethodFixed && sourceOutflow?.paid !== true) return acc;
     return acc + Number(item?.valor || 0);
   }, 0);
-  const cardBillsTotal = selectedDespesas.reduce((acc, item) => {
-    const category = resolveCategoryName(item?.categoria || '');
-    return acc + (isCardCategory(category) ? Number(item?.valor || 0) : 0);
+  const cardBillsTotal = (month.cardBills || []).reduce((acc, bill) => {
+    const id = String(bill?.id || '').trim();
+    if (selectedDespesaIds.size > 0 && id && !selectedDespesaIds.has(id)) return acc;
+    return acc + Number(getUnifiedCardBillEffectiveAmount(month, bill) || 0);
   }, 0);
   const dailyGoalTarget = Number(getDailyGoalTarget(month) || 0);
   const spendsDoneOutsideCard = (month.outflows || []).reduce((acc, item) => {
