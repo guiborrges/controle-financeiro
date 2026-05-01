@@ -275,12 +275,44 @@
     return Number(item.amount || 0) > 0;
   }
 
+  function resolveOutflowCalendarDate(item, sourceMonth, targetMonth = null) {
+    if (!item || typeof item !== 'object') return null;
+    const rawDate = String(item.date || item.data || '').trim();
+    if (!rawDate) return null;
+    const explicitDate = parseDateInputToDate(rawDate);
+    if (explicitDate instanceof Date && !Number.isNaN(explicitDate.getTime())) {
+      return explicitDate;
+    }
+    const parsedDay = parseDayFromVarDate(rawDate);
+    if (!parsedDay) return null;
+    const sourceContext = getMonthContext(sourceMonth || targetMonth);
+    const maxDay = new Date(sourceContext.year, sourceContext.monthIndex + 1, 0).getDate();
+    const day = Math.min(parsedDay, maxDay);
+    return new Date(sourceContext.year, sourceContext.monthIndex, day);
+  }
+
+  function getCalendarOutflowsForTargetMonth(targetMonth) {
+    const context = getMonthContext(targetMonth);
+    const allMonths = getAllMonthsData();
+    const sourceMonths = allMonths.length ? allMonths : [targetMonth].filter(Boolean);
+    const entries = [];
+    sourceMonths.forEach(sourceMonth => {
+      (sourceMonth?.outflows || []).forEach(item => {
+        const calendarDate = resolveOutflowCalendarDate(item, sourceMonth, targetMonth);
+        if (!(calendarDate instanceof Date) || Number.isNaN(calendarDate.getTime())) return;
+        if (calendarDate.getFullYear() !== context.year || calendarDate.getMonth() !== context.monthIndex) return;
+        entries.push({ sourceMonth, item, calendarDate });
+      });
+    });
+    return entries;
+  }
+
   function getVariableOutflowsByDay(month) {
     const context = getMonthContext(month);
     const byDay = {};
-    (month?.outflows || []).forEach(item => {
+    getCalendarOutflowsForTargetMonth(month).forEach(({ item, calendarDate }) => {
       if (!isVariableOutflow(item)) return;
-      const day = getMonthDayFromOutflow(item, month);
+      const day = calendarDate.getDate();
       if (!day || day > context.daysInMonth) return;
       const amount = Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0);
       byDay[day] = (byDay[day] || 0) + Math.max(0, amount);
@@ -296,7 +328,7 @@
     const launches = [];
     const paymentItems = [];
     const receivingItems = [];
-    (month?.outflows || []).forEach(item => {
+    getCalendarOutflowsForTargetMonth(month).forEach(({ item }) => {
       const itemDay = getMonthDayFromOutflow(item, month);
       if (itemDay !== safeDay) return;
       const amount = Math.max(0, Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0));
@@ -381,7 +413,7 @@
     for (let day = 1; day <= context.daysInMonth; day += 1) {
       markers[day] = { payment: false, receiving: false };
     }
-    (month?.outflows || []).forEach(item => {
+    getCalendarOutflowsForTargetMonth(month).forEach(({ item }) => {
       const isPaymentRelevant = (isExpenseType(item) || item?.recurringSpend === true) && item?.outputKind !== 'card';
       if (!isPaymentRelevant) return;
       if (!(Number(item?.amount || 0) > 0)) return;
