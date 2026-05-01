@@ -2149,7 +2149,6 @@ function renderUnifiedSpendGroups(month, rows) {
   const directMethodCategoryKeys = new Set(['PIX', 'DÉBITO', 'DEBITO', 'DINHEIRO']);
   const isDirectMethodCategory = (value) => directMethodCategoryKeys.has(resolveCategoryName(value || ''));
   const monthCategoryItems = (month.outflows || [])
-    .filter(item => item?.outputKind !== 'card')
     .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
     .filter(item => {
       if (item?.type === 'expense') return true;
