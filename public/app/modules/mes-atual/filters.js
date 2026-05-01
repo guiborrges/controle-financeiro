@@ -58,6 +58,15 @@ function getUnifiedCardPaymentDateLabelForFilters(month, card) {
 function getUnifiedFilterRows(month, filterValue, tagFilterValue = '', searchValue = '') {
   const rows = (month.outflows || []).map(item => ({ kind: 'outflow', item, sortTime: parseData(item.date || '') || 0 }));
   const billRows = (month.cardBills || []).map(bill => ({ kind: 'bill', item: bill, sortTime: 0 }));
+  const isType = (item, kind) => {
+    if (typeof isUnifiedLaunchOfType === 'function') {
+      return isUnifiedLaunchOfType(item, kind);
+    }
+    const raw = String(item?.type || '').toLowerCase();
+    if (kind === 'expense') return raw === 'expense' || raw === 'fixed';
+    if (kind === 'spend') return raw === 'spend';
+    return false;
+  };
   const normalizedTagFilter = String(tagFilterValue || '').trim().toLowerCase();
   const normalizedSearch = normalizeUnifiedSearchToken(searchValue);
   const matchesSearch = (row) => {
@@ -82,15 +91,12 @@ function getUnifiedFilterRows(month, filterValue, tagFilterValue = '', searchVal
   if (filterValue === 'fixed') filterValue = 'expense';
   if (filterValue === 'expense') {
     return applyTagFilter([
-      ...rows.filter(row => {
-        const type = String(row.item?.type || '').toLowerCase();
-        return type === 'expense' || type === 'fixed';
-      }),
+      ...rows.filter(row => isType(row.item, 'expense')),
       ...rows.filter(row => row.item.type === 'spend' && row.item.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(row.item.outputMethod)),
       ...billRows
     ]);
   }
-  if (filterValue === 'spend') return applyTagFilter(rows.filter(row => String(row.item?.type || '').toLowerCase() === 'spend'));
+  if (filterValue === 'spend') return applyTagFilter(rows.filter(row => isType(row.item, 'spend')));
   if (filterValue.startsWith('card:')) {
     const cardId = filterValue.slice(5);
     return applyTagFilter(rows.filter(row => row.item.outputKind === 'card' && row.item.outputRef === cardId));

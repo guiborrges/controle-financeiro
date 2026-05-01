@@ -2,21 +2,41 @@ function getMonthMetricTitleStorageKey(metricKey) {
   return MONTH_METRIC_TITLE_STORAGE_KEY_MAP[metricKey] || '';
 }
 
+function getUnifiedEntryKind(item) {
+  const raw = String(item?.entryKind || '').trim().toLowerCase();
+  if (raw === 'launch') return 'launch';
+  return 'launch';
+}
+
+function isUnifiedLaunchRecurring(item) {
+  if (!item) return false;
+  if (item.launchRecurring === true) return true;
+  return item.recurringSpend === true || item.expenseRecurring === true;
+}
+
+function isUnifiedLaunchOfType(item, kind) {
+  if (!item) return false;
+  if (getUnifiedEntryKind(item) !== 'launch') return false;
+  const type = String(item.type || '').toLowerCase();
+  if (kind === 'spend') return type === 'spend';
+  if (kind === 'expense') return type === 'expense' || type === 'fixed';
+  return false;
+}
+
 function isUnifiedDirectMethodSpend(item) {
   if (!item) return false;
-  const type = String(item.type || '').toLowerCase();
+  const isSpend = isUnifiedLaunchOfType(item, 'spend');
   const outputKind = String(item.outputKind || '').toLowerCase();
   const outputMethod = String(item.outputMethod || '').toLowerCase();
-  return type === 'spend'
+  return isSpend
     && outputKind === 'method'
     && ['pix', 'dinheiro', 'debito'].includes(outputMethod);
 }
 
 function getUnifiedOutflowTypeLabel(item) {
   if (!item) return 'Gasto';
-  const normalizedType = String(item.type || '').toLowerCase();
-  if (item.recurringSpend === true) return 'Gasto recorrente';
-  return (normalizedType === 'expense' || normalizedType === 'fixed') ? 'Despesa' : 'Gasto';
+  if (isUnifiedLaunchRecurring(item) && isUnifiedLaunchOfType(item, 'spend')) return 'Gasto recorrente';
+  return isUnifiedLaunchOfType(item, 'expense') ? 'Despesa' : 'Gasto';
 }
 
 function normalizeLegacyLookup(value) {
