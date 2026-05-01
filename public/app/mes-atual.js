@@ -1173,6 +1173,39 @@ function getUnifiedOutflowCategories(month) {
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
 
+function getUsedDailyGoalCategoriesFromMonth(month) {
+  const categories = new Set();
+  (month?.outflows || []).forEach(item => {
+    if (!isComparableDailyGoalSpend(item)) return;
+    categories.add(resolveCategoryName(item?.category || 'OUTROS'));
+  });
+  (month?.gastosVar || []).forEach(item => {
+    categories.add(resolveCategoryName(item?.categoria || 'OUTROS'));
+  });
+  (month?.dailyCategorySeeds || []).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
+  Object.keys(month?.dailyGoals || {}).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
+  return Array.from(categories).filter(Boolean);
+}
+
+function ensureInheritedDailyGoalCategories(month) {
+  if (!month?.id) return false;
+  const prev = getPreviousMonthFor(month);
+  if (!prev) return false;
+  const inherited = getUsedDailyGoalCategoriesFromMonth(prev);
+  if (!inherited.length) return false;
+  if (!Array.isArray(month.dailyCategorySeeds)) month.dailyCategorySeeds = [];
+  const current = new Set(month.dailyCategorySeeds.map(cat => resolveCategoryName(cat || 'OUTROS')));
+  let changed = false;
+  inherited.forEach(cat => {
+    const normalized = resolveCategoryName(cat || 'OUTROS');
+    if (!normalized || current.has(normalized)) return;
+    month.dailyCategorySeeds.push(normalized);
+    current.add(normalized);
+    changed = true;
+  });
+  return changed;
+}
+
 function renderUnifiedOutflowCategorySuggestionList(term = '') {
   const list = document.getElementById('unifiedOutflowCategorySuggestions');
   if (!list) return;
@@ -3825,6 +3858,8 @@ function buildUnifiedPilotMonthFromPrevious(prev, newMonthName) {
     }
     return [];
   });
+  month.dailyCategorySeeds = getUsedDailyGoalCategoriesFromMonth(prev);
+  month.dailyGoals = {};
   ensureUnifiedOutflowPilotMonth(month);
   return month;
 }
@@ -4025,6 +4060,10 @@ function renderMes() {
   normalizeMonth(m);
   ensureRecurringIncomeNextMonthScheduleAcrossData();
   if (unifiedPilotEnabled) ensureUnifiedOutflowPilotMonth(m);
+  if (ensureInheritedDailyGoalCategories(m)) {
+    if (unifiedPilotEnabled) syncUnifiedOutflowLegacyData(m);
+    save();
+  }
   if (unifiedPilotEnabled && unifiedOutflowDefaultFilterPending) {
     if (!m.unifiedOutflowUi || typeof m.unifiedOutflowUi !== 'object') m.unifiedOutflowUi = {};
     m.unifiedOutflowUi.filter = 'expense';
