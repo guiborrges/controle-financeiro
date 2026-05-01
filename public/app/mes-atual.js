@@ -2076,9 +2076,18 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
   });
 
   const body = categoryRows.map(({ category, categoryItems, hasSpendInCategory, hasItems, total, meta, percentual, nonRecurringSpendTotalInCategory, selected }) => {
-    const metaCell = hasSpendInCategory
-      ? renderInlineCell({ table:'daily', row:category, field:'meta', kind:'number', value:meta ?? '', displayValue:meta !== null ? fmt(meta) : '—', className:'text-muted' })
-      : '<td class="text-muted">—</td>';
+    const hasConfiguredGoal = month.dailyGoals && Object.prototype.hasOwnProperty.call(month.dailyGoals, category);
+    const editableGoalValue = hasConfiguredGoal ? Number(month.dailyGoals[category] || 0) : '';
+    const editableGoalDisplay = hasConfiguredGoal ? fmt(Number(month.dailyGoals[category] || 0)) : '—';
+    const metaCell = renderInlineCell({
+      table:'daily',
+      row:category,
+      field:'meta',
+      kind:'number',
+      value:editableGoalValue,
+      displayValue:editableGoalDisplay,
+      className:'text-muted'
+    });
     const expanded = hasItems && isUnifiedOutflowCategoryExpanded(month, category);
     const list = expanded ? categoryItems.sort((a, b) => parseData(b.date || '') - parseData(a.date || '')).map(item => `
       <tr class="unified-spend-detail-row">
