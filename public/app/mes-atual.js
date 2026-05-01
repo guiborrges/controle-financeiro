@@ -24,6 +24,7 @@ let unifiedOutflowDraftSaveTimer = null;
 let unifiedOutflowDraftListenersBound = false;
 let unifiedOutflowDefaultFilterPending = true;
 let unifiedLastRenderedMonthId = '';
+let inheritedDailyGoalCategoriesSweepDone = false;
 const RECURRING_INCOME_NEXT_MONTH_NORMALIZATION_VERSION = 1;
 let recurringIncomeScheduleNormalizationSweepDone = false;
 
@@ -1203,6 +1204,32 @@ function ensureInheritedDailyGoalCategories(month) {
     current.add(normalized);
     changed = true;
   });
+  return changed;
+}
+
+function ensureInheritedDailyGoalCategoriesAcrossData() {
+  if (inheritedDailyGoalCategoriesSweepDone) return false;
+  if (!Array.isArray(data) || data.length < 2) {
+    inheritedDailyGoalCategoriesSweepDone = true;
+    return false;
+  }
+  const orderedMonths = data
+    .filter(Boolean)
+    .slice()
+    .sort((a, b) => getMonthSortValue(a) - getMonthSortValue(b));
+  let changed = false;
+  for (let idx = 1; idx < orderedMonths.length; idx += 1) {
+    const month = orderedMonths[idx];
+    if (!month) continue;
+    if (ensureInheritedDailyGoalCategories(month)) {
+      changed = true;
+      if (isUnifiedMonthPilotEnabled()) {
+        syncUnifiedOutflowLegacyData(month);
+      }
+    }
+  }
+  inheritedDailyGoalCategoriesSweepDone = true;
+  if (changed) save();
   return changed;
 }
 
@@ -4051,6 +4078,7 @@ function saveUnifiedOutflow() {
 
 function renderMes() {
   const m = getCurrentMonth();
+  ensureInheritedDailyGoalCategoriesAcrossData();
   if (m?.id && unifiedLastRenderedMonthId !== m.id) {
     resetUnifiedOutflowViewForMonth(m);
     unifiedLastRenderedMonthId = m.id;
