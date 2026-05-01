@@ -590,8 +590,20 @@
     renderCalendarContent();
   }
 
+  function shiftMonthSafe(delta) {
+    try {
+      shiftMonth(delta);
+    } catch (error) {
+      if (typeof global.showAppStatus === 'function') {
+        global.showAppStatus('Não foi possível trocar o mês do calendário agora. Tente fechar e abrir novamente.', 'Calendário', 'warning');
+      }
+      console.warn('[calendar] shiftMonth falhou', { delta, error });
+    }
+  }
+
   global.openFinanceCalendarModal = openCalendarModal;
   global.closeFinanceCalendarModal = closeCalendarModal;
+  global.shiftFinanceCalendarMonth = shiftMonthSafe;
   global.toggleFinanceCalendarChart = toggleChart;
   global.openFinanceCalendarSharedExpenses = openSharedExpensesPanel;
   global.closeFinanceCalendarSharedExpenses = closeSharedExpensesPanel;
@@ -607,7 +619,7 @@
   global.FinanceCalendar = {
     selectDay,
     focusEvent,
-    shiftMonth,
+    shiftMonth: shiftMonthSafe,
     handleDayHover,
     handleDayHoverMove,
     hideDayTooltip,

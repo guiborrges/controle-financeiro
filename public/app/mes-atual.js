@@ -1435,6 +1435,8 @@ function getUnifiedMonthPilotMetrics(month) {
     if (!isFixedOrBillDespesa(item)) return acc;
     const category = resolveCategoryName(item?.categoria || '');
     if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc;
+    const sourceOutflow = outflowById.get(String(item?.id || ''));
+    if (sourceOutflow?.outputKind === 'card') return acc;
     return acc + Number(item?.valor || 0);
   }, 0);
   const fixedDoneTotal = selectedDespesas.reduce((acc, item) => {

@@ -19,6 +19,7 @@
 
   function calculateUnifiedPlannedExpenses(parts = {}) {
     return Number(parts.fixedPlannedTotal || 0)
+      + Number(parts.totalGoals || 0)
       + Number(parts.dailyGoalTarget || 0);
   }
 
