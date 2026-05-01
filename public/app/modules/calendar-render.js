@@ -285,6 +285,7 @@
               `).join('')
               : '<div class="finance-calendar-empty">Sem gastos vinculados para este evento.</div>'}
           </div>
+          <div class="calendar-scroll-hint">Role para ver mais</div>
         </div>
         </div>
       `;
@@ -351,6 +352,7 @@
           <h5>Lancamentos</h5>
           ${renderLaunchRows(dayLedger.launches)}
         </div>
+        <div class="calendar-scroll-hint">Role para ver mais</div>
       </div>
     `;
     panel.classList.add('is-open');

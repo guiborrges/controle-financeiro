@@ -85,7 +85,7 @@ function pauseAutosaveWithConflict(message, context = {}) {
   }
   if (typeof window.showAppStatus === 'function') {
     window.showAppStatus(
-      String(message || 'Detectamos alteracoes em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.'),
+      String(message || 'Esta aba ficou desatualizada e o autosave foi pausado para proteger seus dados. Recarregue a página para continuar editando com segurança.'),
       'Conflito de sincronizacao',
       'warn'
     );

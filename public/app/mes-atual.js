@@ -1461,9 +1461,9 @@ function getUnifiedMonthPilotMetrics(month) {
     return acc + Number(item.amount || 0);
   }, 0);
   const recurringSpendPlannedTotal = getUnifiedRecurringSpendPlannedTotal(month);
-  const plannedExpenses = window.MesAtualTotals?.calculateUnifiedPlannedExpenses
-    ? window.MesAtualTotals.calculateUnifiedPlannedExpenses({ fixedPlannedTotal, dailyGoalTarget })
-    : fixedPlannedTotal + dailyGoalTarget;
+  // Regra: cartões (incluindo recorrentes no cartão) NÃO entram em despesas planejadas.
+  // Eles permanecem somente em "Despesas do mês" quando aplicável.
+  const plannedExpenses = fixedPlannedTotal + totalGoals + dailyGoalTarget;
   const doneExpenses = fixedDoneTotal + totalGoals + spendsDoneOutsideCard;
   const paidFixedAndBills = selectedDespesas.reduce((acc, item) => {
     const category = resolveCategoryName(item?.categoria || '');
@@ -2655,6 +2655,15 @@ function toggleUnifiedOutflowInstallments() {
   if (!wrap || !toggle) return;
   if (toggle.checked && recurringToggle) recurringToggle.checked = false;
   wrap.style.display = toggle.checked ? 'flex' : 'none';
+  if (toggle.checked) {
+    requestAnimationFrame(() => {
+      try {
+        wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch {}
+      const countInput = document.getElementById('unifiedOutflowInstallmentsCount');
+      try { countInput?.focus({ preventScroll: true }); } catch {}
+    });
+  }
   handleUnifiedOutflowTypeChange();
 }
 
@@ -2699,9 +2708,8 @@ function handleUnifiedOutflowTypeChange() {
   if (recurringLabel) recurringLabel.style.display = '';
   if (recurringToggle && recurringToggle.checked && installmentsToggle) installmentsToggle.checked = false;
   if (installmentsToggle && installmentsToggle.checked && recurringToggle) recurringToggle.checked = false;
-  const canUseInstallments = recurringToggle?.checked !== true;
-  if (installmentsLabel) installmentsLabel.style.display = canUseInstallments ? '' : 'none';
-  if (installmentsToggle && !canUseInstallments) installmentsToggle.checked = false;
+  const canUseInstallments = true;
+  if (installmentsLabel) installmentsLabel.style.display = '';
   if (installmentsWrap) installmentsWrap.style.display = installmentsToggle?.checked && canUseInstallments ? 'flex' : 'none';
   const canUseShared = true;
   if (sharedToggleLabel) sharedToggleLabel.style.display = canUseShared ? '' : 'none';
@@ -2710,8 +2718,14 @@ function handleUnifiedOutflowTypeChange() {
   if (canUseShared && sharedToggle?.checked === true) renderUnifiedOutflowSharedPeople();
   updateUnifiedOutflowDateFieldState();
   if (!outputHelp) return;
-  if (effectiveType === 'expense' && (outputSelect?.value || '').startsWith('card:')) {
-    outputHelp.textContent = 'Despesa nao usa cartao diretamente. Selecione pix, debito, dinheiro, boleto ou conta.';
+  if (effectiveType === 'expense') {
+    if ((outputValue || '').startsWith('card:')) {
+      outputHelp.textContent = 'Despesa nao usa cartao diretamente. Selecione pix, debito, dinheiro, boleto ou conta.';
+    } else {
+      outputHelp.textContent = 'Despesa: informe só o dia (vai para o próximo mês) ou data completa (respeita mês/ano informado).';
+    }
+  } else if (recurringToggle?.checked === true) {
+    outputHelp.textContent = 'Gasto recorrente: use o dia de cobrança.';
   } else {
     outputHelp.textContent = '';
   }
@@ -2722,7 +2736,14 @@ function toggleUnifiedOutflowShared() {
   const sharedWrap = document.getElementById('unifiedOutflowSharedWrap');
   const enabled = sharedToggle?.checked === true;
   if (sharedWrap) sharedWrap.style.display = enabled ? '' : 'none';
-  if (enabled) renderUnifiedOutflowSharedPeople();
+  if (enabled) {
+    renderUnifiedOutflowSharedPeople();
+    requestAnimationFrame(() => {
+      try {
+        sharedWrap?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch {}
+    });
+  }
 }
 
 function readUnifiedOutflowSharedParticipantsFromDOM() {
@@ -2916,6 +2937,8 @@ function collectUnifiedOutflowSharedFromForm(baseAmount = 0) {
 function openUnifiedCardModal(cardId = '') {
   const month = getCurrentMonth();
   ensureUnifiedOutflowPilotMonth(month);
+  closeModal('modalUnifiedOutflow');
+  closeModal('modalFinanceCalendar');
   const card = (month.outflowCards || []).find(entry => entry.id === cardId) || null;
   editingUnifiedCardId = card?.id || '';
   document.getElementById('modalUnifiedCardTitle').textContent = card ? 'Editar cartão' : 'Adicionar cartão';
@@ -3937,7 +3960,12 @@ function saveUnifiedOutflow() {
     save(true);
     preserveCurrentScroll(() => renderMes());
     renderUnifiedOutflowModalRecentList();
-    showUnifiedOutflowQuickToast(editingUnifiedOutflowId ? 'Atualizado' : 'Adicionado');
+    const savedLabel = String(baseItem?.name || '').trim() || 'Lançamento';
+    showUnifiedOutflowQuickToast(
+      editingUnifiedOutflowId
+        ? `${savedLabel} atualizado`
+        : `${savedLabel} adicionado`
+    );
     if (!wasEditing) {
       clearUnifiedOutflowDraft(month);
       const sharedToggleEl = document.getElementById('unifiedOutflowSharedToggle');

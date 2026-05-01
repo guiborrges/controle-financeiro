@@ -148,9 +148,10 @@ function hideAppStatus() {
 
 function bindRuntimeErrorHandling() {
   window.addEventListener('error', event => {
-    const message = event?.error?.message || event?.message || 'Ocorreu um erro inesperado.';
+    const rawMessage = event?.error?.message || event?.message || 'Ocorreu um erro inesperado.';
+    const technicalCode = `${event?.error?.name || 'Error'}: ${rawMessage}`;
     showAppStatus(
-      `${message}\nRecarregue a pagina. Se continuar, use o backup local antes de importar ou editar de novo.`,
+      `Algo falhou durante esta ação. Recarregue a página para continuar com segurança.\nDetalhe técnico: ${technicalCode}`,
       'Erro no app',
       'error'
     );
@@ -160,9 +161,10 @@ function bindRuntimeErrorHandling() {
     const message = typeof reason === 'string'
       ? reason
       : reason?.message || 'Uma operacao falhou antes de terminar.';
+    const technicalCode = `PromiseError: ${message}`;
     showAppStatus(
-      `${message}\nA interface tentou continuar, mas vale recarregar a pagina.`,
-      'Falha de execucao',
+      `Não foi possível concluir uma operação em segundo plano. Recarregue para sincronizar os dados.\nDetalhe técnico: ${technicalCode}`,
+      'Falha de execução',
       'error'
     );
   });
