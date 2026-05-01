@@ -16,6 +16,7 @@
     tooltipDay: 0
   };
   let dailyChartInstance = null;
+  const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   function getViewMonthSafe() {
     if (state.viewYear > 0 && state.viewMonthIndex >= 0) {
@@ -23,9 +24,8 @@
         ? global.FinanceCalendarUtils.getMonthByYearMonth(state.viewYear, state.viewMonthIndex)
         : null;
       if (byYm) return byYm;
-      if (typeof global.ensureMonthExists === 'function' && global.MONTH_INDEX) {
-        const monthName = Object.keys(global.MONTH_INDEX)
-          .find(name => global.MONTH_INDEX[name] === state.viewMonthIndex);
+      if (typeof global.ensureMonthExists === 'function') {
+        const monthName = MONTH_NAMES[state.viewMonthIndex] || '';
         if (monthName) {
           try { return global.ensureMonthExists(monthName, state.viewYear); } catch {}
         }

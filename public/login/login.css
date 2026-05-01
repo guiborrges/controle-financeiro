@@ -1,16 +1,17 @@
 ﻿:root {
   color-scheme: light;
-  --bg-1: #0f1b2e;
-  --bg-2: #1c3658;
-  --bg-3: #90a7c5;
-  --glass: rgba(244, 248, 255, 0.72);
+  --bg-1: #0f1c33;
+  --bg-2: #22436d;
+  --bg-3: #8fb0d6;
+  --bg-4: #6f94c1;
+  --glass: rgba(244, 249, 255, 0.82);
   --glass-border: rgba(255, 255, 255, 0.42);
-  --text: #132640;
-  --text-soft: rgba(19, 38, 64, 0.68);
+  --text: #12365d;
+  --text-soft: rgba(18, 54, 93, 0.72);
   --danger: #b94747;
   --danger-bg: rgba(185, 71, 71, 0.1);
-  --button: #173761;
-  --button-hover: #224b82;
+  --button: #1c4f88;
+  --button-hover: #2863a7;
 }
 
 * {
@@ -27,10 +28,10 @@ body {
   font-family: "DM Sans", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at 20% 18%, rgba(255,255,255,.2), transparent 24%),
-    radial-gradient(circle at 82% 10%, rgba(255,255,255,.13), transparent 22%),
-    radial-gradient(circle at 50% 88%, rgba(255,255,255,.09), transparent 28%),
-    linear-gradient(140deg, var(--bg-1), var(--bg-2) 46%, var(--bg-3));
+    radial-gradient(circle at 16% 14%, rgba(255,255,255,.22), transparent 26%),
+    radial-gradient(circle at 84% 12%, rgba(255,255,255,.17), transparent 24%),
+    radial-gradient(circle at 56% 84%, rgba(255,255,255,.1), transparent 30%),
+    linear-gradient(132deg, var(--bg-1), var(--bg-2) 43%, var(--bg-3) 78%, var(--bg-4));
 }
 
 .login-shell {
@@ -55,7 +56,9 @@ body {
   padding: 40px 36px 32px;
   border-radius: 30px;
   border: 1px solid var(--glass-border);
-  background: var(--glass);
+  background:
+    linear-gradient(165deg, rgba(249, 253, 255, 0.86), rgba(229, 240, 255, 0.74)),
+    var(--glass);
   box-shadow: 0 32px 90px rgba(7, 18, 37, 0.24);
   backdrop-filter: blur(24px);
   display: grid;
@@ -81,6 +84,7 @@ body {
   font-size: clamp(30px, 4vw, 38px);
   line-height: 1.02;
   letter-spacing: -.04em;
+  color: #173f6d;
 }
 
 .login-subtitle {
@@ -126,7 +130,7 @@ body {
 .field input {
   width: 100%;
   border: 1px solid rgba(16, 35, 62, 0.12);
-  background: rgba(255,255,255,.9);
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(239,247,255,.92));
   color: var(--text);
   border-radius: 18px;
   padding: 17px 18px;
@@ -158,7 +162,7 @@ body {
   height: 40px;
   border: none;
   border-radius: 13px;
-  background: rgba(22, 54, 94, 0.08);
+  background: linear-gradient(135deg, rgba(33, 83, 137, 0.16), rgba(33, 83, 137, 0.08));
   color: var(--text);
   font-size: 12px;
   font-weight: 600;
@@ -167,7 +171,7 @@ body {
 }
 
 .password-toggle:hover {
-  background: rgba(22, 54, 94, 0.14);
+  background: linear-gradient(135deg, rgba(33, 83, 137, 0.24), rgba(33, 83, 137, 0.14));
 }
 
 .login-submit {

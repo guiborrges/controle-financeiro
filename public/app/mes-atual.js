@@ -1424,9 +1424,20 @@ function getUnifiedMonthPilotMetrics(month) {
   const totalGoals = Number(totals.totalFinancialGoals || 0);
   const selectedDespesas = getSelectedDespesas(month);
   const outflowById = new Map((month.outflows || []).map(item => [String(item.id || ''), item]));
+  const normalizeCategoryKey = (value) => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+  const isCardCategory = (value) => {
+    const normalized = normalizeCategoryKey(value);
+    return normalized === 'CARTAO'
+      || normalized === 'CARTAO DE CREDITO'
+      || normalized.includes('CARTAO');
+  };
   const isFixedOrBillDespesa = (item) => {
     const category = resolveCategoryName(item?.categoria || '');
-    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return true;
+    if (isCardCategory(category)) return true;
     const sourceOutflow = outflowById.get(String(item?.id || ''));
     if (!sourceOutflow) return true;
     return isUnifiedExpenseType(sourceOutflow);
@@ -1434,15 +1445,16 @@ function getUnifiedMonthPilotMetrics(month) {
   const fixedPlannedTotal = selectedDespesas.reduce((acc, item) => {
     if (!isFixedOrBillDespesa(item)) return acc;
     const category = resolveCategoryName(item?.categoria || '');
-    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc;
+    if (isCardCategory(category)) return acc;
     const sourceOutflow = outflowById.get(String(item?.id || ''));
     if (sourceOutflow?.outputKind === 'card') return acc;
+    if (sourceOutflow && !isUnifiedExpenseType(sourceOutflow)) return acc;
     return acc + Number(item?.valor || 0);
   }, 0);
   const fixedDoneTotal = selectedDespesas.reduce((acc, item) => {
     if (!isFixedOrBillDespesa(item)) return acc;
     const category = resolveCategoryName(item?.categoria || '');
-    if (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO') return acc + Number(item?.valor || 0);
+    if (isCardCategory(category)) return acc + Number(item?.valor || 0);
     const sourceOutflow = outflowById.get(String(item?.id || ''));
     const isDirectMethodFixed = isUnifiedExpenseType(sourceOutflow)
       && sourceOutflow?.outputKind === 'method'
@@ -1452,7 +1464,7 @@ function getUnifiedMonthPilotMetrics(month) {
   }, 0);
   const cardBillsTotal = selectedDespesas.reduce((acc, item) => {
     const category = resolveCategoryName(item?.categoria || '');
-    return acc + (category === 'CARTÃO' || category === 'CARTÃO DE CRÉDITO' ? Number(item?.valor || 0) : 0);
+    return acc + (isCardCategory(category) ? Number(item?.valor || 0) : 0);
   }, 0);
   const dailyGoalTarget = Number(getDailyGoalTarget(month) || 0);
   const spendsDoneOutsideCard = (month.outflows || []).reduce((acc, item) => {
@@ -1463,8 +1475,9 @@ function getUnifiedMonthPilotMetrics(month) {
     return acc + Number(item.amount || 0);
   }, 0);
   const recurringSpendPlannedTotal = getUnifiedRecurringSpendPlannedTotal(month);
-  // Regra: cartões (incluindo recorrentes no cartão) NÃO entram em despesas planejadas.
-  // Eles permanecem somente em "Despesas do mês" quando aplicável.
+  // Regra autoritativa:
+  // Despesas planejadas = despesas/compromissos não-cartão + metas financeiras + metas estabelecidas.
+  // Faturas/cartões nunca entram nesta métrica.
   const plannedExpenses = fixedPlannedTotal + totalGoals + dailyGoalTarget;
   const doneExpenses = fixedDoneTotal + totalGoals + spendsDoneOutsideCard;
   const paidFixedAndBills = selectedDespesas.reduce((acc, item) => {
