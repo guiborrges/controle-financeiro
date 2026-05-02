@@ -1578,6 +1578,10 @@ function getUnifiedMonthPilotMetrics(month) {
   const fixedPlannedTotal = (month.outflows || []).reduce((acc, item) => {
     if (!isUnifiedExpenseType(item)) return acc;
     if (item?.outputKind === 'card') return acc;
+    const category = resolveCategoryName(item?.categoria || '');
+    if (isCardCategory(category)) return acc;
+    if (String(item?.cardId || '').trim()) return acc;
+    if (String(item?.cardName || '').trim()) return acc;
     if (item?.countsInPrimaryTotals === false) return acc;
     const id = String(item?.id || '').trim();
     if (selectedDespesaIds.size > 0 && id && !selectedDespesaIds.has(id)) return acc;
