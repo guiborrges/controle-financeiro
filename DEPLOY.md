@@ -26,6 +26,11 @@
 - `FIN_APP_STATE_DEBUG=0`
 - `FIN_MAX_BACKUPS_PER_USER=0` (nao podar backups automaticamente)
 - `FIN_AUTO_EXIT_BACKUP_MIN_MS=60000`
+- `BILL_IMPORT_AI_PROVIDER=oracle` (habilita parser por IA no backend)
+- `ORACLE_AI_ENDPOINT=https://...` (endpoint Oracle AI/Function que devolve `finance_import_v1`)
+- `ORACLE_AI_API_KEY=...` (se o endpoint exigir bearer token)
+- `ORACLE_AI_MODEL=oracle-ai` (identificador informativo enviado no header `X-Model`)
+- `ORACLE_AI_TIMEOUT_MS=45000`
 
 ## 4. Passo a passo de deploy
 1. Atualizar codigo no servidor.

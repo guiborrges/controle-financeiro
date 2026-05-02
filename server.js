@@ -9,6 +9,7 @@ const { registerDeveloperRoutes } = require('./server/http/routes/developer');
 const { registerAuthRoutes } = require('./server/http/routes/auth');
 const { registerProfileRoutes } = require('./server/http/routes/profile');
 const { registerAppStateRoutes } = require('./server/http/routes/app-state');
+const { registerBillImportAiRoutes } = require('./server/http/routes/bill-import-ai');
 const {
   REMEMBER_COOKIE_NAME,
   ensureSessionSecret,
@@ -331,6 +332,12 @@ registerAppStateRoutes(app, {
   ensureCsrfToken,
   buildPrivateProfile,
   hasUserAppState
+});
+
+registerBillImportAiRoutes(app, {
+  noStore,
+  requireAuth,
+  requireCsrf
 });
 
 app.use((req, res) => {

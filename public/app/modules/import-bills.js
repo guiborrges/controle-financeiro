@@ -121,6 +121,60 @@
     });
   }
 
+  function getCsrfHeaders(extraHeaders = {}) {
+    const token = global.__CSRF_TOKEN__ || '';
+    return token
+      ? { ...extraHeaders, 'X-CSRF-Token': token }
+      : { ...extraHeaders };
+  }
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const raw = String(reader.result || '');
+        const base64 = raw.includes(',') ? raw.split(',').pop() : raw;
+        if (!base64) {
+          reject(new Error('Falha ao converter arquivo para base64.'));
+          return;
+        }
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error('Falha ao ler arquivo para IA.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function parseFileWithOracleAi(file) {
+    const context = getCurrentContext();
+    const contentBase64 = await readFileAsBase64(file);
+    const response = await fetch('/api/bill-import/parse', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+      body: JSON.stringify({
+        fileName: String(file?.name || 'fatura'),
+        mimeType: String(file?.type || ''),
+        contentBase64,
+        context,
+        prompt: getPromptText()
+      })
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok) {
+      throw new Error(payload?.message || 'Falha ao interpretar fatura com Oracle AI.');
+    }
+    if (!payload?.payload || typeof payload.payload !== 'object') {
+      throw new Error('Resposta da Oracle AI inválida.');
+    }
+    return payload.payload;
+  }
+
   function extractJsonText(rawText) {
     const text = String(rawText || '').trim();
     if (!text) throw new Error('Conteúdo vazio.');
@@ -166,8 +220,15 @@
     const file = event?.target?.files?.[0];
     if (!file) return;
     try {
-      const payload = await readJsonFromFile(file);
-      processPayload(payload, file.name);
+      const isJsonFile = /\.json$/i.test(String(file?.name || '')) || String(file?.type || '').toLowerCase().includes('json');
+      if (isJsonFile) {
+        const payload = await readJsonFromFile(file);
+        processPayload(payload, file.name);
+        return;
+      }
+      showStatus('Enviando arquivo para análise da Oracle AI...', 'ok', 'Analisando fatura');
+      const parsedPayload = await parseFileWithOracleAi(file);
+      processPayload(parsedPayload, file.name || 'fatura-oracle-ai.json');
     } catch (error) {
       showStatus(`Falha ao carregar arquivo: ${error.message}`, 'error');
     }
