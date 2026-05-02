@@ -34,9 +34,11 @@ function isUnifiedDirectMethodSpend(item) {
 }
 
 function getUnifiedOutflowTypeLabel(item) {
-  if (!item) return 'Gasto';
-  if (isUnifiedLaunchRecurring(item) && isUnifiedLaunchOfType(item, 'spend')) return 'Gasto recorrente';
-  return isUnifiedLaunchOfType(item, 'expense') ? 'Despesa' : 'Gasto';
+  if (!item) return 'Lançamento';
+  if (isUnifiedLaunchRecurring(item)) return 'Lançamento recorrente';
+  if (item.launchInstallment === true || Number(item.installmentsTotal || 1) > 1) return 'Lançamento parcelado';
+  if (item.launchShared === true || item.sharedExpense === true) return 'Lançamento compartilhado';
+  return 'Lançamento';
 }
 
 function normalizeLegacyLookup(value) {

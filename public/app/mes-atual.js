@@ -45,7 +45,7 @@ function isUnifiedRecurringExpense(item) {
 }
 
 function resolveUnifiedLaunchFlags(item, resolvedType, recurringSpend, expenseRecurring, installmentsTotal, sharedExpense) {
-  const explicitPlanning = item?.showInMonthPlanning === true || item?.includeInMonthPlanning === true;
+  const explicitPlanning = item?.includeInMonthPlanning === true;
   const recurring = recurringSpend === true || expenseRecurring === true;
   const installment = Math.max(1, Number(installmentsTotal || 1) || 1) > 1;
   return {
@@ -53,7 +53,7 @@ function resolveUnifiedLaunchFlags(item, resolvedType, recurringSpend, expenseRe
     launchRecurring: recurring,
     launchInstallment: installment,
     launchShared: sharedExpense === true,
-    showInMonthPlanning: explicitPlanning || recurring || resolvedType === 'expense'
+    showInMonthPlanning: explicitPlanning || recurring
   };
 }
 
@@ -650,6 +650,36 @@ function migrateUnifiedOutflowMonth(month, profile = getUnifiedMigrationProfile(
   }
 
   (month.outflows || []).forEach((item, idx) => {
+    const normalizedType = normalizeUnifiedOutflowType(item?.type);
+    if (item.type !== normalizedType) {
+      item.type = normalizedType;
+      changed = true;
+    }
+    const recurring = item?.recurringSpend === true || item?.expenseRecurring === true;
+    const installment = Math.max(1, Number(item?.installmentsTotal || 1) || 1) > 1;
+    const manualPlanning = item?.includeInMonthPlanning === true;
+    if (item?.entryKind !== 'launch') {
+      item.entryKind = 'launch';
+      changed = true;
+    }
+    if (item?.launchRecurring !== recurring) {
+      item.launchRecurring = recurring;
+      changed = true;
+    }
+    if (item?.launchInstallment !== installment) {
+      item.launchInstallment = installment;
+      changed = true;
+    }
+    const launchShared = item?.sharedExpense === true;
+    if (item?.launchShared !== launchShared) {
+      item.launchShared = launchShared;
+      changed = true;
+    }
+    const nextPlanning = manualPlanning || recurring;
+    if (item?.showInMonthPlanning !== nextPlanning) {
+      item.showInMonthPlanning = nextPlanning;
+      changed = true;
+    }
     if (isUnifiedExpenseType(item) && item.outputKind === 'card') {
       item.type = 'spend';
       item.status = 'done';
@@ -1654,7 +1684,7 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
     const total = fixedOutflows.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0) + bills.reduce((acc, item) => acc + Number(item.amount || 0), 0);
     const paid = fixedOutflows.filter(item => item.paid).reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0) + bills.filter(item => item.paid).reduce((acc, item) => acc + Number(item.amount || 0), 0);
     const pending = Math.max(0, total - paid);
-    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Compromissos do mês</div><div class="unified-summary-text">Veja o que precisa ser cobrado neste mês e o que já foi marcado como pago.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total previsto', fmt(total), `${fixedOutflows.length + bills.length} itens nesta visão`)}${renderUnifiedSummaryCard('Já pago', fmt(paid), 'Valores já marcados como quitados', paid > 0 ? 'positive' : '')}${renderUnifiedSummaryCard('Ainda pendente', fmt(pending), 'Valor restante nesta aba', pending > 0 ? 'warning' : 'positive')}</div></div>`;
+    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Planejamento do mês</div><div class="unified-summary-text">Veja o que precisa ser cobrado neste mês e o que já foi marcado como pago.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total previsto', fmt(total), `${fixedOutflows.length + bills.length} itens nesta visão`)}${renderUnifiedSummaryCard('Já pago', fmt(paid), 'Valores já marcados como quitados', paid > 0 ? 'positive' : '')}${renderUnifiedSummaryCard('Ainda pendente', fmt(pending), 'Valor restante nesta aba', pending > 0 ? 'warning' : 'positive')}</div></div>`;
   }
   if (filterValue === 'spend') {
     const total = rows
@@ -1927,7 +1957,7 @@ function renderUnifiedFixedRows(month, rows) {
       </tr>`;
   }).join('');
   const metrics = getUnifiedMonthPilotMetrics(month);
-  return `<table class="fin-table unified-outflow-table"><thead><tr><th style="padding-left:22px">Somado</th><th style="padding-left:22px" class="sortable" onclick="setUnifiedOutflowSort('descricao')">${renderUnifiedSortLabel(month, 'descricao', 'Descrição')}</th><th class="sortable" onclick="setUnifiedOutflowSort('categoria')">${renderUnifiedSortLabel(month, 'categoria', 'Categoria')}</th><th class="sortable" onclick="setUnifiedOutflowSort('data')">${renderUnifiedSortLabel(month, 'data', 'Data de cobrança')}</th><th class="sortable" onclick="setUnifiedOutflowSort('valor')">${renderUnifiedSortLabel(month, 'valor', 'Valor')}</th><th class="sortable" onclick="setUnifiedOutflowSort('pago')">${renderUnifiedSortLabel(month, 'pago', 'Status')}</th><th></th></tr></thead><tbody>${body}</tbody><tfoot><tr class="totals-row"><td></td><td colspan="3" style="padding-top:12px;padding-bottom:12px">Total do resumo</td><td class="amount amount-neg">${fmt(totalSelected)}</td><td colspan="2" style="text-align:right"><span class="unified-cashout-inline">Já saiu: ${fmt(metrics.paidOut)}</span></td></tr></tfoot></table>`;
+  return `<table class="fin-table unified-outflow-table"><thead><tr><th style="padding-left:22px">Somado</th><th style="padding-left:22px" class="sortable" onclick="setUnifiedOutflowSort('descricao')">${renderUnifiedSortLabel(month, 'descricao', 'Descrição')}</th><th class="sortable" onclick="setUnifiedOutflowSort('categoria')">${renderUnifiedSortLabel(month, 'categoria', 'Categoria')}</th><th class="sortable" onclick="setUnifiedOutflowSort('data')">${renderUnifiedSortLabel(month, 'data', 'Data de cobrança')}</th><th class="sortable" onclick="setUnifiedOutflowSort('valor')">${renderUnifiedSortLabel(month, 'valor', 'Valor')}</th><th class="sortable" onclick="setUnifiedOutflowSort('pago')">${renderUnifiedSortLabel(month, 'pago', 'Status')}</th><th></th></tr></thead><tbody>${body}</tbody><tfoot><tr class="totals-row"><td></td><td colspan="3" style="padding-top:12px;padding-bottom:12px">Total do planejamento</td><td class="amount amount-neg">${fmt(totalSelected)}</td><td colspan="2" style="text-align:right"><span class="unified-cashout-inline">Já saiu: ${fmt(metrics.paidOut)}</span></td></tr></tfoot></table>`;
 }
 
 function toggleUnifiedDirectMethodCategoryPaid(category, checked) {

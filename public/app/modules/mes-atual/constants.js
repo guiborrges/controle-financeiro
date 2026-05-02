@@ -13,7 +13,7 @@ const UNIFIED_OUTFLOW_METHOD_META = Object.freeze({
   debito: Object.freeze({ label: 'Débito' })
 });
 
-const UNIFIED_OUTFLOW_GLOBAL_MIGRATION_VERSION = 5;
+const UNIFIED_OUTFLOW_GLOBAL_MIGRATION_VERSION = 6;
 
 const GUILHERME_REQUIRED_CARDS = Object.freeze([
   Object.freeze({ key: 'xp', name: 'XP', institution: 'xp', closingDay: 2, paymentDay: 10 }),
