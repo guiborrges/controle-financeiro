@@ -1570,8 +1570,11 @@ function getUnifiedMonthPilotMetrics(month) {
     return acc + Number(getUnifiedCardBillEffectiveAmount(month, bill) || 0);
   }, 0);
   const dailyGoalTarget = Number(getDailyGoalTarget(month) || 0);
+  const isSpendType = (item) => typeof isUnifiedLaunchOfType === 'function'
+    ? isUnifiedLaunchOfType(item, 'spend')
+    : String(item?.type || '').toLowerCase() === 'spend';
   const spendsDoneOutsideCard = (month.outflows || []).reduce((acc, item) => {
-    if (item.type !== 'spend' || item.status !== 'done') return acc;
+    if (!isSpendType(item) || item.status !== 'done') return acc;
     if (item.outputKind === 'card') return acc;
     if (item.countsInPrimaryTotals === false) return acc;
     if (item.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(item.outputMethod) && item.paid !== true) return acc;
@@ -1589,7 +1592,7 @@ function getUnifiedMonthPilotMetrics(month) {
   }, 0);
   const paidOut = paidFixedAndBills
     + (month.outflows || []).reduce((acc, item) => {
-      if (item.type !== 'spend' || item.status !== 'done') return acc;
+      if (!isSpendType(item) || item.status !== 'done') return acc;
       if (item.outputKind === 'card') return acc;
       if (item.countsInPrimaryTotals === false) return acc;
       if (item.paid !== true) return acc;
@@ -2087,9 +2090,12 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
     : Array.from(totals.keys());
   if (!categories.length) return `<div class="unified-empty-state">${emptyText}</div>`;
   ensureUnifiedSpendCategorySelectionState(month, categories);
+  const isSpendType = (item) => typeof isUnifiedLaunchOfType === 'function'
+    ? isUnifiedLaunchOfType(item, 'spend')
+    : String(item?.type || '').toLowerCase() === 'spend';
   const categoryRows = categories.map(category => {
     const categoryItems = totals.get(category) || [];
-    const spendItemsInCategory = categoryItems.filter(item => item?.type === 'spend');
+    const spendItemsInCategory = categoryItems.filter(item => isSpendType(item));
     const nonRecurringSpendItemsInCategory = spendItemsInCategory.filter(item => isComparableDailyGoalSpend(item));
     const nonRecurringSpendTotalInCategory = nonRecurringSpendItemsInCategory.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
     const hasSpendInCategory = nonRecurringSpendItemsInCategory.length > 0;
@@ -2175,17 +2181,23 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
 function renderUnifiedSpendGroups(month, rows) {
   const directMethodCategoryKeys = new Set(['PIX', 'DÉBITO', 'DEBITO', 'DINHEIRO']);
   const isDirectMethodCategory = (value) => directMethodCategoryKeys.has(resolveCategoryName(value || ''));
+  const isSpendType = (item) => typeof isUnifiedLaunchOfType === 'function'
+    ? isUnifiedLaunchOfType(item, 'spend')
+    : String(item?.type || '').toLowerCase() === 'spend';
+  const isExpenseType = (item) => typeof isUnifiedLaunchOfType === 'function'
+    ? isUnifiedLaunchOfType(item, 'expense')
+    : isUnifiedExpenseType(item);
   const monthCategoryItems = (month.outflows || [])
     .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
     .filter(item => {
-      if (item?.type === 'expense') return true;
-      if (item?.type !== 'spend') return false;
+      if (isExpenseType(item)) return true;
+      if (!isSpendType(item)) return false;
       return !isDirectMethodCategory(item?.category || '');
     });
   const prevMonth = getPreviousMonthFor(month);
   const inheritedPrevCategories = prevMonth
     ? (prevMonth.outflows || [])
-      .filter(item => item?.type === 'spend')
+      .filter(item => isSpendType(item) || isExpenseType(item))
       .filter(item => !isDirectMethodCategory(item?.category || ''))
       .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
       .map(item => resolveCategoryName(item?.category || 'OUTROS'))
@@ -2209,7 +2221,15 @@ function removeUnifiedSpendCategory(category) {
   if (!month) return;
   ensureUnifiedOutflowPilotMonth(month);
   const normalized = resolveCategoryName(category || 'OUTROS');
-  const hasItems = (month.outflows || []).some(item => item?.type === 'spend' && resolveCategoryName(item.category || 'OUTROS') === normalized);
+  const isType = (item, kind) => typeof isUnifiedLaunchOfType === 'function'
+    ? isUnifiedLaunchOfType(item, kind)
+    : (kind === 'spend'
+      ? String(item?.type || '').toLowerCase() === 'spend'
+      : isUnifiedExpenseType(item));
+  const hasItems = (month.outflows || []).some(item =>
+    (isType(item, 'spend') || isType(item, 'expense'))
+      && resolveCategoryName(item.category || 'OUTROS') === normalized
+  );
   if (hasItems) {
     alert('Essa categoria ainda tem gastos neste mês. Remova ou recategorize os lançamentos antes de apagar da lista.');
     return;
