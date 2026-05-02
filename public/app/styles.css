@@ -992,15 +992,34 @@ body {
   letter-spacing: .02em;
 }
 .unified-card-recurring-detail-row td{
-  background: rgba(76,117,190,.04);
+  background: rgba(76,117,190,.05);
+  border-left: 1px solid rgba(93,111,143,.18);
+  border-right: 1px solid rgba(93,111,143,.18);
 }
 .unified-card-recurring-detail-label{
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .08em;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .07em;
   text-transform: uppercase;
-  color: #5d6f8f;
-  margin-bottom: 4px;
+  color: #6f7f99;
+  margin-bottom: 2px;
+}
+.unified-card-recurring-category{
+  display:inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #7b889f;
+}
+.unified-card-group-head-row td{
+  border-top: 1px solid rgba(93,111,143,.18);
+  border-left: 1px solid rgba(93,111,143,.18);
+  border-right: 1px solid rgba(93,111,143,.18);
+  background: rgba(76,117,190,.02);
+}
+.unified-card-recurring-detail-row.is-last td{
+  border-bottom: 1px solid rgba(93,111,143,.18);
 }
 .unified-outflow-table .category-inline-label{
   font-weight: 500;

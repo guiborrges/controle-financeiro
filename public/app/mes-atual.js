@@ -1954,17 +1954,24 @@ function renderUnifiedFixedRows(month, rows) {
         ? recurringCardRows
             .slice()
             .sort((a, b) => parseData(b?.item?.date || '') - parseData(a?.item?.date || ''))
-            .map(entry => {
+            .map((entry, index, arr) => {
               const recurringItem = entry.item;
               const details = `${escapeHtml(String(recurringItem?.description || 'Lançamento recorrente'))}${recurringItem?.tag ? `<div class="text-muted" style="margin-top:4px;font-size:11px">Tag • ${escapeHtml(recurringItem.tag)}</div>` : ''}`;
+              const recurringCategory = escapeHtml(String(recurringItem?.category || 'Sem categoria'));
+              const labelHtml = index === 0 ? '<div class="unified-card-recurring-detail-label">Recorrentes do cartão</div>' : '';
+              const rowClasses = [
+                'unified-card-recurring-detail-row',
+                index === 0 ? 'is-first' : '',
+                index === arr.length - 1 ? 'is-last' : ''
+              ].filter(Boolean).join(' ');
               return `
-                <tr class="unified-card-recurring-detail-row">
+                <tr class="${rowClasses}">
                   <td></td>
                   <td class="unified-outflow-description-cell" style="padding-left:44px">
-                    <div class="unified-card-recurring-detail-label">Recorrente do cartão</div>
+                    ${labelHtml}
                     ${details}
                   </td>
-                  <td><span class="text-muted">Informativo</span></td>
+                  <td><span class="unified-card-recurring-category">${recurringCategory}</span></td>
                   <td></td>
                   <td class="amount amount-neg">${fmt(getUnifiedEffectiveOutflowAmount(recurringItem))}</td>
                   <td></td>
@@ -1974,7 +1981,7 @@ function renderUnifiedFixedRows(month, rows) {
             .join('')
         : '';
       return `
-        <tr>
+        <tr class="${recurringCardRows.length ? 'unified-card-group-head-row' : ''}">
           <td style="padding-left:22px">${selectionControl}</td>
           <td class="unified-outflow-description-cell" style="padding-left:22px">${renderUnifiedCardLabel(card, 'Cartão')}</td>
           <td>${renderCategoryLabel('CARTÃO DE CRÉDITO')}</td>
