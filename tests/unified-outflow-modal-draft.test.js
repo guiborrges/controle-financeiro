@@ -34,7 +34,7 @@ function loadModalsModule(contextOverrides = {}) {
   return baseContext.window.MesAtualModals;
 }
 
-test('buildUnifiedOutflowDraftFromForm defaults type to expense when select is missing/invalid', () => {
+test('buildUnifiedOutflowDraftFromForm defaults type to launch when select is missing/invalid', () => {
   const document = createDocumentStub({
     unifiedOutflowType: { value: '', checked: false },
     unifiedOutflowDescription: { value: 'teste' },
@@ -57,16 +57,16 @@ test('buildUnifiedOutflowDraftFromForm defaults type to expense when select is m
   const draft = modals.buildUnifiedOutflowDraftFromForm({ id: '2026-04' }, {
     readSharedParticipantsFromDOM: () => []
   });
-  assert.equal(draft.type, 'expense');
+  assert.equal(draft.type, 'launch');
   assert.equal(draft.entryKind, 'launch');
-  assert.equal(draft.launchType, 'expense');
+  assert.equal(draft.launchType, 'launch');
   assert.equal(draft.launchRecurring, false);
   assert.equal(draft.launchInstallment, false);
   assert.equal(draft.launchShared, false);
   assert.equal(draft.showInMonthPlanning, false);
 });
 
-test('applyUnifiedOutflowDraftToForm maps legacy fixed type to expense selection', () => {
+test('applyUnifiedOutflowDraftToForm normalizes legacy fixed type to launch selection', () => {
   const document = createDocumentStub({
     unifiedOutflowType: { value: 'spend' },
     unifiedOutflowDescription: { value: '' },
@@ -99,7 +99,7 @@ test('applyUnifiedOutflowDraftToForm maps legacy fixed type to expense selection
     handleTypeChange: () => {},
     renderDescriptionSuggestions: () => {}
   });
-  assert.equal(document.getElementById('unifiedOutflowType').value, 'expense');
+  assert.equal(document.getElementById('unifiedOutflowType').value, 'launch');
 });
 
 test('applyUnifiedOutflowDraftToForm prioritizes launch flags when present', () => {
@@ -138,7 +138,7 @@ test('applyUnifiedOutflowDraftToForm prioritizes launch flags when present', () 
     handleTypeChange: () => {},
     renderDescriptionSuggestions: () => {}
   });
-  assert.equal(document.getElementById('unifiedOutflowType').value, 'spend');
+  assert.equal(document.getElementById('unifiedOutflowType').value, 'launch');
   assert.equal(document.getElementById('unifiedOutflowRecurringToggle').checked, true);
   assert.equal(document.getElementById('unifiedOutflowInstallmentsToggle').checked, true);
   assert.equal(document.getElementById('unifiedOutflowSharedToggle').checked, true);

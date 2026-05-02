@@ -31,13 +31,16 @@ let recurringIncomeScheduleNormalizationSweepDone = false;
 
 function normalizeUnifiedOutflowType(value) {
   const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'launch' || raw === 'lancamento' || raw === 'lançamento') return 'launch';
   if (raw === 'spend' || raw === 'gasto') return 'spend';
   if (raw === 'fixed' || raw === 'expense' || raw === 'despesa') return 'expense';
-  return 'expense';
+  return 'launch';
 }
 
 function isUnifiedExpenseType(item) {
-  return normalizeUnifiedOutflowType(item?.type) === 'expense';
+  const normalizedType = normalizeUnifiedOutflowType(item?.type);
+  if (normalizedType === 'expense') return true;
+  return item?.expenseRecurring === true || item?.showInMonthPlanning === true || item?.includeInMonthPlanning === true;
 }
 
 function isUnifiedRecurringExpense(item) {
@@ -2798,10 +2801,9 @@ function sanitizeUnifiedOutflowDateInput(input) {
 function shiftUnifiedOutflowDateDay(deltaDays = 0) {
   const input = document.getElementById('unifiedOutflowDate');
   if (!input) return;
-  const typeSelect = document.getElementById('unifiedOutflowType');
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
-  const type = normalizeUnifiedOutflowType(typeSelect?.value || 'expense');
-  const isExpenseType = type === 'expense';
+  const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
+  const isExpenseType = recurringToggle?.checked === true || planningToggle?.checked === true;
   const isFixedDay = recurringToggle?.checked === true && !isExpenseType;
   const delta = Number(deltaDays || 0);
   if (!delta) return;
@@ -2837,13 +2839,12 @@ function shiftUnifiedOutflowDateDay(deltaDays = 0) {
 }
 
 function updateUnifiedOutflowDateFieldState() {
-  const typeSelect = document.getElementById('unifiedOutflowType');
   const dateLabel = document.getElementById('unifiedOutflowDateLabel');
   const dateInput = document.getElementById('unifiedOutflowDate');
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
-  if (!typeSelect || !dateLabel || !dateInput) return;
-  const type = normalizeUnifiedOutflowType(typeSelect.value);
-  const usesBillingDay = type === 'expense' || recurringToggle?.checked === true;
+  const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
+  if (!dateLabel || !dateInput) return;
+  const usesBillingDay = recurringToggle?.checked === true || planningToggle?.checked === true;
   if (usesBillingDay) {
     dateLabel.textContent = 'Data da cobrança';
     dateInput.placeholder = 'Ex: 10 ou 10/05/26';
@@ -2892,8 +2893,6 @@ function toggleUnifiedOutflowPlanning() {
 }
 
 function handleUnifiedOutflowTypeChange() {
-  const typeSelect = document.getElementById('unifiedOutflowType');
-  const type = normalizeUnifiedOutflowType(typeSelect?.value || 'expense');
   const outputSelect = document.getElementById('unifiedOutflowOutput');
   const outputValue = outputSelect?.value || '';
   const outputHelp = document.getElementById('unifiedOutflowOutputHelp');
@@ -2908,16 +2907,8 @@ function handleUnifiedOutflowTypeChange() {
   const recurringText = document.getElementById('unifiedOutflowRecurringText');
   const sharedText = document.getElementById('unifiedOutflowSharedText');
   const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
-  const isCardOutput = outputValue.startsWith('card:');
-  if (type === 'expense' && isCardOutput && outputSelect) {
-    const fallbackValue = Array.from(outputSelect.options || []).some(option => option.value === 'method:debito')
-      ? 'method:debito'
-      : (outputSelect.options?.[0]?.value || 'method:debito');
-    outputSelect.value = fallbackValue;
-  }
-  const effectiveType = typeSelect?.value || type;
-  if (recurringText) recurringText.textContent = effectiveType === 'expense' ? 'Despesa recorrente' : 'Gasto recorrente';
-  if (sharedText) sharedText.textContent = effectiveType === 'expense' ? 'Despesa compartilhada' : 'Gasto compartilhado';
+  if (recurringText) recurringText.textContent = 'Lançamento recorrente';
+  if (sharedText) sharedText.textContent = 'Lançamento compartilhado';
   if (recurringLabel) recurringLabel.style.display = '';
   if (recurringToggle && recurringToggle.checked && installmentsToggle) installmentsToggle.checked = false;
   if (installmentsToggle && installmentsToggle.checked && recurringToggle) recurringToggle.checked = false;
@@ -2932,14 +2923,8 @@ function handleUnifiedOutflowTypeChange() {
   if (recurringToggle?.checked === true && planningToggle) planningToggle.checked = true;
   updateUnifiedOutflowDateFieldState();
   if (!outputHelp) return;
-  if (effectiveType === 'expense') {
-    if ((outputValue || '').startsWith('card:')) {
-      outputHelp.textContent = 'Despesa nao usa cartao diretamente. Selecione pix, debito, dinheiro, boleto ou conta.';
-    } else {
-      outputHelp.textContent = 'Despesa: informe só o dia (vai para o próximo mês) ou data completa (respeita mês/ano informado).';
-    }
-  } else if (recurringToggle?.checked === true) {
-    outputHelp.textContent = 'Gasto recorrente: use o dia de cobrança.';
+  if (planningToggle?.checked === true || recurringToggle?.checked === true) {
+    outputHelp.textContent = 'Planejamento: informe só o dia (vai para o próximo mês) ou data completa (respeita mês/ano informado).';
   } else {
     outputHelp.textContent = '';
   }
@@ -3610,7 +3595,7 @@ function applyUnifiedOutflowDraftToForm(month, draft) {
   if (!draft || typeof draft !== 'object') return false;
   const descriptionInput = document.getElementById('unifiedOutflowDescription');
   if (descriptionInput) descriptionInput.value = String(draft.description || '');
-  document.getElementById('unifiedOutflowType').value = normalizeUnifiedOutflowType(draft.type) === 'spend' ? 'spend' : 'expense';
+  document.getElementById('unifiedOutflowType').value = 'launch';
   populateUnifiedOutflowCategoryOptions(month, String(draft.category || resolveCategoryName('COMPRAS') || ''));
   document.getElementById('unifiedOutflowNewCategory').value = String(draft.newCategory || '');
   toggleUnifiedOutflowNewCategory();
@@ -3670,7 +3655,7 @@ function fillUnifiedOutflowFormFromItem(month, item) {
   const descriptionInput = document.getElementById('unifiedOutflowDescription');
   if (descriptionInput) descriptionInput.value = item?.description || '';
   const preferredSpendCategory = resolveCategoryName('COMPRAS') || 'OUTROS';
-  document.getElementById('unifiedOutflowType').value = item ? normalizeUnifiedOutflowType(item?.type || 'expense') : 'spend';
+  document.getElementById('unifiedOutflowType').value = 'launch';
   populateUnifiedOutflowCategoryOptions(month, item?.category || preferredSpendCategory);
   document.getElementById('unifiedOutflowNewCategory').value = '';
   toggleUnifiedOutflowNewCategory();
@@ -4130,7 +4115,7 @@ function saveUnifiedOutflow() {
     ? (month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId) || null
     : null;
   const description = document.getElementById('unifiedOutflowDescription').value.trim();
-  const requestedType = normalizeUnifiedOutflowType(document.getElementById('unifiedOutflowType').value);
+  const requestedType = normalizeUnifiedOutflowType(document.getElementById('unifiedOutflowType')?.value || 'launch');
   let category = document.getElementById('unifiedOutflowCategory').value;
   if (category === 'nova') category = document.getElementById('unifiedOutflowNewCategory').value.trim();
   category = resolveCategoryName(category || 'OUTROS');
@@ -4141,34 +4126,31 @@ function saveUnifiedOutflow() {
   if (tag === 'nova') tag = String(document.getElementById('unifiedOutflowNewTagInline')?.value || '').trim();
   const amount = Number(document.getElementById('unifiedOutflowAmount').value || 0);
   const output = parseUnifiedOutflowOutputValue(document.getElementById('unifiedOutflowOutput').value || '');
-  const type = output.outputKind === 'card' ? 'spend' : requestedType;
   const recurringToggleChecked = document.getElementById('unifiedOutflowRecurringToggle').checked;
   const planningToggleChecked = document.getElementById('unifiedOutflowPlanningToggle')?.checked === true;
-  const recurringSpend = type === 'spend' && recurringToggleChecked;
-  const expenseRecurring = type === 'expense' && recurringToggleChecked;
+  const isPlanningLaunch = recurringToggleChecked || planningToggleChecked;
+  const type = output.outputKind === 'card'
+    ? 'spend'
+    : (requestedType === 'spend' || requestedType === 'expense'
+      ? requestedType
+      : (isPlanningLaunch ? 'expense' : 'spend'));
+  const recurringSpend = false;
+  const expenseRecurring = recurringToggleChecked;
   const rawDateValue = document.getElementById('unifiedOutflowDate').value || '';
-  const usesBillingDay = recurringSpend || expenseRecurring;
+  const usesBillingDay = isPlanningLaunch;
   let resolvedExpenseDate = '';
-  if (type === 'expense') {
+  if (usesBillingDay) {
     const date = resolveUnifiedExpenseDateInput(rawDateValue, month);
     if (!date) {
       alert('Informe a data da cobrança como dia (1 a 31) ou data completa (dd/mm/aa).');
       return;
     }
     resolvedExpenseDate = date;
-  } else if (usesBillingDay) {
-    const date = normalizeFlexibleDateInput(rawDateValue, month, { simpleDayMonthOffset: 1 });
-    if (!date) {
-      alert('Preencha a data de cobrança como dia (1 a 31) ou data completa (dd/mm/aa).');
-      return;
-    }
   }
-  const date = type === 'expense'
+  const date = usesBillingDay
     ? resolvedExpenseDate
-    : (usesBillingDay
-    ? normalizeFlexibleDateInput(rawDateValue, month, { simpleDayMonthOffset: 1 })
-    : normalizeUnifiedOutflowSpendDateInput(rawDateValue, month));
-  const status = type === 'expense' ? 'planned' : 'done';
+    : normalizeUnifiedOutflowSpendDateInput(rawDateValue, month);
+  const status = usesBillingDay ? 'planned' : 'done';
   const isInstallment = document.getElementById('unifiedOutflowInstallmentsToggle').checked;
   const installmentsTotal = isInstallment ? Math.max(2, Number(document.getElementById('unifiedOutflowInstallmentsCount').value || 2)) : 1;
   const isDirectRealOutflow = output.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(output.outputMethod);
@@ -4183,13 +4165,11 @@ function saveUnifiedOutflow() {
     participants: [],
     mode: 'equal'
   };
-  if (type === 'spend' || type === 'expense') {
-    try {
-      sharedState = collectUnifiedOutflowSharedFromForm(amount);
-    } catch (error) {
-      alert(error?.message || 'Não foi possível validar a divisão do gasto compartilhado.');
-      return;
-    }
+  try {
+    sharedState = collectUnifiedOutflowSharedFromForm(amount);
+  } catch (error) {
+    alert(error?.message || 'Não foi possível validar a divisão do gasto compartilhado.');
+    return;
   }
   const baseItem = normalizeUnifiedOutflowItem({
     id: editingUnifiedOutflowId || '',
