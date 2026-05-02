@@ -1346,7 +1346,10 @@ function parseUnifiedOutflowOutputValue(value) {
 }
 
 function isComparableDailyGoalSpend(item) {
-  return item?.type === 'spend' && item?.recurringSpend !== true;
+  const isSpendType = typeof isUnifiedLaunchOfType === 'function'
+    ? isUnifiedLaunchOfType(item, 'spend')
+    : String(item?.type || '').toLowerCase() === 'spend';
+  return isSpendType && item?.recurringSpend !== true;
 }
 
 function pruneDailyGoalsWithoutSpendValue(month) {
@@ -1378,7 +1381,10 @@ function pruneDailyGoalsWithoutSpendValue(month) {
 function syncUnifiedOutflowLegacyData(month) {
   if (!month) return;
   const fixedItems = (month.outflows || []).filter(item => isUnifiedExpenseType(item));
-  const spendItems = (month.outflows || []).filter(item => item.type === 'spend');
+  const spendItems = (month.outflows || []).filter(item => {
+    if (typeof isUnifiedLaunchOfType === 'function') return isUnifiedLaunchOfType(item, 'spend');
+    return String(item?.type || '').toLowerCase() === 'spend';
+  });
   month.despesas = [
     ...fixedItems.map(item => ({
       id: item.id,
@@ -1713,7 +1719,9 @@ function renderUnifiedMonthSummary(month, filterValue, rows) {
   if (filterValue.startsWith('account:') || filterValue.startsWith('method:')) {
     const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
     const fixedCount = rows.filter(row => row.kind === 'outflow' && isUnifiedExpenseType(row.item)).length;
-    const spendCount = rows.filter(row => row.kind === 'outflow' && row.item.type === 'spend').length;
+    const spendCount = rows.filter(row => row.kind === 'outflow' && (typeof isUnifiedLaunchOfType === 'function'
+      ? isUnifiedLaunchOfType(row.item, 'spend')
+      : String(row?.item?.type || '').toLowerCase() === 'spend')).length;
     const title = filterValue.startsWith('account:')
       ? 'Saídas por conta'
       : String(filterValue.split(':')[1] || 'Saída').replace(/^./, c => c.toUpperCase());
@@ -1979,7 +1987,10 @@ function toggleUnifiedDirectMethodCategoryPaid(category, checked) {
     item.paid = checked === true;
     // Preserve an explicit field to prevent defaulting logic from forcing true again.
     if (item.paid !== true) item.status = 'planned';
-    if (item.paid === true && item.type === 'spend') item.status = 'done';
+    const isSpendType = typeof isUnifiedLaunchOfType === 'function'
+      ? isUnifiedLaunchOfType(item, 'spend')
+      : String(item?.type || '').toLowerCase() === 'spend';
+    if (item.paid === true && isSpendType) item.status = 'done';
   });
   syncUnifiedOutflowLegacyData(month);
   save(true);
@@ -3949,7 +3960,9 @@ function cloneUnifiedOutflowForMonth(item, targetDate, sourceMonth = null) {
     ...item,
     id: '',
     paid: isDirectRealOutflow,
-    status: item.type === 'spend' ? item.status : 'planned',
+    status: ((typeof isUnifiedLaunchOfType === 'function'
+      ? isUnifiedLaunchOfType(item, 'spend')
+      : String(item?.type || '').toLowerCase() === 'spend') ? item.status : 'planned'),
     createdAt: new Date().toISOString()
   });
   if (clone.installmentsTotal > 1) {
@@ -4014,7 +4027,10 @@ function buildUnifiedPilotMonthFromPrevious(prev, newMonthName) {
     if (isUnifiedExpenseType(item) && item.installmentsTotal <= 1) {
       return [cloneUnifiedOutflowForMonth(item, date, prev)];
     }
-    if (item.type === 'spend' && item.recurringSpend === true && item.installmentsTotal <= 1) {
+    const isSpendType = typeof isUnifiedLaunchOfType === 'function'
+      ? isUnifiedLaunchOfType(item, 'spend')
+      : String(item?.type || '').toLowerCase() === 'spend';
+    if (isSpendType && item.recurringSpend === true && item.installmentsTotal <= 1) {
       return [cloneUnifiedOutflowForMonth(item, date, prev)];
     }
     return [];

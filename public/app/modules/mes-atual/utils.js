@@ -18,8 +18,12 @@ function isUnifiedLaunchOfType(item, kind) {
   if (!item) return false;
   if (getUnifiedEntryKind(item) !== 'launch') return false;
   const type = String(item.type || '').toLowerCase();
-  if (kind === 'spend') return type === 'spend';
-  if (kind === 'expense') return type === 'expense' || type === 'fixed';
+  const explicitExpense = type === 'expense' || type === 'fixed';
+  const explicitSpend = type === 'spend';
+  const recurringExpense = item.expenseRecurring === true;
+  const planningExpense = item.showInMonthPlanning === true || item.includeInMonthPlanning === true;
+  if (kind === 'expense') return explicitExpense || recurringExpense || planningExpense;
+  if (kind === 'spend') return explicitSpend || !(explicitExpense || recurringExpense || planningExpense);
   return false;
 }
 
