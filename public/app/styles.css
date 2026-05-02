@@ -3836,6 +3836,12 @@ body {
   gap: 8px;
 }
 
+.unified-outflow-import-btn{
+  padding: 7px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .unified-outflow-quick-toast {
   min-height: 20px;
   margin-top: 8px;

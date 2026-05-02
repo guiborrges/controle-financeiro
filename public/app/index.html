@@ -159,7 +159,6 @@
         <input id="unifiedOutflowSearch" class="btn unified-outflow-search-input" style="display:none" placeholder="Procurar" oninput="setUnifiedOutflowSearch(this.value)">
         <select id="unifiedOutflowTagFilter" class="btn" style="display:none;padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
         <select id="unifiedOutflowFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowFilter(this.value)"></select>
-        <button class="btn btn-ghost" onclick="openBillImportModal()">Adicionar por fatura</button>
         <button class="btn btn-primary" onclick="openUnifiedOutflowModal()">+ Adicionar lançamento</button>
         <button class="btn btn-primary" onclick="openUnifiedCardModal()">+ Adicionar cartão</button>
       </div>
@@ -894,6 +893,7 @@
     <div class="modal-drag-handle unified-outflow-modal-head" onmousedown="startModalDrag(event, 'modalUnifiedOutflowDialog')">
       <h3 id="modalUnifiedOutflowTitle" style="margin:0">Adicionar lançamento</h3>
       <div class="unified-outflow-modal-head-actions">
+        <button class="btn btn-ghost unified-outflow-import-btn" type="button" onclick="closeUnifiedOutflowModal(); openBillImportModal();" title="Adicionar por fatura">Adicionar por fatura</button>
         <button class="btn-icon unified-outflow-minimize-btn" type="button" onclick="minimizeUnifiedOutflowModal()" title="Minimizar">—</button>
         <button class="btn-icon" type="button" onclick="closeUnifiedOutflowModal()" title="Fechar">✕</button>
       </div>
