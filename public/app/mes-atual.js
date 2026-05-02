@@ -1582,7 +1582,7 @@ function getUnifiedMonthPilotMetrics(month) {
   const fixedPlannedTotal = (month.outflows || []).reduce((acc, item) => {
     if (!isUnifiedExpenseType(item)) return acc;
     if (item?.outputKind === 'card') return acc;
-    const category = resolveCategoryName(item?.categoria || '');
+    const category = getUnifiedOutflowCategoryName(item, '');
     if (isCardCategory(category)) return acc;
     if (String(item?.cardId || '').trim()) return acc;
     if (String(item?.cardName || '').trim()) return acc;
@@ -2119,7 +2119,7 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
   } = options;
   const totals = new Map();
   items.forEach(item => {
-    const category = getUnifiedOutflowCategoryName(item, 'OUTROS');
+    const category = resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS'));
     if (!totals.has(category)) totals.set(category, []);
     totals.get(category).push(item);
   });
@@ -2225,7 +2225,9 @@ function renderUnifiedSpendGroups(month, rows) {
   const isExpenseType = (item) => typeof isUnifiedLaunchOfType === 'function'
     ? isUnifiedLaunchOfType(item, 'expense')
     : isUnifiedExpenseType(item);
-  const monthCategoryItems = (month.outflows || [])
+  const monthCategoryItems = (rows || [])
+    .filter(row => row?.kind === 'outflow')
+    .map(row => row.item)
     .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
     .filter(item => {
       if (isExpenseType(item)) return true;
@@ -2238,13 +2240,13 @@ function renderUnifiedSpendGroups(month, rows) {
       .filter(item => isSpendType(item))
       .filter(item => !isDirectMethodCategory(getUnifiedOutflowCategoryName(item, '')))
       .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
-      .map(item => getUnifiedOutflowCategoryName(item, 'OUTROS'))
+      .map(item => resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS')))
     : [];
-  const spendCategories = monthCategoryItems.map(item => getUnifiedOutflowCategoryName(item, 'OUTROS'));
+  const spendCategories = monthCategoryItems.map(item => resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS')));
   const categories = Array.from(new Set([
     ...inheritedPrevCategories,
     ...spendCategories
-  ].map(cat => resolveCategoryName(cat || 'OUTROS'))));
+  ]));
   return renderUnifiedCategoryGroups(month, monthCategoryItems, {
     emptyText: 'Nenhum gasto registrado ainda.',
     includePaymentLabel: true,
