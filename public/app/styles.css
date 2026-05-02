@@ -993,8 +993,8 @@ body {
 }
 .unified-card-recurring-detail-row td{
   background: rgba(76,117,190,.05);
-  border-left: 1px solid rgba(93,111,143,.18);
-  border-right: 1px solid rgba(93,111,143,.18);
+  border-right: none !important;
+  border-left: none !important;
 }
 .unified-card-recurring-detail-label{
   font-size: 9px;
@@ -1014,12 +1014,32 @@ body {
 }
 .unified-card-group-head-row td{
   border-top: 1px solid rgba(93,111,143,.18);
-  border-left: 1px solid rgba(93,111,143,.18);
-  border-right: 1px solid rgba(93,111,143,.18);
+  border-right: none !important;
+  border-left: none !important;
   background: rgba(76,117,190,.02);
 }
 .unified-card-recurring-detail-row.is-last td{
   border-bottom: 1px solid rgba(93,111,143,.18);
+}
+.unified-card-group-head-row td:first-child,
+.unified-card-recurring-detail-row td:first-child{
+  border-left: 1px solid rgba(93,111,143,.18) !important;
+}
+.unified-card-group-head-row td:last-child,
+.unified-card-recurring-detail-row td:last-child{
+  border-right: 1px solid rgba(93,111,143,.18) !important;
+}
+.unified-card-group-head-row td:first-child{
+  border-top-left-radius: 16px;
+}
+.unified-card-group-head-row td:last-child{
+  border-top-right-radius: 16px;
+}
+.unified-card-recurring-detail-row.is-last td:first-child{
+  border-bottom-left-radius: 16px;
+}
+.unified-card-recurring-detail-row.is-last td:last-child{
+  border-bottom-right-radius: 16px;
 }
 .unified-outflow-table .category-inline-label{
   font-weight: 500;
