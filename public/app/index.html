@@ -157,7 +157,7 @@
       </div>
       <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input id="unifiedOutflowSearch" class="btn unified-outflow-search-input" style="display:none" placeholder="Procurar" oninput="setUnifiedOutflowSearch(this.value)">
-        <select id="unifiedOutflowTagFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
+        <select id="unifiedOutflowTagFilter" class="btn" style="display:none;padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
         <select id="unifiedOutflowFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowFilter(this.value)"></select>
         <button class="btn btn-ghost" onclick="openBillImportModal()">Adicionar por fatura</button>
         <button class="btn btn-primary" onclick="openUnifiedOutflowModal()">+ Adicionar lançamento</button>
@@ -906,21 +906,18 @@
           <div id="unifiedOutflowDescriptionSuggestions" class="unified-desc-suggestions" onmousedown="cancelHideUnifiedOutflowDescriptionSuggestions()"></div>
         </div>
         <div class="field">
-                    <label class="form-help-label" data-help="Todo registro é um lançamento. A forma de comportamento é definida nas opções recorrente, parcelado e compartilhado.">Tipo</label>
-          <select id="unifiedOutflowType" onchange="handleUnifiedOutflowTypeChange()">
-            <option value="launch">Lançamento</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="field">
           <label class="form-help-label" data-help="A categoria organiza esse lançamento nas análises, gráficos e agrupamentos do mês.">Categoria</label>
           <select id="unifiedOutflowCategory" onchange="toggleUnifiedOutflowNewCategory()"></select>
         </div>
-      <div class="field" id="unifiedOutflowNewCategoryWrap" style="display:none">
-        <label class="form-help-label" data-help="Crie uma categoria nova quando nenhuma das existentes representar bem esse lançamento.">Nova categoria</label>
+      </div>
+      <input id="unifiedOutflowType" type="hidden" value="launch">
+      <div class="form-row">
+        <div class="field" id="unifiedOutflowNewCategoryWrap" style="display:none">
+          <label class="form-help-label" data-help="Crie uma categoria nova quando nenhuma das existentes representar bem esse lançamento.">Nova categoria</label>
           <input id="unifiedOutflowNewCategory" list="unifiedOutflowCategorySuggestions" placeholder="Nome da categoria" oninput="renderUnifiedOutflowCategorySuggestionList(this.value)">
           <datalist id="unifiedOutflowCategorySuggestions"></datalist>
+        </div>
+        <div class="field"></div>
       </div>
       </div>
       <div class="form-row">

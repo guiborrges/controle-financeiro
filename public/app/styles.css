@@ -991,6 +991,17 @@ body {
   font-weight: 600;
   letter-spacing: .02em;
 }
+.unified-card-recurring-detail-row td{
+  background: rgba(76,117,190,.04);
+}
+.unified-card-recurring-detail-label{
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #5d6f8f;
+  margin-bottom: 4px;
+}
 .unified-outflow-table .category-inline-label{
   font-weight: 500;
   color: var(--text2);

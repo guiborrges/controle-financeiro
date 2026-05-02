@@ -1808,8 +1808,15 @@ function getUnifiedDirectMethodGroupBadge(method) {
 
 function renderUnifiedFixedRows(month, rows) {
   const groupedDirectMethods = new Map();
+  const recurringCardRowsByCardId = new Map();
   const regularRows = [];
   rows.forEach(row => {
+    if (row?.kind === 'outflow' && row?.item?.outputKind === 'card' && row?.item?.recurringSpend === true) {
+      const cardId = String(row?.item?.outputRef || '').trim();
+      if (!recurringCardRowsByCardId.has(cardId)) recurringCardRowsByCardId.set(cardId, []);
+      recurringCardRowsByCardId.get(cardId).push(row);
+      return;
+    }
     if (!isUnifiedDirectMethodSummaryRow(row)) {
       regularRows.push(row);
       return;
@@ -1938,10 +1945,34 @@ function renderUnifiedFixedRows(month, rows) {
       const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
       const cardLaunchesAmount = getUnifiedCardLaunchesAmount(month, bill.cardId);
       const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
+      const recurringCardRows = recurringCardRowsByCardId.get(String(bill?.cardId || '').trim()) || [];
       const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(billAmount)}</span>`;
       const selectionControl = selectionIdx === -1
         ? '<input type="checkbox" checked disabled>'
         : `<input type="checkbox" ${selected ? 'checked' : ''} onchange="toggleDespesaSelection(${selectionIdx})">`;
+      const recurringCardDetails = recurringCardRows.length
+        ? recurringCardRows
+            .slice()
+            .sort((a, b) => parseData(b?.item?.date || '') - parseData(a?.item?.date || ''))
+            .map(entry => {
+              const recurringItem = entry.item;
+              const details = `${escapeHtml(String(recurringItem?.description || 'Lançamento recorrente'))}${recurringItem?.tag ? `<div class="text-muted" style="margin-top:4px;font-size:11px">Tag • ${escapeHtml(recurringItem.tag)}</div>` : ''}`;
+              return `
+                <tr class="unified-card-recurring-detail-row">
+                  <td></td>
+                  <td class="unified-outflow-description-cell" style="padding-left:44px">
+                    <div class="unified-card-recurring-detail-label">Recorrente do cartão</div>
+                    ${details}
+                  </td>
+                  <td><span class="text-muted">Informativo</span></td>
+                  <td></td>
+                  <td class="amount amount-neg">${fmt(getUnifiedEffectiveOutflowAmount(recurringItem))}</td>
+                  <td></td>
+                  <td></td>
+                </tr>`;
+            })
+            .join('')
+        : '';
       return `
         <tr>
           <td style="padding-left:22px">${selectionControl}</td>
@@ -1951,7 +1982,8 @@ function renderUnifiedFixedRows(month, rows) {
           ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:billAmount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
           <td><label class="unified-paid-toggle"><input type="checkbox" ${bill.paid ? 'checked' : ''} onchange="toggleUnifiedCardBillPaid('${bill.id}', this.checked)"><span>Pago</span></label></td>
           <td><button class="btn-icon" onclick="openUnifiedCardModal('${card?.id || ''}')">✎</button></td>
-        </tr>`;
+        </tr>
+        ${recurringCardDetails}`;
     }
     const item = row.item;
     const linkedCard = item.outputKind === 'card'
@@ -2413,12 +2445,15 @@ function renderUnifiedMonthPilot(month) {
   }
   ensureUnifiedOutflowPilotMonth(month);
   const currentFilter = getUnifiedOutflowFilterValue(month);
-  const currentTagFilter = getUnifiedOutflowTagFilterValue(month);
+  const currentTagFilter = '';
   const currentSearch = getUnifiedOutflowSearchValue(month);
-  const tagOptions = getUnifiedOutflowTagFilterOptions(month);
   filterSelect.innerHTML = renderUnifiedOutflowFilterOptions(month, currentFilter);
-  tagFilterSelect.innerHTML = renderUnifiedOutflowTagFilterOptions(month, currentTagFilter);
-  tagFilterSelect.disabled = tagOptions.length === 0;
+  if (month?.unifiedOutflowUi && typeof month.unifiedOutflowUi === 'object') {
+    month.unifiedOutflowUi.tagFilter = '';
+  }
+  tagFilterSelect.innerHTML = renderUnifiedOutflowTagFilterOptions(month, '');
+  tagFilterSelect.disabled = true;
+  tagFilterSelect.style.display = 'none';
   const showSearch = currentFilter === 'all';
   searchInput.style.display = showSearch ? '' : 'none';
   if (searchInput.value !== currentSearch) {
@@ -2923,11 +2958,7 @@ function handleUnifiedOutflowTypeChange() {
   if (recurringToggle?.checked === true && planningToggle) planningToggle.checked = true;
   updateUnifiedOutflowDateFieldState();
   if (!outputHelp) return;
-  if (planningToggle?.checked === true || recurringToggle?.checked === true) {
-    outputHelp.textContent = 'Planejamento: informe só o dia (vai para o próximo mês) ou data completa (respeita mês/ano informado).';
-  } else {
-    outputHelp.textContent = '';
-  }
+  outputHelp.textContent = '';
 }
 
 function toggleUnifiedOutflowShared() {
