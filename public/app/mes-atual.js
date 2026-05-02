@@ -2824,6 +2824,7 @@ function toggleUnifiedOutflowInstallments() {
 
 function toggleUnifiedOutflowRecurring() {
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
+  const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
   const installmentsToggle = document.getElementById('unifiedOutflowInstallmentsToggle');
   const installmentsWrap = document.getElementById('unifiedOutflowInstallmentsWrap');
   if (!recurringToggle) return;
@@ -2831,7 +2832,12 @@ function toggleUnifiedOutflowRecurring() {
     installmentsToggle.checked = false;
     if (installmentsWrap) installmentsWrap.style.display = 'none';
   }
+  if (planningToggle) planningToggle.checked = recurringToggle.checked === true;
   handleUnifiedOutflowTypeChange();
+}
+
+function toggleUnifiedOutflowPlanning() {
+  scheduleUnifiedOutflowDraftSave();
 }
 
 function handleUnifiedOutflowTypeChange() {
@@ -2850,6 +2856,7 @@ function handleUnifiedOutflowTypeChange() {
   const sharedWrap = document.getElementById('unifiedOutflowSharedWrap');
   const recurringText = document.getElementById('unifiedOutflowRecurringText');
   const sharedText = document.getElementById('unifiedOutflowSharedText');
+  const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
   const isCardOutput = outputValue.startsWith('card:');
   if (type === 'expense' && isCardOutput && outputSelect) {
     const fallbackValue = Array.from(outputSelect.options || []).some(option => option.value === 'method:debito')
@@ -2871,6 +2878,7 @@ function handleUnifiedOutflowTypeChange() {
   if (!canUseShared && sharedToggle) sharedToggle.checked = false;
   if (sharedWrap) sharedWrap.style.display = canUseShared && sharedToggle?.checked === true ? '' : 'none';
   if (canUseShared && sharedToggle?.checked === true) renderUnifiedOutflowSharedPeople();
+  if (recurringToggle?.checked === true && planningToggle) planningToggle.checked = true;
   updateUnifiedOutflowDateFieldState();
   if (!outputHelp) return;
   if (effectiveType === 'expense') {
@@ -3500,6 +3508,7 @@ function buildUnifiedOutflowDraftFromForm(month) {
   const outputValue = String(document.getElementById('unifiedOutflowOutput')?.value || 'method:debito').trim();
   const date = String(document.getElementById('unifiedOutflowDate')?.value || '').trim();
   const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle')?.checked === true;
+  const planningToggle = document.getElementById('unifiedOutflowPlanningToggle')?.checked === true;
   const installmentsToggle = document.getElementById('unifiedOutflowInstallmentsToggle')?.checked === true;
   const installmentsCount = String(document.getElementById('unifiedOutflowInstallmentsCount')?.value || '2').trim();
   const tag = String(document.getElementById('unifiedOutflowTag')?.value || '');
@@ -3519,6 +3528,7 @@ function buildUnifiedOutflowDraftFromForm(month) {
     outputValue,
     date,
     recurringToggle,
+    planningToggle,
     installmentsToggle,
     installmentsCount,
     tag,
@@ -3557,6 +3567,7 @@ function applyUnifiedOutflowDraftToForm(month, draft) {
   document.getElementById('unifiedOutflowOutput').innerHTML = getUnifiedOutflowOutputOptions(month, String(draft.outputValue || 'method:debito'));
   document.getElementById('unifiedOutflowDate').value = String(draft.date || '');
   document.getElementById('unifiedOutflowRecurringToggle').checked = draft.recurringToggle === true;
+  document.getElementById('unifiedOutflowPlanningToggle').checked = draft.planningToggle === true || draft.showInMonthPlanning === true;
   document.getElementById('unifiedOutflowInstallmentsToggle').checked = draft.installmentsToggle === true;
   document.getElementById('unifiedOutflowInstallmentsCount').value = String(draft.installmentsCount || '2');
   populateUnifiedOutflowTagOptions(String(draft.tag || ''));
@@ -3632,6 +3643,12 @@ function fillUnifiedOutflowFormFromItem(month, item) {
       : (item?.date || ''))
     : currentDateMask;
   document.getElementById('unifiedOutflowRecurringToggle').checked = item?.recurringSpend === true || item?.expenseRecurring === true;
+  const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
+  if (planningToggle) {
+    planningToggle.checked = item
+      ? (item?.showInMonthPlanning === true || item?.includeInMonthPlanning === true || item?.recurringSpend === true || item?.expenseRecurring === true)
+      : false;
+  }
   document.getElementById('unifiedOutflowInstallmentsToggle').checked = !!(item?.installmentsTotal > 1);
   document.getElementById('unifiedOutflowInstallmentsCount').value = item?.installmentsTotal > 1 ? item.installmentsTotal : 2;
   const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
@@ -3755,7 +3772,7 @@ function copyUnifiedOutflowIntoForm(outflowId) {
   if (!item) return;
   editingUnifiedOutflowId = '';
   window.__unifiedOutflowReturnToCategoryEditor = false;
-  document.getElementById('modalUnifiedOutflowTitle').textContent = 'Adicionar gasto ou despesa';
+  document.getElementById('modalUnifiedOutflowTitle').textContent = 'Adicionar lançamento';
   fillUnifiedOutflowFormFromItem(month, item);
   setUnifiedOutflowModalMode(false);
   showUnifiedOutflowQuickToast('Dados copiados');
@@ -3865,7 +3882,7 @@ function openUnifiedOutflowModal(outflowId = '', context = {}) {
   const item = (month.outflows || []).find(entry => entry.id === outflowId) || null;
   window.__unifiedOutflowReturnToCategoryEditor = context?.fromCategoryEditor === true;
   editingUnifiedOutflowId = item?.id || '';
-  document.getElementById('modalUnifiedOutflowTitle').textContent = item ? 'Editar gasto ou despesa' : 'Adicionar gasto ou despesa';
+  document.getElementById('modalUnifiedOutflowTitle').textContent = item ? 'Editar lançamento' : 'Adicionar lançamento';
   bindUnifiedOutflowDraftListeners();
   fillUnifiedOutflowFormFromItem(month, item);
   unifiedOutflowModalMinimized = false;
@@ -4070,6 +4087,7 @@ function saveUnifiedOutflow() {
   const output = parseUnifiedOutflowOutputValue(document.getElementById('unifiedOutflowOutput').value || '');
   const type = output.outputKind === 'card' ? 'spend' : requestedType;
   const recurringToggleChecked = document.getElementById('unifiedOutflowRecurringToggle').checked;
+  const planningToggleChecked = document.getElementById('unifiedOutflowPlanningToggle')?.checked === true;
   const recurringSpend = type === 'spend' && recurringToggleChecked;
   const expenseRecurring = type === 'expense' && recurringToggleChecked;
   const rawDateValue = document.getElementById('unifiedOutflowDate').value || '';
@@ -4143,7 +4161,8 @@ function saveUnifiedOutflow() {
     sharedOriginalAmount: amount,
     sharedOwnerName: getOwnerDisplayName(),
     sharedOthersAmount: sharedState.othersShare,
-    sharedParticipants: sharedState.participants
+    sharedParticipants: sharedState.participants,
+    showInMonthPlanning: recurringToggleChecked ? true : planningToggleChecked
   });
   const existingIndex = (month.outflows || []).findIndex(entry => entry.id === baseItem.id);
   const seriesKey = baseItem.installmentsGroupId || baseItem.recurringGroupId;
@@ -4217,7 +4236,7 @@ function saveUnifiedOutflow() {
 
   persistOutflowSave(false);
   if (!editingUnifiedOutflowId) {
-    document.getElementById('modalUnifiedOutflowTitle').textContent = 'Adicionar gasto ou despesa';
+    document.getElementById('modalUnifiedOutflowTitle').textContent = 'Adicionar lançamento';
   }
 }
 

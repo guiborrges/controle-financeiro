@@ -50,6 +50,7 @@
     const outputValue = String(document.getElementById('unifiedOutflowOutput')?.value || 'method:debito').trim();
     const date = String(document.getElementById('unifiedOutflowDate')?.value || '').trim();
     const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle')?.checked === true;
+    const planningToggle = document.getElementById('unifiedOutflowPlanningToggle')?.checked === true;
     const installmentsToggle = document.getElementById('unifiedOutflowInstallmentsToggle')?.checked === true;
     const installmentsCount = String(document.getElementById('unifiedOutflowInstallmentsCount')?.value || '2').trim();
     const tag = String(document.getElementById('unifiedOutflowTag')?.value || '');
@@ -62,7 +63,7 @@
     const launchRecurring = recurringToggle === true;
     const launchInstallment = installmentsToggle === true;
     const launchShared = sharedToggle === true;
-    const showInMonthPlanning = launchRecurring || type === 'expense';
+    const showInMonthPlanning = launchRecurring || planningToggle;
 
     return {
       monthId: safeMonth?.id || '',
@@ -80,6 +81,7 @@
       outputValue,
       date,
       recurringToggle,
+      planningToggle,
       installmentsToggle,
       installmentsCount,
       tag,
@@ -109,6 +111,7 @@
     const installmentChecked = draft.launchInstallment === true || draft.installmentsToggle === true;
     const sharedChecked = draft.launchShared === true || draft.sharedToggle === true;
     document.getElementById('unifiedOutflowRecurringToggle').checked = recurringChecked;
+    document.getElementById('unifiedOutflowPlanningToggle').checked = draft.showInMonthPlanning === true || draft.planningToggle === true;
     document.getElementById('unifiedOutflowInstallmentsToggle').checked = installmentChecked;
     document.getElementById('unifiedOutflowInstallmentsCount').value = String(draft.installmentsCount || '2');
     deps.populateTagOptions?.(String(draft.tag || ''));

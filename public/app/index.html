@@ -160,7 +160,7 @@
         <select id="unifiedOutflowTagFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
         <select id="unifiedOutflowFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowFilter(this.value)"></select>
         <button class="btn btn-ghost" onclick="openBillImportModal()">Adicionar por fatura</button>
-        <button class="btn btn-primary" onclick="openUnifiedOutflowModal()">+ Adicionar gasto ou despesa</button>
+        <button class="btn btn-primary" onclick="openUnifiedOutflowModal()">+ Adicionar lançamento</button>
         <button class="btn btn-primary" onclick="openUnifiedCardModal()">+ Adicionar cartão</button>
       </div>
     </div>
@@ -892,7 +892,7 @@
 <div class="modal-bg" id="modalUnifiedOutflow">
   <div class="modal" id="modalUnifiedOutflowDialog">
     <div class="modal-drag-handle unified-outflow-modal-head" onmousedown="startModalDrag(event, 'modalUnifiedOutflowDialog')">
-      <h3 id="modalUnifiedOutflowTitle" style="margin:0">Adicionar gasto ou despesa</h3>
+      <h3 id="modalUnifiedOutflowTitle" style="margin:0">Adicionar lançamento</h3>
       <div class="unified-outflow-modal-head-actions">
         <button class="btn-icon unified-outflow-minimize-btn" type="button" onclick="minimizeUnifiedOutflowModal()" title="Minimizar">—</button>
         <button class="btn-icon" type="button" onclick="closeUnifiedOutflowModal()" title="Fechar">✕</button>
@@ -906,7 +906,7 @@
           <div id="unifiedOutflowDescriptionSuggestions" class="unified-desc-suggestions" onmousedown="cancelHideUnifiedOutflowDescriptionSuggestions()"></div>
         </div>
         <div class="field">
-                    <label class="form-help-label" data-help="Use despesa para compromissos do mês. Use gasto para consumo e saídas do dia a dia.">Tipo</label>
+                    <label class="form-help-label" data-help="Use lançamento recorrente para compromissos frequentes e lançamento normal para saídas pontuais do dia a dia.">Tipo</label>
           <select id="unifiedOutflowType" onchange="handleUnifiedOutflowTypeChange()">
                       <option value="expense">Despesa</option>
             <option value="spend">Gasto</option>
@@ -969,6 +969,10 @@
         <label class="month-copy-toggle form-help-label" id="unifiedOutflowSharedToggleLabel" style="display:none" data-help="Ative quando o valor pago será dividido com outras pessoas. Apenas a parte do proprietário entra nas despesas do mês.">
           <input id="unifiedOutflowSharedToggle" type="checkbox" onchange="toggleUnifiedOutflowShared()">
           <span id="unifiedOutflowSharedText">Gasto compartilhado</span>
+        </label>
+        <label class="month-copy-toggle form-help-label" id="unifiedOutflowPlanningToggleLabel" data-help="Quando marcado, este lançamento aparece na aba Planejamento do mês neste mês de competência.">
+          <input id="unifiedOutflowPlanningToggle" type="checkbox" onchange="toggleUnifiedOutflowPlanning()">
+          <span>Aparecer em planejamento do mês</span>
         </label>
       </div>
       <div class="form-row" id="unifiedOutflowInstallmentsWrap" style="display:none">

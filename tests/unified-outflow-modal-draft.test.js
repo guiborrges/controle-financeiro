@@ -44,6 +44,7 @@ test('buildUnifiedOutflowDraftFromForm defaults type to expense when select is m
     unifiedOutflowOutput: { value: 'method:pix' },
     unifiedOutflowDate: { value: '10/04/26' },
     unifiedOutflowRecurringToggle: { checked: false },
+    unifiedOutflowPlanningToggle: { checked: false },
     unifiedOutflowInstallmentsToggle: { checked: false },
     unifiedOutflowInstallmentsCount: { value: '2' },
     unifiedOutflowTag: { value: '' },
@@ -62,7 +63,7 @@ test('buildUnifiedOutflowDraftFromForm defaults type to expense when select is m
   assert.equal(draft.launchRecurring, false);
   assert.equal(draft.launchInstallment, false);
   assert.equal(draft.launchShared, false);
-  assert.equal(draft.showInMonthPlanning, true);
+  assert.equal(draft.showInMonthPlanning, false);
 });
 
 test('applyUnifiedOutflowDraftToForm maps legacy fixed type to expense selection', () => {
@@ -75,6 +76,7 @@ test('applyUnifiedOutflowDraftToForm maps legacy fixed type to expense selection
     unifiedOutflowOutput: { value: '', innerHTML: '' },
     unifiedOutflowDate: { value: '' },
     unifiedOutflowRecurringToggle: { checked: false },
+    unifiedOutflowPlanningToggle: { checked: false },
     unifiedOutflowInstallmentsToggle: { checked: false },
     unifiedOutflowInstallmentsCount: { value: '2' },
     unifiedOutflowTag: { value: '' },
@@ -110,6 +112,7 @@ test('applyUnifiedOutflowDraftToForm prioritizes launch flags when present', () 
     unifiedOutflowOutput: { value: '', innerHTML: '' },
     unifiedOutflowDate: { value: '' },
     unifiedOutflowRecurringToggle: { checked: false },
+    unifiedOutflowPlanningToggle: { checked: false },
     unifiedOutflowInstallmentsToggle: { checked: false },
     unifiedOutflowInstallmentsCount: { value: '2' },
     unifiedOutflowTag: { value: '' },
