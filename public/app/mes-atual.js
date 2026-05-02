@@ -44,6 +44,10 @@ function isUnifiedRecurringExpense(item) {
   return isUnifiedExpenseType(item) && item?.expenseRecurring === true;
 }
 
+function getUnifiedOutflowCategoryName(item, fallback = 'OUTROS') {
+  return resolveCategoryName(item?.category || item?.categoria || fallback);
+}
+
 function resolveUnifiedLaunchFlags(item, resolvedType, recurringSpend, expenseRecurring, installmentsTotal, sharedExpense) {
   const explicitPlanning = item?.includeInMonthPlanning === true;
   const recurring = recurringSpend === true || expenseRecurring === true;
@@ -523,7 +527,7 @@ function reconcileGuilhermeLegacySpendOutputs(month, profile, cardsByName) {
     const itemId = String(item.id || '');
     const isLegacySpend = itemId.startsWith('legacy_spend_') || itemId.startsWith('legacy_card_fixed_') || String(item.recurringGroupId || '').startsWith('legacy_signature_');
     if (!isLegacySpend) return;
-    const category = resolveCategoryName(item.category || 'OUTROS');
+  const category = getUnifiedOutflowCategoryName(item, 'OUTROS');
     const isSignatureFamily = category === 'ASSINATURAS' || String(item.recurringGroupId || '').startsWith('legacy_signature_');
     const targetCardId = isSignatureFamily ? interCard?.id : xpCard?.id;
     if (!targetCardId) return;
@@ -1229,7 +1233,7 @@ function getUnifiedOutflowCategories(month) {
     : ['MORADIA', 'SERVIÇOS', 'ALIMENTAÇÃO', 'TRANSPORTE', 'COMPRAS', 'SAÚDE', 'LAZER', 'EDUCAÇÃO', 'FINANCEIRO', 'ASSINATURAS', 'TRABALHO', 'OUTROS'].map(resolveCategoryName);
   defaultCategories.forEach(cat => categories.add(cat));
   getAllCategories(month).forEach(cat => categories.add(resolveCategoryName(cat)));
-  (month?.outflows || []).forEach(item => categories.add(resolveCategoryName(item.category || 'OUTROS')));
+  (month?.outflows || []).forEach(item => categories.add(getUnifiedOutflowCategoryName(item, 'OUTROS')));
   (month?.gastosVar || []).forEach(item => categories.add(resolveCategoryName(item?.categoria || 'OUTROS')));
   (month?.despesas || []).forEach(item => categories.add(resolveCategoryName(item?.categoria || 'OUTROS')));
   (month?.dailyCategorySeeds || []).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
@@ -1245,7 +1249,7 @@ function getUsedDailyGoalCategoriesFromMonth(month) {
   (month?.outflows || []).forEach(item => {
     if (item?.type !== 'spend') return;
     if (item?.outputKind === 'card') return;
-    const normalizedCategory = resolveCategoryName(item?.category || 'OUTROS');
+    const normalizedCategory = getUnifiedOutflowCategoryName(item, 'OUTROS');
     if (normalizedCategory === 'PIX' || normalizedCategory === 'DÉBITO' || normalizedCategory === 'DEBITO' || normalizedCategory === 'DINHEIRO') return;
     if (!(getUnifiedEffectiveOutflowAmount(item) > 0)) return;
     categories.add(normalizedCategory);
@@ -1350,7 +1354,7 @@ function pruneDailyGoalsWithoutSpendValue(month) {
   const totalsByCategory = new Map();
   (month.outflows || []).forEach(item => {
     if (!isComparableDailyGoalSpend(item)) return;
-    const category = resolveCategoryName(item?.category || 'OUTROS');
+    const category = getUnifiedOutflowCategoryName(item, 'OUTROS');
     totalsByCategory.set(category, Number(totalsByCategory.get(category) || 0) + getUnifiedEffectiveOutflowAmount(item));
   });
   let changed = false;
@@ -1380,7 +1384,7 @@ function syncUnifiedOutflowLegacyData(month) {
       id: item.id,
       nome: item.description,
       valor: Number(item.amount || 0),
-      categoria: resolveCategoryName(item.category || 'OUTROS'),
+      categoria: getUnifiedOutflowCategoryName(item, 'OUTROS'),
       data: item.date || '',
       pago: item.paid === true,
       paymentMethod: item.outputKind === 'method' ? item.outputMethod : (item.outputKind === 'card' ? 'credito' : item.outputKind),
@@ -1407,14 +1411,14 @@ function syncUnifiedOutflowLegacyData(month) {
     titulo: item.description,
     valor: Number(item.amount || 0),
     data: item.date || '',
-    categoria: resolveCategoryName(item.category || 'OUTROS'),
+    categoria: getUnifiedOutflowCategoryName(item, 'OUTROS'),
     incluirNoTotal: !(item.outputKind === 'card') && item.countsInPrimaryTotals !== false,
     paymentMethod: item.outputKind === 'method' ? item.outputMethod : (item.outputKind === 'card' ? 'credito' : item.outputKind)
   }));
   month.categorias = month.categorias && typeof month.categorias === 'object' ? month.categorias : {};
   month.dailyCategorySeeds = Array.from(new Set([
     ...(Array.isArray(month.dailyCategorySeeds) ? month.dailyCategorySeeds : []),
-    ...spendItems.map(item => resolveCategoryName(item.category || 'OUTROS'))
+    ...spendItems.map(item => getUnifiedOutflowCategoryName(item, 'OUTROS'))
   ]));
   pruneDailyGoalsWithoutSpendValue(month);
   recalcTotals(month);
@@ -1765,7 +1769,7 @@ function isUnifiedDirectMethodSummaryRow(row) {
 
 function getUnifiedDirectMethodCategoryLabel(month, item) {
   const fallback = getUnifiedOutflowPaymentLabel(item, month) || 'OUTROS';
-  return resolveCategoryName(item?.category || fallback);
+  return getUnifiedOutflowCategoryName(item, fallback);
 }
 
 function getUnifiedDirectMethodGroupDisplay(method) {
@@ -1899,7 +1903,7 @@ function renderUnifiedFixedRows(month, rows) {
   const body = sortedRows.map(row => {
     if (row.kind === 'methodGroup') {
       const item = row.item;
-      const category = resolveCategoryName(item.category || 'OUTROS');
+      const category = getUnifiedOutflowCategoryName(item, 'OUTROS');
       const groupKey = String(item.groupKey || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       const methodsLabel = Array.isArray(item.methods) && item.methods.length
         ? item.methods.join(' + ')
@@ -2115,7 +2119,7 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
   } = options;
   const totals = new Map();
   items.forEach(item => {
-    const category = resolveCategoryName(item.category || 'OUTROS');
+    const category = getUnifiedOutflowCategoryName(item, 'OUTROS');
     if (!totals.has(category)) totals.set(category, []);
     totals.get(category).push(item);
   });
@@ -2204,7 +2208,7 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
       ${list}`;
   }).join('');
   const selectedCategorySet = new Set(categoryRows.filter(row => row.selected).map(row => row.category));
-  const selectedItems = items.filter(item => selectedCategorySet.has(resolveCategoryName(item.category || 'OUTROS')));
+  const selectedItems = items.filter(item => selectedCategorySet.has(getUnifiedOutflowCategoryName(item, 'OUTROS')));
   const totalSpent = selectedItems.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
   const totalSpendOnly = selectedItems.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
   const totalMeta = Number(getDailyGoalTarget(month) || 0);
@@ -2226,17 +2230,17 @@ function renderUnifiedSpendGroups(month, rows) {
     .filter(item => {
       if (isExpenseType(item)) return true;
       if (!isSpendType(item)) return false;
-      return !isDirectMethodCategory(item?.category || '');
+      return !isDirectMethodCategory(getUnifiedOutflowCategoryName(item, ''));
     });
   const prevMonth = getPreviousMonthFor(month);
   const inheritedPrevCategories = prevMonth
     ? (prevMonth.outflows || [])
-      .filter(item => isSpendType(item) || isExpenseType(item))
-      .filter(item => !isDirectMethodCategory(item?.category || ''))
+      .filter(item => isSpendType(item))
+      .filter(item => !isDirectMethodCategory(getUnifiedOutflowCategoryName(item, '')))
       .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
-      .map(item => resolveCategoryName(item?.category || 'OUTROS'))
+      .map(item => getUnifiedOutflowCategoryName(item, 'OUTROS'))
     : [];
-  const spendCategories = monthCategoryItems.map(item => resolveCategoryName(item.category || 'OUTROS'));
+  const spendCategories = monthCategoryItems.map(item => getUnifiedOutflowCategoryName(item, 'OUTROS'));
   const categories = Array.from(new Set([
     ...inheritedPrevCategories,
     ...spendCategories
@@ -2262,7 +2266,7 @@ function removeUnifiedSpendCategory(category) {
       : isUnifiedExpenseType(item));
   const hasItems = (month.outflows || []).some(item =>
     (isType(item, 'spend') || isType(item, 'expense'))
-      && resolveCategoryName(item.category || 'OUTROS') === normalized
+      && getUnifiedOutflowCategoryName(item, 'OUTROS') === normalized
   );
   if (hasItems) {
     alert('Essa categoria ainda tem gastos neste mês. Remova ou recategorize os lançamentos antes de apagar da lista.');
@@ -2358,7 +2362,7 @@ function renameUnifiedOutflowCategoryGroup(currentCategory) {
   if (normalized === previous) return;
   recordHistoryState();
   (month.outflows || []).forEach(item => {
-    if (resolveCategoryName(item.category || 'OUTROS') === previous) item.category = normalized;
+    if (getUnifiedOutflowCategoryName(item, 'OUTROS') === previous) item.category = normalized;
   });
   if (month.dailyGoals && Object.prototype.hasOwnProperty.call(month.dailyGoals, previous)) {
     const previousGoal = Number(month.dailyGoals[previous] || 0);
@@ -4514,7 +4518,7 @@ function getDailyGoalTotal(m) {
   const spentByCategory = new Map();
   (m.outflows || []).forEach(item => {
     if (!isComparableDailyGoalSpend(item)) return;
-    const category = resolveCategoryName(item?.category || 'OUTROS');
+    const category = getUnifiedOutflowCategoryName(item, 'OUTROS');
     spentByCategory.set(category, Number(spentByCategory.get(category) || 0) + Number(item?.amount || 0));
   });
   return Object.entries(m.dailyGoals).reduce((acc, [category, value]) => {
