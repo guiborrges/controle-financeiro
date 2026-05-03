@@ -75,3 +75,61 @@ test('bill import ai route returns parsed payload from oracle endpoint', async (
   }
 });
 
+test('bill import ai route parses CSV locally when oracle endpoint is empty', async () => {
+  process.env.BILL_IMPORT_AI_PROVIDER = 'oracle';
+  process.env.ORACLE_AI_ENDPOINT = '';
+  const app = createMockApp();
+  registerBillImportAiRoutes(app, createDeps());
+  const handler = app.routes.get('POST /api/bill-import/parse');
+  const csv = 'Data;Estabelecimento;Portador;Valor;Parcela\n01/04/2026;SUPERMERCADO;GUILHERME;R$ 100,50;-\n';
+  const req = {
+    body: {
+      contentBase64: Buffer.from(csv, 'utf8').toString('base64'),
+      fileName: 'fatura.csv',
+      mimeType: 'text/csv',
+      context: {}
+    }
+  };
+  const res = createMockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload?.provider, 'oracle-local-csv');
+  assert.equal(res.payload?.payload?.version, '1');
+  assert.equal(res.payload?.payload?.items?.length, 1);
+  assert.equal(res.payload?.payload?.items?.[0]?.description, 'SUPERMERCADO');
+});
+
+test('bill import ai route parses PDF locally via OCI CLI when oracle endpoint is empty', async () => {
+  process.env.BILL_IMPORT_AI_PROVIDER = 'oracle';
+  process.env.ORACLE_AI_ENDPOINT = '';
+  const childProcess = require('child_process');
+  const originalExec = childProcess.execFileSync;
+  childProcess.execFileSync = () => JSON.stringify({
+    data: {
+      pages: [{ lines: [{ text: '01/04/2026 SUPERMERCADO R$ 100,50' }] }]
+    }
+  });
+  try {
+    const app = createMockApp();
+    registerBillImportAiRoutes(app, createDeps());
+    const handler = app.routes.get('POST /api/bill-import/parse');
+    const req = {
+      body: {
+        contentBase64: Buffer.from('%PDF-1.7 mock', 'utf8').toString('base64'),
+        fileName: 'fatura.pdf',
+        mimeType: 'application/pdf',
+        context: {}
+      }
+    };
+    const res = createMockRes();
+    await handler(req, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.payload?.provider, 'oracle-local-oci-pdf');
+    assert.equal(res.payload?.payload?.version, '1');
+    assert.equal(res.payload?.payload?.items?.length, 1);
+    assert.equal(res.payload?.payload?.items?.[0]?.description, 'SUPERMERCADO');
+  } finally {
+    childProcess.execFileSync = originalExec;
+  }
+});
+

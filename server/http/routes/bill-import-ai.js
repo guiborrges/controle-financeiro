@@ -10,6 +10,12 @@ function registerBillImportAiRoutes(app, deps) {
   const oracleApiKey = String(process.env.ORACLE_AI_API_KEY || '').trim();
   const oracleTimeoutMs = Number(process.env.ORACLE_AI_TIMEOUT_MS || 45000);
   const modelName = String(process.env.ORACLE_AI_MODEL || 'oracle-ai').trim();
+  const localOciRegion = String(process.env.ORACLE_AI_REGION || process.env.OCI_REGION || 'sa-saopaulo-1').trim();
+
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const { execFileSync } = require('child_process');
 
   function normalizeJsonCandidate(rawText) {
     const text = String(rawText || '').trim();
@@ -85,6 +91,117 @@ function registerBillImportAiRoutes(app, deps) {
     };
   }
 
+  function normalizeDateAny(value) {
+    const raw = String(value || '').trim();
+    const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{2}|\d{4})$/);
+    if (!m) return '';
+    const yy = m[3].length === 2 ? m[3] : m[3].slice(-2);
+    return `${m[1]}/${m[2]}/${yy}`;
+  }
+
+  function extractTextCandidates(node, bucket) {
+    if (!node) return;
+    if (typeof node === 'string') {
+      const txt = node.trim();
+      if (txt) bucket.push(txt);
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach(entry => extractTextCandidates(entry, bucket));
+      return;
+    }
+    if (typeof node === 'object') {
+      Object.values(node).forEach(value => extractTextCandidates(value, bucket));
+    }
+  }
+
+  function parseItemsFromOciDocumentJson(ociPayload, context = {}) {
+    const cardList = Array.isArray(context?.cards?.list) ? context.cards.list : [];
+    const fallbackCard = String(cardList[0]?.name || 'XP').trim() || 'XP';
+    const rawTexts = [];
+    extractTextCandidates(ociPayload, rawTexts);
+    const uniqueLines = Array.from(new Set(rawTexts))
+      .map(line => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+
+    const amountRegex = /(?:R\$\s*)?\d{1,3}(?:\.\d{3})*,\d{2}/g;
+    const dateRegex = /\b\d{2}\/\d{2}\/(?:\d{2}|\d{4})\b/;
+
+    const items = [];
+    uniqueLines.forEach(line => {
+      const amounts = line.match(amountRegex);
+      if (!amounts || !amounts.length) return;
+      const amountRaw = amounts[amounts.length - 1];
+      const amount = moneyToNumber(amountRaw);
+      if (!(amount > 0)) return;
+      const dateMatch = line.match(dateRegex);
+      const date = normalizeDateAny(dateMatch?.[0] || '');
+      let description = line
+        .replace(amountRaw, '')
+        .replace(dateRegex, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      if (!description) description = 'Compra no cartão';
+      items.push({
+        date,
+        description: description.slice(0, 120),
+        amount,
+        card: fallbackCard,
+        category: null,
+        needs_review: true,
+        warnings: []
+      });
+    });
+
+    const dedup = new Map();
+    items.forEach(item => {
+      const key = `${item.date}|${item.description.toUpperCase()}|${item.amount.toFixed(2)}`;
+      if (!dedup.has(key)) dedup.set(key, item);
+    });
+    const normalizedItems = Array.from(dedup.values());
+    if (!normalizedItems.length) {
+      throw new Error('PDF processado pela OCI, mas nenhum lançamento foi reconhecido automaticamente.');
+    }
+    return {
+      format: 'finance_import_v1',
+      version: '1',
+      items: normalizedItems
+    };
+  }
+
+  function analyzePdfWithLocalOci(contentBase64, context = {}) {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bill-oci-'));
+    const featuresPath = path.join(tempDir, 'features.json');
+    try {
+      const features = [
+        { featureType: 'KEY_VALUE_DETECTION' },
+        { featureType: 'TABLE_DETECTION' }
+      ];
+      fs.writeFileSync(featuresPath, JSON.stringify(features), 'utf8');
+      const args = [
+        'ai-document',
+        'analyze-document-result',
+        'analyze-document-inline-document-details',
+        '--document-data', contentBase64,
+        '--features', `file://${featuresPath}`,
+        '--auth', 'api_key',
+        '--region', localOciRegion,
+        '--output', 'json'
+      ];
+      const stdout = execFileSync('oci', args, {
+        encoding: 'utf8',
+        maxBuffer: 30 * 1024 * 1024
+      });
+      const parsed = JSON.parse(stdout || '{}');
+      return parseItemsFromOciDocumentJson(parsed, context);
+    } catch (error) {
+      const details = String(error?.stderr || error?.stdout || error?.message || '').slice(0, 450);
+      throw new Error(`Falha ao processar PDF com OCI local: ${details || 'erro desconhecido'}`);
+    } finally {
+      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
+    }
+  }
+
   async function callOracleAi(payload) {
     if (!oracleEndpoint) {
       throw new Error('Integração Oracle AI não configurada. Defina ORACLE_AI_ENDPOINT.');
@@ -135,12 +252,21 @@ function registerBillImportAiRoutes(app, deps) {
     try {
       const decoded = Buffer.from(contentBase64, 'base64');
       const isCsvFile = /\.csv$/i.test(String(fileName || '')) || String(mimeType || '').toLowerCase().includes('csv');
+      const isPdfFile = /\.pdf$/i.test(String(fileName || '')) || String(mimeType || '').toLowerCase().includes('pdf');
       if (isCsvFile && !oracleEndpoint) {
         const csvText = decoded.toString('utf8');
         const payload = parseCsvToFinanceImportV1(csvText);
         return res.json({
           ok: true,
           provider: 'oracle-local-csv',
+          payload
+        });
+      }
+      if (isPdfFile && !oracleEndpoint) {
+        const payload = analyzePdfWithLocalOci(contentBase64, context);
+        return res.json({
+          ok: true,
+          provider: 'oracle-local-oci-pdf',
           payload
         });
       }
