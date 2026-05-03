@@ -31,6 +31,59 @@ function registerBillImportAiRoutes(app, deps) {
     }
   }
 
+  function moneyToNumber(value) {
+    const txt = String(value || '')
+      .replace(/[R$\s]/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.')
+      .trim();
+    const n = Number(txt);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function normalizeDate(value) {
+    const m = String(value || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return '';
+    return `${m[1]}/${m[2]}/${String(m[3]).slice(-2)}`;
+  }
+
+  function parseCsvToFinanceImportV1(csvText) {
+    const lines = String(csvText || '')
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean);
+    if (lines.length < 2) throw new Error('CSV sem conteúdo suficiente.');
+    const header = lines.shift().split(';').map(entry => entry.trim().toLowerCase());
+    const idxDate = header.findIndex(name => name === 'data');
+    const idxDescription = header.findIndex(name => name.includes('estabelecimento') || name.includes('descri'));
+    const idxAmount = header.findIndex(name => name === 'valor' || name.includes('valor'));
+
+    if (idxDate < 0 || idxDescription < 0 || idxAmount < 0) {
+      throw new Error('CSV não reconhecido. Esperado: Data;Estabelecimento;...;Valor');
+    }
+
+    const items = lines.map(line => {
+      const cols = line.split(';');
+      const date = normalizeDate(cols[idxDate] || '');
+      const description = String(cols[idxDescription] || '').trim() || 'Compra no cartão';
+      const amount = moneyToNumber(cols[idxAmount] || '');
+      return {
+        date,
+        description,
+        amount,
+        card: 'XP',
+        category: null,
+        needs_review: true,
+        warnings: []
+      };
+    }).filter(item => item.amount > 0 && item.description);
+
+    return {
+      format: 'finance_import_v1',
+      items
+    };
+  }
+
   async function callOracleAi(payload) {
     if (!oracleEndpoint) {
       throw new Error('Integração Oracle AI não configurada. Defina ORACLE_AI_ENDPOINT.');
@@ -79,6 +132,18 @@ function registerBillImportAiRoutes(app, deps) {
     }
 
     try {
+      const decoded = Buffer.from(contentBase64, 'base64');
+      const isCsvFile = /\.csv$/i.test(String(fileName || '')) || String(mimeType || '').toLowerCase().includes('csv');
+      if (isCsvFile && !oracleEndpoint) {
+        const csvText = decoded.toString('utf8');
+        const payload = parseCsvToFinanceImportV1(csvText);
+        return res.json({
+          ok: true,
+          provider: 'oracle-local-csv',
+          payload
+        });
+      }
+
       const payload = await callOracleAi({
         task: 'parse-credit-card-bill',
         outputFormat: 'finance_import_v1',
