@@ -4149,6 +4149,32 @@ body {
   font-size: 12px;
 }
 
+.muplug-connection-badge {
+  border: 1px solid rgba(132,147,168,.25);
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+}
+
+.muplug-connection-badge.is-connected {
+  border-color: rgba(34,197,94,.45);
+  background: rgba(34,197,94,.12);
+}
+
+.muplug-connection-badge.is-disconnected {
+  border-color: rgba(239,68,68,.4);
+  background: rgba(239,68,68,.1);
+}
+
+.muplug-bank-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
 .bill-import-review-modal {
   width: min(1180px, 96vw);
   max-width: 1180px;

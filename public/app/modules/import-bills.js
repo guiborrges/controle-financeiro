@@ -5,7 +5,11 @@
     jobs: [],
     pollingTimer: null,
     activeJobId: '',
-    statusHideTimer: null
+    statusHideTimer: null,
+    muplugConnection: {
+      connected: false,
+      apiKey: ''
+    }
   };
 
   function showStatus(message, tone = 'ok', title = 'Importação por fatura', autoHideMs = null) {
@@ -55,6 +59,19 @@
       imported: 'imported'
     };
     return map[String(status || '').toLowerCase()] || 'uploaded';
+  }
+
+  function renderConnectionBadge() {
+    const nodes = [
+      document.getElementById('muplugConnectionBadge'),
+      document.getElementById('muplugConnectionHeaderBadge')
+    ].filter(Boolean);
+    const connected = state.muplugConnection.connected === true;
+    nodes.forEach(node => {
+      node.classList.remove('is-connected', 'is-disconnected');
+      node.classList.add(connected ? 'is-connected' : 'is-disconnected');
+      node.title = connected ? 'Conectado ao internet banking' : 'Desconectado ao internet banking';
+    });
   }
 
   function getCurrentContext() {
@@ -118,7 +135,7 @@
   }
 
   async function refreshStatus() {
-    const response = await fetch('/api/invoice/status', {
+    const response = await fetch('/api/muplug/jobs', {
       method: 'GET',
       credentials: 'same-origin',
       headers: getCsrfHeaders({ Accept: 'application/json' })
@@ -127,6 +144,22 @@
     if (!response.ok) throw new Error(payload?.message || 'Falha ao consultar status das faturas.');
     state.jobs = Array.isArray(payload?.jobs) ? payload.jobs : [];
     renderJobs();
+  }
+
+  async function refreshConnection() {
+    try {
+      const response = await fetch('/api/muplug/connection', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: getCsrfHeaders({ Accept: 'application/json' })
+      });
+      const payload = await response.json().catch(() => ({}));
+      state.muplugConnection.connected = response.ok && payload?.connected === true;
+      state.muplugConnection.apiKey = payload?.hasApiKey ? 'configured' : '';
+    } catch (_) {
+      state.muplugConnection.connected = false;
+    }
+    renderConnectionBadge();
   }
 
   function startPolling() {
@@ -143,7 +176,7 @@
 
   async function uploadInvoiceFile(file) {
     const contentBase64 = await readFileAsBase64(file);
-    const response = await fetch('/api/invoice/upload', {
+    const response = await fetch('/api/muplug/upload', {
       method: 'POST',
       credentials: 'same-origin',
       headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
@@ -175,7 +208,7 @@
 
   async function openJobPreview(jobId) {
     try {
-      const response = await fetch(`/api/invoice/result/${encodeURIComponent(jobId)}`, {
+      const response = await fetch(`/api/muplug/result/${encodeURIComponent(jobId)}`, {
         method: 'GET',
         credentials: 'same-origin',
         headers: getCsrfHeaders({ Accept: 'application/json' })
@@ -208,7 +241,7 @@
       const payload = typeof global.BillImportReview?.exportPayload === 'function'
         ? global.BillImportReview.exportPayload()
         : null;
-      const response = await fetch('/api/invoice/import', {
+      const response = await fetch('/api/muplug/import', {
         method: 'POST',
         credentials: 'same-origin',
         headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
@@ -231,7 +264,7 @@
 
   async function reprocessJob(jobId) {
     try {
-      const response = await fetch(`/api/invoice/reprocess/${encodeURIComponent(jobId)}`, {
+      const response = await fetch(`/api/muplug/reprocess/${encodeURIComponent(jobId)}`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
@@ -255,8 +288,17 @@
 
   async function openImportModal() {
     if (typeof global.openModal === 'function') global.openModal('modalBillImport');
+    await refreshConnection().catch(() => {});
     await refreshStatus().catch(() => {});
     startPolling();
+  }
+
+  async function openProcessedJobs() {
+    if (!state.muplugConnection.connected) {
+      showStatus('Desconectado ao internet banking. Verifique a conexão Muplug.', 'error');
+      return;
+    }
+    await openImportModal();
   }
 
   function closeImportModal() {
@@ -267,10 +309,12 @@
   global.BillImport = {
     openJobPreview,
     runImportFromReview,
-    reprocessJob
+    reprocessJob,
+    openProcessedJobs
   };
   global.openBillImportModal = openImportModal;
   global.closeBillImportModal = closeImportModal;
   global.triggerBillImportUpload = triggerUpload;
   global.handleBillImportFileChange = triggerUploadFromInput;
+  refreshConnection().catch(() => {});
 })(typeof window !== 'undefined' ? window : globalThis);

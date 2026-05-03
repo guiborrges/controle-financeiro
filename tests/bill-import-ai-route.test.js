@@ -219,3 +219,72 @@ test('invoice import endpoint marks job as imported', async () => {
   assert.equal(importedJob?.status, 'imported');
 });
 
+test('muplug connection endpoint returns connected when key/base are configured', async () => {
+  process.env.BILL_IMPORT_AI_PROVIDER = 'muplug';
+  process.env.MUPLUG_BASE_URL = 'https://muplug.local';
+  process.env.MUPLUG_API_KEY = 'key';
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok: false, status: 404, text: async () => '' });
+  try {
+    const app = createMockApp();
+    registerBillImportAiRoutes(app, createDeps());
+    const route = app.routes.get('GET /api/muplug/connection');
+    const res = createMockRes();
+    await route({}, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.payload?.ok, true);
+    assert.equal(res.payload?.connected, true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('muplug upload creates job and muplug status can be polled', async () => {
+  process.env.BILL_IMPORT_AI_PROVIDER = 'muplug';
+  process.env.MUPLUG_BASE_URL = 'https://muplug.local';
+  process.env.MUPLUG_API_KEY = 'key';
+  process.env.MUPLUG_PARSE_PATH = '/invoice/parse';
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    if (String(url).includes('/invoice/parse')) {
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          transactions: [
+            { date: '01/04/2026', description: 'SUPERMERCADO', amount: 'R$ 100,50', category: 'MERCADO', cardName: 'XP' }
+          ]
+        })
+      };
+    }
+    return { ok: true, status: 200, text: async () => '{}' };
+  };
+  try {
+    const app = createMockApp();
+    registerBillImportAiRoutes(app, createDeps());
+    const upload = app.routes.get('POST /api/muplug/upload');
+    const status = app.routes.get('GET /api/muplug/status/:jobId');
+    const req = {
+      body: {
+        fileName: 'fatura.pdf',
+        mimeType: 'application/pdf',
+        contentBase64: Buffer.from('fake', 'utf8').toString('base64'),
+        context: {}
+      }
+    };
+    const uploadRes = createMockRes();
+    await upload(req, uploadRes);
+    assert.equal(uploadRes.statusCode, 200);
+    const jobId = uploadRes.payload?.jobId;
+    assert.ok(jobId);
+    await new Promise(resolve => setTimeout(resolve, 25));
+    const statusRes = createMockRes();
+    await status({ params: { jobId } }, statusRes);
+    assert.equal(statusRes.statusCode, 200);
+    assert.equal(statusRes.payload?.ok, true);
+    assert.ok(['uploaded', 'processing', 'completed', 'error', 'imported'].includes(statusRes.payload?.job?.status));
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
