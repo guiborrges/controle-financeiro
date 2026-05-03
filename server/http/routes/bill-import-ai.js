@@ -80,6 +80,7 @@ function registerBillImportAiRoutes(app, deps) {
 
     return {
       format: 'finance_import_v1',
+      version: '1',
       items
     };
   }
