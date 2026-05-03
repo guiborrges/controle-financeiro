@@ -174,8 +174,8 @@ function registerBillImportAiRoutes(app, deps) {
     const featuresPath = path.join(tempDir, 'features.json');
     try {
       const features = [
-        { featureType: 'KEY_VALUE_DETECTION' },
-        { featureType: 'TABLE_DETECTION' }
+        { featureType: 'KEY_VALUE_EXTRACTION' },
+        { featureType: 'TABLE_EXTRACTION' }
       ];
       fs.writeFileSync(featuresPath, JSON.stringify(features), 'utf8');
       const args = [
@@ -184,6 +184,7 @@ function registerBillImportAiRoutes(app, deps) {
         'analyze-document-inline-document-details',
         '--document-data', contentBase64,
         '--features', `file://${featuresPath}`,
+        '--document-type', 'INVOICE',
         '--auth', 'api_key',
         '--region', localOciRegion,
         '--output', 'json'
