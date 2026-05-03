@@ -170,6 +170,56 @@ function registerBillImportAiRoutes(app, deps) {
     };
   }
 
+  function parseItemsFromRawPdfContent(pdfBuffer, context = {}) {
+    const cardList = Array.isArray(context?.cards?.list) ? context.cards.list : [];
+    const fallbackCard = String(cardList[0]?.name || 'XP').trim() || 'XP';
+    const rawText = String(pdfBuffer.toString('latin1') || '');
+    const candidates = rawText
+      .split(/[\r\n]+/)
+      .map(s => s.replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+
+    const dateRegex = /(\d{2}\/\d{2}\/(?:\d{2}|\d{4}))/;
+    const amountRegex = /(?:R\$\s*)?\d{1,3}(?:\.\d{3})*,\d{2}/g;
+    const items = [];
+    for (const line of candidates) {
+      const dateMatch = line.match(dateRegex);
+      const amountMatches = line.match(amountRegex);
+      if (!dateMatch || !amountMatches || !amountMatches.length) continue;
+      const amountRaw = amountMatches[amountMatches.length - 1];
+      const amount = moneyToNumber(amountRaw);
+      if (!(amount > 0)) continue;
+      const date = normalizeDateAny(dateMatch[1]);
+      let description = line
+        .replace(dateMatch[1], '')
+        .replace(amountRaw, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      if (!description || description.length < 2) description = 'Compra no cartão';
+      items.push({
+        date,
+        description: description.slice(0, 120),
+        amount,
+        card: fallbackCard,
+        category: null,
+        needs_review: true,
+        warnings: ['fallback-local-pdf']
+      });
+    }
+    const dedup = new Map();
+    items.forEach(item => {
+      const key = `${item.date}|${item.description.toUpperCase()}|${item.amount.toFixed(2)}`;
+      if (!dedup.has(key)) dedup.set(key, item);
+    });
+    const normalizedItems = Array.from(dedup.values());
+    if (!normalizedItems.length) return null;
+    return {
+      format: 'finance_import_v1',
+      version: '1',
+      items: normalizedItems
+    };
+  }
+
   function analyzePdfWithLocalOci(contentBase64, context = {}) {
     function sleepMs(ms) {
       const sab = new SharedArrayBuffer(4);
@@ -226,6 +276,8 @@ function registerBillImportAiRoutes(app, deps) {
     } catch (error) {
       const details = String(error?.stderr || error?.stdout || error?.message || '').slice(0, 450);
       if (isRateLimitError(error)) {
+        const fallbackPayload = parseItemsFromRawPdfContent(Buffer.from(contentBase64, 'base64'), context);
+        if (fallbackPayload) return fallbackPayload;
         throw new Error('Oracle atingiu limite temporário de requisições por segundo. Aguarde alguns segundos e tente novamente.');
       }
       throw new Error(`Falha ao processar PDF com OCI local: ${details || 'erro desconhecido'}`);
