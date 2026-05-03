@@ -3,7 +3,11 @@ function registerBillImportAiRoutes(app, deps) {
   const {
     noStore,
     requireAuth,
-    requireCsrf
+    requireCsrf,
+    getAuthenticatedUser,
+    readUserAppState,
+    writeUserAppState,
+    USERS_DATA_DIR
   } = deps;
 
   const provider = String(process.env.BILL_IMPORT_AI_PROVIDER || '').trim().toLowerCase();
@@ -16,7 +20,9 @@ function registerBillImportAiRoutes(app, deps) {
   const fs = require('fs');
   const os = require('os');
   const path = require('path');
+  const crypto = require('crypto');
   const { execFileSync } = require('child_process');
+  const userQueues = new Map();
 
   function normalizeJsonCandidate(rawText) {
     const text = String(rawText || '').trim();
@@ -293,6 +299,204 @@ function registerBillImportAiRoutes(app, deps) {
     return next;
   }
 
+  function safeId() {
+    return `inv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  function nowIso() {
+    return new Date().toISOString();
+  }
+
+  function sanitizeFileName(name = '') {
+    const base = String(name || 'fatura').trim() || 'fatura';
+    return base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+  }
+
+  function getUserId(req) {
+    const user = typeof getAuthenticatedUser === 'function' ? getAuthenticatedUser(req) : null;
+    return String(user?.id || '').trim();
+  }
+
+  function ensureUserJobDir(userId) {
+    const base = path.join(USERS_DATA_DIR, userId, 'invoice-jobs');
+    const files = path.join(base, 'files');
+    fs.mkdirSync(files, { recursive: true });
+    return { base, files };
+  }
+
+  function getJobsFilePath(userId) {
+    const dirs = ensureUserJobDir(userId);
+    return path.join(dirs.base, 'jobs.json');
+  }
+
+  function readUserJobs(userId) {
+    try {
+      const file = getJobsFilePath(userId);
+      if (!fs.existsSync(file)) return [];
+      const raw = fs.readFileSync(file, 'utf8');
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeUserJobs(userId, jobs) {
+    const file = getJobsFilePath(userId);
+    fs.writeFileSync(file, JSON.stringify(Array.isArray(jobs) ? jobs : [], null, 2), 'utf8');
+  }
+
+  function updateJob(userId, jobId, patch) {
+    const jobs = readUserJobs(userId);
+    const idx = jobs.findIndex(job => String(job?.id || '') === String(jobId || ''));
+    if (idx < 0) return null;
+    jobs[idx] = {
+      ...jobs[idx],
+      ...patch,
+      updatedAt: nowIso()
+    };
+    writeUserJobs(userId, jobs);
+    return jobs[idx];
+  }
+
+  function listJobsForClient(userId) {
+    return readUserJobs(userId)
+      .sort((a, b) => String(b?.createdAt || '').localeCompare(String(a?.createdAt || '')))
+      .map(job => {
+        const base = {
+          id: job.id,
+          fileName: job.fileName,
+          uploadedAt: job.createdAt,
+          status: job.status,
+          progress: Number(job.progress || 0),
+          importedAt: job.importedAt || null,
+          errorMessage: job.errorMessage || '',
+          hasResult: !!job.result
+        };
+        if (base.status === 'processing') {
+          const startedAtMs = Date.parse(String(job.startedAt || job.updatedAt || job.createdAt || ''));
+          const elapsed = Number.isFinite(startedAtMs) ? Math.max(0, Date.now() - startedAtMs) : 0;
+          const simulated = Math.min(90, Math.max(base.progress, Math.floor(elapsed / 350)));
+          base.progress = simulated;
+        }
+        return base;
+      });
+  }
+
+  async function processJob(userId, jobId) {
+    const jobs = readUserJobs(userId);
+    const job = jobs.find(entry => String(entry?.id || '') === String(jobId || ''));
+    if (!job) return;
+    if (!job.filePath || !fs.existsSync(job.filePath)) {
+      updateJob(userId, jobId, {
+        status: 'error',
+        progress: 100,
+        errorMessage: 'Arquivo original não encontrado para processamento.'
+      });
+      return;
+    }
+    try {
+      updateJob(userId, jobId, { status: 'processing', progress: 8, startedAt: nowIso(), errorMessage: '' });
+      const content = fs.readFileSync(job.filePath);
+      const contentBase64 = content.toString('base64');
+      const mimeType = String(job.mimeType || '');
+      const fileName = String(job.fileName || '');
+      const context = job.context && typeof job.context === 'object' ? job.context : {};
+      const isCsvFile = /\.csv$/i.test(fileName) || mimeType.toLowerCase().includes('csv');
+      const isPdfFile = /\.pdf$/i.test(fileName) || mimeType.toLowerCase().includes('pdf');
+      updateJob(userId, jobId, { progress: 28 });
+      let payload = null;
+      let providerUsed = 'oracle';
+      if (isCsvFile && !oracleEndpoint) {
+        payload = parseCsvToFinanceImportV1(content.toString('utf8'));
+        providerUsed = 'oracle-local-csv';
+      } else if (isPdfFile && !oracleEndpoint) {
+        payload = await enqueueOciPdfAnalysis(contentBase64, context);
+        providerUsed = 'oracle-local-oci-pdf';
+      } else {
+        payload = await callOracleAi({
+          task: 'parse-credit-card-bill',
+          outputFormat: 'finance_import_v1',
+          file: { name: fileName, mimeType, contentBase64 },
+          context,
+          instructions: String(job.prompt || '').trim()
+        });
+      }
+      updateJob(userId, jobId, {
+        status: 'completed',
+        progress: 100,
+        result: payload,
+        provider: providerUsed,
+        completedAt: nowIso()
+      });
+    } catch (error) {
+      updateJob(userId, jobId, {
+        status: 'error',
+        progress: 100,
+        errorMessage: String(error?.message || 'Falha no processamento da fatura.')
+      });
+    }
+  }
+
+  function enqueueUserJob(userId, jobId) {
+    const prev = userQueues.get(userId) || Promise.resolve();
+    const next = prev.then(() => processJob(userId, jobId)).catch(() => processJob(userId, jobId));
+    userQueues.set(userId, next.catch(() => {}));
+    return next;
+  }
+
+  function normalizeImportDate(value) {
+    const raw = String(value || '').trim();
+    let m = raw.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+    if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+    m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return `${m[1]}/${m[2]}/${String(m[3]).slice(-2)}`;
+    return '';
+  }
+
+  function normalizeText(value) {
+    return String(value || '').trim();
+  }
+
+  function normalizeDesc(value) {
+    return normalizeText(value)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+  }
+
+  function getMonthIdFromDateAndData(date, data) {
+    const normalized = normalizeImportDate(date);
+    if (!normalized) return '';
+    const parts = normalized.split('/');
+    const month = Number(parts[1] || 0);
+    const year = 2000 + Number(parts[2] || 0);
+    const list = Array.isArray(data) ? data : [];
+    const found = list.find(entry => {
+      const id = String(entry?.id || '');
+      const yearMatch = id.match(/_(20\d{2})$/);
+      if (!yearMatch) return false;
+      if (Number(yearMatch[1] || 0) !== year) return false;
+      const slug = id.split('_')[0];
+      const monthMap = {
+        janeiro: 1, fevereiro: 2, marco: 3, abril: 4, maio: 5, junho: 6,
+        julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12
+      };
+      return monthMap[String(slug || '').toLowerCase()] === month;
+    });
+    return found?.id || '';
+  }
+
+  function buildDedupKey(item) {
+    return [
+      normalizeText(item.cardId || '').toLowerCase(),
+      normalizeImportDate(item.date),
+      Number(Number(item.amount || 0).toFixed(2)),
+      normalizeDesc(item.description)
+    ].join('|');
+  }
+
   async function callOracleAi(payload) {
     if (!oracleEndpoint) {
       throw new Error('Integração Oracle AI não configurada. Defina ORACLE_AI_ENDPOINT.');
@@ -383,6 +587,191 @@ function registerBillImportAiRoutes(app, deps) {
       return res.status(422).json({
         message: error?.message || 'Falha ao interpretar fatura com Oracle AI.'
       });
+    }
+  });
+
+  app.post('/api/invoice/upload', noStore, requireAuth, requireCsrf, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (provider !== 'oracle') {
+      return res.status(400).json({ message: 'Provider de IA para fatura não está habilitado.' });
+    }
+    const {
+      fileName = 'fatura',
+      mimeType = '',
+      contentBase64 = '',
+      context = {},
+      prompt = ''
+    } = req.body || {};
+    if (!contentBase64 || typeof contentBase64 !== 'string') {
+      return res.status(400).json({ message: 'Arquivo inválido para upload.' });
+    }
+    try {
+      const id = safeId();
+      const dirs = ensureUserJobDir(userId);
+      const safeName = sanitizeFileName(fileName);
+      const filePath = path.join(dirs.files, `${id}_${safeName}`);
+      fs.writeFileSync(filePath, Buffer.from(contentBase64, 'base64'));
+      const job = {
+        id,
+        userId,
+        fileName: safeName,
+        mimeType: String(mimeType || ''),
+        filePath,
+        prompt: String(prompt || ''),
+        context: context && typeof context === 'object' ? context : {},
+        status: 'uploaded',
+        progress: 0,
+        result: null,
+        errorMessage: '',
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+        importedAt: null
+      };
+      const jobs = readUserJobs(userId);
+      jobs.push(job);
+      writeUserJobs(userId, jobs);
+      enqueueUserJob(userId, id);
+      return res.json({ ok: true, jobId: id, status: job.status, progress: job.progress });
+    } catch (error) {
+      return res.status(500).json({ message: error?.message || 'Falha ao enviar fatura.' });
+    }
+  });
+
+  app.get('/api/invoice/status', noStore, requireAuth, (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    return res.json({ ok: true, jobs: listJobsForClient(userId) });
+  });
+
+  app.get('/api/invoice/result/:jobId', noStore, requireAuth, (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    const jobId = String(req.params?.jobId || '');
+    const job = readUserJobs(userId).find(entry => String(entry?.id || '') === jobId);
+    if (!job) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    return res.json({
+      ok: true,
+      id: job.id,
+      status: job.status,
+      progress: Number(job.progress || 0),
+      result: job.result || null,
+      errorMessage: job.errorMessage || ''
+    });
+  });
+
+  app.post('/api/invoice/reprocess/:jobId', noStore, requireAuth, requireCsrf, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    const jobId = String(req.params?.jobId || '');
+    const existing = readUserJobs(userId).find(entry => String(entry?.id || '') === jobId);
+    if (!existing) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    updateJob(userId, jobId, {
+      status: 'uploaded',
+      progress: 0,
+      result: null,
+      errorMessage: '',
+      importedAt: null
+    });
+    enqueueUserJob(userId, jobId);
+    return res.json({ ok: true });
+  });
+
+  app.post('/api/invoice/import', noStore, requireAuth, requireCsrf, (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    const jobId = String(req.body?.jobId || '');
+    if (!jobId) return res.status(400).json({ message: 'jobId é obrigatório.' });
+    const jobs = readUserJobs(userId);
+    const job = jobs.find(entry => String(entry?.id || '') === jobId);
+    if (!job) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    if (job.status === 'imported') {
+      return res.json({ ok: true, imported: 0, duplicates: 0, alreadyImported: true });
+    }
+    const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : (job.result || null);
+    if (!payload || !Array.isArray(payload.items)) {
+      return res.status(400).json({ message: 'Resultado da fatura não disponível para importação.' });
+    }
+    try {
+      const current = readUserAppState(userId, req.session?.dataEncryptionKey || '');
+      const state = current?.state || {};
+      const data = Array.isArray(state?.data) ? state.data : [];
+      const selected = payload.items.filter(item => item && item.include !== false);
+      const dedupSet = new Set();
+      let imported = 0;
+      let duplicates = 0;
+      let skippedMonth = 0;
+      selected.forEach(item => {
+        const monthId = getMonthIdFromDateAndData(item.date, data);
+        const month = data.find(entry => String(entry?.id || '') === String(monthId || ''));
+        if (!month) {
+          skippedMonth += 1;
+          return;
+        }
+        const outflows = Array.isArray(month.outflows) ? month.outflows : [];
+        const cardId = normalizeText(item.cardId || item.card || item.card_id || '');
+        const next = {
+          id: `bill_import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          description: normalizeText(item.description),
+          type: 'spend',
+          category: normalizeText(item.category || ''),
+          amount: Number(item.amount || 0),
+          outputKind: 'card',
+          outputRef: cardId,
+          outputMethod: '',
+          date: normalizeImportDate(item.date),
+          tag: normalizeText(item.tag || ''),
+          status: 'done',
+          paid: false,
+          countsInPrimaryTotals: false,
+          recurringSpend: false,
+          recurringGroupId: '',
+          installmentsGroupId: '',
+          installmentsTotal: 1,
+          installmentIndex: 1,
+          createdAt: nowIso()
+        };
+        const key = buildDedupKey({ ...next, cardId });
+        if (!cardId || !next.date || !(next.amount > 0) || !next.description) {
+          duplicates += 1;
+          return;
+        }
+        if (dedupSet.has(`${month.id}|${key}`)) {
+          duplicates += 1;
+          return;
+        }
+        const exists = outflows.some(flow => {
+          if (String(flow?.outputKind || '') !== 'card') return false;
+          const flowKey = buildDedupKey({
+            cardId: flow?.outputRef,
+            date: flow?.date,
+            amount: flow?.amount,
+            description: flow?.description
+          });
+          return flowKey === key;
+        });
+        if (exists) {
+          duplicates += 1;
+          return;
+        }
+        dedupSet.add(`${month.id}|${key}`);
+        outflows.push(next);
+        month.outflows = outflows;
+        imported += 1;
+      });
+      state.data = data;
+      const written = writeUserAppState(userId, state, req.session?.dataEncryptionKey || '');
+      updateJob(userId, jobId, {
+        status: 'imported',
+        importedAt: nowIso(),
+        importedCount: imported,
+        duplicateCount: duplicates,
+        skippedMonthCount: skippedMonth,
+        stateRevisionAfterImport: written?.updatedAt || ''
+      });
+      return res.json({ ok: true, imported, duplicates, skippedMonth, updatedAt: written?.updatedAt || '' });
+    } catch (error) {
+      return res.status(500).json({ message: error?.message || 'Falha ao importar fatura para o sistema.' });
     }
   });
 }

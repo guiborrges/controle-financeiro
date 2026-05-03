@@ -4072,6 +4072,83 @@ body {
   align-items: center;
 }
 
+.bill-import-jobs-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.bill-import-job-row {
+  border: 1px solid rgba(132,147,168,.16);
+  border-radius: 12px;
+  background: rgba(255,255,255,.74);
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bill-import-job-main {
+  min-width: 180px;
+}
+
+.bill-import-job-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bill-import-job-meta {
+  color: var(--text3);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.bill-import-job-side {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+}
+
+.bill-import-job-badge {
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid rgba(132,147,168,.2);
+  padding: 2px 8px;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.bill-import-job-badge.is-uploaded { color: #4f6379; background: rgba(79,99,121,.1); }
+.bill-import-job-badge.is-processing { color: #2f5d9a; background: rgba(47,93,154,.12); }
+.bill-import-job-badge.is-completed { color: #2d5a3d; background: rgba(45,90,61,.12); }
+.bill-import-job-badge.is-error { color: #8e2f24; background: rgba(142,47,36,.12); }
+.bill-import-job-badge.is-imported { color: #1b7a4f; background: rgba(27,122,79,.14); }
+
+.bill-import-progress {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(132,147,168,.22);
+  overflow: hidden;
+}
+
+.bill-import-progress-bar {
+  height: 100%;
+  background: var(--accent);
+}
+
+.bill-import-job-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bill-import-job-error {
+  color: #8e2f24;
+  font-size: 12px;
+}
+
 .bill-import-review-modal {
   width: min(1180px, 96vw);
   max-width: 1180px;

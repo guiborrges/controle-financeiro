@@ -2,100 +2,248 @@
   'use strict';
 
   const state = {
-    contextCache: null,
+    jobs: [],
+    pollingTimer: null,
+    activeJobId: '',
     statusHideTimer: null
   };
-
-  function getCurrentContext() {
-    const context = global.BillImportUtils.buildImportContext(global.data || [], global.currentSession || {});
-    const cards = global.BillImportUtils.getAllCardsFromUserData(global.data || []);
-    const categories = global.BillImportUtils.getAllCategoriesFromUserData(global.data || []);
-    const tags = global.BillImportUtils.getAllTagsFromUserData(global.data || []);
-    const currentMonth = typeof global.getCurrentMonth === 'function' ? global.getCurrentMonth() : null;
-    const monthCards = Array.isArray(currentMonth?.outflowCards) ? currentMonth.outflowCards : [];
-    const mergedCardsMap = new Map();
-    (Array.isArray(cards?.list) ? cards.list : []).forEach(card => {
-      const id = String(card?.id || '').trim();
-      const name = String(card?.name || '').trim();
-      if (!id || !name) return;
-      mergedCardsMap.set(id, card);
-    });
-    monthCards.forEach(card => {
-      const id = String(card?.id || '').trim();
-      const name = String(card?.name || '').trim();
-      if (!id || !name || mergedCardsMap.has(id)) return;
-      mergedCardsMap.set(id, {
-        id,
-        name,
-        institution: String(card?.institution || '').trim(),
-        visualId: String(card?.visualId || '').trim(),
-        closingDay: Number(card?.closingDay || 0) || null,
-        paymentDay: Number(card?.paymentDay || 0) || null,
-        description: String(card?.description || '').trim(),
-        firstSeenMonthId: String(currentMonth?.id || '').trim()
-      });
-    });
-    const mergedCards = {
-      ...(cards || {}),
-      list: Array.from(mergedCardsMap.values()).sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR'))
-    };
-    const runtimeTags = typeof global.getUnifiedOutflowTags === 'function' ? global.getUnifiedOutflowTags() : [];
-    const mergedTags = Array.from(new Set([...(tags || []), ...(runtimeTags || [])].map(tag => String(tag || '').trim()).filter(Boolean)))
-      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    state.contextCache = {
-      ...context,
-      cards: mergedCards,
-      categories,
-      tags: mergedTags,
-      cardIndex: mergedCards,
-      categoryIndex: categories,
-      data: global.data || []
-    };
-    return state.contextCache;
-  }
-
-  function getPromptText() {
-    return global.BillImportUtils.buildExternalAiPrompt('finance_import_context.json');
-  }
-
-  function setPromptText() {
-    const field = document.getElementById('billImportPrompt');
-    if (field) field.value = getPromptText();
-  }
 
   function showStatus(message, tone = 'ok', title = 'Importação por fatura', autoHideMs = null) {
     if (typeof global.showAppStatus === 'function') {
       global.showAppStatus(message, title, tone);
-      if (state.statusHideTimer) {
-        clearTimeout(state.statusHideTimer);
-        state.statusHideTimer = null;
-      }
+      if (state.statusHideTimer) clearTimeout(state.statusHideTimer);
       if (Number(autoHideMs || 0) > 0 && typeof global.hideAppStatus === 'function') {
-        state.statusHideTimer = setTimeout(() => {
-          state.statusHideTimer = null;
-          global.hideAppStatus();
-        }, Number(autoHideMs));
+        state.statusHideTimer = setTimeout(() => global.hideAppStatus(), Number(autoHideMs));
       }
       return;
     }
     if (tone === 'error') alert(message);
   }
 
-  function copyPrompt() {
-    const text = getPromptText();
-    if (!navigator?.clipboard?.writeText) {
-      showStatus('Não foi possível copiar automaticamente. Copie o texto manualmente.', 'error');
-      return;
-    }
-    navigator.clipboard.writeText(text)
-      .then(() => showStatus('Prompt copiado para a área de transferência.', 'ok', 'Prompt copiado', 2600))
-      .catch(() => showStatus('Falha ao copiar prompt.', 'error'));
+  function getCsrfHeaders(extraHeaders = {}) {
+    const token = global.__CSRF_TOKEN__ || '';
+    return token ? { ...extraHeaders, 'X-CSRF-Token': token } : { ...extraHeaders };
   }
 
-  function downloadContext() {
-    const context = getCurrentContext();
-    global.BillImportUtils.downloadJsonFile(context, 'finance_import_context.json');
-    showStatus('Arquivo de contexto gerado.', 'ok', 'Contexto pronto', 2600);
+  function normalizeText(value) {
+    return String(value || '').trim();
+  }
+
+  function fmtDateTime(value) {
+    const ms = Date.parse(String(value || ''));
+    if (!Number.isFinite(ms)) return '--';
+    return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(ms));
+  }
+
+  function escapeHtml(value) {
+    const html = global.HtmlUtils?.escapeHtml;
+    if (typeof html === 'function') return html(value);
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function statusLabel(status) {
+    const map = {
+      uploaded: 'uploaded',
+      processing: 'processing',
+      completed: 'completed',
+      error: 'error',
+      imported: 'imported'
+    };
+    return map[String(status || '').toLowerCase()] || 'uploaded';
+  }
+
+  function getCurrentContext() {
+    const context = global.BillImportUtils.buildImportContext(global.data || [], global.currentSession || {});
+    const cards = global.BillImportUtils.getAllCardsFromUserData(global.data || []);
+    const categories = global.BillImportUtils.getAllCategoriesFromUserData(global.data || []);
+    return {
+      ...context,
+      cards,
+      categories,
+      data: global.data || []
+    };
+  }
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const raw = String(reader.result || '');
+        const base64 = raw.includes(',') ? raw.split(',').pop() : raw;
+        if (!base64) return reject(new Error('Falha ao converter arquivo para base64.'));
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error('Falha ao ler arquivo.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderJobs() {
+    const node = document.getElementById('billImportJobsList');
+    if (!node) return;
+    if (!state.jobs.length) {
+      node.innerHTML = '<div class="text-muted" style="padding:10px 2px">Nenhuma fatura enviada ainda.</div>';
+      return;
+    }
+    node.innerHTML = state.jobs.map(job => {
+      const status = statusLabel(job.status);
+      const progress = Math.max(0, Math.min(100, Number(job.progress || 0)));
+      const canOpen = status === 'completed' || status === 'imported';
+      const canRetry = status === 'error';
+      return `
+        <div class="bill-import-job-row">
+          <div class="bill-import-job-main">
+            <div class="bill-import-job-name">${escapeHtml(job.fileName || 'fatura')}</div>
+            <div class="bill-import-job-meta">${escapeHtml(fmtDateTime(job.uploadedAt))}</div>
+          </div>
+          <div class="bill-import-job-side">
+            <span class="bill-import-job-badge is-${escapeHtml(status)}">${escapeHtml(status)}</span>
+            ${status === 'processing' || status === 'uploaded'
+              ? `<div class="bill-import-progress"><div class="bill-import-progress-bar" style="width:${progress}%"></div></div>`
+              : ''}
+            <div class="bill-import-job-actions">
+              ${canOpen ? `<button class="btn btn-ghost" type="button" onclick="BillImport.openJobPreview('${escapeHtml(job.id)}')">Revisar</button>` : ''}
+              ${canRetry ? `<button class="btn btn-ghost" type="button" onclick="BillImport.reprocessJob('${escapeHtml(job.id)}')">Reprocessar</button>` : ''}
+            </div>
+            ${status === 'error' && job.errorMessage ? `<div class="bill-import-job-error">${escapeHtml(job.errorMessage)}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function refreshStatus() {
+    const response = await fetch('/api/invoice/status', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: getCsrfHeaders({ Accept: 'application/json' })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.message || 'Falha ao consultar status das faturas.');
+    state.jobs = Array.isArray(payload?.jobs) ? payload.jobs : [];
+    renderJobs();
+  }
+
+  function startPolling() {
+    stopPolling();
+    state.pollingTimer = setInterval(() => {
+      refreshStatus().catch(() => {});
+    }, 2500);
+  }
+
+  function stopPolling() {
+    if (state.pollingTimer) clearInterval(state.pollingTimer);
+    state.pollingTimer = null;
+  }
+
+  async function uploadInvoiceFile(file) {
+    const contentBase64 = await readFileAsBase64(file);
+    const response = await fetch('/api/invoice/upload', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+      body: JSON.stringify({
+        fileName: String(file?.name || 'fatura'),
+        mimeType: String(file?.type || ''),
+        contentBase64,
+        context: getCurrentContext(),
+        prompt: ''
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.message || 'Falha ao enviar fatura para IA.');
+    return payload;
+  }
+
+  async function triggerUploadFromInput(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    try {
+      showStatus('Enviando fatura para processamento...', 'ok', 'Importação por fatura');
+      await uploadInvoiceFile(file);
+      await refreshStatus();
+      showStatus('Fatura enviada. Acompanhe o processamento na lista.', 'ok', 'Upload concluído', 2400);
+    } catch (error) {
+      showStatus(`Falha ao enviar fatura: ${error.message}`, 'error');
+    }
+  }
+
+  async function openJobPreview(jobId) {
+    try {
+      const response = await fetch(`/api/invoice/result/${encodeURIComponent(jobId)}`, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: getCsrfHeaders({ Accept: 'application/json' })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.message || 'Falha ao carregar resultado da fatura.');
+      if (!payload?.result || typeof payload.result !== 'object') {
+        throw new Error('Resultado da fatura ainda não está disponível.');
+      }
+      const validation = global.BillImportSchema.validatePayload(payload.result, getCurrentContext());
+      global.BillImportReview.setReviewData({
+        sourceFileName: state.jobs.find(job => String(job.id) === String(jobId))?.fileName || 'fatura',
+        context: getCurrentContext(),
+        rawPayload: payload.result,
+        formatErrors: validation.formatErrors,
+        items: validation.items
+      });
+      state.activeJobId = String(jobId || '');
+    } catch (error) {
+      showStatus(error.message, 'error');
+    }
+  }
+
+  async function runImportFromReview() {
+    if (!state.activeJobId) {
+      showStatus('Selecione uma fatura processada antes de importar.', 'error');
+      return;
+    }
+    try {
+      const payload = typeof global.BillImportReview?.exportPayload === 'function'
+        ? global.BillImportReview.exportPayload()
+        : null;
+      const response = await fetch('/api/invoice/import', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+        body: JSON.stringify({
+          jobId: state.activeJobId,
+          payload
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.message || 'Falha ao importar lançamentos.');
+      if (typeof global.closeModal === 'function') global.closeModal('modalBillImportReview');
+      await refreshStatus();
+      if (typeof global.loadAppBootstrapData === 'function') await global.loadAppBootstrapData();
+      if (typeof global.renderMes === 'function') global.renderMes();
+      showStatus(`Importação concluída. ${Number(result.imported || 0)} lançamento(s) inserido(s).`, 'ok', 'Importação concluída', 3000);
+    } catch (error) {
+      showStatus(error.message, 'error');
+    }
+  }
+
+  async function reprocessJob(jobId) {
+    try {
+      const response = await fetch(`/api/invoice/reprocess/${encodeURIComponent(jobId)}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+        body: '{}'
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.message || 'Falha ao reprocessar fatura.');
+      await refreshStatus();
+      showStatus('Reprocessamento iniciado.', 'ok', 'Importação por fatura', 2400);
+    } catch (error) {
+      showStatus(error.message, 'error');
+    }
   }
 
   function triggerUpload() {
@@ -105,165 +253,24 @@
     input.click();
   }
 
-  function readJsonFromFile(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const payload = JSON.parse(String(reader.result || ''));
-          resolve(payload);
-        } catch (error) {
-          reject(new Error('JSON inválido.'));
-        }
-      };
-      reader.onerror = () => reject(new Error('Falha ao ler arquivo.'));
-      reader.readAsText(file, 'utf-8');
-    });
-  }
-
-  function getCsrfHeaders(extraHeaders = {}) {
-    const token = global.__CSRF_TOKEN__ || '';
-    return token
-      ? { ...extraHeaders, 'X-CSRF-Token': token }
-      : { ...extraHeaders };
-  }
-
-  function readFileAsBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const raw = String(reader.result || '');
-        const base64 = raw.includes(',') ? raw.split(',').pop() : raw;
-        if (!base64) {
-          reject(new Error('Falha ao converter arquivo para base64.'));
-          return;
-        }
-        resolve(base64);
-      };
-      reader.onerror = () => reject(new Error('Falha ao ler arquivo para IA.'));
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function parseFileWithOracleAi(file) {
-    const context = getCurrentContext();
-    const contentBase64 = await readFileAsBase64(file);
-    const response = await fetch('/api/bill-import/parse', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
-      body: JSON.stringify({
-        fileName: String(file?.name || 'fatura'),
-        mimeType: String(file?.type || ''),
-        contentBase64,
-        context,
-        prompt: getPromptText()
-      })
-    });
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok) {
-      throw new Error(payload?.message || 'Falha ao interpretar fatura com Oracle AI.');
-    }
-    if (!payload?.payload || typeof payload.payload !== 'object') {
-      throw new Error('Resposta da Oracle AI inválida.');
-    }
-    return payload.payload;
-  }
-
-  function extractJsonText(rawText) {
-    const text = String(rawText || '').trim();
-    if (!text) throw new Error('Conteúdo vazio.');
-    const fenced = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/i);
-    if (fenced && fenced[1]) return fenced[1].trim();
-    const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
-    if (firstBrace >= 0 && lastBrace > firstBrace) return text.slice(firstBrace, lastBrace + 1).trim();
-    return text;
-  }
-
-  function parseJsonPayload(rawText) {
-    const extracted = extractJsonText(rawText);
-    try {
-      return JSON.parse(extracted);
-    } catch (error) {
-      throw new Error('Não foi possível identificar um JSON válido no conteúdo enviado.');
-    }
-  }
-
-  function processPayload(payload, sourceFileName = 'conteudo-colado.json') {
-    const context = getCurrentContext();
-    const result = global.BillImportSchema.validatePayload(payload, context);
-    global.BillImportReview.setReviewData({
-      sourceFileName,
-      context,
-      rawPayload: payload,
-      formatErrors: result.formatErrors,
-      items: result.items
-    });
-    if (result.formatErrors.length) {
-      showStatus('Arquivo carregado com erros de formato. Revise antes de importar.', 'error');
-      return;
-    }
-    if (Number(result.ignoredCount || 0) > 0) {
-      showStatus(`Arquivo carregado para revisão. ${result.ignoredCount} ressarcimento(s)/estorno(s) foram ignorados automaticamente.`, 'ok', 'Revisão pronta', 3000);
-      return;
-    }
-    showStatus('Arquivo carregado para revisão.', 'ok', 'Revisão pronta', 2600);
-  }
-
-  async function handleUpload(event) {
-    const file = event?.target?.files?.[0];
-    if (!file) return;
-    try {
-      const isJsonFile = /\.json$/i.test(String(file?.name || '')) || String(file?.type || '').toLowerCase().includes('json');
-      if (isJsonFile) {
-        const payload = await readJsonFromFile(file);
-        processPayload(payload, file.name);
-        return;
-      }
-      showStatus('Enviando arquivo para análise da Oracle AI...', 'ok', 'Analisando fatura');
-      const parsedPayload = await parseFileWithOracleAi(file);
-      processPayload(parsedPayload, file.name || 'fatura-oracle-ai.json');
-    } catch (error) {
-      showStatus(`Falha ao carregar arquivo: ${error.message}`, 'error');
-    }
-  }
-
-  function handlePastedText() {
-    const field = document.getElementById('billImportRawText');
-    const raw = String(field?.value || '').trim();
-    if (!raw) {
-      showStatus('Cole o conteúdo retornado pela IA antes de validar.', 'error');
-      return;
-    }
-    try {
-      const payload = parseJsonPayload(raw);
-      processPayload(payload, 'conteudo-colado.json');
-    } catch (error) {
-      showStatus(error.message, 'error');
-    }
-  }
-
-  function openImportModal() {
-    getCurrentContext();
-    setPromptText();
+  async function openImportModal() {
     if (typeof global.openModal === 'function') global.openModal('modalBillImport');
+    await refreshStatus().catch(() => {});
+    startPolling();
   }
 
   function closeImportModal() {
+    stopPolling();
     if (typeof global.closeModal === 'function') global.closeModal('modalBillImport');
   }
 
+  global.BillImport = {
+    openJobPreview,
+    runImportFromReview,
+    reprocessJob
+  };
   global.openBillImportModal = openImportModal;
   global.closeBillImportModal = closeImportModal;
-  global.copyBillImportPrompt = copyPrompt;
-  global.downloadBillImportContext = downloadContext;
   global.triggerBillImportUpload = triggerUpload;
-  global.handleBillImportFileChange = handleUpload;
-  global.handleBillImportPastedText = handlePastedText;
+  global.handleBillImportFileChange = triggerUploadFromInput;
 })(typeof window !== 'undefined' ? window : globalThis);

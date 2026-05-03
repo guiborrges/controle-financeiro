@@ -837,6 +837,26 @@
     _test: {
       resolveManualReviewDate
     },
+    exportPayload() {
+      const items = reviewState.items.map(item => ({
+        id: item.id,
+        include: item.include !== false,
+        date: item.date,
+        description: item.description,
+        amount: Number(item.amount || 0),
+        cardId: item.cardId || '',
+        card: item.cardName || '',
+        cardName: item.cardName || '',
+        category: item.category || '',
+        tag: item.tag || '',
+        status: item.status || ''
+      }));
+      return {
+        format: 'finance_import_v1',
+        version: '1',
+        items
+      };
+    },
     closeReview() {
       if (typeof global.closeModal === 'function') global.closeModal('modalBillImportReview');
     }

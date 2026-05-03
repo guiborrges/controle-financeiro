@@ -841,30 +841,13 @@
       <button class="btn-icon" type="button" onclick="closeBillImportModal()">✕</button>
     </div>
     <p class="modal-subcopy">
-      Fluxo: copie instruções, envie para a IA com suas faturas, receba o JSON estruturado e suba aqui para revisão obrigatória antes da importação final.
+      Envie sua fatura para IA. A IA extrai os lançamentos, você revisa e só depois importa para o sistema.
     </p>
-    <div class="form-grid">
-      <div class="field">
-        <label>Prompt para IA</label>
-        <textarea id="billImportPrompt" rows="10" readonly></textarea>
-      </div>
-      <div class="bill-import-actions">
-        <button class="btn btn-ghost" type="button" onclick="copyBillImportPrompt()">Copiar prompt</button>
-        <button class="btn btn-ghost" type="button" onclick="downloadBillImportContext()">Baixar contexto</button>
-        <button class="btn btn-primary" type="button" onclick="triggerBillImportUpload()">Subir arquivo da IA</button>
-      </div>
-      <div class="field" style="margin-top:8px">
-        <label>Ou cole aqui a resposta da IA</label>
-        <textarea id="billImportRawText" rows="6" placeholder="Cole o texto da IA (com ou sem bloco ```json```)"></textarea>
-        <div class="form-actions" style="margin-top:8px;justify-content:flex-start">
-          <button class="btn btn-ghost" type="button" onclick="handleBillImportPastedText()">Validar texto colado</button>
-        </div>
-      </div>
-      <p class="text-muted" style="margin-top:4px">
-        O sistema continua como fonte de verdade: todo item passa por validação e revisão manual.
-      </p>
+    <div class="bill-import-actions">
+      <button class="btn btn-primary" type="button" onclick="triggerBillImportUpload()">Enviar fatura para IA</button>
     </div>
-    <input id="billImportFileInput" type="file" accept=".json,application/json,.pdf,application/pdf,image/*,.txt,text/plain" style="display:none" onchange="handleBillImportFileChange(event)">
+    <div id="billImportJobsList" class="bill-import-jobs-list"></div>
+    <input id="billImportFileInput" type="file" accept=".json,application/json,.csv,text/csv,.pdf,application/pdf,image/*,.txt,text/plain" style="display:none" onchange="handleBillImportFileChange(event)">
     <div class="form-actions" style="margin-top:18px">
       <button class="btn btn-ghost" type="button" onclick="closeBillImportModal()">Fechar</button>
     </div>
@@ -883,7 +866,7 @@
     <div id="billImportReviewList" class="bill-import-review-list"></div>
     <div class="form-actions" style="margin-top:16px">
       <button class="btn btn-ghost" type="button" onclick="BillImportReview.closeReview()">Cancelar</button>
-      <button id="billImportApplyBtn" class="btn btn-primary" type="button" onclick="BillImportReview.applyImport()">Importar lançamentos</button>
+      <button id="billImportApplyBtn" class="btn btn-primary" type="button" onclick="BillImport.runImportFromReview()">Importar para o sistema</button>
     </div>
   </div>
 </div>

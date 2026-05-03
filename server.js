@@ -337,7 +337,11 @@ registerAppStateRoutes(app, {
 registerBillImportAiRoutes(app, {
   noStore,
   requireAuth,
-  requireCsrf
+  requireCsrf,
+  getAuthenticatedUser,
+  readUserAppState,
+  writeUserAppState,
+  USERS_DATA_DIR
 });
 
 app.use((req, res) => {
