@@ -1,4 +1,5 @@
 function registerBillImportAiRoutes(app, deps) {
+  let ociPdfQueue = Promise.resolve();
   const {
     noStore,
     requireAuth,
@@ -233,6 +234,13 @@ function registerBillImportAiRoutes(app, deps) {
     }
   }
 
+  function enqueueOciPdfAnalysis(contentBase64, context = {}) {
+    const run = async () => analyzePdfWithLocalOci(contentBase64, context);
+    const next = ociPdfQueue.then(run, run);
+    ociPdfQueue = next.catch(() => {});
+    return next;
+  }
+
   async function callOracleAi(payload) {
     if (!oracleEndpoint) {
       throw new Error('Integração Oracle AI não configurada. Defina ORACLE_AI_ENDPOINT.');
@@ -294,7 +302,7 @@ function registerBillImportAiRoutes(app, deps) {
         });
       }
       if (isPdfFile && !oracleEndpoint) {
-        const payload = analyzePdfWithLocalOci(contentBase64, context);
+        const payload = await enqueueOciPdfAnalysis(contentBase64, context);
         return res.json({
           ok: true,
           provider: 'oracle-local-oci-pdf',
