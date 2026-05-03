@@ -170,6 +170,17 @@ function registerBillImportAiRoutes(app, deps) {
   }
 
   function analyzePdfWithLocalOci(contentBase64, context = {}) {
+    function sleepMs(ms) {
+      const sab = new SharedArrayBuffer(4);
+      const int32 = new Int32Array(sab);
+      Atomics.wait(int32, 0, 0, ms);
+    }
+
+    function isRateLimitError(error) {
+      const raw = String(error?.stderr || error?.stdout || error?.message || '').toLowerCase();
+      return raw.includes('service limits') || raw.includes('sync-transactions-per-second-count');
+    }
+
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bill-oci-'));
     const featuresPath = path.join(tempDir, 'features.json');
     try {
@@ -189,14 +200,33 @@ function registerBillImportAiRoutes(app, deps) {
         '--region', localOciRegion,
         '--output', 'json'
       ];
-      const stdout = execFileSync('oci', args, {
-        encoding: 'utf8',
-        maxBuffer: 30 * 1024 * 1024
-      });
+      let stdout = '';
+      const retryDelaysMs = [0, 2000, 5000];
+      let lastError = null;
+      for (let i = 0; i < retryDelaysMs.length; i += 1) {
+        if (retryDelaysMs[i] > 0) sleepMs(retryDelaysMs[i]);
+        try {
+          stdout = execFileSync('oci', args, {
+            encoding: 'utf8',
+            maxBuffer: 30 * 1024 * 1024
+          });
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (!isRateLimitError(error) || i === retryDelaysMs.length - 1) {
+            throw error;
+          }
+        }
+      }
+      if (lastError) throw lastError;
       const parsed = JSON.parse(stdout || '{}');
       return parseItemsFromOciDocumentJson(parsed, context);
     } catch (error) {
       const details = String(error?.stderr || error?.stdout || error?.message || '').slice(0, 450);
+      if (isRateLimitError(error)) {
+        throw new Error('Oracle atingiu limite temporário de requisições por segundo. Aguarde alguns segundos e tente novamente.');
+      }
       throw new Error(`Falha ao processar PDF com OCI local: ${details || 'erro desconhecido'}`);
     } finally {
       try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
