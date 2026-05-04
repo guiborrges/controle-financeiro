@@ -86,6 +86,13 @@
     };
   }
 
+  function getDefaultAiPrompt() {
+    if (typeof global.BillImportUtils?.buildExternalAiPrompt === 'function') {
+      return global.BillImportUtils.buildExternalAiPrompt('finance_import_context.json');
+    }
+    return '';
+  }
+
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -185,7 +192,7 @@
         mimeType: String(file?.type || ''),
         contentBase64,
         context: getCurrentContext(),
-        prompt: ''
+        prompt: getDefaultAiPrompt()
       })
     });
     const payload = await response.json().catch(() => ({}));

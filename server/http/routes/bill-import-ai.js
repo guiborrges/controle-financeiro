@@ -27,6 +27,40 @@ function registerBillImportAiRoutes(app, deps) {
   const { execFileSync } = require('child_process');
   const userQueues = new Map();
 
+  function buildDefaultInvoiceInstructions() {
+    return [
+      'Você vai extrair lançamentos de faturas de cartão e devolver APENAS um JSON válido.',
+      'Use obrigatoriamente o arquivo de contexto "finance_import_context.json" como regra de negócio.',
+      'Regras obrigatórias:',
+      '- output format: finance_import_v1',
+      '- version: 1',
+      '- não criar categorias novas',
+      '- usar somente categorias já existentes no contexto',
+      '- NÃO preencher tag (tag deve ser null)',
+      '- não criar/sugerir tags',
+      '- não incluir total da fatura como compra',
+      '- ignorar ressarcimentos/estornos/reembolsos do cartão',
+      '- incluir apenas transações',
+      '- quando categoria for incerta: category = null, needs_review = true',
+      '- pode usar suggested_categories com até 3 categorias existentes',
+      'Campos por item:',
+      '- date',
+      '- description',
+      '- amount',
+      '- card_name (ou card_id)',
+      '- category (string existente ou null)',
+      '- suggested_categories (opcional)',
+      '- confidence (0 a 1)',
+      '- needs_review (boolean)',
+      '- tag (sempre null)',
+      '- warnings (opcional)',
+      '- source_excerpt (opcional)',
+      'Resposta final:',
+      '- retornar somente JSON',
+      '- sem texto adicional fora do JSON'
+    ].join('\n');
+  }
+
   function normalizeJsonCandidate(rawText) {
     const text = String(rawText || '').trim();
     if (!text) throw new Error('Resposta vazia da IA.');
@@ -631,6 +665,7 @@ function registerBillImportAiRoutes(app, deps) {
         });
       }
 
+      const effectiveInstructions = String(prompt || '').trim() || buildDefaultInvoiceInstructions();
       const payload = await callOracleAi({
         task: 'parse-credit-card-bill',
         outputFormat: 'finance_import_v1',
@@ -640,7 +675,7 @@ function registerBillImportAiRoutes(app, deps) {
           contentBase64
         },
         context: context && typeof context === 'object' ? context : {},
-        instructions: String(prompt || '').trim()
+        instructions: effectiveInstructions
       });
 
       return res.json({
@@ -677,13 +712,14 @@ function registerBillImportAiRoutes(app, deps) {
       const safeName = sanitizeFileName(fileName);
       const filePath = path.join(dirs.files, `${id}_${safeName}`);
       fs.writeFileSync(filePath, Buffer.from(contentBase64, 'base64'));
+      const effectivePrompt = String(prompt || '').trim() || buildDefaultInvoiceInstructions();
       const job = {
         id,
         userId,
         fileName: safeName,
         mimeType: String(mimeType || ''),
         filePath,
-        prompt: String(prompt || ''),
+        prompt: effectivePrompt,
         context: context && typeof context === 'object' ? context : {},
         status: 'uploaded',
         progress: 0,
@@ -867,13 +903,14 @@ function registerBillImportAiRoutes(app, deps) {
       const safeName = sanitizeFileName(fileName);
       const filePath = path.join(dirs.files, `${id}_${safeName}`);
       fs.writeFileSync(filePath, Buffer.from(contentBase64, 'base64'));
+      const effectivePrompt = String(prompt || '').trim() || buildDefaultInvoiceInstructions();
       const job = {
         id,
         userId,
         fileName: safeName,
         mimeType: String(mimeType || ''),
         filePath,
-        prompt: String(prompt || ''),
+        prompt: effectivePrompt,
         context: context && typeof context === 'object' ? context : {},
         status: 'uploaded',
         progress: 0,
