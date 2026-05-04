@@ -6,8 +6,23 @@
 <title>Controle Financeiro</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  (() => {
+    try {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    } catch (_) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>
   <link rel="stylesheet" href="/app-assets/styles.css">
   <link rel="stylesheet" href="/app-assets/mobile-layout.css">
+  <link rel="stylesheet" href="/app-assets/dark-mode.css">
 </head>
 <body>
 <div id="appStatus" class="app-status" role="status" aria-live="polite">
@@ -1316,6 +1331,12 @@
           <button class="btn btn-ghost" onclick="resetDashboardColors()">Resetar cores</button>
           <button class="btn btn-ghost" onclick="resetDashboardSeries()">Resetar séries do gráfico</button>
         </div>
+        <div class="section-body" style="display:flex;gap:8px;flex-wrap:wrap;padding-top:0">
+          <label class="theme-toggle-control">
+            <input id="preferencesDarkModeToggle" type="checkbox" onchange="toggleThemePreference(this.checked)">
+            <span>Modo noturno</span>
+          </label>
+        </div>
         <p class="preferences-note">Esses ajustes afetam a forma como o produto aparece, sem mexer no conteúdo financeiro.</p>
       </div>
       <div class="section" style="margin:0;box-shadow:none">
@@ -1633,6 +1654,7 @@
   <script src="/shared-assets/crypto-client.js"></script>
   <script src="/app-assets/storage.js"></script>
   <script src="/app-assets/preferences.js"></script>
+  <script src="/app-assets/dark-mode.js"></script>
   <script src="/app-assets/data.js"></script>
   <script src="/app-assets/modules/shared/formatters.js"></script>
   <script src="/app-assets/modules/shared/dates.js"></script>
