@@ -19,6 +19,14 @@
   const muplugBaseUrl = String(process.env.MUPLUG_BASE_URL || '').trim().replace(/\/+$/, '');
   const muplugApiKey = String(process.env.MUPLUG_API_KEY || '').trim();
   const muplugParsePath = String(process.env.MUPLUG_PARSE_PATH || '/invoice/parse').trim();
+  const muplugAllowedUserIds = String(process.env.MUPLUG_ALLOWED_USER_IDS || '')
+    .split(',')
+    .map(entry => String(entry || '').trim().toLowerCase())
+    .filter(Boolean);
+  const muplugAllowedUsernames = String(process.env.MUPLUG_ALLOWED_USERNAMES || '')
+    .split(',')
+    .map(entry => String(entry || '').trim().toLowerCase())
+    .filter(Boolean);
 
   const fs = require('fs');
   const os = require('os');
@@ -391,6 +399,26 @@
   function getUserId(req) {
     const user = typeof getAuthenticatedUser === 'function' ? getAuthenticatedUser(req) : null;
     return String(user?.id || '').trim();
+  }
+
+  function normalizeLoginComparable(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function isMuplugUserAllowed(req) {
+    if (!muplugAllowedUserIds.length && !muplugAllowedUsernames.length) return true;
+    const user = typeof getAuthenticatedUser === 'function' ? getAuthenticatedUser(req) : null;
+    const userId = normalizeLoginComparable(user?.id || '');
+    const username = normalizeLoginComparable(user?.username || '');
+    const displayName = normalizeLoginComparable(user?.displayName || user?.fullName || '');
+    if (userId && muplugAllowedUserIds.includes(userId)) return true;
+    if (username && muplugAllowedUsernames.includes(username)) return true;
+    if (displayName && muplugAllowedUsernames.includes(displayName)) return true;
+    return false;
   }
 
   function ensureUserJobDir(userId) {
@@ -916,11 +944,17 @@
   });
 
   app.get('/api/muplug/connection', noStore, requireAuth, async (_req, res) => {
+    if (!isMuplugUserAllowed(_req)) {
+      return res.json({ ok: true, connected: false, hasApiKey: false, restricted: true });
+    }
     const connected = await checkMuplugConnection();
     return res.json({ ok: true, connected, hasApiKey: !!muplugApiKey });
   });
 
   app.post('/api/muplug/upload', noStore, requireAuth, requireCsrf, async (req, res) => {
+    if (!isMuplugUserAllowed(req)) {
+      return res.status(403).json({ message: 'Integração Muplug disponível apenas para usuário autorizado.' });
+    }
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     if (!['oracle', 'muplug'].includes(provider)) {
@@ -970,12 +1004,18 @@
   });
 
   app.get('/api/muplug/jobs', noStore, requireAuth, (req, res) => {
+    if (!isMuplugUserAllowed(req)) {
+      return res.status(403).json({ message: 'Integração Muplug disponível apenas para usuário autorizado.' });
+    }
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     return res.json({ ok: true, jobs: listJobsForClient(userId) });
   });
 
   app.get('/api/muplug/status/:jobId', noStore, requireAuth, (req, res) => {
+    if (!isMuplugUserAllowed(req)) {
+      return res.status(403).json({ message: 'Integração Muplug disponível apenas para usuário autorizado.' });
+    }
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const job = readUserJobs(userId).find(entry => String(entry?.id || '') === String(req.params?.jobId || ''));
@@ -985,6 +1025,9 @@
   });
 
   app.get('/api/muplug/result/:jobId', noStore, requireAuth, (req, res) => {
+    if (!isMuplugUserAllowed(req)) {
+      return res.status(403).json({ message: 'Integração Muplug disponível apenas para usuário autorizado.' });
+    }
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const job = readUserJobs(userId).find(entry => String(entry?.id || '') === String(req.params?.jobId || ''));
@@ -1000,6 +1043,9 @@
   });
 
   app.post('/api/muplug/reprocess/:jobId', noStore, requireAuth, requireCsrf, (req, res) => {
+    if (!isMuplugUserAllowed(req)) {
+      return res.status(403).json({ message: 'Integração Muplug disponível apenas para usuário autorizado.' });
+    }
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const jobId = String(req.params?.jobId || '');
@@ -1017,6 +1063,9 @@
   });
 
   app.post('/api/muplug/import', noStore, requireAuth, requireCsrf, (req, res) => {
+    if (!isMuplugUserAllowed(req)) {
+      return res.status(403).json({ message: 'Integração Muplug disponível apenas para usuário autorizado.' });
+    }
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const jobId = String(req.body?.jobId || '');
