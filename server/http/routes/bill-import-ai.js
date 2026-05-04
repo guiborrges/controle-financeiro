@@ -26,6 +26,7 @@
   const crypto = require('crypto');
   const { execFileSync } = require('child_process');
   const userQueues = new Map();
+  const configuredOciBin = String(process.env.ORACLE_AI_OCI_BIN || process.env.OCI_CLI_BIN || '').trim();
 
   function buildDefaultInvoiceInstructions() {
     return [
@@ -283,6 +284,24 @@
   }
 
   function analyzePdfWithLocalOci(contentBase64, context = {}) {
+    function resolveOciBin() {
+      const candidates = [
+        configuredOciBin,
+        '/home/ubuntu/.local/bin/oci',
+        '/usr/local/bin/oci',
+        '/usr/bin/oci',
+        'oci'
+      ].filter(Boolean);
+      for (let i = 0; i < candidates.length; i += 1) {
+        const candidate = candidates[i];
+        if (candidate === 'oci') return candidate;
+        try {
+          if (fs.existsSync(candidate)) return candidate;
+        } catch (_) {}
+      }
+      return 'oci';
+    }
+
     function sleepMs(ms) {
       const sab = new SharedArrayBuffer(4);
       const int32 = new Int32Array(sab);
@@ -314,12 +333,13 @@
         '--output', 'json'
       ];
       let stdout = '';
+      const ociBin = resolveOciBin();
       const retryDelaysMs = [0, 2000, 5000];
       let lastError = null;
       for (let i = 0; i < retryDelaysMs.length; i += 1) {
         if (retryDelaysMs[i] > 0) sleepMs(retryDelaysMs[i]);
         try {
-          stdout = execFileSync('oci', args, {
+          stdout = execFileSync(ociBin, args, {
             encoding: 'utf8',
             maxBuffer: 30 * 1024 * 1024
           });
