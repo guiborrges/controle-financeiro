@@ -278,6 +278,32 @@
     return null;
   }
 
+  function resolveCardIndex(context) {
+    if (context?.cardIndex?.byName && context?.cardIndex?.byId) return context.cardIndex;
+    if (context?.cards?.byName && context?.cards?.byId) return context.cards;
+    if (global.BillImportUtils?.getAllCardsFromUserData) {
+      return global.BillImportUtils.getAllCardsFromUserData(context?.data || global.data || []);
+    }
+    return {
+      list: [],
+      byId: new Map(),
+      byName: new Map(),
+      bySyntheticId: new Map()
+    };
+  }
+
+  function resolveCategoryIndex(context) {
+    if (context?.categoryIndex?.byNormalized) return context.categoryIndex;
+    if (context?.categories?.byNormalized) return context.categories;
+    if (global.BillImportUtils?.getAllCategoriesFromUserData) {
+      return global.BillImportUtils.getAllCategoriesFromUserData(context?.data || global.data || []);
+    }
+    return {
+      list: [],
+      byNormalized: new Map()
+    };
+  }
+
   function flattenPayloadItems(payload) {
     const out = [];
     if (!payload || typeof payload !== 'object') return out;
@@ -567,7 +593,9 @@
     };
 
     const ignoredItems = [];
-    const payloadCardHints = buildPayloadCardHints(payload, context.cardIndex);
+    const cardIndex = resolveCardIndex(context);
+    const categoryIndex = resolveCategoryIndex(context);
+    const payloadCardHints = buildPayloadCardHints(payload, cardIndex);
     const items = flatItems.map((rawItem, index) => {
       const monthIdFromFieldRaw = normalizeText(
         rawItem?.month_id
@@ -607,14 +635,14 @@
         institution: normalizeText(rawItem?.institution || rawItem?.bank || payload?.institution || payload?.bank || ''),
         header: normalizeText(rawItem?.header || payload?.header || payload?.title || '')
       };
-      const card = resolveCard(rawItemWithPayloadContext, context.cardIndex)
-        || inferCardFromText(rawItemWithPayloadContext, context.cardIndex, payloadCardHints);
+      const card = resolveCard(rawItemWithPayloadContext, cardIndex)
+        || inferCardFromText(rawItemWithPayloadContext, cardIndex, payloadCardHints);
       const categoryRaw = normalizeText(rawItem?.category);
-      const category = resolveCategory(rawItem, context.categoryIndex);
+      const category = resolveCategory(rawItem, categoryIndex);
       const confidence = Number(rawItem?.confidence);
       const suggestions = Array.isArray(rawItem?.suggested_categories)
         ? rawItem.suggested_categories
-            .map(item => context.categoryIndex.byNormalized.get(normalizeComparableText(item)))
+            .map(item => categoryIndex.byNormalized.get(normalizeComparableText(item)))
             .filter(Boolean)
             .slice(0, 3)
         : [];
