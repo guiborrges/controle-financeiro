@@ -73,6 +73,14 @@ function readUsersStore() {
       nextUser.rememberTokens = [];
       nextChanged = true;
     }
+    if (!Array.isArray(nextUser.passwordResetTokens)) {
+      nextUser.passwordResetTokens = [];
+      nextChanged = true;
+    }
+    if (typeof nextUser.recoveryWrappedKey !== 'string') {
+      nextUser.recoveryWrappedKey = '';
+      nextChanged = true;
+    }
     if (!Number.isFinite(nextUser.loginCount)) {
       nextUser.loginCount = 0;
       nextChanged = true;
@@ -232,6 +240,8 @@ function createUser(payload) {
     passwordHash: payload.passwordHash,
     encryptionSalt: String(payload.encryptionSalt || createEncryptionSalt()),
     rememberTokens: Array.isArray(payload.rememberTokens) ? payload.rememberTokens : [],
+    passwordResetTokens: Array.isArray(payload.passwordResetTokens) ? payload.passwordResetTokens : [],
+    recoveryWrappedKey: String(payload.recoveryWrappedKey || ''),
     loginCount: Number(payload.loginCount || 0),
     lastLoginAt: String(payload.lastLoginAt || ''),
     lastUsedAt: String(payload.lastUsedAt || ''),

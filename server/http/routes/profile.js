@@ -18,6 +18,7 @@ function registerProfileRoutes(app, deps) {
     hashPassword,
     writeUserAppState,
     getClientCryptoConfig,
+    wrapRecoveryEncryptionKey,
     archiveDeletedUserAppState,
     deleteUserAppState,
     deleteUser,
@@ -168,7 +169,10 @@ function registerProfileRoutes(app, deps) {
       const currentState = readUserAppState(user.id, currentEncryptionKey);
       const nextUser = updateUser(user.id, {
         passwordHash: hashPassword(newPassword),
-        rememberTokens: []
+        rememberTokens: [],
+        recoveryWrappedKey: typeof wrapRecoveryEncryptionKey === 'function'
+          ? wrapRecoveryEncryptionKey(deriveDataKey(newPassword, user.encryptionSalt).toString('base64'))
+          : user.recoveryWrappedKey || ''
       });
       const nextEncryptionKey = deriveDataKey(newPassword, nextUser.encryptionSalt).toString('base64');
       writeUserAppState(user.id, currentState?.state || {}, nextEncryptionKey);

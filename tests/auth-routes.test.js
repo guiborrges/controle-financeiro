@@ -75,6 +75,11 @@ function createBaseDeps(overrides = {}) {
     writeUserAppState: () => {},
     buildFreshUserAppState: () => ({ finData: [] }),
     hashPassword: () => 'hash',
+    updateUser: () => ({}),
+    readUserAppState: () => ({ state: {} }),
+    wrapRecoveryEncryptionKey: () => 'wrapped',
+    unwrapRecoveryEncryptionKey: () => 'enc-key',
+    sendPasswordResetEmail: async () => {},
     normalizeBirthDate: value => String(value || '').replace(/\D/g, ''),
     isValidEmail: () => true,
     isValidBrazilPhone: () => true,
@@ -84,7 +89,14 @@ function createBaseDeps(overrides = {}) {
     revokeRememberMeToken: () => {},
     MIN_USER_PASSWORD_LENGTH: 8,
     REMEMBER_ME_MAX_AGE_MS: 1000,
-    crypto: { randomBytes: () => ({ toString: () => 'csrf-random' }) },
+    crypto: {
+      randomBytes: () => ({ toString: () => 'csrf-random' }),
+      createHash: () => ({
+        update: () => ({
+          digest: () => 'mock-hash'
+        })
+      })
+    },
     ...overrides
   };
 }
@@ -161,5 +173,47 @@ test('auth session payload exposes recurrence restriction flag', () => {
   handler(req, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.payload?.legacyRecurrenceBackfillRestricted, true);
+});
+
+test('password reset request returns generic success response', async () => {
+  const app = createMockApp();
+  const user = { id: 'u-reset-1', email: 'reset@test.local', passwordResetTokens: [] };
+  registerAuthRoutes(app, createBaseDeps({
+    findUserByEmail: () => user
+  }));
+  const handler = app.routes.get('POST /api/auth/password-reset/request');
+  const req = {
+    body: { email: user.email },
+    get(name) {
+      if (name === 'host') return 'localhost:3000';
+      return '';
+    },
+    protocol: 'http',
+    ip: '127.0.0.1'
+  };
+  const res = createMockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload?.ok, true);
+});
+
+test('password reset confirm rejects invalid token', () => {
+  const app = createMockApp();
+  const user = { id: 'u-reset-2', email: 'reset2@test.local', passwordResetTokens: [] };
+  registerAuthRoutes(app, createBaseDeps({
+    findUserByEmail: () => user
+  }));
+  const handler = app.routes.get('POST /api/auth/password-reset/confirm');
+  const req = {
+    body: {
+      email: user.email,
+      token: 'invalid',
+      newPassword: '12345678',
+      confirmPassword: '12345678'
+    }
+  };
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 400);
 });
 

@@ -1,7 +1,8 @@
-﻿const express = require('express');
+const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const { ROOT_DIR, resolveStoragePath } = require('./server/paths');
 const { recoverMissingMonthsFromLegacyBackups } = require('./server/http/month-recovery');
 const { registerPageRoutes } = require('./server/http/routes/pages');
@@ -144,6 +145,66 @@ function revokeRememberMeToken(user, plainToken) {
   updateUser(user.id, { rememberTokens });
 }
 
+const PASSWORD_RECOVERY_SECRET = String(process.env.FIN_PASSWORD_RECOVERY_SECRET || '').trim();
+
+function derivePasswordRecoveryKey() {
+  if (!PASSWORD_RECOVERY_SECRET) return '';
+  return crypto.createHash('sha256').update(PASSWORD_RECOVERY_SECRET).digest('base64');
+}
+
+function wrapRecoveryEncryptionKey(dataEncryptionKey) {
+  const recoveryKey = derivePasswordRecoveryKey();
+  if (!recoveryKey || !dataEncryptionKey) return '';
+  return encryptDataWithKey({ dataEncryptionKey }, recoveryKey);
+}
+
+function unwrapRecoveryEncryptionKey(wrappedPayload) {
+  const recoveryKey = derivePasswordRecoveryKey();
+  if (!recoveryKey || !wrappedPayload) return '';
+  const payload = decryptDataWithKey(wrappedPayload, recoveryKey);
+  return String(payload?.dataEncryptionKey || '');
+}
+
+let mailTransporter = null;
+function getMailTransporter() {
+  if (mailTransporter) return mailTransporter;
+  const host = String(process.env.SMTP_HOST || '').trim();
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = String(process.env.SMTP_USER || '').trim();
+  const pass = String(process.env.SMTP_PASS || '').trim();
+  if (!host || !port || !user || !pass) return null;
+  mailTransporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass }
+  });
+  return mailTransporter;
+}
+
+async function sendPasswordResetEmail({ email, displayName, token, resetLink, expiresAt }) {
+  const transporter = getMailTransporter();
+  const expiration = new Date(expiresAt).toLocaleString('pt-BR');
+  const subject = 'Recuperacao de senha - Controle Financeiro';
+  const text = [
+    `Ola ${displayName || 'usuario'},`,
+    '',
+    'Recebemos um pedido para redefinir sua senha.',
+    `Codigo de recuperacao: ${token}`,
+    resetLink ? `Link direto: ${resetLink}` : '',
+    `Valido ate: ${expiration}`,
+    '',
+    'Se voce nao pediu essa alteracao, ignore este e-mail.'
+  ].filter(Boolean).join('\n');
+
+  if (!transporter) {
+    console.log('[auth] SMTP nao configurado. Codigo de reset (dev):', { email, token, resetLink, expiresAt });
+    return;
+  }
+
+  const from = String(process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
+  await transporter.sendMail({ from, to: email, subject, text });
+}
 function restoreRememberedSession(req, res, next) {
   if (req.session?.authenticated) return next();
   const cookies = parseCookies(req);
@@ -277,6 +338,8 @@ registerAuthRoutes(app, {
   clearRememberMeCookie,
   buildPublicProfile,
   createUser,
+  updateUser,
+  readUserAppState,
   writeUserAppState,
   buildFreshUserAppState,
   hashPassword,
@@ -284,6 +347,9 @@ registerAuthRoutes(app, {
   isValidEmail,
   isValidBrazilPhone,
   getClientCryptoConfig,
+  wrapRecoveryEncryptionKey,
+  unwrapRecoveryEncryptionKey,
+  sendPasswordResetEmail,
   parseCookies,
   REMEMBER_COOKIE_NAME,
   revokeRememberMeToken,
@@ -311,6 +377,7 @@ registerProfileRoutes(app, {
   hashPassword,
   writeUserAppState,
   getClientCryptoConfig,
+  wrapRecoveryEncryptionKey,
   archiveDeletedUserAppState,
   deleteUserAppState,
   deleteUser,
@@ -372,5 +439,7 @@ app.use((error, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Controle Financeiro protegido rodando em http://localhost:${PORT} (state-backend=${stateStore.backend || 'json'})`);
 });
+
+
 
 

@@ -63,10 +63,16 @@ function resetForgotFlow() {
   const panel = document.getElementById('forgotPanel');
   const birthDateInput = document.getElementById('birthDateInput');
   const emailInput = document.getElementById('forgotEmailInput');
+  const resetTokenInput = document.getElementById('resetTokenInput');
+  const resetPasswordInput = document.getElementById('resetPasswordInput');
+  const resetConfirmPasswordInput = document.getElementById('resetConfirmPasswordInput');
   const feedback = document.getElementById('forgotFeedback');
   if (panel) panel.hidden = true;
   if (birthDateInput) birthDateInput.value = '';
   if (emailInput) emailInput.value = '';
+  if (resetTokenInput) resetTokenInput.value = '';
+  if (resetPasswordInput) resetPasswordInput.value = '';
+  if (resetConfirmPasswordInput) resetConfirmPasswordInput.value = '';
   if (feedback) feedback.textContent = '';
 }
 
@@ -135,6 +141,89 @@ async function requestPasswordHint() {
   } finally {
     hintButton.disabled = false;
     hintButton.textContent = 'Ver dica';
+  }
+}
+
+async function requestPasswordResetEmail() {
+  const emailInput = document.getElementById('forgotEmailInput');
+  const feedback = document.getElementById('forgotFeedback');
+  const button = document.getElementById('sendResetEmailButton');
+  const email = String(emailInput?.value || '').trim();
+  feedback.textContent = '';
+  if (!isValidEmail(email)) {
+    feedback.textContent = 'Digite um e-mail valido para receber o codigo.';
+    emailInput?.focus();
+    return;
+  }
+  button.disabled = true;
+  button.textContent = 'Enviando...';
+  try {
+    const response = await fetch('/api/auth/password-reset/request', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const payload = await response.json().catch(() => ({}));
+    feedback.textContent = payload.message || 'Se o e-mail existir, enviamos as instrucoes.';
+  } catch (error) {
+    feedback.textContent = 'Falha ao solicitar recuperacao de senha.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Enviar codigo por e-mail';
+  }
+}
+
+async function submitPasswordReset() {
+  const emailInput = document.getElementById('forgotEmailInput');
+  const tokenInput = document.getElementById('resetTokenInput');
+  const newPasswordInput = document.getElementById('resetPasswordInput');
+  const confirmPasswordInput = document.getElementById('resetConfirmPasswordInput');
+  const feedback = document.getElementById('forgotFeedback');
+  const button = document.getElementById('resetPasswordButton');
+  const email = String(emailInput?.value || '').trim();
+  const token = String(tokenInput?.value || '').trim();
+  const newPassword = String(newPasswordInput?.value || '');
+  const confirmPassword = String(confirmPasswordInput?.value || '');
+  feedback.textContent = '';
+  if (!isValidEmail(email)) {
+    feedback.textContent = 'Digite um e-mail valido.';
+    emailInput?.focus();
+    return;
+  }
+  if (!token || !newPassword || !confirmPassword) {
+    feedback.textContent = 'Preencha codigo, nova senha e confirmacao.';
+    return;
+  }
+  button.disabled = true;
+  button.textContent = 'Redefinindo...';
+  try {
+    const response = await fetch('/api/auth/password-reset/confirm', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        email,
+        token,
+        newPassword,
+        confirmPassword
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      feedback.textContent = payload.message || 'Nao foi possivel redefinir a senha.';
+      return;
+    }
+    feedback.textContent = payload.message || 'Senha redefinida com sucesso.';
+    tokenInput.value = '';
+    newPasswordInput.value = '';
+    confirmPasswordInput.value = '';
+    document.getElementById('passwordInput').focus();
+  } catch (error) {
+    feedback.textContent = 'Falha ao redefinir a senha.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Redefinir senha';
   }
 }
 
@@ -334,6 +423,8 @@ document.getElementById('registerBirthDate').addEventListener('input', event => 
   event.target.value = formatBirthDateTyping(event.target.value);
 });
 document.getElementById('hintButton').addEventListener('click', requestPasswordHint);
+document.getElementById('sendResetEmailButton').addEventListener('click', requestPasswordResetEmail);
+document.getElementById('resetPasswordButton').addEventListener('click', submitPasswordReset);
 document.addEventListener('keydown', event => {
   if (event.ctrlKey && event.altKey && String(event.key || '').toLowerCase() === 'd') {
     event.preventDefault();
@@ -344,5 +435,24 @@ document.addEventListener('keydown', event => {
     if (!document.getElementById('developerModal')?.hidden) closeDeveloperModal();
   }
 });
+
+function hydrateResetFromQuery() {
+  const params = new URLSearchParams(window.location.search || '');
+  const resetEmail = String(params.get('resetEmail') || '').trim();
+  const resetToken = String(params.get('resetToken') || '').trim();
+  if (!resetEmail && !resetToken) return;
+  const panel = document.getElementById('forgotPanel');
+  if (panel) panel.hidden = false;
+  if (resetEmail) {
+    const emailInput = document.getElementById('forgotEmailInput');
+    if (emailInput) emailInput.value = resetEmail;
+  }
+  if (resetToken) {
+    const tokenInput = document.getElementById('resetTokenInput');
+    if (tokenInput) tokenInput.value = resetToken;
+  }
+}
+
+hydrateResetFromQuery();
 loadLoginProfile();
 

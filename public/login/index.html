@@ -53,13 +53,32 @@
           <span>E-mail</span>
           <input id="forgotEmailInput" type="email" autocomplete="email" placeholder="Digite seu e-mail">
         </div>
-        <p class="forgot-copy">Se voce informar a data de nascimento correta, eu mostro a dica cadastrada da senha.</p>
+        <p class="forgot-copy">Enviaremos um codigo de recuperacao para seu e-mail. Depois disso, voce define uma nova senha.</p>
+        <div class="forgot-actions">
+          <button id="sendResetEmailButton" class="login-submit secondary" type="button">Enviar codigo por e-mail</button>
+        </div>
+        <p class="forgot-copy">Se preferir, voce ainda pode recuperar pela dica cadastrada:</p>
         <div class="field">
           <span>Data de nascimento</span>
           <input id="birthDateInput" type="text" inputmode="numeric" placeholder="dd/mm/aaaa">
         </div>
         <div class="forgot-actions">
           <button id="hintButton" class="login-submit secondary" type="button">Ver dica</button>
+        </div>
+        <div class="field">
+          <span>Codigo recebido</span>
+          <input id="resetTokenInput" type="text" autocomplete="one-time-code" placeholder="Cole o codigo recebido">
+        </div>
+        <div class="field">
+          <span>Nova senha</span>
+          <input id="resetPasswordInput" type="password" autocomplete="new-password" placeholder="Digite a nova senha">
+        </div>
+        <div class="field">
+          <span>Confirmar nova senha</span>
+          <input id="resetConfirmPasswordInput" type="password" autocomplete="new-password" placeholder="Repita a nova senha">
+        </div>
+        <div class="forgot-actions">
+          <button id="resetPasswordButton" class="login-submit" type="button">Redefinir senha</button>
         </div>
         <p id="forgotFeedback" class="login-error" role="status" aria-live="polite"></p>
       </section>
