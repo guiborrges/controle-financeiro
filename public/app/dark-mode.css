@@ -373,6 +373,41 @@ body * {
   border-color: var(--dark-border);
 }
 
+[data-theme="dark"] .finance-calendar-main > #financeCalendarGridMount {
+  background: #1a1e26 !important;
+  border-color: var(--dark-border) !important;
+}
+
+[data-theme="dark"] .finance-calendar-weekday {
+  color: var(--dark-text-muted) !important;
+}
+
+[data-theme="dark"] .finance-calendar-day {
+  background: #151922 !important;
+  border-color: #323846 !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .finance-calendar-day:hover,
+[data-theme="dark"] .finance-calendar-day.is-selected {
+  background: #1d2330 !important;
+  border-color: #444c5d !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .finance-calendar-day.is-empty {
+  background: #131720 !important;
+  border-color: #2c3340 !important;
+}
+
+[data-theme="dark"] .finance-calendar-day-number {
+  color: var(--dark-text) !important;
+}
+
+[data-theme="dark"] .finance-calendar-day-total {
+  color: var(--dark-text-muted) !important;
+}
+
 [data-theme="dark"] .calendar-day,
 [data-theme="dark"] .calendar-day-cell,
 [data-theme="dark"] .finance-calendar-day,
