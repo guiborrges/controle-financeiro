@@ -16,8 +16,10 @@
   const oracleTimeoutMs = Number(process.env.ORACLE_AI_TIMEOUT_MS || 45000);
   const modelName = String(process.env.ORACLE_AI_MODEL || 'oracle-ai').trim();
   const localOciRegion = String(process.env.ORACLE_AI_REGION || process.env.OCI_REGION || 'sa-saopaulo-1').trim();
-  const muplugBaseUrl = String(process.env.MUPLUG_BASE_URL || '').trim().replace(/\/+$/, '');
-  const muplugApiKey = String(process.env.MUPLUG_API_KEY || '').trim();
+  const muplugBaseUrl = String(process.env.MUPLUG_BASE_URL || process.env.PLUGGY_BASE_URL || '').trim().replace(/\/+$/, '');
+  const muplugApiKey = String(process.env.MUPLUG_API_KEY || process.env.PLUGGY_API_KEY || '').trim();
+  const pluggyClientId = String(process.env.PLUGGY_CLIENT_ID || '').trim();
+  const pluggyClientSecret = String(process.env.PLUGGY_CLIENT_SECRET || '').trim();
   const muplugParsePath = String(process.env.MUPLUG_PARSE_PATH || '/invoice/parse').trim();
   const muplugAllowedUserIds = String(process.env.MUPLUG_ALLOWED_USER_IDS || '')
     .split(',')
@@ -35,6 +37,8 @@
   const { execFileSync } = require('child_process');
   const userQueues = new Map();
   const configuredOciBin = String(process.env.ORACLE_AI_OCI_BIN || process.env.OCI_CLI_BIN || '').trim();
+  let muplugCachedApiKey = '';
+  let muplugCachedApiKeyExpireAt = 0;
 
   function buildDefaultInvoiceInstructions() {
     return [
@@ -638,15 +642,19 @@
   }
 
   async function callMuplugAi({ fileName = '', mimeType = '', contentBase64 = '', context = {} }) {
-    if (!muplugBaseUrl || !muplugApiKey) {
-      throw new Error('IntegraÃ§Ã£o Muplug nÃ£o configurada. Defina MUPLUG_BASE_URL e MUPLUG_API_KEY.');
+    if (!muplugBaseUrl) {
+      throw new Error('IntegraÃ§Ã£o Muplug nÃ£o configurada. Defina MUPLUG_BASE_URL ou PLUGGY_BASE_URL.');
+    }
+    const apiKey = await resolveMuplugApiKey();
+    if (!apiKey) {
+      throw new Error('IntegraÃ§Ã£o Muplug nÃ£o configurada. Defina MUPLUG_API_KEY/PLUGGY_API_KEY ou PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET.');
     }
     const endpoint = `${muplugBaseUrl}${muplugParsePath.startsWith('/') ? muplugParsePath : `/${muplugParsePath}`}`;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${muplugApiKey}`
+        Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({ fileName, mimeType, contentBase64, context })
     });
@@ -676,14 +684,48 @@
     throw new Error('Muplug nÃ£o retornou transaÃ§Ãµes vÃ¡lidas.');
   }
 
+  async function fetchMuplugApiKeyByClientCredentials() {
+    if (!muplugBaseUrl || !pluggyClientId || !pluggyClientSecret) return '';
+    const response = await fetch(`${muplugBaseUrl}/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: pluggyClientId,
+        clientSecret: pluggyClientSecret
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(`Falha ao autenticar no Pluggy: ${response.status}`);
+    }
+    const key = String(payload?.apiKey || '').trim();
+    if (!key) throw new Error('Pluggy não retornou apiKey.');
+    muplugCachedApiKey = key;
+    muplugCachedApiKeyExpireAt = Date.now() + (10 * 60 * 1000);
+    return key;
+  }
+
+  async function resolveMuplugApiKey() {
+    if (muplugApiKey) return muplugApiKey;
+    if (muplugCachedApiKey && Date.now() < muplugCachedApiKeyExpireAt) return muplugCachedApiKey;
+    return fetchMuplugApiKeyByClientCredentials();
+  }
+
   async function checkMuplugConnection() {
-    if (!muplugBaseUrl || !muplugApiKey) return false;
+    if (!muplugBaseUrl) return false;
+    let apiKey = '';
+    try {
+      apiKey = await resolveMuplugApiKey();
+    } catch (_) {
+      return false;
+    }
+    if (!apiKey) return false;
     const testPaths = ['/health', '/status', '/ping'];
     for (let i = 0; i < testPaths.length; i += 1) {
       try {
         const response = await fetch(`${muplugBaseUrl}${testPaths[i]}`, {
           method: 'GET',
-          headers: { Authorization: `Bearer ${muplugApiKey}` }
+          headers: { Authorization: `Bearer ${apiKey}` }
         });
         if (response.ok || [401, 403, 404].includes(response.status)) return true;
       } catch (_) {}
@@ -948,7 +990,8 @@
       return res.json({ ok: true, connected: false, hasApiKey: false, restricted: true });
     }
     const connected = await checkMuplugConnection();
-    return res.json({ ok: true, connected, hasApiKey: !!muplugApiKey });
+    const hasAnyCredential = !!(muplugApiKey || (pluggyClientId && pluggyClientSecret));
+    return res.json({ ok: true, connected, hasApiKey: hasAnyCredential });
   });
 
   app.post('/api/muplug/upload', noStore, requireAuth, requireCsrf, async (req, res) => {
