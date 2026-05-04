@@ -1,4 +1,4 @@
-function registerBillImportAiRoutes(app, deps) {
+﻿function registerBillImportAiRoutes(app, deps) {
   let ociPdfQueue = Promise.resolve();
   const {
     noStore,
@@ -29,20 +29,20 @@ function registerBillImportAiRoutes(app, deps) {
 
   function buildDefaultInvoiceInstructions() {
     return [
-      'Você vai extrair lançamentos de faturas de cartão e devolver APENAS um JSON válido.',
-      'Use obrigatoriamente o arquivo de contexto "finance_import_context.json" como regra de negócio.',
-      'Regras obrigatórias:',
+      'VocÃª vai extrair lanÃ§amentos de faturas de cartÃ£o e devolver APENAS um JSON vÃ¡lido.',
+      'Use obrigatoriamente o arquivo de contexto "finance_import_context.json" como regra de negÃ³cio.',
+      'Regras obrigatÃ³rias:',
       '- output format: finance_import_v1',
       '- version: 1',
-      '- não criar categorias novas',
-      '- usar somente categorias já existentes no contexto',
-      '- NÃO preencher tag (tag deve ser null)',
-      '- não criar/sugerir tags',
-      '- não incluir total da fatura como compra',
-      '- ignorar ressarcimentos/estornos/reembolsos do cartão',
-      '- incluir apenas transações',
+      '- nÃ£o criar categorias novas',
+      '- usar somente categorias jÃ¡ existentes no contexto',
+      '- NÃƒO preencher tag (tag deve ser null)',
+      '- nÃ£o criar/sugerir tags',
+      '- nÃ£o incluir total da fatura como compra',
+      '- ignorar ressarcimentos/estornos/reembolsos do cartÃ£o',
+      '- incluir apenas transaÃ§Ãµes',
       '- quando categoria for incerta: category = null, needs_review = true',
-      '- pode usar suggested_categories com até 3 categorias existentes',
+      '- pode usar suggested_categories com atÃ© 3 categorias existentes',
       'Campos por item:',
       '- date',
       '- description',
@@ -77,7 +77,7 @@ function registerBillImportAiRoutes(app, deps) {
     try {
       return JSON.parse(candidate);
     } catch {
-      throw new Error('A IA não retornou JSON válido no formato esperado.');
+      throw new Error('A IA nÃ£o retornou JSON vÃ¡lido no formato esperado.');
     }
   }
 
@@ -102,20 +102,20 @@ function registerBillImportAiRoutes(app, deps) {
       .split(/\r?\n/)
       .map(line => line.trim())
       .filter(Boolean);
-    if (lines.length < 2) throw new Error('CSV sem conteúdo suficiente.');
+    if (lines.length < 2) throw new Error('CSV sem conteÃºdo suficiente.');
     const header = lines.shift().split(';').map(entry => entry.trim().toLowerCase());
     const idxDate = header.findIndex(name => name === 'data');
     const idxDescription = header.findIndex(name => name.includes('estabelecimento') || name.includes('descri'));
     const idxAmount = header.findIndex(name => name === 'valor' || name.includes('valor'));
 
     if (idxDate < 0 || idxDescription < 0 || idxAmount < 0) {
-      throw new Error('CSV não reconhecido. Esperado: Data;Estabelecimento;...;Valor');
+      throw new Error('CSV nÃ£o reconhecido. Esperado: Data;Estabelecimento;...;Valor');
     }
 
     const items = lines.map(line => {
       const cols = line.split(';');
       const date = normalizeDate(cols[idxDate] || '');
-      const description = String(cols[idxDescription] || '').trim() || 'Compra no cartão';
+      const description = String(cols[idxDescription] || '').trim() || 'Compra no cartÃ£o';
       const amount = moneyToNumber(cols[idxAmount] || '');
       return {
         date,
@@ -170,22 +170,41 @@ function registerBillImportAiRoutes(app, deps) {
 
     const amountRegex = /(?:R\$\s*)?\d{1,3}(?:\.\d{3})*,\d{2}/g;
     const dateRegex = /\b\d{2}\/\d{2}\/(?:\d{2}|\d{4})\b/;
+    const isLikelyNonTransactionLine = (line = '') => {
+      const txt = String(line || '').toLowerCase();
+      return txt.includes('fatura')
+        || txt.includes('total')
+        || txt.includes('pagamento')
+        || txt.includes('saldo')
+        || txt.includes('limite')
+        || txt.includes('vencimento')
+        || txt.includes('encargos')
+        || txt.includes('juros')
+        || txt.includes('multa')
+        || txt.includes('anuidade')
+        || txt.includes('iof')
+        || txt.includes('parcelamento')
+        || txt.includes('resumo');
+    };
 
     const items = [];
     uniqueLines.forEach(line => {
+      if (isLikelyNonTransactionLine(line)) return;
       const amounts = line.match(amountRegex);
       if (!amounts || !amounts.length) return;
       const amountRaw = amounts[amounts.length - 1];
       const amount = moneyToNumber(amountRaw);
       if (!(amount > 0)) return;
       const dateMatch = line.match(dateRegex);
+      if (!dateMatch) return;
       const date = normalizeDateAny(dateMatch?.[0] || '');
+      if (!date) return;
       let description = line
         .replace(amountRaw, '')
         .replace(dateRegex, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
-      if (!description) description = 'Compra no cartão';
+      if (!description || description.length < 3) return;
       items.push({
         date,
         description: description.slice(0, 120),
@@ -204,7 +223,7 @@ function registerBillImportAiRoutes(app, deps) {
     });
     const normalizedItems = Array.from(dedup.values());
     if (!normalizedItems.length) {
-      throw new Error('PDF processado pela OCI, mas nenhum lançamento foi reconhecido automaticamente.');
+      throw new Error('PDF processado pela OCI, mas nenhum lancamento foi reconhecido automaticamente.');
     }
     return {
       format: 'finance_import_v1',
@@ -238,7 +257,7 @@ function registerBillImportAiRoutes(app, deps) {
         .replace(amountRaw, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
-      if (!description || description.length < 2) description = 'Compra no cartão';
+      if (!description || description.length < 2) description = 'Compra no cartÃ£o';
       items.push({
         date,
         description: description.slice(0, 120),
@@ -321,7 +340,7 @@ function registerBillImportAiRoutes(app, deps) {
       if (isRateLimitError(error)) {
         const fallbackPayload = parseItemsFromRawPdfContent(Buffer.from(contentBase64, 'base64'), context);
         if (fallbackPayload) return fallbackPayload;
-        throw new Error('Oracle atingiu limite temporário de requisições por segundo. Aguarde alguns segundos e tente novamente.');
+        throw new Error('Oracle atingiu limite temporÃ¡rio de requisiÃ§Ãµes por segundo. Aguarde alguns segundos e tente novamente.');
       }
       throw new Error(`Falha ao processar PDF com OCI local: ${details || 'erro desconhecido'}`);
     } finally {
@@ -428,7 +447,7 @@ function registerBillImportAiRoutes(app, deps) {
       updateJob(userId, jobId, {
         status: 'error',
         progress: 100,
-        errorMessage: 'Arquivo original não encontrado para processamento.'
+        errorMessage: 'Arquivo original nÃ£o encontrado para processamento.'
       });
       return;
     }
@@ -544,7 +563,7 @@ function registerBillImportAiRoutes(app, deps) {
 
   async function callOracleAi(payload) {
     if (!oracleEndpoint) {
-      throw new Error('Integração Oracle AI não configurada. Defina ORACLE_AI_ENDPOINT.');
+      throw new Error('IntegraÃ§Ã£o Oracle AI nÃ£o configurada. Defina ORACLE_AI_ENDPOINT.');
     }
 
     const controller = new AbortController();
@@ -572,7 +591,7 @@ function registerBillImportAiRoutes(app, deps) {
 
   async function callMuplugAi({ fileName = '', mimeType = '', contentBase64 = '', context = {} }) {
     if (!muplugBaseUrl || !muplugApiKey) {
-      throw new Error('Integração Muplug não configurada. Defina MUPLUG_BASE_URL e MUPLUG_API_KEY.');
+      throw new Error('IntegraÃ§Ã£o Muplug nÃ£o configurada. Defina MUPLUG_BASE_URL e MUPLUG_API_KEY.');
     }
     const endpoint = `${muplugBaseUrl}${muplugParsePath.startsWith('/') ? muplugParsePath : `/${muplugParsePath}`}`;
     const response = await fetch(endpoint, {
@@ -589,14 +608,14 @@ function registerBillImportAiRoutes(app, deps) {
     try {
       payload = JSON.parse(raw || '{}');
     } catch {
-      throw new Error('Muplug retornou JSON inválido.');
+      throw new Error('Muplug retornou JSON invÃ¡lido.');
     }
     if (Array.isArray(payload?.transactions)) {
       const items = payload.transactions.map((tx) => ({
         date: normalizeDateAny(tx?.date || ''),
-        description: String(tx?.description || 'Compra no cartão').trim(),
+        description: String(tx?.description || 'Compra no cartÃ£o').trim(),
         amount: moneyToNumber(tx?.amount || 0),
-        card: String(tx?.cardName || '').trim() || 'Cartão',
+        card: String(tx?.cardName || '').trim() || 'CartÃ£o',
         category: String(tx?.category || '').trim() || null,
         needs_review: true,
         warnings: []
@@ -606,7 +625,7 @@ function registerBillImportAiRoutes(app, deps) {
     if (Array.isArray(payload?.items)) {
       return { format: 'finance_import_v1', version: '1', items: payload.items };
     }
-    throw new Error('Muplug não retornou transações válidas.');
+    throw new Error('Muplug nÃ£o retornou transaÃ§Ãµes vÃ¡lidas.');
   }
 
   async function checkMuplugConnection() {
@@ -634,12 +653,12 @@ function registerBillImportAiRoutes(app, deps) {
     } = req.body || {};
 
     if (!contentBase64 || typeof contentBase64 !== 'string') {
-      return res.status(400).json({ message: 'Arquivo inválido para análise.' });
+      return res.status(400).json({ message: 'Arquivo invÃ¡lido para anÃ¡lise.' });
     }
 
     if (!['oracle', 'muplug'].includes(provider)) {
       return res.status(400).json({
-        message: 'Provider de IA para fatura não está habilitado. Defina BILL_IMPORT_AI_PROVIDER=oracle.'
+        message: 'Provider de IA para fatura nÃ£o estÃ¡ habilitado. Defina BILL_IMPORT_AI_PROVIDER=oracle.'
       });
     }
 
@@ -692,9 +711,9 @@ function registerBillImportAiRoutes(app, deps) {
 
   app.post('/api/invoice/upload', noStore, requireAuth, requireCsrf, async (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     if (!['oracle', 'muplug'].includes(provider)) {
-      return res.status(400).json({ message: 'Provider de IA para fatura não está habilitado.' });
+      return res.status(400).json({ message: 'Provider de IA para fatura nÃ£o estÃ¡ habilitado.' });
     }
     const {
       fileName = 'fatura',
@@ -704,7 +723,7 @@ function registerBillImportAiRoutes(app, deps) {
       prompt = ''
     } = req.body || {};
     if (!contentBase64 || typeof contentBase64 !== 'string') {
-      return res.status(400).json({ message: 'Arquivo inválido para upload.' });
+      return res.status(400).json({ message: 'Arquivo invÃ¡lido para upload.' });
     }
     try {
       const id = safeId();
@@ -741,16 +760,16 @@ function registerBillImportAiRoutes(app, deps) {
 
   app.get('/api/invoice/status', noStore, requireAuth, (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     return res.json({ ok: true, jobs: listJobsForClient(userId) });
   });
 
   app.get('/api/invoice/result/:jobId', noStore, requireAuth, (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const jobId = String(req.params?.jobId || '');
     const job = readUserJobs(userId).find(entry => String(entry?.id || '') === jobId);
-    if (!job) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    if (!job) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
     return res.json({
       ok: true,
       id: job.id,
@@ -763,10 +782,10 @@ function registerBillImportAiRoutes(app, deps) {
 
   app.post('/api/invoice/reprocess/:jobId', noStore, requireAuth, requireCsrf, async (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const jobId = String(req.params?.jobId || '');
     const existing = readUserJobs(userId).find(entry => String(entry?.id || '') === jobId);
-    if (!existing) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    if (!existing) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
     updateJob(userId, jobId, {
       status: 'uploaded',
       progress: 0,
@@ -780,18 +799,18 @@ function registerBillImportAiRoutes(app, deps) {
 
   app.post('/api/invoice/import', noStore, requireAuth, requireCsrf, (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const jobId = String(req.body?.jobId || '');
-    if (!jobId) return res.status(400).json({ message: 'jobId é obrigatório.' });
+    if (!jobId) return res.status(400).json({ message: 'jobId Ã© obrigatÃ³rio.' });
     const jobs = readUserJobs(userId);
     const job = jobs.find(entry => String(entry?.id || '') === jobId);
-    if (!job) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    if (!job) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
     if (job.status === 'imported') {
       return res.json({ ok: true, imported: 0, duplicates: 0, alreadyImported: true });
     }
     const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : (job.result || null);
     if (!payload || !Array.isArray(payload.items)) {
-      return res.status(400).json({ message: 'Resultado da fatura não disponível para importação.' });
+      return res.status(400).json({ message: 'Resultado da fatura nÃ£o disponÃ­vel para importaÃ§Ã£o.' });
     }
     try {
       const current = readUserAppState(userId, req.session?.dataEncryptionKey || '');
@@ -883,9 +902,9 @@ function registerBillImportAiRoutes(app, deps) {
 
   app.post('/api/muplug/upload', noStore, requireAuth, requireCsrf, async (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     if (!['oracle', 'muplug'].includes(provider)) {
-      return res.status(400).json({ message: 'Provider de IA para fatura não está habilitado.' });
+      return res.status(400).json({ message: 'Provider de IA para fatura nÃ£o estÃ¡ habilitado.' });
     }
     const {
       fileName = 'fatura',
@@ -895,7 +914,7 @@ function registerBillImportAiRoutes(app, deps) {
       prompt = ''
     } = req.body || {};
     if (!contentBase64 || typeof contentBase64 !== 'string') {
-      return res.status(400).json({ message: 'Arquivo inválido para upload.' });
+      return res.status(400).json({ message: 'Arquivo invÃ¡lido para upload.' });
     }
     try {
       const id = safeId();
@@ -932,24 +951,24 @@ function registerBillImportAiRoutes(app, deps) {
 
   app.get('/api/muplug/jobs', noStore, requireAuth, (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     return res.json({ ok: true, jobs: listJobsForClient(userId) });
   });
 
   app.get('/api/muplug/status/:jobId', noStore, requireAuth, (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const job = readUserJobs(userId).find(entry => String(entry?.id || '') === String(req.params?.jobId || ''));
-    if (!job) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    if (!job) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
     const item = listJobsForClient(userId).find(entry => entry.id === job.id) || null;
     return res.json({ ok: true, job: item });
   });
 
   app.get('/api/muplug/result/:jobId', noStore, requireAuth, (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const job = readUserJobs(userId).find(entry => String(entry?.id || '') === String(req.params?.jobId || ''));
-    if (!job) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    if (!job) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
     return res.json({
       ok: true,
       id: job.id,
@@ -962,10 +981,10 @@ function registerBillImportAiRoutes(app, deps) {
 
   app.post('/api/muplug/reprocess/:jobId', noStore, requireAuth, requireCsrf, (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const jobId = String(req.params?.jobId || '');
     const existing = readUserJobs(userId).find(entry => String(entry?.id || '') === jobId);
-    if (!existing) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    if (!existing) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
     updateJob(userId, jobId, {
       status: 'uploaded',
       progress: 0,
@@ -979,18 +998,18 @@ function registerBillImportAiRoutes(app, deps) {
 
   app.post('/api/muplug/import', noStore, requireAuth, requireCsrf, (req, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (!userId) return res.status(401).json({ message: 'SessÃ£o invÃ¡lida.' });
     const jobId = String(req.body?.jobId || '');
-    if (!jobId) return res.status(400).json({ message: 'jobId é obrigatório.' });
+    if (!jobId) return res.status(400).json({ message: 'jobId Ã© obrigatÃ³rio.' });
     const jobs = readUserJobs(userId);
     const job = jobs.find(entry => String(entry?.id || '') === jobId);
-    if (!job) return res.status(404).json({ message: 'Fatura não encontrada.' });
+    if (!job) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
     if (job.status === 'imported') {
       return res.json({ ok: true, imported: 0, duplicates: 0, alreadyImported: true });
     }
     const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : (job.result || null);
     if (!payload || !Array.isArray(payload.items)) {
-      return res.status(400).json({ message: 'Resultado da fatura não disponível para importação.' });
+      return res.status(400).json({ message: 'Resultado da fatura nÃ£o disponÃ­vel para importaÃ§Ã£o.' });
     }
     try {
       const current = readUserAppState(userId, req.session?.dataEncryptionKey || '');
@@ -1065,5 +1084,6 @@ function registerBillImportAiRoutes(app, deps) {
 }
 
 module.exports = { registerBillImportAiRoutes };
+
 
 
