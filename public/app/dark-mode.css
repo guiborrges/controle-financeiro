@@ -108,6 +108,13 @@ body * {
   backdrop-filter: none;
 }
 
+[data-theme="dark"] .page-header h2,
+[data-theme="dark"] .page-title-inline,
+[data-theme="dark"] .page-title-block,
+[data-theme="dark"] .finance-calendar-month-label {
+  color: var(--dark-text) !important;
+}
+
 [data-theme="dark"] .page-top-band,
 [data-theme="dark"] .page-top-band::before,
 [data-theme="dark"] .metric-card,
@@ -144,6 +151,51 @@ body * {
 [data-theme="dark"] .btn-primary,
 [data-theme="dark"] .btn-danger,
 [data-theme="dark"] .btn-new-month {
+  background-image: none !important;
+}
+
+[data-theme="dark"] .page-top-band::before,
+[data-theme="dark"] .dashboard-widget::before,
+[data-theme="dark"] .section::before,
+[data-theme="dark"] .metric-card::before,
+[data-theme="dark"] .modal::before,
+[data-theme="dark"] .finance-calendar-side-panel-body::before,
+[data-theme="dark"] .finance-calendar-side-panel-body::after {
+  display: none !important;
+  background: none !important;
+}
+
+[data-theme="dark"] .section,
+[data-theme="dark"] .metric-card,
+[data-theme="dark"] .dashboard-widget,
+[data-theme="dark"] .modal {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 0 0 1px var(--dark-border) !important;
+}
+
+[data-theme="dark"] .section-head,
+[data-theme="dark"] .section-renda .section-head,
+[data-theme="dark"] .section-projetos .section-head,
+[data-theme="dark"] .section-theme-custom .section-head,
+[data-theme="dark"] .page-top-band .page-header {
+  background: #1b1f27 !important;
+  background-image: none !important;
+  border-bottom-color: var(--dark-border) !important;
+}
+
+[data-theme="dark"] .section-head h3,
+[data-theme="dark"] .section-head h3[data-editable="true"] {
+  color: var(--dark-text) !important;
+}
+
+[data-theme="dark"] #despTable thead,
+[data-theme="dark"] #despTable tfoot,
+[data-theme="dark"] #dailyTable thead,
+[data-theme="dark"] #dailyTable tfoot,
+[data-theme="dark"] #rendaTable thead,
+[data-theme="dark"] #rendaTable tfoot,
+[data-theme="dark"] #projTable thead,
+[data-theme="dark"] #projTable tfoot {
+  background: #1b1f27 !important;
   background-image: none !important;
 }
 
