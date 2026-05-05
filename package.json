@@ -17,12 +17,15 @@
     "test:e2e:import-bill": "node scripts/e2e-import-bill.js",
     "test:ux:15points": "node scripts/ux-15points-improver.js",
     "set-password": "node scripts/set-password.js",
-    "set-developer-password": "node scripts/set-developer-password.js"
+    "set-developer-password": "node scripts/set-developer-password.js",
+    "worker:pluggy": "node workers/worker_pluggy.js",
+    "worker:oracle-ai": "node workers/worker_oracle_ai.js"
   },
   "dependencies": {
     "express": "^4.21.2",
     "express-session": "^1.18.1",
-    "nodemailer": "^6.9.15"
+    "nodemailer": "^6.9.15",
+    "oracledb": "^6.8.0"
   },
   "devDependencies": {
     "playwright": "^1.59.1"
