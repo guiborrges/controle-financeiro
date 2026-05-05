@@ -70,7 +70,7 @@
     nodes.forEach(node => {
       node.classList.remove('is-connected', 'is-disconnected');
       node.classList.add(connected ? 'is-connected' : 'is-disconnected');
-      node.title = connected ? 'Conectado ao internet banking' : 'Desconectado ao internet banking';
+      node.title = connected ? 'Conectado à importação de faturas (IA)' : 'Importação de faturas (IA) indisponível';
     });
   }
 
@@ -142,7 +142,7 @@
   }
 
   async function refreshStatus() {
-    const response = await fetch('/api/muplug/jobs', {
+    const response = await fetch('/api/invoice/status', {
       method: 'GET',
       credentials: 'same-origin',
       headers: getCsrfHeaders({ Accept: 'application/json' })
@@ -154,18 +154,8 @@
   }
 
   async function refreshConnection() {
-    try {
-      const response = await fetch('/api/muplug/connection', {
-        method: 'GET',
-        credentials: 'same-origin',
-        headers: getCsrfHeaders({ Accept: 'application/json' })
-      });
-      const payload = await response.json().catch(() => ({}));
-      state.muplugConnection.connected = response.ok && payload?.connected === true;
-      state.muplugConnection.apiKey = payload?.hasApiKey ? 'configured' : '';
-    } catch (_) {
-      state.muplugConnection.connected = false;
-    }
+    state.muplugConnection.connected = true;
+    state.muplugConnection.apiKey = '';
     renderConnectionBadge();
   }
 
@@ -183,7 +173,7 @@
 
   async function uploadInvoiceFile(file) {
     const contentBase64 = await readFileAsBase64(file);
-    const response = await fetch('/api/muplug/upload', {
+    const response = await fetch('/api/invoice/upload', {
       method: 'POST',
       credentials: 'same-origin',
       headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
@@ -215,7 +205,7 @@
 
   async function openJobPreview(jobId) {
     try {
-      const response = await fetch(`/api/muplug/result/${encodeURIComponent(jobId)}`, {
+      const response = await fetch(`/api/invoice/result/${encodeURIComponent(jobId)}`, {
         method: 'GET',
         credentials: 'same-origin',
         headers: getCsrfHeaders({ Accept: 'application/json' })
@@ -248,7 +238,7 @@
       const payload = typeof global.BillImportReview?.exportPayload === 'function'
         ? global.BillImportReview.exportPayload()
         : null;
-      const response = await fetch('/api/muplug/import', {
+      const response = await fetch('/api/invoice/import', {
         method: 'POST',
         credentials: 'same-origin',
         headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
@@ -271,7 +261,7 @@
 
   async function reprocessJob(jobId) {
     try {
-      const response = await fetch(`/api/muplug/reprocess/${encodeURIComponent(jobId)}`, {
+      const response = await fetch(`/api/invoice/reprocess/${encodeURIComponent(jobId)}`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
@@ -301,10 +291,6 @@
   }
 
   async function openProcessedJobs() {
-    if (!state.muplugConnection.connected) {
-      showStatus('Desconectado ao internet banking. Verifique a conexão Muplug.', 'error');
-      return;
-    }
     await openImportModal();
   }
 
