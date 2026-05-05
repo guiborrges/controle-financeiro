@@ -62,16 +62,19 @@
   }
 
   function renderConnectionBadge() {
-    const nodes = [
-      document.getElementById('muplugConnectionBadge'),
-      document.getElementById('muplugConnectionHeaderBadge')
-    ].filter(Boolean);
+    const invoiceBadge = document.getElementById('muplugConnectionBadge');
+    const bankBadge = document.getElementById('muplugConnectionHeaderBadge');
     const connected = state.muplugConnection.connected === true;
-    nodes.forEach(node => {
+    [invoiceBadge, bankBadge].filter(Boolean).forEach(node => {
       node.classList.remove('is-connected', 'is-disconnected');
       node.classList.add(connected ? 'is-connected' : 'is-disconnected');
-      node.title = connected ? 'Conectado à importação de faturas (IA)' : 'Importação de faturas (IA) indisponível';
     });
+    if (invoiceBadge) {
+      invoiceBadge.title = connected ? 'Conectado à importação de faturas (IA)' : 'Importação de faturas (IA) indisponível';
+    }
+    if (bankBadge) {
+      bankBadge.title = connected ? 'Conectado ao internet banking' : 'Desconectado do internet banking';
+    }
   }
 
   function getCurrentContext() {
@@ -294,6 +297,19 @@
     await openImportModal();
   }
 
+  function openInternetBankingHub() {
+    if (typeof global.openPluggyConnectModal === 'function') {
+      global.openPluggyConnectModal();
+      return;
+    }
+    showStatus(
+      'Internet banking (Pluggy) é um fluxo separado da fatura IA. O atalho de conexão ainda não está disponível nesta tela.',
+      'ok',
+      'Internet banking',
+      3200
+    );
+  }
+
   function closeImportModal() {
     stopPolling();
     if (typeof global.closeModal === 'function') global.closeModal('modalBillImport');
@@ -303,8 +319,10 @@
     openJobPreview,
     runImportFromReview,
     reprocessJob,
-    openProcessedJobs
+    openProcessedJobs,
+    openInternetBankingHub
   };
+  global.openInternetBankingHub = openInternetBankingHub;
   global.openBillImportModal = openImportModal;
   global.closeBillImportModal = closeImportModal;
   global.triggerBillImportUpload = triggerUpload;

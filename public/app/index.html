@@ -849,7 +849,7 @@
   <div class="modal" style="max-width:760px">
     <div class="modal-header">
       <h3>Adicionar por fatura</h3>
-      <button id="muplugConnectionBadge" class="btn-icon muplug-connection-badge is-disconnected" type="button" title="Desconectado ao internet banking" onclick="BillImport.openProcessedJobs()">
+      <button id="muplugConnectionBadge" class="btn-icon muplug-connection-badge is-disconnected" type="button" title="Status da importação por IA">
         <span class="muplug-bank-icon">🏦</span>
       </button>
       <button class="btn-icon" type="button" onclick="closeBillImportModal()">✕</button>
@@ -891,7 +891,7 @@
       <h3 id="modalUnifiedOutflowTitle" style="margin:0">Adicionar lançamento</h3>
       <div class="unified-outflow-modal-head-actions">
         <button class="btn btn-ghost unified-outflow-import-btn" type="button" onclick="closeUnifiedOutflowModal(); openBillImportModal();" title="Adicionar por fatura">Adicionar por fatura</button>
-        <button id="muplugConnectionHeaderBadge" class="btn-icon muplug-connection-badge is-disconnected" type="button" onclick="closeUnifiedOutflowModal(); BillImport.openProcessedJobs();" title="Desconectado ao internet banking">
+        <button id="muplugConnectionHeaderBadge" class="btn-icon muplug-connection-badge is-disconnected" type="button" onclick="closeUnifiedOutflowModal(); openInternetBankingHub();" title="Internet banking">
           <span class="muplug-bank-icon">🏦</span>
         </button>
         <button class="btn-icon unified-outflow-minimize-btn" type="button" onclick="minimizeUnifiedOutflowModal()" title="Minimizar">—</button>
