@@ -5,14 +5,22 @@ const oracledb = require('oracledb');
 let poolPromise = null;
 
 function getDbConfig() {
-  return {
+  const walletLocation = String(process.env.ORACLE_DB_WALLET_LOCATION || '').trim();
+  const walletPassword = String(process.env.ORACLE_DB_WALLET_PASSWORD || '').trim();
+  const configDir = String(process.env.ORACLE_DB_CONFIG_DIR || '').trim();
+  const connectString = String(process.env.ORACLE_DB_CONNECT_STRING || '').trim();
+  const base = {
     user: String(process.env.ORACLE_DB_USER || '').trim(),
     password: String(process.env.ORACLE_DB_PASSWORD || '').trim(),
-    connectString: String(process.env.ORACLE_DB_CONNECT_STRING || '').trim(),
+    connectString,
     poolMin: Number(process.env.ORACLE_DB_POOL_MIN || 1),
     poolMax: Number(process.env.ORACLE_DB_POOL_MAX || 4),
     poolIncrement: Number(process.env.ORACLE_DB_POOL_INCREMENT || 1)
   };
+  if (configDir) base.configDir = configDir;
+  if (walletLocation) base.walletLocation = walletLocation;
+  if (walletPassword) base.walletPassword = walletPassword;
+  return base;
 }
 
 async function ensurePool() {
@@ -47,4 +55,3 @@ module.exports = {
   withConnection,
   closePool
 };
-
