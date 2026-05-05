@@ -21,15 +21,17 @@ async function requestJson(pathname, options = {}) {
   }
   if (!response.ok) {
     const message = parsed?.message || text || `Pluggy HTTP ${response.status}`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   return parsed;
 }
 
-async function resolveApiKey() {
+async function resolveApiKey(forceRefresh = false) {
   const staticApiKey = String(process.env.PLUGGY_API_KEY || process.env.MUPLUG_API_KEY || '').trim();
   if (staticApiKey) return staticApiKey;
-  if (cachedApiKey && Date.now() < cachedApiKeyExpireAt) return cachedApiKey;
+  if (!forceRefresh && cachedApiKey && Date.now() < cachedApiKeyExpireAt) return cachedApiKey;
 
   const clientId = String(process.env.PLUGGY_CLIENT_ID || '').trim();
   const clientSecret = String(process.env.PLUGGY_CLIENT_SECRET || '').trim();
@@ -48,12 +50,25 @@ async function resolveApiKey() {
   return apiKey;
 }
 
+function authHeaders(apiKey) {
+  return { Accept: 'application/json', 'X-API-KEY': apiKey };
+}
+
 async function get(pathname) {
-  const key = await resolveApiKey();
-  return requestJson(pathname, {
-    method: 'GET',
-    headers: { Accept: 'application/json', 'X-API-KEY': key }
-  });
+  let key = await resolveApiKey(false);
+  try {
+    return await requestJson(pathname, {
+      method: 'GET',
+      headers: authHeaders(key)
+    });
+  } catch (error) {
+    if (Number(error?.status) !== 401) throw error;
+    key = await resolveApiKey(true);
+    return requestJson(pathname, {
+      method: 'GET',
+      headers: authHeaders(key)
+    });
+  }
 }
 
 function asArray(payload) {
@@ -86,4 +101,3 @@ module.exports = {
   listAccounts,
   listTransactions
 };
-
