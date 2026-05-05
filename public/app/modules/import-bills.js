@@ -9,6 +9,13 @@
     muplugConnection: {
       connected: false,
       apiKey: ''
+    },
+    bankPreview: {
+      loading: false,
+      error: '',
+      connections: [],
+      transactions: [],
+      lastUpdatedAt: ''
     }
   };
 
@@ -75,6 +82,113 @@
     if (bankBadge) {
       bankBadge.title = connected ? 'Conectado ao internet banking' : 'Desconectado do internet banking';
     }
+  }
+
+  function ensureInternetBankingModal() {
+    if (document.getElementById('modalInternetBankingPreview')) return;
+    const modal = document.createElement('div');
+    modal.className = 'modal-bg';
+    modal.id = 'modalInternetBankingPreview';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:880px" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Internet banking (pré-visualização)</h3>
+          <button class="btn-icon" type="button" onclick="BillImport.closeInternetBankingPreview()">✕</button>
+        </div>
+        <p class="modal-subcopy">
+          Esses dados vieram do Pluggy e ainda não foram inseridos automaticamente no seu sistema financeiro.
+        </p>
+        <div id="internetBankingPreviewStatus" class="text-muted" style="margin-bottom:10px;font-size:12px"></div>
+        <div id="internetBankingPreviewConnections" style="margin-bottom:12px"></div>
+        <div style="max-height:420px;overflow:auto;border:1px solid var(--border-color);border-radius:12px">
+          <table class="fin-table" style="margin:0">
+            <thead>
+              <tr>
+                <th style="padding-left:16px">Data</th>
+                <th>Descrição</th>
+                <th>Conta</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody id="internetBankingPreviewBody"></tbody>
+          </table>
+        </div>
+        <div class="form-actions" style="margin-top:16px">
+          <button class="btn btn-ghost" type="button" onclick="BillImport.loadInternetBankingPreview()">Atualizar</button>
+          <button class="btn btn-primary" type="button" onclick="BillImport.closeInternetBankingPreview()">Fechar</button>
+        </div>
+      </div>
+    `;
+    modal.addEventListener('click', event => {
+      if (event.target && event.target.id === 'modalInternetBankingPreview') {
+        closeInternetBankingPreview();
+      }
+    });
+    document.body.appendChild(modal);
+  }
+
+  function fmtMoney(value) {
+    const n = Number(value || 0);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number.isFinite(n) ? n : 0);
+  }
+
+  function fmtShortDate(value) {
+    const ms = Date.parse(String(value || ''));
+    if (!Number.isFinite(ms)) return '--';
+    return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(ms));
+  }
+
+  function renderInternetBankingPreview() {
+    ensureInternetBankingModal();
+    const statusNode = document.getElementById('internetBankingPreviewStatus');
+    const connectionsNode = document.getElementById('internetBankingPreviewConnections');
+    const bodyNode = document.getElementById('internetBankingPreviewBody');
+    if (!statusNode || !connectionsNode || !bodyNode) return;
+
+    if (state.bankPreview.loading) {
+      statusNode.textContent = 'Carregando dados do internet banking...';
+      return;
+    }
+    if (state.bankPreview.error) {
+      statusNode.textContent = state.bankPreview.error;
+      bodyNode.innerHTML = '';
+      connectionsNode.innerHTML = '';
+      return;
+    }
+
+    statusNode.textContent = state.bankPreview.lastUpdatedAt
+      ? `Última atualização: ${fmtDateTime(state.bankPreview.lastUpdatedAt)}`
+      : 'Sem atualização registrada ainda.';
+
+    const connections = Array.isArray(state.bankPreview.connections) ? state.bankPreview.connections : [];
+    if (!connections.length) {
+      connectionsNode.innerHTML = '<div class="text-muted" style="font-size:12px">Nenhuma conexão bancária registrada para este usuário.</div>';
+    } else {
+      connectionsNode.innerHTML = connections.map(connection => `
+        <span class="bill-import-job-badge is-${escapeHtml(String(connection.status || '').toLowerCase() || 'uploaded')}" style="margin-right:6px">
+          ${escapeHtml(connection.providerName || connection.pluggyItemId || 'Conexão')} · ${escapeHtml(connection.status || 'unknown')}
+        </span>
+      `).join('');
+    }
+
+    const transactions = Array.isArray(state.bankPreview.transactions) ? state.bankPreview.transactions : [];
+    if (!transactions.length) {
+      bodyNode.innerHTML = '<tr><td colspan="4" class="text-muted" style="padding:12px 16px">Nenhuma movimentação disponível para pré-visualização.</td></tr>';
+      return;
+    }
+
+    bodyNode.innerHTML = transactions.map(tx => {
+      const amount = Number(tx.amount || 0);
+      const amountClass = amount < 0 ? 'amount-neg' : 'amount-pos';
+      return `
+        <tr>
+          <td style="padding-left:16px">${escapeHtml(fmtShortDate(tx.date))}</td>
+          <td>${escapeHtml(tx.description || '--')}</td>
+          <td>${escapeHtml(tx.accountName || tx.accountId || '--')}</td>
+          <td class="${amountClass}">${escapeHtml(fmtMoney(amount))}</td>
+        </tr>
+      `;
+    }).join('');
   }
 
   function getCurrentContext() {
@@ -157,9 +271,50 @@
   }
 
   async function refreshConnection() {
-    state.muplugConnection.connected = true;
-    state.muplugConnection.apiKey = '';
+    try {
+      const response = await fetch('/api/pluggy/connection', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: getCsrfHeaders({ Accept: 'application/json' })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.message || 'Falha ao validar conexão do internet banking.');
+      state.muplugConnection.connected = payload?.connected === true;
+      state.muplugConnection.apiKey = '';
+    } catch (_error) {
+      state.muplugConnection.connected = false;
+      state.muplugConnection.apiKey = '';
+    }
     renderConnectionBadge();
+  }
+
+  async function loadInternetBankingPreview() {
+    state.bankPreview.loading = true;
+    state.bankPreview.error = '';
+    renderInternetBankingPreview();
+    try {
+      const response = await fetch('/api/pluggy/preview?limit=300', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: getCsrfHeaders({ Accept: 'application/json' })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.message || 'Falha ao carregar pré-visualização do internet banking.');
+      state.muplugConnection.connected = payload?.connected === true;
+      state.bankPreview.connections = Array.isArray(payload?.connections) ? payload.connections : [];
+      state.bankPreview.transactions = Array.isArray(payload?.transactions) ? payload.transactions : [];
+      state.bankPreview.lastUpdatedAt = String(payload?.latestUpdatedAt || '');
+      state.bankPreview.error = '';
+    } catch (error) {
+      state.bankPreview.error = error?.message || 'Falha ao carregar pré-visualização do internet banking.';
+      state.bankPreview.connections = [];
+      state.bankPreview.transactions = [];
+      state.bankPreview.lastUpdatedAt = '';
+    } finally {
+      state.bankPreview.loading = false;
+      renderConnectionBadge();
+      renderInternetBankingPreview();
+    }
   }
 
   function startPolling() {
@@ -297,17 +452,15 @@
     await openImportModal();
   }
 
-  function openInternetBankingHub() {
-    if (typeof global.openPluggyConnectModal === 'function') {
-      global.openPluggyConnectModal();
-      return;
-    }
-    showStatus(
-      'Internet banking (Pluggy) é um fluxo separado da fatura IA. O atalho de conexão ainda não está disponível nesta tela.',
-      'ok',
-      'Internet banking',
-      3200
-    );
+  async function openInternetBankingHub() {
+    ensureInternetBankingModal();
+    if (typeof global.openModal === 'function') global.openModal('modalInternetBankingPreview');
+    await refreshConnection();
+    await loadInternetBankingPreview();
+  }
+
+  function closeInternetBankingPreview() {
+    if (typeof global.closeModal === 'function') global.closeModal('modalInternetBankingPreview');
   }
 
   function closeImportModal() {
@@ -320,7 +473,9 @@
     runImportFromReview,
     reprocessJob,
     openProcessedJobs,
-    openInternetBankingHub
+    openInternetBankingHub,
+    closeInternetBankingPreview,
+    loadInternetBankingPreview
   };
   global.openInternetBankingHub = openInternetBankingHub;
   global.openBillImportModal = openImportModal;

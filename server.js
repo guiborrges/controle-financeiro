@@ -12,6 +12,7 @@ const { registerProfileRoutes } = require('./server/http/routes/profile');
 const { registerAppStateRoutes } = require('./server/http/routes/app-state');
 const { registerBillImportAiRoutes } = require('./server/http/routes/bill-import-ai');
 const { registerPluggyWebhookRoutes } = require('./server/http/routes/pluggy-webhook');
+const { registerPluggyPreviewRoutes } = require('./server/http/routes/pluggy-preview');
 const {
   REMEMBER_COOKIE_NAME,
   ensureSessionSecret,
@@ -413,6 +414,11 @@ registerBillImportAiRoutes(app, {
 });
 
 registerPluggyWebhookRoutes(app, { noStore });
+registerPluggyPreviewRoutes(app, {
+  noStore,
+  requireAuth,
+  getAuthenticatedUser
+});
 
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
