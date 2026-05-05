@@ -115,19 +115,18 @@ async function syncOnce() {
   running = true;
   const start = Date.now();
   try {
-    const items = await pluggy.listItems();
-    const selectedItems = FILTER_ITEM_IDS.length
-      ? items.filter(item => FILTER_ITEM_IDS.includes(String(item?.id || '')))
-      : items;
+    if (!FILTER_ITEM_IDS.length) {
+      console.warn('[sync-pluggy] nenhum itemId configurado em PLUGGY_ITEM_IDS. Sincronizacao ignorada.');
+      return;
+    }
+    const selectedItemIds = [...FILTER_ITEM_IDS];
 
     let accountsCount = 0;
     let txCount = 0;
     let balanceCount = 0;
 
     await withConnection(async conn => {
-      for (const item of selectedItems) {
-        const itemId = String(item?.id || '');
-        if (!itemId) continue;
+      for (const itemId of selectedItemIds) {
         const accounts = await pluggy.listAccounts(itemId);
         accountsCount += accounts.length;
 
@@ -187,7 +186,7 @@ async function syncOnce() {
     });
 
     const elapsed = Date.now() - start;
-    console.log(`[sync-pluggy] OK ${nowIso()} items=${selectedItems.length} accounts=${accountsCount} tx=${txCount} balance=${balanceCount} elapsedMs=${elapsed}`);
+    console.log(`[sync-pluggy] OK ${nowIso()} items=${selectedItemIds.length} accounts=${accountsCount} tx=${txCount} balance=${balanceCount} elapsedMs=${elapsed}`);
   } catch (error) {
     console.error(`[sync-pluggy] ERRO ${nowIso()} ${error?.message || error}`);
   } finally {
@@ -223,4 +222,3 @@ start().catch(error => {
   console.error('[sync-pluggy] falha fatal ao iniciar:', error?.message || error);
   process.exit(1);
 });
-
