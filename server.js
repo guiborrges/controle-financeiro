@@ -11,6 +11,7 @@ const { registerAuthRoutes } = require('./server/http/routes/auth');
 const { registerProfileRoutes } = require('./server/http/routes/profile');
 const { registerAppStateRoutes } = require('./server/http/routes/app-state');
 const { registerBillImportAiRoutes } = require('./server/http/routes/bill-import-ai');
+const { registerPluggyWebhookRoutes } = require('./server/http/routes/pluggy-webhook');
 const {
   REMEMBER_COOKIE_NAME,
   ensureSessionSecret,
@@ -410,6 +411,8 @@ registerBillImportAiRoutes(app, {
   writeUserAppState,
   USERS_DATA_DIR
 });
+
+registerPluggyWebhookRoutes(app, { noStore });
 
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
