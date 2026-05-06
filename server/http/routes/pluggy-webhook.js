@@ -265,6 +265,7 @@ function registerPluggyWebhookRoutes(app, deps = {}) {
       const payload = req.body || {};
       const eventType = getEventType(payload);
       const item = getItem(payload);
+      console.log(`[pluggy-webhook] recebido eventType=${eventType || 'unknown'}`);
 
       const isItemCreated = eventType === 'item/created' || eventType === 'item.created';
       const isTransactionsCreated = eventType === 'transactions/created' || eventType === 'transactions.created';
@@ -272,18 +273,22 @@ function registerPluggyWebhookRoutes(app, deps = {}) {
       if (isItemCreated) {
         const itemId = String(item?.id || '').trim();
         if (!itemId) {
+          console.warn('[pluggy-webhook] item/created sem item.id');
           return res.status(400).json({ message: 'Webhook Pluggy sem item.id.' });
         }
         await upsertConnection(item);
+        console.log(`[pluggy-webhook] item/created salvo itemId=${itemId}`);
         return res.status(200).json({ ok: true, eventType, itemId });
       }
 
       if (isTransactionsCreated) {
         const transactions = normalizeTransactionsFromWebhook(payload);
         const result = await upsertTransactions(transactions);
+        console.log(`[pluggy-webhook] transactions/created processado count=${transactions.length} inserted=${result.inserted} skipped=${result.skipped}`);
         return res.status(200).json({ ok: true, eventType, ...result });
       }
 
+      console.log(`[pluggy-webhook] evento ignorado eventType=${eventType || 'unknown'}`);
       return res.status(200).json({ ok: true, ignored: true, eventType: eventType || null });
     } catch (error) {
       console.error('[pluggy-webhook] erro:', error?.message || error);
