@@ -100,19 +100,7 @@
         </p>
         <div id="internetBankingPreviewStatus" class="text-muted" style="margin-bottom:10px;font-size:12px"></div>
         <div id="internetBankingPreviewConnections" style="margin-bottom:12px"></div>
-        <div style="max-height:420px;overflow:auto;border:1px solid var(--border-color);border-radius:12px">
-          <table class="fin-table" style="margin:0">
-            <thead>
-              <tr>
-                <th style="padding-left:16px">Data</th>
-                <th>Descrição</th>
-                <th>Conta</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-            <tbody id="internetBankingPreviewBody"></tbody>
-          </table>
-        </div>
+        <div id="internetBankingPreviewBody" style="max-height:420px;overflow:auto;border:1px solid var(--border-color);border-radius:12px;padding:12px"></div>
         <div class="form-actions" style="margin-top:16px">
           <button class="btn btn-ghost" type="button" onclick="BillImport.loadInternetBankingPreview()">Atualizar</button>
           <button class="btn btn-primary" type="button" onclick="BillImport.closeInternetBankingPreview()">Fechar</button>
@@ -157,38 +145,98 @@
     }
 
     statusNode.textContent = state.bankPreview.lastUpdatedAt
-      ? `Última atualização: ${fmtDateTime(state.bankPreview.lastUpdatedAt)}`
-      : 'Sem atualização registrada ainda.';
+      ? `Ultima atualizacao: ${fmtDateTime(state.bankPreview.lastUpdatedAt)}`
+      : 'Sem atualizacao registrada ainda.';
 
     const connections = Array.isArray(state.bankPreview.connections) ? state.bankPreview.connections : [];
     if (!connections.length) {
-      connectionsNode.innerHTML = '<div class="text-muted" style="font-size:12px">Nenhuma conexão bancária registrada para este usuário.</div>';
+      connectionsNode.innerHTML = '<div class="text-muted" style="font-size:12px">Nenhuma conexao bancaria registrada para este usuario.</div>';
     } else {
       connectionsNode.innerHTML = connections.map(connection => `
         <span class="bill-import-job-badge is-${escapeHtml(String(connection.status || '').toLowerCase() || 'uploaded')}" style="margin-right:6px">
-          ${escapeHtml(connection.providerName || connection.pluggyItemId || 'Conexão')} · ${escapeHtml(connection.status || 'unknown')}
+          ${escapeHtml(connection.providerName || connection.pluggyItemId || 'Conexao')} � ${escapeHtml(connection.status || 'unknown')}
         </span>
       `).join('');
     }
 
     const transactions = Array.isArray(state.bankPreview.transactions) ? state.bankPreview.transactions : [];
     if (!transactions.length) {
-      bodyNode.innerHTML = '<tr><td colspan="4" class="text-muted" style="padding:12px 16px">Nenhuma movimentação disponível para pré-visualização.</td></tr>';
+      bodyNode.innerHTML = '<div class="text-muted" style="padding:12px 16px">Nenhuma movimentacao disponivel para pre-visualizacao.</div>';
       return;
     }
 
-    bodyNode.innerHTML = transactions.map(tx => {
-      const amount = Number(tx.amount || 0);
-      const amountClass = amount < 0 ? 'amount-neg' : 'amount-pos';
+    const groups = {
+      CARTAO_CREDITO: new Map(),
+      CONTA_CORRENTE: new Map(),
+      OUTROS: new Map()
+    };
+
+    transactions.forEach(tx => {
+      const rawType = String(tx.recordType || '').toUpperCase();
+      const type = rawType === 'CARTAO_CREDITO'
+        ? 'CARTAO_CREDITO'
+        : rawType === 'CONTA_CORRENTE'
+          ? 'CONTA_CORRENTE'
+          : 'OUTROS';
+      const key = String(tx.accountId || tx.accountName || tx.itemId || 'sem-conta');
+      const name = String(tx.accountName || tx.accountId || tx.itemId || 'Conta sem nome');
+
+      if (!groups[type].has(key)) groups[type].set(key, { name, rows: [] });
+      groups[type].get(key).rows.push(tx);
+    });
+
+    function renderRows(rows) {
+      return rows.map(tx => {
+        const amount = Number(tx.amount || 0);
+        const amountClass = amount < 0 ? 'amount-neg' : 'amount-pos';
+        return `
+          <tr>
+            <td style="padding-left:16px">${escapeHtml(fmtShortDate(tx.date))}</td>
+            <td>${escapeHtml(tx.description || '--')}</td>
+            <td class="${amountClass}">${escapeHtml(fmtMoney(amount))}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderAccountBlock(account) {
       return `
-        <tr>
-          <td style="padding-left:16px">${escapeHtml(fmtShortDate(tx.date))}</td>
-          <td>${escapeHtml(tx.description || '--')}</td>
-          <td>${escapeHtml(tx.accountName || tx.accountId || '--')}</td>
-          <td class="${amountClass}">${escapeHtml(fmtMoney(amount))}</td>
-        </tr>
+        <div style="border:1px solid var(--border-color);border-radius:10px;overflow:hidden;margin-bottom:12px">
+          <div style="padding:8px 12px;font-weight:700;background:var(--surface-2, var(--bg-card));border-bottom:1px solid var(--border-color)">
+            ${escapeHtml(account.name)}
+          </div>
+          <table class="fin-table" style="margin:0">
+            <thead>
+              <tr>
+                <th style="padding-left:16px">Data</th>
+                <th>Descricao</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderRows(account.rows)}
+            </tbody>
+          </table>
+        </div>
       `;
-    }).join('');
+    }
+
+    function renderSection(title, map) {
+      const accounts = Array.from(map.values());
+      if (!accounts.length) return '';
+      return `
+        <section style="margin-bottom:12px">
+          <h4 style="margin:0 0 8px 0;font-size:13px;letter-spacing:.02em">${escapeHtml(title)}</h4>
+          ${accounts.map(renderAccountBlock).join('')}
+        </section>
+      `;
+    }
+
+    bodyNode.innerHTML = [
+      renderSection('Cartoes de credito', groups.CARTAO_CREDITO),
+      renderSection('Contas correntes', groups.CONTA_CORRENTE),
+      renderSection('Outras movimentacoes', groups.OUTROS)
+    ].join('');
   }
 
   function getCurrentContext() {
@@ -484,3 +532,5 @@
   global.handleBillImportFileChange = triggerUploadFromInput;
   refreshConnection().catch(() => {});
 })(typeof window !== 'undefined' ? window : globalThis);
+
+
