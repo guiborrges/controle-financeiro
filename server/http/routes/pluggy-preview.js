@@ -43,6 +43,12 @@ function mapConnectionRow(row = {}) {
 }
 
 function mapTransactionRow(row = {}) {
+  let raw = {};
+  try {
+    raw = row.RAW_JSON ? JSON.parse(String(row.RAW_JSON)) : {};
+  } catch (_) {
+    raw = {};
+  }
   return {
     id: String(row.EXTERNAL_TRANSACTION_ID || ''),
     itemId: String(row.PLUGGY_ITEM_ID || ''),
@@ -55,7 +61,15 @@ function mapTransactionRow(row = {}) {
     accountName: String(row.ACCOUNT_NAME || ''),
     accountType: String(row.ACCOUNT_TYPE || ''),
     balanceAmount: row.BALANCE_AMOUNT == null ? null : Number(row.BALANCE_AMOUNT),
-    updatedAt: row.UPDATED_AT ? new Date(row.UPDATED_AT).toISOString() : null
+    updatedAt: row.UPDATED_AT ? new Date(row.UPDATED_AT).toISOString() : null,
+    category: String(raw?.category || raw?.categoryName || ''),
+    type: String(raw?.type || ''),
+    status: String(raw?.status || ''),
+    operationType: String(raw?.operationType || ''),
+    descriptionRaw: String(raw?.descriptionRaw || ''),
+    creditCardMetadata: raw?.creditCardMetadata && typeof raw.creditCardMetadata === 'object'
+      ? raw.creditCardMetadata
+      : null
   };
 }
 
@@ -92,6 +106,7 @@ SELECT * FROM (
     account_name,
     account_type,
     balance_amount,
+    raw_json,
     updated_at
   FROM transacoes_pluggy
   WHERE tenant_user_id = :tenant_user_id
@@ -162,9 +177,49 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
       });
     }
   });
+
+  app.get('/api/pluggy/transactions', noStore, requireAuth, async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!isUserAllowed(user)) {
+        return res.status(403).json({ message: 'Internet banking indisponivel para este usuario.' });
+      }
+
+      const limit = Number(req.query?.limit || 1200);
+      const [connections, transactions] = await Promise.all([
+        loadConnectionSummary(TENANT_USER_ID),
+        loadTransactions(TENANT_USER_ID, limit)
+      ]);
+
+      const byAccount = new Map();
+      transactions.forEach(tx => {
+        const accountId = String(tx.accountId || tx.itemId || 'sem-conta');
+        if (!byAccount.has(accountId)) {
+          byAccount.set(accountId, {
+            accountId,
+            accountName: String(tx.accountName || tx.itemId || 'Conta sem nome'),
+            accountType: String(tx.accountType || '').toUpperCase() === 'CREDIT' ? 'CREDIT' : 'BANK',
+            transactions: []
+          });
+        }
+        byAccount.get(accountId).transactions.push(tx);
+      });
+
+      return res.json({
+        connected: connections.length > 0,
+        tenantUserId: TENANT_USER_ID,
+        latestUpdatedAt: transactions[0]?.updatedAt || connections[0]?.updatedAt || null,
+        accounts: Array.from(byAccount.values())
+      });
+    } catch (error) {
+      return res.status(500).json({
+        message: 'Falha ao carregar transacoes do internet banking.',
+        details: error?.message || String(error)
+      });
+    }
+  });
 }
 
 module.exports = {
   registerPluggyPreviewRoutes
 };
-
