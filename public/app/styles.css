@@ -4780,47 +4780,78 @@ body.mobile-ui {
 }
 
 /* Internet banking review */
+.page#page-internet-banking .section {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.page#page-internet-banking .section-head {
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+.page#page-internet-banking .section-head h2 {
+  letter-spacing: .01em;
+}
+
 .pluggy-view-switch {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.pluggy-view-switch .btn {
+  border-radius: 12px;
+  min-height: 38px;
+  padding: 0 14px;
 }
 
 .pluggy-last-sync {
-  margin: 2px 0 10px;
+  margin: 2px 0 12px;
   color: var(--text2);
   font-size: 12px;
+  letter-spacing: .01em;
 }
 
 .pluggy-account-group {
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  margin-bottom: 14px;
+  border-radius: 16px;
+  background: var(--surface-strong);
+  margin-bottom: 16px;
   overflow: hidden;
+  box-shadow: 0 8px 24px rgba(20,20,30,.04);
 }
 
 .pluggy-account-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
 .pluggy-account-name {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 700;
 }
 
 .pluggy-account-bind {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+}
+
+.pluggy-account-bind > label:first-child {
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 600;
 }
 
 .pluggy-remember-link {
@@ -4832,30 +4863,138 @@ body.mobile-ui {
 }
 
 .pluggy-input {
-  min-height: 34px;
+  min-height: 36px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 9px;
+  border-radius: 10px;
+  padding: 7px 10px;
   background: var(--bg);
   color: var(--text);
+  font: inherit;
+}
+
+.pluggy-input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: var(--focus-ring);
 }
 
 .pluggy-transactions-table .pluggy-input {
   width: 100%;
 }
 
+.pluggy-transactions-table {
+  table-layout: fixed;
+}
+
+.pluggy-transactions-table th {
+  font-size: 11px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+.pluggy-transactions-table td {
+  vertical-align: middle;
+}
+
+.pluggy-transactions-table tbody tr:hover {
+  background: rgba(120,130,150,.06);
+}
+
+.pluggy-transactions-table td:nth-child(1),
+.pluggy-transactions-table th:nth-child(1) {
+  width: 92px;
+}
+
+.pluggy-transactions-table td:last-child,
+.pluggy-transactions-table th:last-child {
+  width: 132px;
+}
+
 .pluggy-actions-cell {
   display: flex;
   gap: 6px;
   align-items: center;
+  justify-content: flex-end;
+}
+
+.pluggy-actions-cell .btn {
+  min-height: 30px;
+  border-radius: 10px;
+  padding: 0 10px;
 }
 
 @media (max-width: 980px) {
+  .pluggy-view-switch .btn {
+    flex: 1 1 220px;
+  }
+
+  .pluggy-account-header {
+    align-items: flex-start;
+  }
+
   .pluggy-account-bind {
     width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .pluggy-account-bind .pluggy-input {
-    min-width: 170px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .pluggy-remember-link {
+    width: fit-content;
+  }
+
+  .pluggy-actions-cell {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .pluggy-transactions-table thead {
+    display: none;
+  }
+
+  .pluggy-transactions-table,
+  .pluggy-transactions-table tbody,
+  .pluggy-transactions-table tr,
+  .pluggy-transactions-table td {
+    display: block;
+    width: 100% !important;
+  }
+
+  .pluggy-transactions-table tr {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pluggy-transactions-table td {
+    padding: 6px 0 !important;
+    border: 0 !important;
+  }
+
+  .pluggy-transactions-table td::before {
+    display: block;
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    margin-bottom: 3px;
+  }
+
+  .pluggy-transactions-table td:nth-child(1)::before { content: "Data"; }
+  .pluggy-transactions-table td:nth-child(2)::before { content: "Descrição / Tipo"; }
+  .pluggy-transactions-table td:nth-child(3)::before { content: "Categoria / Descrição"; }
+  .pluggy-transactions-table td:nth-child(4)::before { content: "Valor"; }
+  .pluggy-transactions-table td:nth-child(5)::before { content: "Parcela / Ações"; }
+  .pluggy-transactions-table td:nth-child(6)::before { content: "Ações"; }
+
+  .pluggy-actions-cell {
+    margin-top: 4px;
+    justify-content: flex-start;
   }
 }
