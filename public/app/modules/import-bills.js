@@ -90,7 +90,7 @@
     modal.className = 'modal-bg';
     modal.id = 'modalInternetBankingPreview';
     modal.innerHTML = `
-      <div class="modal" style="max-width:880px" onclick="event.stopPropagation()">
+      <div class="modal internet-banking-preview-modal" onclick="event.stopPropagation()">
         <div class="modal-header">
           <h3>Internet banking (pré-visualização)</h3>
           <button class="btn-icon" type="button" onclick="BillImport.closeInternetBankingPreview()">✕</button>
@@ -98,10 +98,10 @@
         <p class="modal-subcopy">
           Esses dados vieram do Pluggy e ainda não foram inseridos automaticamente no seu sistema financeiro.
         </p>
-        <div id="internetBankingPreviewStatus" class="text-muted" style="margin-bottom:10px;font-size:12px"></div>
-        <div id="internetBankingPreviewConnections" style="margin-bottom:12px"></div>
-        <div id="internetBankingPreviewBody" style="max-height:420px;overflow:auto;border:1px solid var(--border-color);border-radius:12px;padding:12px"></div>
-        <div class="form-actions" style="margin-top:16px">
+        <div id="internetBankingPreviewStatus" class="internet-banking-preview-status text-muted"></div>
+        <div id="internetBankingPreviewConnections" class="internet-banking-preview-connections"></div>
+        <div id="internetBankingPreviewBody" class="internet-banking-preview-body"></div>
+        <div class="form-actions internet-banking-preview-actions">
           <button class="btn btn-ghost" type="button" onclick="BillImport.loadInternetBankingPreview()">Atualizar</button>
           <button class="btn btn-primary" type="button" onclick="BillImport.closeInternetBankingPreview()">Fechar</button>
         </div>
@@ -150,7 +150,7 @@
 
     const connections = Array.isArray(state.bankPreview.connections) ? state.bankPreview.connections : [];
     if (!connections.length) {
-      connectionsNode.innerHTML = '<div class="text-muted" style="font-size:12px">Nenhuma conexao bancaria registrada para este usuario.</div>';
+      connectionsNode.innerHTML = '<div class="internet-banking-preview-empty text-muted">Nenhuma conexao bancaria registrada para este usuario.</div>';
     } else {
       connectionsNode.innerHTML = connections.map(connection => `
         <span class="bill-import-job-badge is-${escapeHtml(String(connection.status || '').toLowerCase() || 'uploaded')}" style="margin-right:6px">
@@ -161,7 +161,7 @@
 
     const transactions = Array.isArray(state.bankPreview.transactions) ? state.bankPreview.transactions : [];
     if (!transactions.length) {
-      bodyNode.innerHTML = '<div class="text-muted" style="padding:12px 16px">Nenhuma movimentacao disponivel para pre-visualizacao.</div>';
+      bodyNode.innerHTML = '<div class="internet-banking-preview-empty text-muted">Nenhuma movimentacao disponivel para pre-visualizacao.</div>';
       return;
     }
 
@@ -191,7 +191,7 @@
         const amountClass = amount < 0 ? 'amount-neg' : 'amount-pos';
         return `
           <tr>
-            <td style="padding-left:16px">${escapeHtml(fmtShortDate(tx.date))}</td>
+            <td class="internet-banking-preview-cell-date">${escapeHtml(fmtShortDate(tx.date))}</td>
             <td>${escapeHtml(tx.description || '--')}</td>
             <td class="${amountClass}">${escapeHtml(fmtMoney(amount))}</td>
           </tr>
@@ -201,14 +201,14 @@
 
     function renderAccountBlock(account) {
       return `
-        <div style="border:1px solid var(--border-color);border-radius:10px;overflow:hidden;margin-bottom:12px">
-          <div style="padding:8px 12px;font-weight:700;background:var(--surface-2, var(--bg-card));border-bottom:1px solid var(--border-color)">
+        <div class="internet-banking-preview-account">
+          <div class="internet-banking-preview-account-head">
             ${escapeHtml(account.name)}
           </div>
-          <table class="fin-table" style="margin:0">
+          <table class="fin-table internet-banking-preview-table">
             <thead>
               <tr>
-                <th style="padding-left:16px">Data</th>
+                <th class="internet-banking-preview-cell-date">Data</th>
                 <th>Descricao</th>
                 <th>Valor</th>
               </tr>
@@ -225,8 +225,8 @@
       const accounts = Array.from(map.values());
       if (!accounts.length) return '';
       return `
-        <section style="margin-bottom:12px">
-          <h4 style="margin:0 0 8px 0;font-size:13px;letter-spacing:.02em">${escapeHtml(title)}</h4>
+        <section class="internet-banking-preview-section">
+          <h4 class="internet-banking-preview-section-title">${escapeHtml(title)}</h4>
           ${accounts.map(renderAccountBlock).join('')}
         </section>
       `;

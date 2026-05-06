@@ -4780,6 +4780,71 @@ body.mobile-ui {
 }
 
 /* Internet banking review */
+.internet-banking-preview-modal {
+  width: min(960px, 95vw);
+  max-width: 960px;
+}
+
+.internet-banking-preview-status {
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.internet-banking-preview-connections {
+  margin-bottom: 12px;
+}
+
+.internet-banking-preview-body {
+  max-height: 440px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--surface-strong);
+}
+
+.internet-banking-preview-actions {
+  margin-top: 16px;
+}
+
+.internet-banking-preview-empty {
+  font-size: 12px;
+  padding: 12px 16px;
+}
+
+.internet-banking-preview-section {
+  margin-bottom: 14px;
+}
+
+.internet-banking-preview-section-title {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  letter-spacing: .02em;
+}
+
+.internet-banking-preview-account {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.internet-banking-preview-account-head {
+  padding: 10px 12px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.internet-banking-preview-table {
+  margin: 0;
+}
+
+.internet-banking-preview-cell-date {
+  padding-left: 16px !important;
+}
+
 .page#page-internet-banking .section {
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -4955,6 +5020,16 @@ body.mobile-ui {
 }
 
 @media (max-width: 760px) {
+  .internet-banking-preview-modal {
+    width: min(96vw, 96vw);
+    max-height: 88vh;
+    padding: 20px;
+  }
+
+  .internet-banking-preview-body {
+    max-height: 48vh;
+  }
+
   .pluggy-transactions-table thead {
     display: none;
   }
