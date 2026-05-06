@@ -4290,7 +4290,7 @@ function saveUnifiedOutflow() {
       const sharedToggleEl = document.getElementById('unifiedOutflowSharedToggle');
       if (sharedToggleEl) {
         sharedToggleEl.checked = false;
-        toggleUnifiedOutflowSharedSection();
+        toggleUnifiedOutflowShared();
       }
     }
     if (wasEditing) {
