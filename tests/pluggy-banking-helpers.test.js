@@ -39,3 +39,29 @@ test('inferBankMovementType prioritizes semantic fields', () => {
   assert.equal(helpers.inferBankMovementType({ amount: -99 }), 'retirada');
 });
 
+test('dedupeLabel avoids duplicated visual names', () => {
+  const helpers = loadHelpers();
+  assert.equal(helpers.dedupeLabel('XPXP'), 'XP');
+  assert.equal(helpers.dedupeLabel('nu Nubank'), 'nu Nubank');
+});
+
+test('resolveTenantLikeUserKey uses session user identity', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'app', 'pluggy-banking.js'),
+    'utf8'
+  );
+  const sandbox = {
+    window: {},
+    currentSession: {
+      user: { id: 'user-id-1', username: 'user-name-1' }
+    },
+    localStorage: {
+      getItem() { return null; },
+      setItem() {}
+    }
+  };
+  sandbox.window = sandbox;
+  vm.runInNewContext(source, sandbox);
+  const h = sandbox.__pluggyBankingTest;
+  assert.equal(h.resolveTenantLikeUserKey(), 'user-id-1');
+});

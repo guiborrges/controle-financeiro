@@ -1,8 +1,8 @@
-'use strict';
+﻿'use strict';
 
 const { withConnection } = require('../../../workers/lib/oracle-db');
 
-const TENANT_USER_ID = String(process.env.PLUGGY_TENANT_USER_ID || 'guilherme').trim();
+const DEFAULT_TENANT_USER_ID = String(process.env.PLUGGY_TENANT_USER_ID || 'guilherme').trim();
 const WEBHOOK_SECRET = String(process.env.PLUGGY_WEBHOOK_SECRET || '').trim();
 
 async function ensureConnectionsTable(conn) {
@@ -36,7 +36,7 @@ END;`;
   await conn.execute(uq);
 }
 
-async function upsertConnection(item) {
+async function upsertConnection(item, tenantUserId) {
   await withConnection(async conn => {
     await ensureConnectionsTable(conn);
     await conn.execute(
@@ -69,7 +69,7 @@ WHEN NOT MATCHED THEN INSERT (
   SYSTIMESTAMP
 )`,
       {
-        tenant_user_id: TENANT_USER_ID,
+        tenant_user_id: String(tenantUserId || DEFAULT_TENANT_USER_ID),
         pluggy_item_id: String(item?.id || '').trim(),
         provider_name: String(item?.connector?.name || item?.institution?.name || '').slice(0, 256),
         status: String(item?.status || '').slice(0, 64),
@@ -168,7 +168,22 @@ function normalizeTransactionsFromWebhook(payload) {
   return [];
 }
 
-async function upsertTransactions(transactions) {
+function resolveTenantUserId(payload) {
+  const candidates = [
+    payload?.clientUserId,
+    payload?.data?.clientUserId,
+    payload?.item?.clientUserId,
+    payload?.data?.item?.clientUserId,
+    payload?.userId,
+    payload?.data?.userId,
+    payload?.tenantUserId,
+    payload?.data?.tenantUserId
+  ];
+  const hit = candidates.find(value => String(value || '').trim());
+  return String(hit || DEFAULT_TENANT_USER_ID).trim();
+}
+
+async function upsertTransactions(transactions, tenantUserId) {
   if (!Array.isArray(transactions) || !transactions.length) return { inserted: 0, skipped: 0 };
   let inserted = 0;
   let skipped = 0;
@@ -215,7 +230,7 @@ WHEN NOT MATCHED THEN INSERT (
   :account_name, :account_type, :raw_json, 'PLUGGY', SYSTIMESTAMP, SYSTIMESTAMP
 )`,
         {
-          tenant_user_id: TENANT_USER_ID,
+          tenant_user_id: String(tenantUserId || DEFAULT_TENANT_USER_ID),
           pluggy_item_id: itemId || null,
           pluggy_account_id: accountId || null,
           external_transaction_id: externalId.slice(0, 128),
@@ -252,20 +267,25 @@ function getItem(payload) {
 
 function registerPluggyWebhookRoutes(app, deps = {}) {
   const noStore = typeof deps.noStore === 'function' ? deps.noStore : ((_, __, next) => next());
+  const webhookSecret = String((deps.webhookSecret ?? WEBHOOK_SECRET) || '').trim();
+  const upsertConnectionFn = typeof deps.upsertConnection === 'function' ? deps.upsertConnection : upsertConnection;
+  const upsertTransactionsFn = typeof deps.upsertTransactions === 'function' ? deps.upsertTransactions : upsertTransactions;
+  const resolveTenantUserIdFn = typeof deps.resolveTenantUserId === 'function' ? deps.resolveTenantUserId : resolveTenantUserId;
 
   app.post('/api/pluggy/webhook', noStore, async (req, res) => {
     try {
-      if (WEBHOOK_SECRET) {
+      if (webhookSecret) {
         const provided = String(req.headers['x-pluggy-webhook-secret'] || '').trim();
-        if (!provided || provided !== WEBHOOK_SECRET) {
-          return res.status(401).json({ message: 'Webhook Pluggy não autorizado.' });
+        if (!provided || provided !== webhookSecret) {
+          return res.status(401).json({ message: 'Webhook Pluggy nao autorizado.' });
         }
       }
 
       const payload = req.body || {};
+      const tenantUserId = String(resolveTenantUserIdFn(payload) || DEFAULT_TENANT_USER_ID).trim();
       const eventType = getEventType(payload);
       const item = getItem(payload);
-      console.log(`[pluggy-webhook] recebido eventType=${eventType || 'unknown'}`);
+      console.log(`[pluggy-webhook] recebido eventType=${eventType || 'unknown'} tenant=${tenantUserId}`);
 
       const isItemCreated = eventType === 'item/created' || eventType === 'item.created';
       const isTransactionsCreated = eventType === 'transactions/created' || eventType === 'transactions.created';
@@ -276,14 +296,14 @@ function registerPluggyWebhookRoutes(app, deps = {}) {
           console.warn('[pluggy-webhook] item/created sem item.id');
           return res.status(400).json({ message: 'Webhook Pluggy sem item.id.' });
         }
-        await upsertConnection(item);
+        await upsertConnectionFn(item, tenantUserId);
         console.log(`[pluggy-webhook] item/created salvo itemId=${itemId}`);
         return res.status(200).json({ ok: true, eventType, itemId });
       }
 
       if (isTransactionsCreated) {
         const transactions = normalizeTransactionsFromWebhook(payload);
-        const result = await upsertTransactions(transactions);
+        const result = await upsertTransactionsFn(transactions, tenantUserId);
         console.log(`[pluggy-webhook] transactions/created processado count=${transactions.length} inserted=${result.inserted} skipped=${result.skipped}`);
         return res.status(200).json({ ok: true, eventType, ...result });
       }
@@ -298,5 +318,9 @@ function registerPluggyWebhookRoutes(app, deps = {}) {
 }
 
 module.exports = {
-  registerPluggyWebhookRoutes
+  registerPluggyWebhookRoutes,
+  resolveTenantUserId,
+  normalizeTransactionsFromWebhook,
+  getEventType,
+  getItem
 };

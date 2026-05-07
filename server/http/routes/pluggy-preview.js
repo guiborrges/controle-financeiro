@@ -1,16 +1,20 @@
-'use strict';
+﻿'use strict';
 
 const { withConnection } = require('../../../workers/lib/oracle-db');
 
-const TENANT_USER_ID = String(process.env.PLUGGY_TENANT_USER_ID || 'guilherme').trim();
-const ALLOWED_USER_IDS = String(process.env.PLUGGY_ALLOWED_USER_IDS || '')
-  .split(',')
-  .map(value => String(value || '').trim().toLowerCase())
-  .filter(Boolean);
-const ALLOWED_USERNAMES = String(process.env.PLUGGY_ALLOWED_USERNAMES || '')
-  .split(',')
-  .map(value => String(value || '').trim().toLowerCase())
-  .filter(Boolean);
+function getAllowedUserIds() {
+  return String(process.env.PLUGGY_ALLOWED_USER_IDS || '')
+    .split(',')
+    .map(value => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function getAllowedUsernames() {
+  return String(process.env.PLUGGY_ALLOWED_USERNAMES || '')
+    .split(',')
+    .map(value => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+}
 
 function normalize(value) {
   return String(value || '').trim().toLowerCase();
@@ -23,14 +27,28 @@ function isUserAllowed(user) {
   const displayName = normalize(user.displayName);
   const fullName = normalize(user.fullName || user.displayName);
 
-  if (ALLOWED_USER_IDS.length && id && ALLOWED_USER_IDS.includes(id)) return true;
-  if (ALLOWED_USERNAMES.length) {
-    if (username && ALLOWED_USERNAMES.includes(username)) return true;
-    if (displayName && ALLOWED_USERNAMES.includes(displayName)) return true;
-    if (fullName && ALLOWED_USERNAMES.includes(fullName)) return true;
+  const allowedUserIds = getAllowedUserIds();
+  const allowedUsernames = getAllowedUsernames();
+
+  if (allowedUserIds.length && id && allowedUserIds.includes(id)) return true;
+  if (allowedUsernames.length) {
+    if (username && allowedUsernames.includes(username)) return true;
+    if (displayName && allowedUsernames.includes(displayName)) return true;
+    if (fullName && allowedUsernames.includes(fullName)) return true;
   }
 
   return username === 'guilherme' || fullName.includes('guilherme silva borges');
+}
+
+function resolveTenantUserId(user) {
+  if (!user || typeof user !== 'object') return '';
+  return String(
+    user.id
+    || user.username
+    || user.email
+    || user.displayName
+    || ''
+  ).trim();
 }
 
 function mapConnectionRow(row = {}) {
@@ -130,22 +148,32 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
   const getAuthenticatedUser = typeof deps.getAuthenticatedUser === 'function'
     ? deps.getAuthenticatedUser
     : () => null;
+  const loadConnectionSummaryFn = typeof deps.loadConnectionSummary === 'function'
+    ? deps.loadConnectionSummary
+    : loadConnectionSummary;
+  const loadTransactionsFn = typeof deps.loadTransactions === 'function'
+    ? deps.loadTransactions
+    : loadTransactions;
 
   app.get('/api/pluggy/connection', noStore, requireAuth, async (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
       if (!isUserAllowed(user)) {
-        return res.status(403).json({ message: 'Conexão de internet banking indisponível para este usuário.' });
+        return res.status(403).json({ message: 'Conexao de internet banking indisponivel para este usuario.' });
       }
-      const connections = await loadConnectionSummary(TENANT_USER_ID);
+      const tenantUserId = resolveTenantUserId(user);
+      if (!tenantUserId) {
+        return res.status(401).json({ message: 'Sessao invalida para internet banking.' });
+      }
+      const connections = await loadConnectionSummaryFn(tenantUserId);
       return res.json({
         connected: connections.length > 0,
-        tenantUserId: TENANT_USER_ID,
+        tenantUserId,
         connectionsCount: connections.length
       });
     } catch (error) {
       return res.status(500).json({
-        message: 'Falha ao verificar conexão do internet banking.',
+        message: 'Falha ao verificar conexao do internet banking.',
         details: error?.message || String(error)
       });
     }
@@ -155,24 +183,28 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
     try {
       const user = getAuthenticatedUser(req);
       if (!isUserAllowed(user)) {
-        return res.status(403).json({ message: 'Pré-visualização de internet banking indisponível para este usuário.' });
+        return res.status(403).json({ message: 'Pre-visualizacao de internet banking indisponivel para este usuario.' });
+      }
+      const tenantUserId = resolveTenantUserId(user);
+      if (!tenantUserId) {
+        return res.status(401).json({ message: 'Sessao invalida para internet banking.' });
       }
       const limit = Number(req.query?.limit || 300);
       const [connections, transactions] = await Promise.all([
-        loadConnectionSummary(TENANT_USER_ID),
-        loadTransactions(TENANT_USER_ID, limit)
+        loadConnectionSummaryFn(tenantUserId),
+        loadTransactionsFn(tenantUserId, limit)
       ]);
       const latestUpdatedAt = transactions[0]?.updatedAt || connections[0]?.updatedAt || null;
       return res.json({
         connected: connections.length > 0,
-        tenantUserId: TENANT_USER_ID,
+        tenantUserId,
         latestUpdatedAt,
         connections,
         transactions
       });
     } catch (error) {
       return res.status(500).json({
-        message: 'Falha ao carregar pré-visualização do internet banking.',
+        message: 'Falha ao carregar pre-visualizacao do internet banking.',
         details: error?.message || String(error)
       });
     }
@@ -185,10 +217,15 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
         return res.status(403).json({ message: 'Internet banking indisponivel para este usuario.' });
       }
 
+      const tenantUserId = resolveTenantUserId(user);
+      if (!tenantUserId) {
+        return res.status(401).json({ message: 'Sessao invalida para internet banking.' });
+      }
+
       const limit = Number(req.query?.limit || 1200);
       const [connections, transactions] = await Promise.all([
-        loadConnectionSummary(TENANT_USER_ID),
-        loadTransactions(TENANT_USER_ID, limit)
+        loadConnectionSummaryFn(tenantUserId),
+        loadTransactionsFn(tenantUserId, limit)
       ]);
 
       const byAccount = new Map();
@@ -207,7 +244,7 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
 
       return res.json({
         connected: connections.length > 0,
-        tenantUserId: TENANT_USER_ID,
+        tenantUserId,
         latestUpdatedAt: transactions[0]?.updatedAt || connections[0]?.updatedAt || null,
         accounts: Array.from(byAccount.values())
       });
@@ -221,5 +258,6 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
 }
 
 module.exports = {
-  registerPluggyPreviewRoutes
+  registerPluggyPreviewRoutes,
+  resolveTenantUserId
 };

@@ -646,8 +646,8 @@
     list.forEach(item => {
       const id = String(item?.id || '');
       const name = dedupeLabel(String(item?.name || item?.nome || id || 'Sem nome'));
-      const iconText = isCredit ? (getCardMeta(item)?.short || 'ðŸ’³') : 'ðŸ¦';
-      options.push(`<option value="${escapeHtml(id)}" ${id === String(selectedId || '') ? 'selected' : ''}>${escapeHtml(name)}</option>`);
+      const iconText = isCredit ? (getCardMeta(item)?.short || 'CARD') : 'BANK';
+      options.push(`<option value="${escapeHtml(id)}" ${id === String(selectedId || '') ? 'selected' : ''}>[${escapeHtml(iconText)}] ${escapeHtml(name)}</option>`);
     });
     return options.join('');
   }
@@ -1131,7 +1131,13 @@
   };
 
   global.renderInternetBankingPage = renderPage;
-  global.__pluggyBankingTest = { normalizeDescriptionKey, isSaldoSyncDescription, inferBankMovementType };
+  global.__pluggyBankingTest = {
+    normalizeDescriptionKey,
+    isSaldoSyncDescription,
+    inferBankMovementType,
+    resolveTenantLikeUserKey: getUserId,
+    dedupeLabel
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
