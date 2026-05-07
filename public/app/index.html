@@ -53,7 +53,6 @@
     <div class="nav-item" data-page="mes" onclick="nav('mes')"><span class="nav-icon" data-system-icon="month"></span> Mês Atual</div>
     <div class="nav-item" data-page="patrimonio" onclick="nav('patrimonio')"><span class="nav-icon" data-system-icon="wealth"></span> Patrimônio</div>
     <div class="nav-item" data-page="historico" onclick="nav('historico')"><span class="nav-icon" data-system-icon="history"></span> Histórico</div>
-    <div class="nav-item" data-page="internet-banking" onclick="nav('internet-banking')"><span class="nav-icon" data-system-icon="bank"></span> Internet banking</div>
     <div id="esoNavItem" class="nav-item" data-page="eso" onclick="nav('eso')"><span class="nav-icon" data-system-icon="work"></span> Fechamentos ESO</div>
   </div>
   <div id="sidebarMonthControls">
@@ -867,22 +866,6 @@
       <button class="btn btn-ghost" type="button" onclick="closeBillImportModal()">Fechar</button>
     </div>
   </div>
-</div>
-
-<!-- INTERNET BANKING PAGE -->
-<div id="page-internet-banking" class="page">
-  <div class="page-header">
-    <div class="page-header-main">
-      <div class="page-title-block">
-        <h2>Internet Banking</h2>
-        <p class="sub">Revise transações recebidas do Pluggy antes de enviar ao sistema.</p>
-      </div>
-    </div>
-    <div class="page-header-actions">
-      <button class="btn btn-ghost" type="button" onclick="renderInternetBankingPage(true)">Atualizar</button>
-    </div>
-  </div>
-  <div id="internetBankingWorkspace"></div>
 </div>
 
 <div class="modal-bg" id="modalBillImportReview" onclick="closeModalBg(event,'modalBillImportReview')">

@@ -327,7 +327,6 @@ function nav(page) {
   else if (page === 'mes') renderMes();
   else if (page === 'patrimonio') renderPatrimonio();
   else if (page === 'historico') renderHistorico();
-  else if (page === 'internet-banking' && typeof renderInternetBankingPage === 'function') renderInternetBankingPage();
   else if (page === 'eso') renderEso();
   if (typeof renderNotificationBells === 'function') renderNotificationBells();
   saveUIState();

@@ -4908,6 +4908,23 @@ body.mobile-ui {
   flex-wrap: wrap;
 }
 
+.pluggy-account-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pluggy-account-origin {
+  color: var(--text2);
+  font-size: 12px;
+}
+
+.pluggy-account-head-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .pluggy-account-name {
   margin: 0;
   font-size: 16px;
@@ -4915,25 +4932,82 @@ body.mobile-ui {
   font-weight: 700;
 }
 
-.pluggy-account-bind {
+.pluggy-account-tools {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid var(--border);
 }
 
-.pluggy-account-bind > label:first-child {
+.pluggy-inline-label {
   font-size: 12px;
   color: var(--text2);
   font-weight: 600;
 }
 
-.pluggy-remember-link {
+.pluggy-linked-chip {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: var(--surface);
   font-size: 12px;
-  color: var(--text2);
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.pluggy-link-fallback-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
+.pluggy-alias-input {
+  min-width: 170px;
+}
+
+.pluggy-row-time {
+  color: var(--text2);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.pluggy-restore-list {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.pluggy-restore-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.pluggy-restore-option:last-child {
+  margin-bottom: 0;
+}
+
+.pluggy-restore-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pluggy-restore-option small {
+  color: var(--text2);
+  font-size: 11px;
 }
 
 .pluggy-input {
@@ -5007,20 +5081,20 @@ body.mobile-ui {
     align-items: flex-start;
   }
 
-  .pluggy-account-bind {
+  .pluggy-account-head-right {
+    margin-left: auto;
+  }
+
+  .pluggy-account-tools {
     width: 100%;
     display: grid;
     grid-template-columns: 1fr;
     gap: 8px;
   }
 
-  .pluggy-account-bind .pluggy-input {
+  .pluggy-account-tools .pluggy-input {
     min-width: 0;
     width: 100%;
-  }
-
-  .pluggy-remember-link {
-    width: fit-content;
   }
 
   .pluggy-actions-cell {
@@ -5073,9 +5147,10 @@ body.mobile-ui {
   .pluggy-transactions-table td:nth-child(1)::before { content: "Data"; }
   .pluggy-transactions-table td:nth-child(2)::before { content: "Descrição / Tipo"; }
   .pluggy-transactions-table td:nth-child(3)::before { content: "Categoria / Descrição"; }
-  .pluggy-transactions-table td:nth-child(4)::before { content: "Valor"; }
+  .pluggy-transactions-table td:nth-child(4)::before { content: "Tag / Valor"; }
   .pluggy-transactions-table td:nth-child(5)::before { content: "Parcela / Ações"; }
   .pluggy-transactions-table td:nth-child(6)::before { content: "Ações"; }
+  .pluggy-transactions-table td:nth-child(7)::before { content: "Ações"; }
 
   .pluggy-actions-cell {
     margin-top: 4px;
