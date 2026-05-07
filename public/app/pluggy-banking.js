@@ -17,6 +17,7 @@
     aliasEditor: null,
     userState: {
       links: {},
+      linkHints: {},
       hiddenGroups: {},
       clearedAtByGroup: {},
       aliases: {},
@@ -104,12 +105,14 @@
     try {
       const parsed = JSON.parse(localStorage.getItem(storageKey()) || '{}');
       STATE.userState.links = parsed.links && typeof parsed.links === 'object' ? parsed.links : {};
+      STATE.userState.linkHints = parsed.linkHints && typeof parsed.linkHints === 'object' ? parsed.linkHints : {};
       STATE.userState.hiddenGroups = parsed.hiddenGroups && typeof parsed.hiddenGroups === 'object' ? parsed.hiddenGroups : {};
       STATE.userState.clearedAtByGroup = parsed.clearedAtByGroup && typeof parsed.clearedAtByGroup === 'object' ? parsed.clearedAtByGroup : {};
       STATE.userState.aliases = parsed.aliases && typeof parsed.aliases === 'object' ? parsed.aliases : {};
       STATE.userState.categoryMemory = parsed.categoryMemory && typeof parsed.categoryMemory === 'object' ? parsed.categoryMemory : {};
     } catch (_err) {
       STATE.userState.links = {};
+      STATE.userState.linkHints = {};
       STATE.userState.hiddenGroups = {};
       STATE.userState.clearedAtByGroup = {};
       STATE.userState.aliases = {};
@@ -261,7 +264,10 @@
   }
 
   function getGroupKey(account) {
-    return String(account?.accountId || '');
+    const id = normalizeText(account?.accountId || '');
+    if (id) return id;
+    const nameKey = normalizeComparableText(account?.accountName || '');
+    return nameKey ? `name:${nameKey}` : '';
   }
 
   function getGroupAlias(account) {
@@ -341,7 +347,8 @@
 
   function getAccountById(accountId) {
     const accounts = Array.isArray(STATE.rawData?.accounts) ? STATE.rawData.accounts : [];
-    return accounts.find(item => String(item.accountId) === String(accountId)) || null;
+    const target = String(accountId || '');
+    return accounts.find(item => getGroupKey(item) === target || String(item.accountId || '') === target) || null;
   }
 
   function validLinkIdsForAccountType(accountType) {
@@ -371,6 +378,19 @@
       return matched.id;
     }
     return '';
+  }
+
+  function getLinkOptionsListForAccountType(accountType) {
+    if (String(accountType || '').toUpperCase() === 'CREDIT') {
+      return getAllCards().map(item => ({
+        id: String(item?.id || ''),
+        name: dedupeLabel(String(item?.name || ''))
+      }));
+    }
+    return getAllPatrimonioAccounts().map(item => ({
+      id: String(item?.id || ''),
+      name: dedupeLabel(String(item?.name || item?.nome || ''))
+    }));
   }
 
   function getCardMeta(card) {
@@ -431,7 +451,7 @@
   }
 
   function ensurePending(account) {
-    const accountId = String(account?.accountId || '');
+    const accountId = String(getGroupKey(account) || '');
     if (!accountId) return [];
     if (Array.isArray(STATE.pendingByAccount[accountId])) return STATE.pendingByAccount[accountId];
 
@@ -714,10 +734,26 @@
     const key = String(account?.accountId || '');
     if (!key) return '';
     const existing = normalizeText(STATE.userState.links[key] || '');
-    if (existing) return existing;
+    const validIds = validLinkIdsForAccountType(account.accountType);
+    if (existing && validIds.has(existing)) return existing;
+
+    const hint = normalizeComparableText(STATE.userState.linkHints[key] || '');
+    if (hint) {
+      const options = getLinkOptionsListForAccountType(account.accountType);
+      const matched = options.find(item => normalizeComparableText(item.name) === hint);
+      if (matched?.id && validIds.has(matched.id)) {
+        STATE.userState.links[key] = matched.id;
+        persistUserState();
+        return matched.id;
+      }
+    }
+
     const auto = normalizeText(getAutoLinkForAccount(account));
     if (auto) {
       STATE.userState.links[key] = auto;
+      const options = getLinkOptionsListForAccountType(account.accountType);
+      const matched = options.find(item => String(item.id) === String(auto));
+      if (matched?.name) STATE.userState.linkHints[key] = matched.name;
       persistUserState();
       return auto;
     }
@@ -936,6 +972,10 @@
       return;
     }
     STATE.userState.links[String(accountId)] = selected;
+    const options = getLinkOptionsListForAccountType(account.accountType);
+    const selectedOption = options.find(item => String(item.id) === String(selected));
+    if (selected && selectedOption?.name) STATE.userState.linkHints[String(accountId)] = selectedOption.name;
+    else delete STATE.userState.linkHints[String(accountId)];
     persistUserState();
     renderWorkspace();
   }
@@ -1003,39 +1043,35 @@
   }
 
   function renderRows(account) {
+    const accountKey = String(getGroupKey(account) || '');
     const rows = getRowsForAccount(account);
     const isCredit = String(account.accountType || '').toUpperCase() === 'CREDIT';
     if (!rows.length) {
-      const cols = isCredit ? 7 : 5;
+      const cols = isCredit ? 6 : 5;
       return `<tr><td colspan="${cols}" class="text-muted" style="padding:14px">Sem transacoes pendentes para revisao.</td></tr>`;
     }
 
     return rows.map(tx => {
       const amountAbs = Math.abs(Number(tx.amount || 0));
-      const installmentTotal = Number(tx?.creditCardMetadata?.totalInstallments || 1) || 1;
-      const installmentIndex = Number(tx?.creditCardMetadata?.installmentNumber || 1) || 1;
-      const installmentLabel = installmentTotal > 1 ? `Parcela ${installmentIndex} de ${installmentTotal}` : '-';
-
       if (isCredit) {
         return `
           <tr>
             <td>${renderDateCell(tx)}</td>
-            <td><input class="pluggy-input" value="${escapeHtml(tx._ui?.description || '')}" onchange="PluggyBanking.updateField('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}','description',this.value)"></td>
+            <td><input class="pluggy-input" value="${escapeHtml(tx._ui?.description || '')}" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','description',this.value)"></td>
             <td>
-              <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}','category',this.value)">
+              <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','category',this.value)">
                 ${categoryOptions(tx._ui?.category || '')}
               </select>
             </td>
             <td>
-              <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}','tag',this.value)">
+              <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','tag',this.value)">
                 ${tagOptions(tx._ui?.tag || '')}
               </select>
             </td>
             <td class="amount-neg">${escapeHtml(money(amountAbs))}</td>
-            <td>${escapeHtml(installmentLabel)}</td>
             <td class="pluggy-actions-cell">
-              <button class="btn btn-subtle btn-sm" type="button" ${isCreditRowValid(tx) ? '' : 'disabled'} onclick="PluggyBanking.addOne('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')">Adicionar</button>
-              <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
+              <button class="btn btn-subtle btn-sm" type="button" ${isCreditRowValid(tx) ? '' : 'disabled'} onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')">Adicionar</button>
+              <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
             </td>
           </tr>
         `;
@@ -1045,16 +1081,16 @@
         <tr>
           <td>${renderDateCell(tx)}</td>
           <td>
-            <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}','movementType',this.value)">
+            <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','movementType',this.value)">
               <option value="aporte" ${tx._ui?.movementType === 'aporte' ? 'selected' : ''}>Aporte</option>
               <option value="retirada" ${tx._ui?.movementType === 'retirada' ? 'selected' : ''}>Retirada</option>
             </select>
           </td>
-          <td><input class="pluggy-input" value="${escapeHtml(tx._ui?.description || '')}" onchange="PluggyBanking.updateField('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}','description',this.value)"></td>
+          <td><input class="pluggy-input" value="${escapeHtml(tx._ui?.description || '')}" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','description',this.value)"></td>
           <td class="${tx._ui?.movementType === 'aporte' ? 'amount-pos' : 'amount-neg'}">${escapeHtml(money(amountAbs))}</td>
           <td class="pluggy-actions-cell">
-            <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')">Adicionar</button>
-            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
+            <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')">Adicionar</button>
+            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
           </td>
           </tr>
       `;
@@ -1087,8 +1123,8 @@
           </div>
           <div class="pluggy-account-head-right">
             <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addAll('${escapeHtml(key)}')">Adicionar todos</button>
-            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.openLinkDialog('${escapeHtml(key)}')" title="Editar vínculo">Editar vínculo</button>
-            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.toggleGroup('${escapeHtml(key)}')">${collapsed ? 'Abrir' : 'Fechar'}</button>
+            <button class="btn btn-link-action btn-sm pluggy-icon-btn" type="button" onclick="PluggyBanking.openLinkDialog('${escapeHtml(key)}')" title="Editar vínculo" aria-label="Editar vínculo">✎</button>
+            <button class="btn btn-link-action btn-sm pluggy-icon-btn" type="button" onclick="PluggyBanking.toggleGroup('${escapeHtml(key)}')" title="${collapsed ? 'Abrir' : 'Fechar'}" aria-label="${collapsed ? 'Abrir' : 'Fechar'}">${collapsed ? '▾' : '▴'}</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.clearGroup('${escapeHtml(key)}')">Limpar listas</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.hideGroup('${escapeHtml(key)}')" title="Ocultar grupo">✕</button>
           </div>
@@ -1101,7 +1137,7 @@
             <table class="fin-table pluggy-transactions-table">
               <thead>
                 ${isCredit
-                  ? `<tr><th>${sortableHeader(key, 'date', 'Data')}</th><th>${sortableHeader(key, 'description', 'Descricao')}</th><th>${sortableHeader(key, 'category', 'Categoria')}</th><th>Tag</th><th>${sortableHeader(key, 'value', 'Valor')}</th><th>${sortableHeader(key, 'installment', 'Parcelado')}</th><th></th></tr>`
+                  ? `<tr><th>${sortableHeader(key, 'date', 'Data')}</th><th>${sortableHeader(key, 'description', 'Descricao')}</th><th>${sortableHeader(key, 'category', 'Categoria')}</th><th>Tag</th><th>${sortableHeader(key, 'value', 'Valor')}</th><th></th></tr>`
                   : `<tr><th>${sortableHeader(key, 'date', 'Data')}</th><th>Tipo</th><th>${sortableHeader(key, 'description', 'Descricao')}</th><th>${sortableHeader(key, 'value', 'Valor')}</th><th></th></tr>`}
               </thead>
               <tbody>${renderRows(account)}</tbody>
@@ -1172,7 +1208,8 @@
     try {
       const account = getAccountById(accountId);
       if (!account) return;
-      ensureLinkedId(account);
+      const linked = ensureLinkedId(account);
+      if (!linked) throw new Error('Defina o vínculo do grupo antes de adicionar.');
       const row = ensurePending(account).find(item => String(item.id) === String(txId));
       if (!row) throw new Error('Lançamento não encontrado na lista pendente.');
       if (String(account.accountType || '').toUpperCase() === 'CREDIT' && !isCreditRowValid(row)) {
@@ -1190,7 +1227,11 @@
   function addAll(accountId) {
     const account = getAccountById(accountId);
     if (!account) return;
-    ensureLinkedId(account);
+    const linked = ensureLinkedId(account);
+    if (!linked) {
+      showStatus('Defina o vínculo do grupo antes de adicionar todos.', 'error');
+      return;
+    }
     const rows = [...getRowsForAccount(account)];
     let ok = 0;
     let errors = 0;
@@ -1265,6 +1306,7 @@
     dedupeLabel
   };
 })(typeof window !== 'undefined' ? window : globalThis);
+
 
 
 
