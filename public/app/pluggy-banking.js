@@ -9,7 +9,8 @@
     dismissedIds: new Set(),
     loading: false,
     error: '',
-    loadedAt: ''
+    loadedAt: '',
+    mountId: 'internetBankingWorkspace'
   };
 
   const STORAGE_KEY = 'pluggy_account_links';
@@ -530,7 +531,7 @@
   }
 
   function renderWorkspace() {
-    const node = document.getElementById('internetBankingWorkspace');
+    const node = document.getElementById(String(STATE.mountId || 'internetBankingWorkspace'));
     if (!node) return;
     const loadedAtLabel = STATE.loadedAt
       ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(STATE.loadedAt))
@@ -586,7 +587,8 @@
     }
   }
 
-  async function renderPage(forceReload = false) {
+  async function renderPage(forceReload = false, mountId = 'internetBankingWorkspace') {
+    STATE.mountId = String(mountId || 'internetBankingWorkspace');
     if (forceReload || !STATE.rawData) await loadData();
     else renderWorkspace();
   }

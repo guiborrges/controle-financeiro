@@ -99,10 +99,9 @@
           Esses dados vieram do Pluggy e ainda não foram inseridos automaticamente no seu sistema financeiro.
         </p>
         <div id="internetBankingPreviewStatus" class="internet-banking-preview-status text-muted"></div>
-        <div id="internetBankingPreviewConnections" class="internet-banking-preview-connections"></div>
-        <div id="internetBankingPreviewBody" class="internet-banking-preview-body"></div>
+        <div id="internetBankingPreviewWorkspace" class="internet-banking-preview-workspace"></div>
         <div class="form-actions internet-banking-preview-actions">
-          <button class="btn btn-ghost" type="button" onclick="BillImport.loadInternetBankingPreview()">Atualizar</button>
+          <button class="btn btn-ghost" type="button" onclick="BillImport.loadInternetBankingPreview()">Atualizar dados</button>
           <button class="btn btn-primary" type="button" onclick="BillImport.closeInternetBankingPreview()">Fechar</button>
         </div>
       </div>
@@ -129,114 +128,24 @@
   function renderInternetBankingPreview() {
     ensureInternetBankingModal();
     const statusNode = document.getElementById('internetBankingPreviewStatus');
-    const connectionsNode = document.getElementById('internetBankingPreviewConnections');
-    const bodyNode = document.getElementById('internetBankingPreviewBody');
-    if (!statusNode || !connectionsNode || !bodyNode) return;
+    const workspaceNode = document.getElementById('internetBankingPreviewWorkspace');
+    if (!statusNode || !workspaceNode) return;
 
     if (state.bankPreview.loading) {
       statusNode.textContent = 'Carregando dados do internet banking...';
+      workspaceNode.innerHTML = '';
       return;
     }
+
     if (state.bankPreview.error) {
       statusNode.textContent = state.bankPreview.error;
-      bodyNode.innerHTML = '';
-      connectionsNode.innerHTML = '';
+      workspaceNode.innerHTML = '';
       return;
     }
 
     statusNode.textContent = state.bankPreview.lastUpdatedAt
       ? `Ultima atualizacao: ${fmtDateTime(state.bankPreview.lastUpdatedAt)}`
       : 'Sem atualizacao registrada ainda.';
-
-    const connections = Array.isArray(state.bankPreview.connections) ? state.bankPreview.connections : [];
-    if (!connections.length) {
-      connectionsNode.innerHTML = '<div class="internet-banking-preview-empty text-muted">Nenhuma conexao bancaria registrada para este usuario.</div>';
-    } else {
-      connectionsNode.innerHTML = connections.map(connection => `
-        <span class="bill-import-job-badge is-${escapeHtml(String(connection.status || '').toLowerCase() || 'uploaded')}" style="margin-right:6px">
-          ${escapeHtml(connection.providerName || connection.pluggyItemId || 'Conexao')} � ${escapeHtml(connection.status || 'unknown')}
-        </span>
-      `).join('');
-    }
-
-    const transactions = Array.isArray(state.bankPreview.transactions) ? state.bankPreview.transactions : [];
-    if (!transactions.length) {
-      bodyNode.innerHTML = '<div class="internet-banking-preview-empty text-muted">Nenhuma movimentacao disponivel para pre-visualizacao.</div>';
-      return;
-    }
-
-    const groups = {
-      CARTAO_CREDITO: new Map(),
-      CONTA_CORRENTE: new Map(),
-      OUTROS: new Map()
-    };
-
-    transactions.forEach(tx => {
-      const rawType = String(tx.recordType || '').toUpperCase();
-      const type = rawType === 'CARTAO_CREDITO'
-        ? 'CARTAO_CREDITO'
-        : rawType === 'CONTA_CORRENTE'
-          ? 'CONTA_CORRENTE'
-          : 'OUTROS';
-      const key = String(tx.accountId || tx.accountName || tx.itemId || 'sem-conta');
-      const name = String(tx.accountName || tx.accountId || tx.itemId || 'Conta sem nome');
-
-      if (!groups[type].has(key)) groups[type].set(key, { name, rows: [] });
-      groups[type].get(key).rows.push(tx);
-    });
-
-    function renderRows(rows) {
-      return rows.map(tx => {
-        const amount = Number(tx.amount || 0);
-        const amountClass = amount < 0 ? 'amount-neg' : 'amount-pos';
-        return `
-          <tr>
-            <td class="internet-banking-preview-cell-date">${escapeHtml(fmtShortDate(tx.date))}</td>
-            <td>${escapeHtml(tx.description || '--')}</td>
-            <td class="${amountClass}">${escapeHtml(fmtMoney(amount))}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function renderAccountBlock(account) {
-      return `
-        <div class="internet-banking-preview-account">
-          <div class="internet-banking-preview-account-head">
-            ${escapeHtml(account.name)}
-          </div>
-          <table class="fin-table internet-banking-preview-table">
-            <thead>
-              <tr>
-                <th class="internet-banking-preview-cell-date">Data</th>
-                <th>Descricao</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${renderRows(account.rows)}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function renderSection(title, map) {
-      const accounts = Array.from(map.values());
-      if (!accounts.length) return '';
-      return `
-        <section class="internet-banking-preview-section">
-          <h4 class="internet-banking-preview-section-title">${escapeHtml(title)}</h4>
-          ${accounts.map(renderAccountBlock).join('')}
-        </section>
-      `;
-    }
-
-    bodyNode.innerHTML = [
-      renderSection('Cartoes de credito', groups.CARTAO_CREDITO),
-      renderSection('Contas correntes', groups.CONTA_CORRENTE),
-      renderSection('Outras movimentacoes', groups.OUTROS)
-    ].join('');
   }
 
   function getCurrentContext() {
@@ -341,23 +250,23 @@
     state.bankPreview.error = '';
     renderInternetBankingPreview();
     try {
-      const response = await fetch('/api/pluggy/preview?limit=300', {
+      const response = await fetch('/api/pluggy/transactions?limit=2000', {
         method: 'GET',
         credentials: 'same-origin',
         headers: getCsrfHeaders({ Accept: 'application/json' })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.message || 'Falha ao carregar pré-visualização do internet banking.');
+      if (!response.ok) throw new Error(payload?.message || 'Falha ao carregar dados do internet banking.');
       state.muplugConnection.connected = payload?.connected === true;
-      state.bankPreview.connections = Array.isArray(payload?.connections) ? payload.connections : [];
-      state.bankPreview.transactions = Array.isArray(payload?.transactions) ? payload.transactions : [];
-      state.bankPreview.lastUpdatedAt = String(payload?.latestUpdatedAt || '');
+      state.bankPreview.lastUpdatedAt = new Date().toISOString();
       state.bankPreview.error = '';
+      if (typeof global.renderInternetBankingPage === 'function') {
+        await global.renderInternetBankingPage(true, 'internetBankingPreviewWorkspace');
+      }
     } catch (error) {
-      state.bankPreview.error = error?.message || 'Falha ao carregar pré-visualização do internet banking.';
-      state.bankPreview.connections = [];
-      state.bankPreview.transactions = [];
-      state.bankPreview.lastUpdatedAt = '';
+      state.bankPreview.error = error?.message || 'Falha ao carregar internet banking.';
+      const workspaceNode = document.getElementById('internetBankingPreviewWorkspace');
+      if (workspaceNode) workspaceNode.innerHTML = '';
     } finally {
       state.bankPreview.loading = false;
       renderConnectionBadge();

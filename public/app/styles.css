@@ -4803,6 +4803,15 @@ body.mobile-ui {
   background: var(--surface-strong);
 }
 
+.internet-banking-preview-workspace {
+  max-height: 62vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--surface-strong);
+}
+
 .internet-banking-preview-actions {
   margin-top: 16px;
 }
