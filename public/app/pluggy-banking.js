@@ -710,6 +710,20 @@
     return !!normalizeText(tx?._ui?.category || '');
   }
 
+  function ensureLinkedId(account) {
+    const key = String(account?.accountId || '');
+    if (!key) return '';
+    const existing = normalizeText(STATE.userState.links[key] || '');
+    if (existing) return existing;
+    const auto = normalizeText(getAutoLinkForAccount(account));
+    if (auto) {
+      STATE.userState.links[key] = auto;
+      persistUserState();
+      return auto;
+    }
+    return '';
+  }
+
   function sortableHeader(accountId, key, label) {
     const state = getSortState(accountId);
     const isActive = state.column === key;
@@ -733,11 +747,40 @@
     `;
   }
 
+  function getHiddenTxMap() {
+    const hidden = STATE.userState.hiddenGroups || {};
+    const result = {};
+    const accounts = Array.isArray(STATE.rawData?.accounts) ? STATE.rawData.accounts : [];
+    for (const key of Object.keys(hidden)) {
+      if (!hidden[key] || !String(key).startsWith('tx:')) continue;
+      const txId = String(key).slice(3);
+      if (!txId) continue;
+      let ownerAccount = null;
+      let ownerTx = null;
+      for (const account of accounts) {
+        const tx = (account.transactions || []).find(item => String(item?.id || '') === txId);
+        if (tx) {
+          ownerAccount = account;
+          ownerTx = tx;
+          break;
+        }
+      }
+      if (!ownerAccount || !ownerTx) continue;
+      const accountKey = getGroupKey(ownerAccount);
+      if (!result[accountKey]) result[accountKey] = [];
+      result[accountKey].push(ownerTx);
+    }
+    return result;
+  }
+
   function renderRestoreDialogContent() {
     const accounts = Array.isArray(STATE.rawData?.accounts) ? STATE.rawData.accounts : [];
+    const hiddenTxMap = getHiddenTxMap();
     const changedAccounts = accounts.filter(account => {
       const key = getGroupKey(account);
-      return STATE.userState.hiddenGroups[`group:${key}`] || STATE.userState.clearedAtByGroup[key];
+      return STATE.userState.hiddenGroups[`group:${key}`]
+        || STATE.userState.clearedAtByGroup[key]
+        || ((hiddenTxMap[key] || []).length > 0);
     });
     if (!changedAccounts.length) return '<div class="text-muted" style="padding:8px 2px">Nenhum grupo foi limpo ou ocultado.</div>';
 
@@ -746,12 +789,13 @@
       const alias = getGroupAlias(account);
       const isHidden = STATE.userState.hiddenGroups[`group:${key}`] === true;
       const isCleared = Number(STATE.userState.clearedAtByGroup[key] || 0) > 0;
+      const hiddenCount = (hiddenTxMap[key] || []).length;
       return `
         <label class="pluggy-restore-option">
           <input type="checkbox" value="${escapeHtml(key)}" checked>
           <span>
             <strong>${escapeHtml(alias)}</strong>
-            <small>${escapeHtml(account.accountType === 'CREDIT' ? 'Cartao de credito' : 'Conta bancaria')} ${isHidden ? '- ocultado' : ''} ${isCleared ? '- lista limpa' : ''}</small>
+            <small>${escapeHtml(account.accountType === 'CREDIT' ? 'Cartao de credito' : 'Conta bancaria')} ${isHidden ? '- ocultado' : ''} ${isCleared ? '- lista limpa' : ''} ${hiddenCount ? `- ${hiddenCount} item(ns) removido(s)` : ''}</small>
           </span>
         </label>
       `;
@@ -804,6 +848,13 @@
       const key = String(node.value || '');
       delete STATE.userState.hiddenGroups[`group:${key}`];
       delete STATE.userState.clearedAtByGroup[key];
+      const account = getAccountById(key);
+      if (account) {
+        (account.transactions || []).forEach(tx => {
+          const txId = String(tx?.id || '');
+          if (txId) delete STATE.userState.hiddenGroups[`tx:${txId}`];
+        });
+      }
       delete STATE.pendingByAccount[key];
     });
     persistUserState();
@@ -1121,7 +1172,9 @@
     try {
       const account = getAccountById(accountId);
       if (!account) return;
+      ensureLinkedId(account);
       const row = ensurePending(account).find(item => String(item.id) === String(txId));
+      if (!row) throw new Error('Lançamento não encontrado na lista pendente.');
       if (String(account.accountType || '').toUpperCase() === 'CREDIT' && !isCreditRowValid(row)) {
         throw new Error('Selecione uma categoria antes de adicionar esse lancamento de cartao.');
       }
@@ -1137,6 +1190,7 @@
   function addAll(accountId) {
     const account = getAccountById(accountId);
     if (!account) return;
+    ensureLinkedId(account);
     const rows = [...getRowsForAccount(account)];
     let ok = 0;
     let errors = 0;
