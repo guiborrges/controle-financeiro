@@ -4930,7 +4930,15 @@ body.mobile-ui {
   font-size: 14px;
   line-height: 1.2;
   font-weight: 700;
-  cursor: text;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.pluggy-title-waiting {
+  color: var(--text2);
+  font-weight: 600;
 }
 
 .pluggy-account-tools {
@@ -4940,6 +4948,7 @@ body.mobile-ui {
   flex-wrap: wrap;
   padding: 8px 10px 8px;
   border-bottom: 1px solid var(--border);
+  justify-content: flex-start;
 }
 
 .pluggy-inline-label {
@@ -4958,6 +4967,11 @@ body.mobile-ui {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.pluggy-account-head-right .btn.btn-subtle {
+  min-height: 26px;
+  padding: 0 10px;
 }
 
 .pluggy-link-fallback-icon {

@@ -404,6 +404,21 @@
     return `<span>${escapeHtml(dedupeLabel(String(acc.name || acc.nome || 'Conta')))}</span>`;
   }
 
+  function resolveLinkedTitleMarkup(account, linkedId) {
+    const isCredit = String(account?.accountType || '').toUpperCase() === 'CREDIT';
+    if (!linkedId) {
+      return '<span class="pluggy-title-waiting">Aguardando vínculo</span>';
+    }
+    if (isCredit) {
+      const card = getAllCards().find(item => String(item.id) === String(linkedId));
+      if (!card) return '<span class="pluggy-title-waiting">Aguardando vínculo</span>';
+      return `${renderCardIcon(card)} <span>${escapeHtml(dedupeLabel(card.name || 'Cartão'))}</span>`;
+    }
+    const acc = getAllPatrimonioAccounts().find(item => String(item.id) === String(linkedId));
+    if (!acc) return '<span class="pluggy-title-waiting">Aguardando vínculo</span>';
+    return `${renderAccountIcon()} <span>${escapeHtml(dedupeLabel(String(acc.name || acc.nome || 'Conta')))}</span>`;
+  }
+
   function applyCategoryMemory(tx, row) {
     const key = normalizeDescriptionKey(row._ui.description || tx.description || '');
     if (!key) return;
@@ -874,6 +889,62 @@
     renderWorkspace();
   }
 
+  function ensureLinkModal() {
+    if (document.getElementById('pluggyLinkModal')) return;
+    const modal = document.createElement('div');
+    modal.className = 'modal-bg';
+    modal.id = 'pluggyLinkModal';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:440px" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Editar vínculo</h3>
+          <button class="btn-icon" type="button" onclick="PluggyBanking.closeLinkDialog()">✕</button>
+        </div>
+        <p class="text-muted" style="margin:0 0 10px">Selecione o vínculo deste grupo.</p>
+        <div id="pluggyLinkDialogBody"></div>
+        <div class="form-actions" style="margin-top:14px">
+          <button class="btn btn-ghost" type="button" onclick="PluggyBanking.closeLinkDialog()">Cancelar</button>
+          <button class="btn btn-primary" type="button" onclick="PluggyBanking.saveLinkDialog()">Salvar</button>
+        </div>
+      </div>
+    `;
+    modal.addEventListener('click', (event) => {
+      if (event.target && event.target.id === 'pluggyLinkModal') closeLinkDialog();
+    });
+    document.body.appendChild(modal);
+  }
+
+  function openLinkDialog(accountId) {
+    const account = getAccountById(accountId);
+    if (!account) return;
+    ensureLinkModal();
+    const selected = normalizeText(STATE.userState.links[String(accountId)] || getAutoLinkForAccount(account));
+    const body = document.getElementById('pluggyLinkDialogBody');
+    if (body) {
+      body.innerHTML = `
+        <input type="hidden" id="pluggyLinkDialogAccountId" value="${escapeHtml(String(accountId))}">
+        <label class="pluggy-inline-label">${String(account.accountType || '').toUpperCase() === 'CREDIT' ? 'Cartão de crédito' : 'Conta bancária'}</label>
+        <select class="pluggy-input" id="pluggyLinkDialogSelect">
+          ${linkOptions(account, selected)}
+        </select>
+      `;
+    }
+    if (typeof global.openModal === 'function') global.openModal('pluggyLinkModal');
+  }
+
+  function closeLinkDialog() {
+    if (typeof global.closeModal === 'function') global.closeModal('pluggyLinkModal');
+  }
+
+  function saveLinkDialog() {
+    const accountId = String(document.getElementById('pluggyLinkDialogAccountId')?.value || '');
+    const value = String(document.getElementById('pluggyLinkDialogSelect')?.value || '');
+    if (!accountId) return;
+    changeLink(accountId, value);
+    closeLinkDialog();
+    showStatus('Vínculo atualizado com sucesso.', 'ok');
+  }
+
   function renderDateCell(tx) {
     const { dateBr, timeBr } = formatDateAndTime(tx.date);
     const dateLabel = dateBr || '--';
@@ -957,13 +1028,15 @@
       <section class="pluggy-account-group">
         <div class="pluggy-account-header ${collapsed ? 'is-collapsed' : ''}">
           <div class="pluggy-account-head-left">
-            <h3 class="pluggy-account-name" ondblclick="PluggyBanking.startAliasEdit('${escapeHtml(key)}')">
-              ${STATE.aliasEditor?.groupId === key ? `<input class="pluggy-input pluggy-title-editor" value="${escapeHtml(alias)}" onkeydown="PluggyBanking.aliasEditorKeydown(event,'${escapeHtml(key)}')" onblur="PluggyBanking.finishAliasEdit('${escapeHtml(key)}', this.value)" autofocus>` : escapeHtml(alias)}
+            <h3 class="pluggy-account-name">
+              ${resolveLinkedTitleMarkup(account, selectedLink)}
             </h3>
             <small class="pluggy-account-origin">Origem: ${escapeHtml(account.accountName || alias)}</small>
             <small class="pluggy-account-origin">${pendingCount} pendente(s) • ${escapeHtml(money(totalPending))}</small>
           </div>
           <div class="pluggy-account-head-right">
+            <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addAll('${escapeHtml(key)}')">Adicionar todos</button>
+            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.openLinkDialog('${escapeHtml(key)}')" title="Editar vínculo">Editar vínculo</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.toggleGroup('${escapeHtml(key)}')">${collapsed ? 'Abrir' : 'Fechar'}</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.clearGroup('${escapeHtml(key)}')">Limpar listas</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.hideGroup('${escapeHtml(key)}')" title="Ocultar grupo">✕</button>
@@ -971,12 +1044,7 @@
         </div>
         ${collapsed ? '' : `
           <div class="pluggy-account-tools">
-            <label class="pluggy-inline-label">Vincular a:</label>
-            <select class="pluggy-input" onchange="PluggyBanking.changeLink('${escapeHtml(key)}', this.value)">
-              ${linkOptions(account, selectedLink)}
-            </select>
             <div class="pluggy-linked-chip">${resolveLinkedDisplay(account, selectedLink)}</div>
-            <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addAll('${escapeHtml(key)}')">Adicionar todos</button>
           </div>
           <div class="pluggy-table-wrap">
             <table class="fin-table pluggy-transactions-table">
@@ -1128,6 +1196,10 @@
     openRestoreDialog,
     closeRestoreDialog,
     confirmRestoreDialog
+    ,
+    openLinkDialog,
+    closeLinkDialog,
+    saveLinkDialog
   };
 
   global.renderInternetBankingPage = renderPage;
