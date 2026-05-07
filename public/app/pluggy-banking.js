@@ -21,7 +21,8 @@
       hiddenGroups: {},
       clearedAtByGroup: {},
       aliases: {},
-      categoryMemory: {}
+      categoryMemory: {},
+      importedTxIds: {}
     }
   };
 
@@ -110,6 +111,7 @@
       STATE.userState.clearedAtByGroup = parsed.clearedAtByGroup && typeof parsed.clearedAtByGroup === 'object' ? parsed.clearedAtByGroup : {};
       STATE.userState.aliases = parsed.aliases && typeof parsed.aliases === 'object' ? parsed.aliases : {};
       STATE.userState.categoryMemory = parsed.categoryMemory && typeof parsed.categoryMemory === 'object' ? parsed.categoryMemory : {};
+      STATE.userState.importedTxIds = parsed.importedTxIds && typeof parsed.importedTxIds === 'object' ? parsed.importedTxIds : {};
     } catch (_err) {
       STATE.userState.links = {};
       STATE.userState.linkHints = {};
@@ -117,6 +119,7 @@
       STATE.userState.clearedAtByGroup = {};
       STATE.userState.aliases = {};
       STATE.userState.categoryMemory = {};
+      STATE.userState.importedTxIds = {};
     }
   }
 
@@ -507,6 +510,7 @@
   function dedupeCredit(tx, month, cardId, dateBr, amount, description) {
     const targetDesc = normalizeDescriptionKey(description);
     const targetTxId = String(tx?.id || '');
+    if (targetTxId && STATE.userState.importedTxIds[targetTxId]) return true;
     return (month?.outflows || []).some(item => {
       if (String(item?.outputKind || '') !== 'card') return false;
       if (String(item?.outputRef || '') !== String(cardId)) return false;
@@ -522,6 +526,7 @@
   function dedupeBank(tx, accountId, value, description, dateIso) {
     const movements = getPatrimonioMovementsRef();
     const txId = String(tx?.id || '');
+    if (txId && STATE.userState.importedTxIds[txId]) return true;
     const targetDesc = normalizeDescriptionKey(description);
     return movements.some(item => {
       if (String(item?.pluggyTransactionId || '') === txId) return true;
@@ -599,8 +604,7 @@
       installmentsGroupId: '',
       installmentsTotal: Number(tx?.creditCardMetadata?.totalInstallments || 1) || 1,
       installmentIndex: Number(tx?.creditCardMetadata?.installmentNumber || 1) || 1,
-      createdAt: new Date().toISOString(),
-      pluggyTransactionId: String(tx?.id || '')
+      createdAt: new Date().toISOString()
     };
     const normalized = typeof global.normalizeUnifiedOutflowItem === 'function'
       ? global.normalizeUnifiedOutflowItem(base, 0)
@@ -611,6 +615,8 @@
     if (typeof global.recalcTotals === 'function') global.recalcTotals(month);
 
     rememberCategory(description, base.category);
+    if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
+    persistUserState();
     global.save(true);
     removePendingTx(accountId, txId);
   }
@@ -643,14 +649,15 @@
       accountId: linkedAccountId,
       value,
       description,
-      date: dateIso,
-      pluggyTransactionId: String(tx.id || '')
+      date: dateIso
     };
     const movement = typeof global.normalizePatrimonioMovement === 'function'
       ? global.normalizePatrimonioMovement(movementBase, getPatrimonioMovementsRef().length)
       : movementBase;
     const updatedMovements = [movement].concat(getPatrimonioMovementsRef());
     setPatrimonioMovementsRef(updatedMovements);
+    if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
+    persistUserState();
     global.save(true);
     if (typeof global.renderPatrimonioMetrics === 'function') global.renderPatrimonioMetrics();
     if (typeof global.renderPatrimonioAccounts === 'function') global.renderPatrimonioAccounts();
