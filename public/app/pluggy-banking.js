@@ -22,7 +22,8 @@
       clearedAtByGroup: {},
       aliases: {},
       categoryMemory: {},
-      importedTxIds: {}
+      importedTxIds: {},
+      txState: {}
     }
   };
 
@@ -112,6 +113,7 @@
       STATE.userState.aliases = parsed.aliases && typeof parsed.aliases === 'object' ? parsed.aliases : {};
       STATE.userState.categoryMemory = parsed.categoryMemory && typeof parsed.categoryMemory === 'object' ? parsed.categoryMemory : {};
       STATE.userState.importedTxIds = parsed.importedTxIds && typeof parsed.importedTxIds === 'object' ? parsed.importedTxIds : {};
+      STATE.userState.txState = parsed.txState && typeof parsed.txState === 'object' ? parsed.txState : {};
     } catch (_err) {
       STATE.userState.links = {};
       STATE.userState.linkHints = {};
@@ -120,6 +122,7 @@
       STATE.userState.aliases = {};
       STATE.userState.categoryMemory = {};
       STATE.userState.importedTxIds = {};
+      STATE.userState.txState = {};
     }
   }
 
@@ -341,6 +344,7 @@
   function shouldSkipTx(account, tx) {
     const txId = String(tx?.id || '');
     if (!txId) return true;
+    if (STATE.userState.importedTxIds[txId]) return true;
     if (STATE.userState.hiddenGroups[`tx:${txId}`]) return true;
     if (isSaldoSyncDescription(tx?.description || tx?.descriptionRaw || '')) return true;
     if (String(account?.accountType || '').toUpperCase() === 'CREDIT' && isCreditBillPayment(tx)) return true;
@@ -463,13 +467,16 @@
       .filter(tx => !shouldSkipTx(account, tx))
       .map(tx => {
         const txType = String(tx?.type || '').toUpperCase();
+        const txKey = String(tx?.id || '');
+        const savedUi = STATE.userState.txState[txKey] || {};
         const line = {
           ...tx,
           _ui: {
-            description: normalizeText(tx?.description || tx?.descriptionRaw || 'Transacao Pluggy'),
-            category: inferCategory(tx?.category, categories),
-            tag: '',
-            movementType: txType === 'CREDIT' ? 'aporte' : (txType === 'DEBIT' ? 'retirada' : inferBankMovementType(tx))
+            description: normalizeText(savedUi.description || tx?.description || tx?.descriptionRaw || 'Transacao Pluggy'),
+            category: normalizeText(savedUi.category || inferCategory(tx?.category, categories)),
+            tag: normalizeText(savedUi.tag || ''),
+            movementType: normalizeText(savedUi.movementType || (txType === 'CREDIT' ? 'aporte' : (txType === 'DEBIT' ? 'retirada' : inferBankMovementType(tx)))),
+            error: normalizeText(savedUi.error || '')
           }
         };
         if (String(account.accountType || '').toUpperCase() === 'CREDIT') applyCategoryMemory(tx, line);
@@ -485,6 +492,13 @@
     if (!target || !target._ui) return;
     target._ui[field] = value;
     target._ui.error = '';
+    const txKey = String(txId || '');
+    if (txKey) {
+      if (!STATE.userState.txState[txKey]) STATE.userState.txState[txKey] = {};
+      STATE.userState.txState[txKey][field] = value;
+      STATE.userState.txState[txKey].error = '';
+      persistUserState();
+    }
     if (field === 'description' && String(getAccountById(accountId)?.accountType || '').toUpperCase() === 'CREDIT') {
       applyCategoryMemory(target, target);
     }
@@ -496,6 +510,12 @@
     if (!target) return;
     if (!target._ui) target._ui = {};
     target._ui.error = normalizeText(message || '');
+    const txKey = String(txId || '');
+    if (txKey) {
+      if (!STATE.userState.txState[txKey]) STATE.userState.txState[txKey] = {};
+      STATE.userState.txState[txKey].error = target._ui.error;
+      persistUserState();
+    }
   }
 
   function removePendingTx(accountId, txId) {
