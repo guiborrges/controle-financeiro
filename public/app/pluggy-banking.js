@@ -131,27 +131,54 @@
     return token ? { ...extra, 'X-CSRF-Token': token } : { ...extra };
   }
 
+  function getDataRef() {
+    if (typeof data !== 'undefined' && Array.isArray(data)) return data;
+    if (Array.isArray(global.data)) return global.data;
+    return [];
+  }
+
+  function getPatrimonioAccountsRef() {
+    if (typeof patrimonioAccounts !== 'undefined' && Array.isArray(patrimonioAccounts)) return patrimonioAccounts;
+    if (Array.isArray(global.patrimonioAccounts)) return global.patrimonioAccounts;
+    return [];
+  }
+
+  function getPatrimonioMovementsRef() {
+    if (typeof patrimonioMovements !== 'undefined' && Array.isArray(patrimonioMovements)) return patrimonioMovements;
+    if (Array.isArray(global.patrimonioMovements)) return global.patrimonioMovements;
+    return [];
+  }
+
+  function setPatrimonioMovementsRef(nextMovements) {
+    const safe = Array.isArray(nextMovements) ? nextMovements : [];
+    if (typeof patrimonioMovements !== 'undefined') {
+      patrimonioMovements = safe;
+      return;
+    }
+    global.patrimonioMovements = safe;
+  }
+
   function getAllCards() {
     if (global.BillImportUtils?.getAllCardsFromUserData) {
-      return global.BillImportUtils.getAllCardsFromUserData(global.data || []).list || [];
+      return global.BillImportUtils.getAllCardsFromUserData(getDataRef()).list || [];
     }
     return [];
   }
 
   function getAllPatrimonioAccounts() {
-    return Array.isArray(global.patrimonioAccounts) ? global.patrimonioAccounts : [];
+    return getPatrimonioAccountsRef();
   }
 
   function getAllCategories() {
     if (global.BillImportUtils?.getAllCategoriesFromUserData) {
-      return global.BillImportUtils.getAllCategoriesFromUserData(global.data || []).list.map(item => item.name);
+      return global.BillImportUtils.getAllCategoriesFromUserData(getDataRef()).list.map(item => item.name);
     }
     return [];
   }
 
   function getAllTags() {
     if (global.BillImportUtils?.getAllTagsFromUserData) {
-      return global.BillImportUtils.getAllTagsFromUserData(global.data || []);
+      return global.BillImportUtils.getAllTagsFromUserData(getDataRef());
     }
     return [];
   }
@@ -407,7 +434,7 @@
   }
 
   function dedupeBank(tx, accountId, value, description, dateIso) {
-    const movements = Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements : [];
+    const movements = getPatrimonioMovementsRef();
     const txId = String(tx?.id || '');
     const targetDesc = normalizeDescriptionKey(description);
     return movements.some(item => {
@@ -445,7 +472,7 @@
 
     const { dateBr } = formatDateAndTime(tx.date);
     const monthId = global.BillImportSchema?.getMonthIdFromDate ? global.BillImportSchema.getMonthIdFromDate(dateBr) : '';
-    let month = (global.data || []).find(item => String(item.id) === String(monthId));
+    let month = getDataRef().find(item => String(item.id) === String(monthId));
     if (!month) month = ensureMonthFromDate(dateBr);
     if (!month) throw new Error('Nao foi possivel identificar o mes da transacao.');
 
@@ -534,10 +561,10 @@
       pluggyTransactionId: String(tx.id || '')
     };
     const movement = typeof global.normalizePatrimonioMovement === 'function'
-      ? global.normalizePatrimonioMovement(movementBase, Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements.length : 0)
+      ? global.normalizePatrimonioMovement(movementBase, getPatrimonioMovementsRef().length)
       : movementBase;
-    if (!Array.isArray(global.patrimonioMovements)) global.patrimonioMovements = [];
-    global.patrimonioMovements.unshift(movement);
+    const updatedMovements = [movement].concat(getPatrimonioMovementsRef());
+    setPatrimonioMovementsRef(updatedMovements);
     global.save(true);
     if (typeof global.renderPatrimonioMetrics === 'function') global.renderPatrimonioMetrics();
     if (typeof global.renderPatrimonioAccounts === 'function') global.renderPatrimonioAccounts();
