@@ -484,9 +484,18 @@
     const target = rows.find(item => String(item.id) === String(txId));
     if (!target || !target._ui) return;
     target._ui[field] = value;
+    target._ui.error = '';
     if (field === 'description' && String(getAccountById(accountId)?.accountType || '').toUpperCase() === 'CREDIT') {
       applyCategoryMemory(target, target);
     }
+  }
+
+  function setRowError(accountId, txId, message) {
+    const rows = STATE.pendingByAccount[String(accountId)] || [];
+    const target = rows.find(item => String(item.id) === String(txId));
+    if (!target) return;
+    if (!target._ui) target._ui = {};
+    target._ui.error = normalizeText(message || '');
   }
 
   function removePendingTx(accountId, txId) {
@@ -1077,8 +1086,9 @@
             </td>
             <td class="amount-neg">${escapeHtml(money(amountAbs))}</td>
             <td class="pluggy-actions-cell">
-              <button class="btn btn-subtle btn-sm" type="button" ${isCreditRowValid(tx) ? '' : 'disabled'} onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')">Adicionar</button>
+              <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')">Adicionar</button>
               <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
+              ${tx?._ui?.error ? `<div class="pluggy-row-error">${escapeHtml(tx._ui.error)}</div>` : ''}
             </td>
           </tr>
         `;
@@ -1098,6 +1108,7 @@
           <td class="pluggy-actions-cell">
             <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')">Adicionar</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
+            ${tx?._ui?.error ? `<div class="pluggy-row-error">${escapeHtml(tx._ui.error)}</div>` : ''}
           </td>
           </tr>
       `;
@@ -1212,6 +1223,7 @@
   }
 
   function addOne(accountId, txId) {
+    setRowError(accountId, txId, '');
     try {
       const account = getAccountById(accountId);
       if (!account) return;
@@ -1220,14 +1232,17 @@
       const row = ensurePending(account).find(item => String(item.id) === String(txId));
       if (!row) throw new Error('Lançamento não encontrado na lista pendente.');
       if (String(account.accountType || '').toUpperCase() === 'CREDIT' && !isCreditRowValid(row)) {
-        throw new Error('Selecione uma categoria antes de adicionar esse lancamento de cartao.');
+        throw new Error('Selecione uma categoria para este lançamento.');
       }
       if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, txId);
       else commitBankTransaction(accountId, txId);
       renderWorkspace();
       showStatus('Lancamento adicionado com sucesso.', 'ok');
     } catch (error) {
-      showStatus(error?.message || 'Falha ao adicionar lancamento.', 'error');
+      const message = error?.message || 'Falha ao adicionar lançamento.';
+      setRowError(accountId, txId, message);
+      renderWorkspace();
+      showStatus(message, 'error');
     }
   }
 

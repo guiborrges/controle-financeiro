@@ -5086,12 +5086,21 @@ body.mobile-ui {
   gap: 6px;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .pluggy-actions-cell .btn {
   min-height: 27px;
   border-radius: 8px;
   padding: 0 8px;
+}
+
+.pluggy-row-error {
+  width: 100%;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--danger);
+  text-align: right;
 }
 
 .pluggy-icon-btn {
