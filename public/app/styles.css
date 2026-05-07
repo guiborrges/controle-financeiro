@@ -4891,11 +4891,11 @@ body.mobile-ui {
 
 .pluggy-account-group {
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--surface-strong);
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(20,20,30,.04);
+  box-shadow: none;
 }
 
 .pluggy-account-header {
@@ -4903,7 +4903,7 @@ body.mobile-ui {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
@@ -4927,17 +4927,18 @@ body.mobile-ui {
 
 .pluggy-account-name {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.2;
   font-weight: 700;
+  cursor: text;
 }
 
 .pluggy-account-tools {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  padding: 10px 14px 12px;
+  padding: 8px 10px 8px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -4948,10 +4949,10 @@ body.mobile-ui {
 }
 
 .pluggy-linked-chip {
-  min-height: 34px;
+  min-height: 30px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 4px 8px;
   background: var(--surface);
   font-size: 12px;
   display: inline-flex;
@@ -5011,10 +5012,10 @@ body.mobile-ui {
 }
 
 .pluggy-input {
-  min-height: 36px;
+  min-height: 32px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 7px 10px;
+  border-radius: 8px;
+  padding: 5px 8px;
   background: var(--bg);
   color: var(--text);
   font: inherit;
@@ -5043,6 +5044,13 @@ body.mobile-ui {
 
 .pluggy-transactions-table td {
   vertical-align: middle;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.pluggy-transactions-table td:first-child,
+.pluggy-transactions-table th:first-child {
+  padding-left: 14px !important;
 }
 
 .pluggy-transactions-table tbody tr:hover {
@@ -5067,9 +5075,57 @@ body.mobile-ui {
 }
 
 .pluggy-actions-cell .btn {
-  min-height: 30px;
-  border-radius: 10px;
-  padding: 0 10px;
+  min-height: 27px;
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
+.pluggy-table-wrap {
+  max-height: 340px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.pluggy-sort-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  font-size: 11px;
+}
+
+.pluggy-sort-active {
+  color: var(--text);
+}
+
+.btn.btn-subtle {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.btn.btn-subtle:hover {
+  background: var(--surface);
+}
+
+.btn.btn-link-action {
+  background: transparent;
+  border: 0;
+  color: var(--text2);
+  padding: 0 4px;
+}
+
+.btn.btn-link-action:hover {
+  color: var(--text);
+}
+
+.pluggy-title-editor {
+  min-height: 28px;
+  max-width: 260px;
 }
 
 @media (max-width: 980px) {

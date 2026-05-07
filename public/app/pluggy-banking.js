@@ -1,4 +1,4 @@
-(function initPluggyBanking(global) {
+﻿(function initPluggyBanking(global) {
   'use strict';
 
   const PAGE_SIZE = 2000;
@@ -12,6 +12,9 @@
     loadedAt: '',
     mountId: 'internetBankingWorkspace',
     pendingByAccount: {},
+    collapsedGroups: {},
+    sortByGroup: {},
+    aliasEditor: null,
     userState: {
       links: {},
       hiddenGroups: {},
@@ -266,8 +269,56 @@
     return normalizeText(STATE.userState.aliases[key] || account?.accountName || 'Conta');
   }
 
+  function dedupeLabel(label) {
+    const raw = normalizeText(label);
+    if (!raw) return raw;
+    const compact = raw.replace(/\s+/g, ' ').trim();
+    const half = Math.floor(compact.length / 2);
+    if (compact.length > 3 && compact.length % 2 === 0) {
+      const a = compact.slice(0, half);
+      const b = compact.slice(half);
+      if (normalizeComparableText(a) === normalizeComparableText(b)) return a.trim();
+    }
+    const words = compact.split(' ');
+    if (words.length > 1) {
+      const seen = [];
+      for (const word of words) {
+        const norm = normalizeComparableText(word);
+        if (!norm || seen.includes(norm)) continue;
+        seen.push(norm);
+      }
+      if (seen.length) {
+        const rebuilt = [];
+        for (const norm of seen) {
+          const first = words.find(item => normalizeComparableText(item) === norm);
+          if (first) rebuilt.push(first);
+        }
+        return rebuilt.join(' ');
+      }
+    }
+    return compact;
+  }
+
   function getGroupClearedAt(account) {
     return Number(STATE.userState.clearedAtByGroup[getGroupKey(account)] || 0) || 0;
+  }
+
+  function isGroupCollapsed(accountId) {
+    return STATE.collapsedGroups[String(accountId)] === true;
+  }
+
+  function setSortState(accountId, column) {
+    const key = String(accountId);
+    const current = STATE.sortByGroup[key] || { column: 'date', dir: 'desc' };
+    const nextDir = current.column === column && current.dir === 'asc' ? 'desc' : 'asc';
+    STATE.sortByGroup[key] = { column, dir: nextDir };
+    renderWorkspace();
+  }
+
+  function getSortState(accountId, accountType) {
+    const current = STATE.sortByGroup[String(accountId)];
+    if (current?.column) return current;
+    return { column: 'date', dir: 'desc', accountType };
   }
 
   function isTxVisibleByClearRule(account, tx) {
@@ -334,11 +385,11 @@
     if (meta?.short && meta?.className) {
       return `<span class="smart-icon-badge smart-bank-badge ${escapeHtml(meta.className)}" aria-hidden="true">${escapeHtml(meta.short)}</span>`;
     }
-    return '<span class="pluggy-link-fallback-icon" aria-hidden="true">💳</span>';
+    return '<span class="pluggy-link-fallback-icon" aria-hidden="true">ðŸ’³</span>';
   }
 
   function renderAccountIcon() {
-    return '<span class="pluggy-link-fallback-icon" aria-hidden="true">🏦</span>';
+    return '<span class="pluggy-link-fallback-icon" aria-hidden="true">ðŸ¦</span>';
   }
 
   function resolveLinkedDisplay(account, linkedId) {
@@ -346,11 +397,11 @@
     if (String(account.accountType || '').toUpperCase() === 'CREDIT') {
       const card = getAllCards().find(item => String(item.id) === String(linkedId));
       if (!card) return '<span class="text-muted">Cartao nao encontrado</span>';
-      return `${renderCardIcon(card)} <span>${escapeHtml(card.name || 'Cartao')}</span>`;
+      return `<span>${escapeHtml(dedupeLabel(card.name || 'Cartao'))}</span>`;
     }
     const acc = getAllPatrimonioAccounts().find(item => String(item.id) === String(linkedId));
     if (!acc) return '<span class="text-muted">Conta nao encontrada</span>';
-    return `${renderAccountIcon()} <span>${escapeHtml(String(acc.name || acc.nome || 'Conta'))}</span>`;
+    return `<span>${escapeHtml(dedupeLabel(String(acc.name || acc.nome || 'Conta')))}</span>`;
   }
 
   function applyCategoryMemory(tx, row) {
@@ -594,15 +645,62 @@
     const options = [`<option value="">${placeholder}</option>`];
     list.forEach(item => {
       const id = String(item?.id || '');
-      const name = String(item?.name || item?.nome || id || 'Sem nome');
-      const iconText = isCredit ? (getCardMeta(item)?.short || '💳') : '🏦';
-      options.push(`<option value="${escapeHtml(id)}" ${id === String(selectedId || '') ? 'selected' : ''}>${escapeHtml(iconText)} ${escapeHtml(name)}</option>`);
+      const name = dedupeLabel(String(item?.name || item?.nome || id || 'Sem nome'));
+      const iconText = isCredit ? (getCardMeta(item)?.short || 'ðŸ’³') : 'ðŸ¦';
+      options.push(`<option value="${escapeHtml(id)}" ${id === String(selectedId || '') ? 'selected' : ''}>${escapeHtml(name)}</option>`);
     });
     return options.join('');
   }
 
+  function sortRowsForAccount(account, rows) {
+    const isCredit = String(account.accountType || '').toUpperCase() === 'CREDIT';
+    const state = getSortState(account.accountId, account.accountType);
+    const dir = state.dir === 'asc' ? 1 : -1;
+    const sorted = [...rows].sort((a, b) => {
+      if (state.column === 'date') {
+        const av = Date.parse(String(a.date || '')) || 0;
+        const bv = Date.parse(String(b.date || '')) || 0;
+        return (av - bv) * dir;
+      }
+      if (state.column === 'description') {
+        const av = normalizeComparableText(a._ui?.description || a.description || '');
+        const bv = normalizeComparableText(b._ui?.description || b.description || '');
+        return av.localeCompare(bv) * dir;
+      }
+      if (state.column === 'category') {
+        const av = normalizeComparableText(a._ui?.category || '');
+        const bv = normalizeComparableText(b._ui?.category || '');
+        return av.localeCompare(bv) * dir;
+      }
+      if (state.column === 'value') {
+        const av = Math.abs(Number(a.amount || 0));
+        const bv = Math.abs(Number(b.amount || 0));
+        return (av - bv) * dir;
+      }
+      if (state.column === 'installment' && isCredit) {
+        const ai = Number(a?.creditCardMetadata?.installmentNumber || 1);
+        const bi = Number(b?.creditCardMetadata?.installmentNumber || 1);
+        return (ai - bi) * dir;
+      }
+      return 0;
+    });
+    return sorted;
+  }
+
   function getRowsForAccount(account) {
-    return ensurePending(account);
+    return sortRowsForAccount(account, ensurePending(account));
+  }
+
+  function isCreditRowValid(tx) {
+    return !!normalizeText(tx?._ui?.category || '');
+  }
+
+  function sortableHeader(accountId, key, label) {
+    const state = getSortState(accountId);
+    const isActive = state.column === key;
+    const marker = isActive ? (state.dir === 'asc' ? ' â†‘' : ' â†“') : '';
+    const cls = isActive ? 'pluggy-sort-active' : '';
+    return `<button class="pluggy-sort-btn ${cls}" type="button" onclick="PluggyBanking.sortBy('${escapeHtml(String(accountId))}','${escapeHtml(key)}')">${escapeHtml(label)}${marker}</button>`;
   }
 
   function getAccountsByType(type) {
@@ -654,7 +752,7 @@
       <div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
         <div class="modal-header">
           <h3>Recarregar historico</h3>
-          <button class="btn-icon" type="button" onclick="PluggyBanking.closeRestoreDialog()">✕</button>
+          <button class="btn-icon" type="button" onclick="PluggyBanking.closeRestoreDialog()">âœ•</button>
         </div>
         <p class="text-muted" style="margin:0 0 10px">Selecione os cartoes/contas que deseja restaurar para o estado original.</p>
         <div id="pluggyRestoreList" class="pluggy-restore-list"></div>
@@ -723,7 +821,42 @@
     const safe = normalizeText(value);
     if (!safe) return;
     STATE.userState.aliases[String(accountId)] = safe;
+    STATE.aliasEditor = null;
     persistUserState();
+    renderWorkspace();
+  }
+
+  function startAliasEdit(accountId) {
+    STATE.aliasEditor = { groupId: String(accountId) };
+    renderWorkspace();
+  }
+
+  function aliasEditorKeydown(event, accountId) {
+    if (!event) return;
+    if (event.key === 'Escape') {
+      STATE.aliasEditor = null;
+      renderWorkspace();
+      return;
+    }
+    if (event.key === 'Enter') {
+      const target = event.target;
+      changeGroupAlias(accountId, target?.value || '');
+    }
+  }
+
+  function finishAliasEdit(accountId, value) {
+    const safe = normalizeText(value);
+    if (safe) {
+      changeGroupAlias(accountId, safe);
+      return;
+    }
+    STATE.aliasEditor = null;
+    renderWorkspace();
+  }
+
+  function toggleGroup(accountId) {
+    const key = String(accountId);
+    STATE.collapsedGroups[key] = !isGroupCollapsed(key);
     renderWorkspace();
   }
 
@@ -779,8 +912,8 @@
             <td class="amount-neg">${escapeHtml(money(amountAbs))}</td>
             <td>${escapeHtml(installmentLabel)}</td>
             <td class="pluggy-actions-cell">
-              <button class="btn btn-primary btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')">Adicionar</button>
-              <button class="btn btn-ghost btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
+              <button class="btn btn-subtle btn-sm" type="button" ${isCreditRowValid(tx) ? '' : 'disabled'} onclick="PluggyBanking.addOne('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')">Adicionar</button>
+              <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
             </td>
           </tr>
         `;
@@ -798,14 +931,13 @@
           <td><input class="pluggy-input" value="${escapeHtml(tx._ui?.description || '')}" onchange="PluggyBanking.updateField('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}','description',this.value)"></td>
           <td class="${tx._ui?.movementType === 'aporte' ? 'amount-pos' : 'amount-neg'}">${escapeHtml(money(amountAbs))}</td>
           <td class="pluggy-actions-cell">
-            <button class="btn btn-primary btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')">Adicionar</button>
-            <button class="btn btn-ghost btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
+            <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')">Adicionar</button>
+            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(account.accountId)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
           </td>
           </tr>
       `;
     }).join('');
   }
-
   function renderGroup(account) {
     const key = getGroupKey(account);
     if (STATE.userState.hiddenGroups[`group:${key}`]) return '';
@@ -816,41 +948,50 @@
       persistUserState();
     }
     const alias = getGroupAlias(account);
+    const rows = getRowsForAccount(account);
+    const pendingCount = rows.length;
+    const totalPending = rows.reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
+    const collapsed = isGroupCollapsed(key);
 
     return `
       <section class="pluggy-account-group">
-        <div class="pluggy-account-header">
+        <div class="pluggy-account-header ${collapsed ? 'is-collapsed' : ''}">
           <div class="pluggy-account-head-left">
-            <h3 class="pluggy-account-name">${escapeHtml(alias)}</h3>
+            <h3 class="pluggy-account-name" ondblclick="PluggyBanking.startAliasEdit('${escapeHtml(key)}')">
+              ${STATE.aliasEditor?.groupId === key ? `<input class="pluggy-input pluggy-title-editor" value="${escapeHtml(alias)}" onkeydown="PluggyBanking.aliasEditorKeydown(event,'${escapeHtml(key)}')" onblur="PluggyBanking.finishAliasEdit('${escapeHtml(key)}', this.value)" autofocus>` : escapeHtml(alias)}
+            </h3>
             <small class="pluggy-account-origin">Origem: ${escapeHtml(account.accountName || alias)}</small>
+            <small class="pluggy-account-origin">${pendingCount} pendente(s) • ${escapeHtml(money(totalPending))}</small>
           </div>
           <div class="pluggy-account-head-right">
-            <button class="btn btn-ghost btn-sm" type="button" onclick="PluggyBanking.clearGroup('${escapeHtml(key)}')">Limpar listas</button>
-            <button class="btn btn-ghost btn-sm" type="button" onclick="PluggyBanking.hideGroup('${escapeHtml(key)}')" title="Ocultar grupo">X</button>
+            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.toggleGroup('${escapeHtml(key)}')">${collapsed ? 'Abrir' : 'Fechar'}</button>
+            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.clearGroup('${escapeHtml(key)}')">Limpar listas</button>
+            <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.hideGroup('${escapeHtml(key)}')" title="Ocultar grupo">✕</button>
           </div>
         </div>
-        <div class="pluggy-account-tools">
-          <label class="pluggy-inline-label">Nome visual:</label>
-          <input class="pluggy-input pluggy-alias-input" value="${escapeHtml(alias)}" onchange="PluggyBanking.setAlias('${escapeHtml(key)}', this.value)">
-          <label class="pluggy-inline-label">Vincular a:</label>
-          <select class="pluggy-input" onchange="PluggyBanking.changeLink('${escapeHtml(key)}', this.value)">
-            ${linkOptions(account, selectedLink)}
-          </select>
-          <div class="pluggy-linked-chip">${resolveLinkedDisplay(account, selectedLink)}</div>
-          <button class="btn btn-primary btn-sm" type="button" onclick="PluggyBanking.addAll('${escapeHtml(key)}')">Adicionar todos</button>
-        </div>
-        <table class="fin-table pluggy-transactions-table">
-          <thead>
-            ${isCredit
-              ? '<tr><th>Data</th><th>Descricao</th><th>Categoria</th><th>Tag</th><th>Valor</th><th>Parcelado</th><th></th></tr>'
-              : '<tr><th>Data</th><th>Tipo</th><th>Descricao</th><th>Valor</th><th></th></tr>'}
-          </thead>
-          <tbody>${renderRows(account)}</tbody>
-        </table>
+        ${collapsed ? '' : `
+          <div class="pluggy-account-tools">
+            <label class="pluggy-inline-label">Vincular a:</label>
+            <select class="pluggy-input" onchange="PluggyBanking.changeLink('${escapeHtml(key)}', this.value)">
+              ${linkOptions(account, selectedLink)}
+            </select>
+            <div class="pluggy-linked-chip">${resolveLinkedDisplay(account, selectedLink)}</div>
+            <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addAll('${escapeHtml(key)}')">Adicionar todos</button>
+          </div>
+          <div class="pluggy-table-wrap">
+            <table class="fin-table pluggy-transactions-table">
+              <thead>
+                ${isCredit
+                  ? `<tr><th>${sortableHeader(key, 'date', 'Data')}</th><th>${sortableHeader(key, 'description', 'Descricao')}</th><th>${sortableHeader(key, 'category', 'Categoria')}</th><th>Tag</th><th>${sortableHeader(key, 'value', 'Valor')}</th><th>${sortableHeader(key, 'installment', 'Parcelado')}</th><th></th></tr>`
+                  : `<tr><th>${sortableHeader(key, 'date', 'Data')}</th><th>Tipo</th><th>${sortableHeader(key, 'description', 'Descricao')}</th><th>${sortableHeader(key, 'value', 'Valor')}</th><th></th></tr>`}
+              </thead>
+              <tbody>${renderRows(account)}</tbody>
+            </table>
+          </div>
+        `}
       </section>
     `;
   }
-
   function renderTypeButtonsAndContent() {
     const type = STATE.currentView === 'bank' ? 'BANK' : 'CREDIT';
     const accounts = getAccountsByType(type);
@@ -912,6 +1053,10 @@
     try {
       const account = getAccountById(accountId);
       if (!account) return;
+      const row = ensurePending(account).find(item => String(item.id) === String(txId));
+      if (String(account.accountType || '').toUpperCase() === 'CREDIT' && !isCreditRowValid(row)) {
+        throw new Error('Selecione uma categoria antes de adicionar esse lancamento de cartao.');
+      }
       if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, txId);
       else commitBankTransaction(accountId, txId);
       renderWorkspace();
@@ -927,8 +1072,13 @@
     const rows = [...getRowsForAccount(account)];
     let ok = 0;
     let errors = 0;
+    let blockedByCategory = 0;
     rows.forEach(tx => {
       try {
+        if (String(account.accountType || '').toUpperCase() === 'CREDIT' && !isCreditRowValid(tx)) {
+          blockedByCategory += 1;
+          return;
+        }
         if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, tx.id);
         else commitBankTransaction(accountId, tx.id);
         ok += 1;
@@ -937,7 +1087,10 @@
       }
     });
     renderWorkspace();
-    showStatus(`${ok} lancamento(s) adicionado(s)${errors ? `, ${errors} com erro` : ''}.`, errors ? 'warning' : 'ok');
+    const parts = [`${ok} lancamento(s) adicionado(s)`];
+    if (blockedByCategory) parts.push(`${blockedByCategory} sem categoria`);
+    if (errors) parts.push(`${errors} com erro`);
+    showStatus(parts.join(', ') + '.', (errors || blockedByCategory) ? 'warning' : 'ok');
   }
 
   function dismiss(accountId, txId) {
@@ -960,6 +1113,11 @@
   global.PluggyBanking = {
     switchView,
     updateField: updatePendingField,
+    sortBy: setSortState,
+    toggleGroup,
+    startAliasEdit,
+    aliasEditorKeydown,
+    finishAliasEdit,
     addOne,
     addAll,
     dismiss,
@@ -975,3 +1133,9 @@
   global.renderInternetBankingPage = renderPage;
   global.__pluggyBankingTest = { normalizeDescriptionKey, isSaldoSyncDescription, inferBankMovementType };
 })(typeof window !== 'undefined' ? window : globalThis);
+
+
+
+
+
+
