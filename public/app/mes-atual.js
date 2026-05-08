@@ -1385,21 +1385,8 @@ function isComparableDailyGoalSpend(item) {
 
 function pruneDailyGoalsWithoutSpendValue(month) {
   if (!month || !month.dailyGoals || typeof month.dailyGoals !== 'object') return false;
-  const totalsByCategory = new Map();
-  (month.outflows || []).forEach(item => {
-    if (!isComparableDailyGoalSpend(item)) return;
-    const category = getUnifiedOutflowCategoryName(item, 'OUTROS');
-    totalsByCategory.set(category, Number(totalsByCategory.get(category) || 0) + getUnifiedEffectiveOutflowAmount(item));
-  });
   let changed = false;
   Object.keys(month.dailyGoals).forEach(categoryKey => {
-    const normalizedCategory = resolveCategoryName(categoryKey || 'OUTROS');
-    const spent = Number(totalsByCategory.get(normalizedCategory) || 0);
-    if (!(spent > 0)) {
-      delete month.dailyGoals[categoryKey];
-      changed = true;
-      return;
-    }
     const goal = Number(month.dailyGoals[categoryKey] || 0);
     if (!(goal > 0)) {
       delete month.dailyGoals[categoryKey];
