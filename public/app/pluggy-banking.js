@@ -1,8 +1,10 @@
 ﻿(function initPluggyBanking(global) {
   'use strict';
 
-  const PAGE_SIZE = 2000;
-  const STORAGE_BASE_KEY = 'pluggy_banking_state_v2';
+  const InternetBankingConfig = {
+    pageSize: 2000,
+    storageBaseKey: 'pluggy_banking_state_v2'
+  };
 
   const STATE = {
     currentView: 'credit',
@@ -15,7 +17,6 @@
     collapsedGroups: {},
     sortByGroup: {},
     aliasEditor: null,
-    openingFresh: true,
     userState: {
       links: {},
       linkHints: {},
@@ -76,8 +77,9 @@
 
   function money(value) {
     const amount = Number(value || 0);
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-      .format(Number.isFinite(amount) ? amount : 0);
+    const safeAmount = Number.isFinite(amount) ? amount : 0;
+    if (typeof global.fmt === 'function') return global.fmt(safeAmount);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(safeAmount);
   }
 
   function cssEscape(value) {
@@ -121,7 +123,19 @@
   }
 
   function storageKey() {
-    return `${STORAGE_BASE_KEY}:${getUserId()}`;
+    return `${InternetBankingConfig.storageBaseKey}:${getUserId()}`;
+  }
+
+  function resetUserState() {
+    STATE.userState.links = {};
+    STATE.userState.linkHints = {};
+    STATE.userState.hiddenGroups = {};
+    STATE.userState.clearedAtByGroup = {};
+    STATE.userState.aliases = {};
+    STATE.userState.categoryMemory = {};
+    STATE.userState.tagMemory = {};
+    STATE.userState.importedTxIds = {};
+    STATE.userState.txState = {};
   }
 
   function loadUserState() {
@@ -137,15 +151,7 @@
       STATE.userState.importedTxIds = parsed.importedTxIds && typeof parsed.importedTxIds === 'object' ? parsed.importedTxIds : {};
       STATE.userState.txState = parsed.txState && typeof parsed.txState === 'object' ? parsed.txState : {};
     } catch (_err) {
-      STATE.userState.links = {};
-      STATE.userState.linkHints = {};
-      STATE.userState.hiddenGroups = {};
-      STATE.userState.clearedAtByGroup = {};
-      STATE.userState.aliases = {};
-      STATE.userState.categoryMemory = {};
-      STATE.userState.tagMemory = {};
-      STATE.userState.importedTxIds = {};
-      STATE.userState.txState = {};
+      resetUserState();
     }
   }
 
@@ -250,6 +256,13 @@
       usage[key] = (usage[key] || 0) + 1;
     });
     return usage;
+  }
+
+  function findMatchingValue(candidates, targetValue) {
+    const normalizedTarget = normalizeComparableText(targetValue);
+    if (!normalizedTarget) return '';
+    const list = Array.isArray(candidates) ? candidates : [];
+    return list.find((candidate) => normalizeComparableText(candidate) === normalizedTarget) || '';
   }
 
   function inferCategory(pluggyCategory, allCategories) {
@@ -525,12 +538,10 @@
     const memorizedCategory = normalizeText(STATE.userState.categoryMemory[key] || '');
     const memorizedTag = normalizeText(STATE.userState.tagMemory[key] || '');
 
-    if (!touched.category && memorizedCategory && allCategories.some(cat => normalizeComparableText(cat) === normalizeComparableText(memorizedCategory))) {
-      row._ui.category = allCategories.find(cat => normalizeComparableText(cat) === normalizeComparableText(memorizedCategory)) || row._ui.category;
-    }
-    if (!touched.tag && memorizedTag && allTags.some(tag => normalizeComparableText(tag) === normalizeComparableText(memorizedTag))) {
-      row._ui.tag = allTags.find(tag => normalizeComparableText(tag) === normalizeComparableText(memorizedTag)) || row._ui.tag;
-    }
+    const matchedCategory = findMatchingValue(allCategories, memorizedCategory);
+    if (!touched.category && matchedCategory) row._ui.category = matchedCategory;
+    const matchedTag = findMatchingValue(allTags, memorizedTag);
+    if (!touched.tag && matchedTag) row._ui.tag = matchedTag;
   }
 
   function ensurePending(account) {
@@ -620,35 +631,41 @@
     return global.ensureMonthExists(monthName, year);
   }
 
-  function dedupeCredit(tx, month, cardId, dateBr, amount, description) {
-    const targetDesc = normalizeDescriptionKey(description);
-    const targetTxId = String(tx?.id || '');
+  function isDuplicateByFields({ rows, txId, dateValue, amountValue, descriptionValue, matchesContext }) {
+    const targetTxId = String(txId || '');
+    const targetDesc = normalizeDescriptionKey(descriptionValue);
     if (targetTxId && STATE.userState.importedTxIds[targetTxId]) return true;
-    return (month?.outflows || []).some(item => {
-      if (String(item?.outputKind || '') !== 'card') return false;
-      if (String(item?.outputRef || '') !== String(cardId)) return false;
+    return (rows || []).some((item) => {
+      if (typeof matchesContext === 'function' && !matchesContext(item)) return false;
       if (String(item?.pluggyTransactionId || '') === targetTxId) return true;
-      const sameDate = String(item?.date || '') === String(dateBr);
-      const sameAmount = Math.abs(Number(item?.amount || 0) - Number(amount || 0)) < 0.01;
+      const sameDate = String(item?.date || '') === String(dateValue);
+      const sourceAmount = Number(item?.amount ?? item?.value ?? 0);
+      const sameAmount = Math.abs(sourceAmount - Number(amountValue || 0)) < 0.01;
       const desc = normalizeDescriptionKey(item?.description || '');
       const sameDesc = desc && targetDesc ? (desc === targetDesc || desc.includes(targetDesc) || targetDesc.includes(desc)) : false;
       return sameDate && sameAmount && sameDesc;
     });
   }
 
+  function dedupeCredit(tx, month, cardId, dateBr, amount, description) {
+    return isDuplicateByFields({
+      rows: month?.outflows || [],
+      txId: tx?.id,
+      dateValue: dateBr,
+      amountValue: amount,
+      descriptionValue: description,
+      matchesContext: (item) => String(item?.outputKind || '') === 'card' && String(item?.outputRef || '') === String(cardId)
+    });
+  }
+
   function dedupeBank(tx, accountId, value, description, dateIso) {
-    const movements = getPatrimonioMovementsRef();
-    const txId = String(tx?.id || '');
-    if (txId && STATE.userState.importedTxIds[txId]) return true;
-    const targetDesc = normalizeDescriptionKey(description);
-    return movements.some(item => {
-      if (String(item?.pluggyTransactionId || '') === txId) return true;
-      if (String(item?.accountId || '') !== String(accountId)) return false;
-      const sameDate = String(item?.date || '') === String(dateIso);
-      const sameValue = Math.abs(Number(item?.value || 0) - Number(value || 0)) < 0.01;
-      const desc = normalizeDescriptionKey(item?.description || '');
-      const sameDesc = desc && targetDesc ? (desc === targetDesc || desc.includes(targetDesc) || targetDesc.includes(desc)) : false;
-      return sameDate && sameValue && sameDesc;
+    return isDuplicateByFields({
+      rows: getPatrimonioMovementsRef(),
+      txId: tx?.id,
+      dateValue: dateIso,
+      amountValue: value,
+      descriptionValue: description,
+      matchesContext: (item) => String(item?.accountId || '') === String(accountId)
     });
   }
 
@@ -656,10 +673,11 @@
     const normCategory = normalizeText(category);
     if (!normCategory) return;
     const allCategories = getAllCategories();
-    if (!allCategories.some(cat => normalizeComparableText(cat) === normalizeComparableText(normCategory))) return;
+    const matchedCategory = findMatchingValue(allCategories, normCategory);
+    if (!matchedCategory) return;
     const key = normalizeDescriptionKey(description);
     if (!key) return;
-    STATE.userState.categoryMemory[key] = normCategory;
+    STATE.userState.categoryMemory[key] = matchedCategory;
     persistUserState();
   }
 
@@ -667,11 +685,27 @@
     const normTag = normalizeText(tag);
     if (!normTag) return;
     const allTags = getAllTags();
-    if (!allTags.some(item => normalizeComparableText(item) === normalizeComparableText(normTag))) return;
+    const matchedTag = findMatchingValue(allTags, normTag);
+    if (!matchedTag) return;
     const key = normalizeDescriptionKey(description);
     if (!key) return;
-    STATE.userState.tagMemory[key] = normTag;
+    STATE.userState.tagMemory[key] = matchedTag;
     persistUserState();
+  }
+
+  function getPendingRowsByDescriptionKey() {
+    const index = new Map();
+    Object.values(STATE.pendingByAccount || {}).forEach((rows) => {
+      if (!Array.isArray(rows)) return;
+      rows.forEach((row) => {
+        if (!row?._ui) return;
+        const rowKey = normalizeDescriptionKey(row._ui.originalDescription || row.descriptionRaw || row.description || '');
+        if (!rowKey) return;
+        if (!index.has(rowKey)) index.set(rowKey, []);
+        index.get(rowKey).push(row);
+      });
+    });
+    return index;
   }
 
   function propagateMemoryToPendingRows(sourceTx, category, tag) {
@@ -679,20 +713,14 @@
     if (!sourceKey) return;
     const allCategories = getAllCategories();
     const allTags = getAllTags();
-    Object.values(STATE.pendingByAccount || {}).forEach((rows) => {
-      if (!Array.isArray(rows)) return;
-      rows.forEach((row) => {
-        if (!row?._ui) return;
-        const rowKey = normalizeDescriptionKey(row._ui.originalDescription || row.descriptionRaw || row.description || '');
-        if (rowKey !== sourceKey) return;
-        if (!row._ui.touched) row._ui.touched = {};
-        if (category && !row._ui.touched.category && allCategories.some((c) => normalizeComparableText(c) === normalizeComparableText(category))) {
-          row._ui.category = allCategories.find((c) => normalizeComparableText(c) === normalizeComparableText(category)) || row._ui.category;
-        }
-        if (tag && !row._ui.touched.tag && allTags.some((t) => normalizeComparableText(t) === normalizeComparableText(tag))) {
-          row._ui.tag = allTags.find((t) => normalizeComparableText(t) === normalizeComparableText(tag)) || row._ui.tag;
-        }
-      });
+    const matchedCategory = category ? findMatchingValue(allCategories, category) : '';
+    const matchedTag = tag ? findMatchingValue(allTags, tag) : '';
+    const rows = getPendingRowsByDescriptionKey().get(sourceKey) || [];
+    rows.forEach((row) => {
+      if (!row?._ui) return;
+      if (!row._ui.touched) row._ui.touched = {};
+      if (matchedCategory && !row._ui.touched.category) row._ui.category = matchedCategory;
+      if (matchedTag && !row._ui.touched.tag) row._ui.tag = matchedTag;
     });
   }
 
@@ -713,7 +741,8 @@
     if (!month) month = ensureMonthFromDate(dateBr);
     if (!month) throw new Error('Nao foi possivel identificar o mes da transacao.');
 
-    const amount = Math.abs(Number(tx.amount || 0));
+    const transacao_valor_raw = Number(tx.amount || 0);
+    const amount = Math.abs(transacao_valor_raw);
     const description = normalizeText(tx._ui?.description || tx.description || '');
     if (!dateBr || !description || !(amount > 0)) throw new Error('Dados invalidos na transacao.');
 
@@ -781,7 +810,8 @@
       throw new Error('Vincule essa conta a uma conta patrimonial valida antes de adicionar.');
     }
 
-    const value = Math.abs(Number(tx.amount || 0));
+    const transacao_valor_raw = Number(tx.amount || 0);
+    const value = Math.abs(transacao_valor_raw);
     const description = normalizeText(tx._ui?.description || tx.description || '');
     const dateIso = dateToIsoDay(tx.date);
     if (!dateIso || !description || !(value > 0)) throw new Error('Dados invalidos na transacao.');
@@ -1388,7 +1418,7 @@
     STATE.error = '';
     renderWorkspace();
     try {
-      const response = await fetch(`/api/pluggy/transactions?limit=${PAGE_SIZE}`, {
+      const response = await fetch(`/api/pluggy/transactions?limit=${InternetBankingConfig.pageSize}`, {
         method: 'GET',
         credentials: 'same-origin',
         headers: getCsrfHeaders({ Accept: 'application/json' })

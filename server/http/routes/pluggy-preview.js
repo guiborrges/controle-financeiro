@@ -108,33 +108,31 @@ SELECT pluggy_item_id, provider_name, status, updated_at
 }
 
 async function loadTransactions(tenantUserId, limit = 300) {
+  const safeLimit = Math.max(1, Number(limit || 300));
   return withConnection(async conn => {
     const rs = await conn.execute(
       `
-SELECT * FROM (
-  SELECT
-    external_transaction_id,
-    pluggy_item_id,
-    pluggy_account_id,
-    record_type,
-    transaction_date,
-    description,
-    amount,
-    currency_code,
-    account_name,
-    account_type,
-    balance_amount,
-    raw_json,
-    updated_at
-  FROM transacoes_pluggy
-  WHERE tenant_user_id = :tenant_user_id
-  ORDER BY transaction_date DESC NULLS LAST, updated_at DESC
-)
-WHERE ROWNUM <= :row_limit
+SELECT
+  external_transaction_id,
+  pluggy_item_id,
+  pluggy_account_id,
+  record_type,
+  transaction_date,
+  description,
+  amount,
+  currency_code,
+  account_name,
+  account_type,
+  balance_amount,
+  raw_json,
+  updated_at
+FROM transacoes_pluggy
+WHERE tenant_user_id = :tenant_user_id
+ORDER BY transaction_date DESC NULLS LAST, updated_at DESC
+FETCH FIRST ${safeLimit} ROWS ONLY
 `,
       {
-        tenant_user_id: tenantUserId,
-        row_limit: Math.max(1, Number(limit || 300))
+        tenant_user_id: tenantUserId
       }
     );
     const rows = Array.isArray(rs?.rows) ? rs.rows : [];
