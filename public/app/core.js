@@ -23,18 +23,70 @@ function getInlineItem(table, row) {
 }
 
 function getInlineDespesaCategoryOptions(currentCat) {
-  const base = ['DESPESA', 'GASTO'];
+  const base = getSelectableCategoryNamesForMonth(getCurrentMonth(), { includeFallbackBase: false });
   const current = resolveCategoryName(currentCat || 'OUTROS');
   if (!base.includes(current)) base.unshift(current);
   return Array.from(new Set(base));
 }
 
+function getSelectableCategoryEntriesForMonth(month, { includeFallbackBase = true } = {}) {
+  const m = month || getCurrentMonth?.() || {};
+  const byNorm = new Map();
+  const addEntry = (rawName, rawSymbol = '') => {
+    const name = resolveCategoryName(rawName || '');
+    if (!name) return;
+    if (typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(name)) return;
+    const key = String(name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase();
+    if (!key) return;
+    const symbol = String(rawSymbol || '').trim();
+    if (!byNorm.has(key)) {
+      byNorm.set(key, { name, symbol });
+      return;
+    }
+    const existing = byNorm.get(key);
+    if (!existing.symbol && symbol) existing.symbol = symbol;
+  };
+
+  (m?.gastosVar || []).forEach(item => addEntry(item?.categoria || ''));
+  (m?.dailyCategorySeeds || []).forEach(cat => addEntry(cat));
+  Object.keys(m?.dailyGoals || {}).forEach(cat => addEntry(cat));
+  Object.entries(m?.categorias || {}).forEach(([cat, meta]) => {
+    const symbol = meta && typeof meta === 'object'
+      ? (meta.symbol || meta.emoji || meta.icon || '')
+      : '';
+    addEntry(cat, symbol);
+  });
+  Object.entries(m?._catOrig || {}).forEach(([cat, meta]) => {
+    const symbol = meta && typeof meta === 'object'
+      ? (meta.symbol || meta.emoji || meta.icon || '')
+      : '';
+    addEntry(cat, symbol);
+  });
+  (m?.despesas || []).forEach(item => addEntry(item?.categoria || ''));
+  (m?.outflows || []).forEach(item => addEntry(item?.category || item?.categoria || ''));
+
+  if (window.BillImportUtils?.getAllCategoriesFromUserData) {
+    const globalCategories = window.BillImportUtils.getAllCategoriesFromUserData(data || []).list || [];
+    globalCategories.forEach((entry) => addEntry(entry?.name || entry, entry?.emoji || entry?.symbol || entry?.icon || ''));
+  }
+
+  if (includeFallbackBase && byNorm.size === 0) {
+    ['OUTROS', 'ALIMENTACAO', 'TRANSPORTE'].forEach(cat => addEntry(cat));
+  }
+
+  return Array.from(byNorm.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
+
+function getSelectableCategoryNamesForMonth(month, options = {}) {
+  return getSelectableCategoryEntriesForMonth(month, options).map((entry) => entry.name);
+}
+
 function getVariableCategoryOptions(m) {
-  const totals = getVariableCategoryTotals(m || {});
-  const options = new Set(Object.keys(totals || {}).map(resolveCategoryName).filter(Boolean));
-  (m?.gastosVar || []).forEach(g => options.add(resolveCategoryName(g.categoria || 'OUTROS')));
-  (m?.dailyCategorySeeds || []).forEach(cat => options.add(resolveCategoryName(cat || 'OUTROS')));
-  return Array.from(options).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  return getSelectableCategoryNamesForMonth(m || getCurrentMonth(), { includeFallbackBase: false });
 }
 
 function getInlineVarCategoryOptions(currentCat) {

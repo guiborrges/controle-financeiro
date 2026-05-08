@@ -47,6 +47,33 @@ function isUnifiedRecurringExpense(item) {
   return isUnifiedExpenseType(item) && item?.expenseRecurring === true;
 }
 
+function isUnifiedInstallmentLaunch(item) {
+  if (!item || typeof item !== 'object') return false;
+  const installmentsTotal = Math.max(1, Number(item?.installmentsTotal || 1) || 1);
+  if (installmentsTotal > 1) return true;
+  return !!String(item?.installmentsGroupId || '').trim();
+}
+
+function isUnifiedRecurringLaunch(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (item?.recurringSpend === true || item?.expenseRecurring === true) return true;
+  const recurringKey = String(item?.recurringGroupId || '').trim();
+  if (!recurringKey) return false;
+  return !isUnifiedInstallmentLaunch(item);
+}
+
+function isUnifiedSharedLaunch(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (item?.sharedExpense === true || item?.launchShared === true) return true;
+  return Array.isArray(item?.sharedParticipants) && item.sharedParticipants.length > 1;
+}
+
+function isUnifiedMonthlyPlanningLaunch(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (item?.showInMonthPlanning === true || item?.includeInMonthPlanning === true) return true;
+  return isUnifiedExpenseType(item) || isUnifiedRecurringLaunch(item);
+}
+
 function getUnifiedOutflowCategoryName(item, fallback = 'OUTROS') {
   return resolveCategoryName(item?.category || item?.categoria || fallback);
 }
@@ -861,7 +888,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
   const outputKind = ['method', 'card', 'account'].includes(item?.outputKind) ? item.outputKind : 'method';
   const outputMethod = ['boleto', 'dinheiro', 'pix', 'debito'].includes(item?.outputMethod) ? item.outputMethod : 'boleto';
   const rawType = normalizeUnifiedOutflowType(item?.type);
-  const recurringSpend = item?.recurringSpend === true || (rawType === 'spend' && !!String(item?.recurringGroupId || '').trim() && Number(item?.installmentsTotal || 1) <= 1);
+  const recurringSpend = item?.recurringSpend === true || (rawType === 'spend' && isUnifiedRecurringLaunch(item));
   const expenseRecurring = item?.expenseRecurring === true || rawType === 'fixed';
   const type = outputKind === 'card' ? 'spend' : rawType;
   const category = resolveCategoryName(item?.category || item?.categoria || 'OUTROS');
@@ -869,7 +896,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
   const countsInPrimaryTotals = item?.countsInPrimaryTotals === false ? false : !belongsToCard;
   const rawDescription = String(item?.description ?? item?.descricao ?? '').trim();
   const tag = String(item?.tag || item?.marca || '').trim();
-  const sharedExpense = item?.sharedExpense === true;
+  const sharedExpense = isUnifiedSharedLaunch(item);
   const sharedSplitMode = String(item?.sharedSplitMode || 'equal').toLowerCase() === 'manual' ? 'manual' : 'equal';
   const sharedOriginalAmount = Math.max(0, Number(item?.sharedOriginalAmount || item?.amount || item?.valor || 0) || 0);
   const sharedOwnerName = String(item?.sharedOwnerName || currentSession?.fullName || currentSession?.displayName || 'Proprietário').trim() || 'Proprietário';
@@ -883,7 +910,8 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
   const sharedOthersAmount = Math.max(0, Number(item?.sharedOthersAmount || 0) || 0);
   const isDirectRealOutflow = outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(outputMethod);
   const hasPaidFlag = Object.prototype.hasOwnProperty.call(item || {}, 'paid');
-  const installmentsTotal = Math.max(1, Number(item?.installmentsTotal || 1) || 1);
+  const hasInstallments = isUnifiedInstallmentLaunch(item);
+  const installmentsTotal = hasInstallments ? Math.max(2, Number(item?.installmentsTotal || 2) || 2) : 1;
   const launchFlags = resolveUnifiedLaunchFlags(
     item,
     type,
@@ -1770,6 +1798,59 @@ function getUnifiedFixedSelectionIndex(month, row) {
   return list.findIndex(item => item?.id === row.item.id);
 }
 
+function calculateUnifiedPlanningTotal(month) {
+  if (!month) return 0;
+  ensureUnifiedOutflowPilotMonth(month);
+  const rows = getUnifiedFilterRows(month, 'expense', '', '');
+  const groupedDirectMethods = new Map();
+  const regularRows = [];
+  rows.forEach(row => {
+    if (!row?.item) return;
+    if (row?.kind === 'outflow' && row?.item?.outputKind === 'card' && row?.item?.recurringSpend === true) {
+      // Esses lançamentos já entram no valor da fatura/cartão e não podem duplicar no total.
+      return;
+    }
+    if (!isUnifiedDirectMethodSummaryRow(row)) {
+      regularRows.push(row);
+      return;
+    }
+    const method = String(row.item?.outputMethod || '').toLowerCase();
+    const category = method ? String(method).toUpperCase() : getUnifiedDirectMethodCategoryLabel(month, row.item);
+    const groupKey = method ? `method::${method}` : `category::${category}`;
+    if (!groupedDirectMethods.has(groupKey)) {
+      groupedDirectMethods.set(groupKey, {
+        kind: 'methodGroup',
+        item: {
+          groupKey,
+          amount: 0,
+          included: true
+        }
+      });
+    }
+    const groupRow = groupedDirectMethods.get(groupKey);
+    groupRow.item.amount += getUnifiedEffectiveOutflowAmount(row.item);
+    groupRow.item.included = groupRow.item.included && row.item?.countsInPrimaryTotals !== false;
+  });
+
+  const unifiedRows = [
+    ...regularRows,
+    ...Array.from(groupedDirectMethods.values())
+  ];
+
+  return unifiedRows.reduce((acc, row) => {
+    if (!row?.item) return acc;
+    if (row.kind === 'methodGroup') {
+      return acc + (row.item?.included !== false ? Number(row.item?.amount || 0) : 0);
+    }
+    const selectionIdx = getUnifiedFixedSelectionIndex(month, row);
+    const selected = selectionIdx === -1 ? true : isDespesaSelected(month.id, selectionIdx);
+    if (!selected) return acc;
+    if (row.kind === 'bill') return acc + Number(getUnifiedCardBillEffectiveAmount(month, row.item) || 0);
+    if (row.kind === 'outflow') return acc + getUnifiedEffectiveOutflowAmount(row.item);
+    return acc;
+  }, 0);
+}
+
 function isUnifiedDirectMethodSummaryRow(row) {
   const item = row?.item;
   return row?.kind === 'outflow'
@@ -2452,15 +2533,12 @@ function renderUnifiedMonthPilot(month) {
   }
   ensureUnifiedOutflowPilotMonth(month);
   const currentFilter = getUnifiedOutflowFilterValue(month);
-  const currentTagFilter = '';
+  const currentTagFilter = getUnifiedOutflowTagFilterValue(month);
   const currentSearch = getUnifiedOutflowSearchValue(month);
   filterSelect.innerHTML = renderUnifiedOutflowFilterOptions(month, currentFilter);
-  if (month?.unifiedOutflowUi && typeof month.unifiedOutflowUi === 'object') {
-    month.unifiedOutflowUi.tagFilter = '';
-  }
-  tagFilterSelect.innerHTML = renderUnifiedOutflowTagFilterOptions(month, '');
-  tagFilterSelect.disabled = true;
-  tagFilterSelect.style.display = 'none';
+  tagFilterSelect.innerHTML = renderUnifiedOutflowTagFilterOptions(month, currentTagFilter);
+  tagFilterSelect.disabled = false;
+  tagFilterSelect.style.display = '';
   const showSearch = currentFilter === 'all';
   searchInput.style.display = showSearch ? '' : 'none';
   if (searchInput.value !== currentSearch) {
@@ -3712,23 +3790,24 @@ function fillUnifiedOutflowFormFromItem(month, item) {
   const today = new Date();
   const currentDateMask = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getFullYear()).slice(-2)}`;
   document.getElementById('unifiedOutflowDate').value = item
-    ? (isUnifiedExpenseType(item) || item?.recurringSpend === true
+    ? (isUnifiedExpenseType(item) || isUnifiedRecurringLaunch(item)
       ? getUnifiedOutflowBillingDisplayValue(item)
       : (item?.date || ''))
     : currentDateMask;
-  document.getElementById('unifiedOutflowRecurringToggle').checked = item?.recurringSpend === true || item?.expenseRecurring === true;
+  document.getElementById('unifiedOutflowRecurringToggle').checked = isUnifiedRecurringLaunch(item);
   const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
   if (planningToggle) {
-    planningToggle.checked = item
-      ? (item?.showInMonthPlanning === true || item?.includeInMonthPlanning === true || item?.recurringSpend === true || item?.expenseRecurring === true)
-      : false;
+    planningToggle.checked = isUnifiedMonthlyPlanningLaunch(item);
   }
-  document.getElementById('unifiedOutflowInstallmentsToggle').checked = !!(item?.installmentsTotal > 1);
-  document.getElementById('unifiedOutflowInstallmentsCount').value = item?.installmentsTotal > 1 ? item.installmentsTotal : 2;
+  const installmentLaunch = isUnifiedInstallmentLaunch(item);
+  document.getElementById('unifiedOutflowInstallmentsToggle').checked = installmentLaunch;
+  document.getElementById('unifiedOutflowInstallmentsCount').value = installmentLaunch
+    ? Math.max(2, Number(item?.installmentsTotal || 2) || 2)
+    : 2;
   const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
   const sharedCount = document.getElementById('unifiedOutflowSharedPeopleCount');
   const sharedMode = document.getElementById('unifiedOutflowSharedMode');
-  if (sharedToggle) sharedToggle.checked = item?.sharedExpense === true;
+  if (sharedToggle) sharedToggle.checked = isUnifiedSharedLaunch(item);
   if (sharedCount) {
     const countFromItem = Array.isArray(item?.sharedParticipants) && item.sharedParticipants.length
       ? item.sharedParticipants.length
@@ -4358,6 +4437,7 @@ function renderMes() {
   const totalGoals = totals.totalFinancialGoals;
   const resultado = totals.resultadoMes;
   const unifiedMetrics = unifiedPilotEnabled ? getUnifiedMonthPilotMetrics(m) : null;
+  const unifiedPlanningTotal = unifiedPilotEnabled ? calculateUnifiedPlanningTotal(m) : 0;
   if (mesSub) {
     mesSub.textContent = unifiedPilotEnabled
       ? ''
@@ -4384,6 +4464,7 @@ function renderMes() {
   const monthlyResultUnified = totalIncome - Number(unifiedMetrics?.doneExpenses || 0);
   const previousMonth = getPreviousMonthFor(m);
   const previousUnifiedMetrics = unifiedPilotEnabled && previousMonth ? getUnifiedMonthPilotMetrics(previousMonth) : null;
+  const previousPlanningTotal = unifiedPilotEnabled && previousMonth ? calculateUnifiedPlanningTotal(previousMonth) : 0;
   const previousTotals = previousMonth ? getEffectiveTotalsForMes(previousMonth) : null;
   const previousIncome = previousTotals ? Number(previousTotals.rendaFixa || 0) + Number(previousTotals.totalProj || 0) : 0;
   const previousPlanned = Number(previousUnifiedMetrics?.plannedExpenses || 0);
@@ -4399,9 +4480,9 @@ function renderMes() {
     gastos: `
     <div class="metric-card ${unifiedPilotEnabled ? 'month-spent' : 'month-desp'}" draggable="true" data-metric-key="gastos" ondragstart="onMonthMetricDragStart(event,'gastos')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'gastos')">
       ${unifiedPilotEnabled ? renderStaticMonthMetricLabel('Despesas do mês', 'Total gasto até agora no mês.') : renderMonthMetricLabel('gastos', 'Saiu no mês')}
-      <div class="mc-value">${fmt(unifiedPilotEnabled ? unifiedMetrics.doneExpenses : totalDesp)}</div>
-      ${unifiedPilotEnabled ? renderMonthMetricVariation(unifiedMetrics.doneExpenses, previousDone, { invertMeaning: true }) : ''}
-      <div class="mc-note">${unifiedPilotEnabled ? 'Total gasto até agora no mês.' : 'Tudo o que já saiu neste mês.'}</div>
+      <div class="mc-value">${fmt(unifiedPilotEnabled ? unifiedPlanningTotal : totalDesp)}</div>
+      ${unifiedPilotEnabled ? renderMonthMetricVariation(unifiedPlanningTotal, previousPlanningTotal, { invertMeaning: true }) : ''}
+      <div class="mc-note">${unifiedPilotEnabled ? 'Mesmo total exibido em Compromissos do mês.' : 'Tudo o que já saiu neste mês.'}</div>
     </div>`,
     renda: `
     <div class="metric-card month-renda" draggable="true" data-metric-key="renda" ondragstart="onMonthMetricDragStart(event,'renda')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'renda')">
@@ -5292,13 +5373,18 @@ function commitInlineEdit(rawValue) {
       }
     } else if (field === 'meta') {
       if (!m.dailyGoals) m.dailyGoals = {};
-      const categoriaAtual = String(row || '').trim();
+      const categoriaAtual = resolveCategoryName(String(row || '').trim() || 'OUTROS');
       const texto = String(rawValue ?? '').trim();
+      const existingCategoryKey = Object.keys(m.dailyGoals).find((key) => resolveCategoryName(key) === categoriaAtual);
+      if (existingCategoryKey && existingCategoryKey !== categoriaAtual) {
+        m.dailyGoals[categoriaAtual] = Number(m.dailyGoals[existingCategoryKey] || 0);
+        delete m.dailyGoals[existingCategoryKey];
+      }
       if (!texto) {
         changed = m.dailyGoals[categoriaAtual] !== undefined && Number(m.dailyGoals[categoriaAtual]) !== 0;
-        m.dailyGoals[categoriaAtual] = 0;
+        if (changed) m.dailyGoals[categoriaAtual] = 0;
       } else {
-        const meta = parseFloat(texto);
+        const meta = parseFloat(texto.replace(/\./g, '').replace(',', '.'));
         if (isNaN(meta) || meta < 0) { undoStack.pop(); cancelInlineEdit(); return; }
         changed = Number(m.dailyGoals[categoriaAtual] || 0) !== meta;
         m.dailyGoals[categoriaAtual] = meta;

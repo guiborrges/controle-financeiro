@@ -45,6 +45,13 @@ test('dedupeLabel avoids duplicated visual names', () => {
   assert.equal(helpers.dedupeLabel('nu Nubank'), 'nu Nubank');
 });
 
+test('normalizeDescriptionKey keeps compatible keys for same Pluggy merchant text', () => {
+  const helpers = loadHelpers();
+  const a = helpers.normalizeDescriptionKey('UBER *TRIP HELP.UBER.COM');
+  const b = helpers.normalizeDescriptionKey('Uber Trip Help Uber Com');
+  assert.equal(a, b);
+});
+
 test('resolveTenantLikeUserKey uses session user identity', () => {
   const source = fs.readFileSync(
     path.join(__dirname, '..', 'public', 'app', 'pluggy-banking.js'),

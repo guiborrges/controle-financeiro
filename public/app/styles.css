@@ -4910,8 +4910,10 @@ body.mobile-ui {
 
 .pluggy-account-head-left {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px 10px;
+  flex-wrap: wrap;
 }
 
 .pluggy-account-origin {
@@ -4927,13 +4929,22 @@ body.mobile-ui {
 
 .pluggy-account-name {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.2;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   cursor: default;
+}
+
+.pluggy-caret-left {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
 }
 
 .pluggy-title-waiting {
@@ -5073,12 +5084,22 @@ body.mobile-ui {
 
 .pluggy-transactions-table td:nth-child(1),
 .pluggy-transactions-table th:nth-child(1) {
-  width: 92px;
+  width: 82px;
+}
+
+.pluggy-transactions-table td:nth-child(2),
+.pluggy-transactions-table th:nth-child(2) {
+  width: 34%;
+}
+
+.pluggy-transactions-table td:nth-child(3),
+.pluggy-transactions-table th:nth-child(3) {
+  width: 24%;
 }
 
 .pluggy-transactions-table td:last-child,
 .pluggy-transactions-table th:last-child {
-  width: 132px;
+  width: 72px;
 }
 
 .pluggy-actions-cell {
@@ -5092,7 +5113,17 @@ body.mobile-ui {
 .pluggy-actions-cell .btn {
   min-height: 27px;
   border-radius: 8px;
-  padding: 0 8px;
+  padding: 0 6px;
+}
+
+.pluggy-ok-btn {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 999px !important;
+  padding: 0 !important;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .pluggy-row-error {

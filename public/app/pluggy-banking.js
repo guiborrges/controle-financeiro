@@ -15,6 +15,7 @@
     collapsedGroups: {},
     sortByGroup: {},
     aliasEditor: null,
+    openingFresh: true,
     userState: {
       links: {},
       linkHints: {},
@@ -22,6 +23,7 @@
       clearedAtByGroup: {},
       aliases: {},
       categoryMemory: {},
+      tagMemory: {},
       importedTxIds: {},
       txState: {}
     }
@@ -38,6 +40,19 @@
 
   function normalizeText(value) {
     return String(value || '').trim();
+  }
+
+  function normalizeScalarText(value) {
+    if (value == null) return '';
+    if (typeof value === 'object') {
+      if (typeof value.name === 'string') return value.name.trim();
+      if (typeof value.label === 'string') return value.label.trim();
+      if (typeof value.title === 'string') return value.title.trim();
+      if (typeof value.value === 'string') return value.value.trim();
+      if (typeof value.id === 'string') return value.id.trim();
+      return '';
+    }
+    return String(value).trim();
   }
 
   function normalizeComparableText(value) {
@@ -63,6 +78,12 @@
     const amount = Number(value || 0);
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
       .format(Number.isFinite(amount) ? amount : 0);
+  }
+
+  function cssEscape(value) {
+    const raw = String(value || '');
+    if (global.CSS && typeof global.CSS.escape === 'function') return global.CSS.escape(raw);
+    return raw.replace(/["\\#.;:[\]()]/g, '\\$&');
   }
 
   function formatDateAndTime(isoDate) {
@@ -112,6 +133,7 @@
       STATE.userState.clearedAtByGroup = parsed.clearedAtByGroup && typeof parsed.clearedAtByGroup === 'object' ? parsed.clearedAtByGroup : {};
       STATE.userState.aliases = parsed.aliases && typeof parsed.aliases === 'object' ? parsed.aliases : {};
       STATE.userState.categoryMemory = parsed.categoryMemory && typeof parsed.categoryMemory === 'object' ? parsed.categoryMemory : {};
+      STATE.userState.tagMemory = parsed.tagMemory && typeof parsed.tagMemory === 'object' ? parsed.tagMemory : {};
       STATE.userState.importedTxIds = parsed.importedTxIds && typeof parsed.importedTxIds === 'object' ? parsed.importedTxIds : {};
       STATE.userState.txState = parsed.txState && typeof parsed.txState === 'object' ? parsed.txState : {};
     } catch (_err) {
@@ -121,6 +143,7 @@
       STATE.userState.clearedAtByGroup = {};
       STATE.userState.aliases = {};
       STATE.userState.categoryMemory = {};
+      STATE.userState.tagMemory = {};
       STATE.userState.importedTxIds = {};
       STATE.userState.txState = {};
     }
@@ -188,11 +211,45 @@
     return [];
   }
 
+  function getAllCategoryEntries() {
+    const month = typeof global.getCurrentMonthData === 'function' ? global.getCurrentMonthData() : null;
+    if (typeof global.getSelectableCategoryEntriesForMonth === 'function') {
+      const entries = global.getSelectableCategoryEntriesForMonth(month, { includeFallbackBase: false }) || [];
+      if (entries.length) {
+        return entries.map((entry) => ({
+          name: normalizeScalarText(entry?.name || ''),
+          symbol: normalizeScalarText(entry?.symbol || '')
+        })).filter((entry) => entry.name);
+      }
+    }
+    if (global.BillImportUtils?.getAllCategoriesFromUserData) {
+      const list = global.BillImportUtils.getAllCategoriesFromUserData(getDataRef()).list || [];
+      return list.map((item) => ({
+        name: normalizeScalarText(item?.name || item),
+        symbol: normalizeScalarText(item?.emoji || item?.symbol || item?.icon || item?.emojiId || ''),
+      })).filter((item) => item.name);
+    }
+    return getAllCategories().map((name) => ({ name: normalizeScalarText(name), symbol: '' }));
+  }
+
   function getAllTags() {
     if (global.BillImportUtils?.getAllTagsFromUserData) {
       return global.BillImportUtils.getAllTagsFromUserData(getDataRef());
     }
     return [];
+  }
+
+  function getCurrentMonthCategoriesUsage() {
+    const usage = {};
+    const month = typeof global.getCurrentMonthData === 'function' ? global.getCurrentMonthData() : null;
+    const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
+    outflows.forEach((item) => {
+      const category = normalizeText(item?.category || '');
+      if (!category) return;
+      const key = normalizeComparableText(category);
+      usage[key] = (usage[key] || 0) + 1;
+    });
+    return usage;
   }
 
   function inferCategory(pluggyCategory, allCategories) {
@@ -412,11 +469,23 @@
     if (meta?.short && meta?.className) {
       return `<span class="smart-icon-badge smart-bank-badge ${escapeHtml(meta.className)}" aria-hidden="true">${escapeHtml(meta.short)}</span>`;
     }
-    return '<span class="pluggy-link-fallback-icon" aria-hidden="true">ðŸ’³</span>';
+    if (typeof global.renderSmartIconBadge === 'function') {
+      return global.renderSmartIconBadge('card', 'neutral', 'pluggy-link-fallback-icon');
+    }
+    if (typeof global.renderSystemIcon === 'function') {
+      return `<span class="smart-icon-badge tone-neutral pluggy-link-fallback-icon" aria-hidden="true">${global.renderSystemIcon('card')}</span>`;
+    }
+    return '<span class="pluggy-link-fallback-icon" aria-hidden="true">•</span>';
   }
 
   function renderAccountIcon() {
-    return '<span class="pluggy-link-fallback-icon" aria-hidden="true">ðŸ¦</span>';
+    if (typeof global.renderSmartIconBadge === 'function') {
+      return global.renderSmartIconBadge('bank', 'wealth', 'pluggy-link-fallback-icon');
+    }
+    if (typeof global.renderSystemIcon === 'function') {
+      return `<span class="smart-icon-badge tone-wealth pluggy-link-fallback-icon" aria-hidden="true">${global.renderSystemIcon('bank')}</span>`;
+    }
+    return '<span class="pluggy-link-fallback-icon" aria-hidden="true">•</span>';
   }
 
   function resolveLinkedDisplay(account, linkedId) {
@@ -446,14 +515,21 @@
     return `${renderAccountIcon()} <span>${escapeHtml(dedupeLabel(String(acc.name || acc.nome || 'Conta')))}</span>`;
   }
 
-  function applyCategoryMemory(tx, row) {
-    const key = normalizeDescriptionKey(row._ui.description || tx.description || '');
+  function applyMemoryFromOriginalDescription(tx, row) {
+    const originalDescription = normalizeText(row?._ui?.originalDescription || tx?.descriptionRaw || tx?.description || '');
+    const key = normalizeDescriptionKey(originalDescription);
     if (!key) return;
-    const memorized = normalizeText(STATE.userState.categoryMemory[key] || '');
-    if (!memorized) return;
+    const touched = row?._ui?.touched || {};
     const allCategories = getAllCategories();
-    if (allCategories.some(cat => normalizeComparableText(cat) === normalizeComparableText(memorized))) {
-      row._ui.category = allCategories.find(cat => normalizeComparableText(cat) === normalizeComparableText(memorized)) || row._ui.category;
+    const allTags = getAllTags();
+    const memorizedCategory = normalizeText(STATE.userState.categoryMemory[key] || '');
+    const memorizedTag = normalizeText(STATE.userState.tagMemory[key] || '');
+
+    if (!touched.category && memorizedCategory && allCategories.some(cat => normalizeComparableText(cat) === normalizeComparableText(memorizedCategory))) {
+      row._ui.category = allCategories.find(cat => normalizeComparableText(cat) === normalizeComparableText(memorizedCategory)) || row._ui.category;
+    }
+    if (!touched.tag && memorizedTag && allTags.some(tag => normalizeComparableText(tag) === normalizeComparableText(memorizedTag))) {
+      row._ui.tag = allTags.find(tag => normalizeComparableText(tag) === normalizeComparableText(memorizedTag)) || row._ui.tag;
     }
   }
 
@@ -472,14 +548,21 @@
         const line = {
           ...tx,
           _ui: {
-            description: normalizeText(savedUi.description || tx?.description || tx?.descriptionRaw || 'Transacao Pluggy'),
-            category: normalizeText(savedUi.category || inferCategory(tx?.category, categories)),
-            tag: normalizeText(savedUi.tag || ''),
+            originalDescription: normalizeText(tx?.descriptionRaw || tx?.description || 'Transacao Pluggy'),
+            description: normalizeScalarText(savedUi.description || tx?.description || tx?.descriptionRaw || 'Transacao Pluggy'),
+            category: normalizeScalarText(savedUi.category || inferCategory(tx?.category, categories)),
+            tag: normalizeScalarText(savedUi.tag || ''),
             movementType: normalizeText(savedUi.movementType || (txType === 'CREDIT' ? 'aporte' : (txType === 'DEBIT' ? 'retirada' : inferBankMovementType(tx)))),
-            error: normalizeText(savedUi.error || '')
+            error: normalizeText(savedUi.error || ''),
+            touched: {
+              description: !!savedUi?.touched?.description,
+              category: !!savedUi?.touched?.category,
+              tag: !!savedUi?.touched?.tag,
+              movementType: !!savedUi?.touched?.movementType
+            }
           }
         };
-        if (String(account.accountType || '').toUpperCase() === 'CREDIT') applyCategoryMemory(tx, line);
+        if (String(account.accountType || '').toUpperCase() === 'CREDIT') applyMemoryFromOriginalDescription(tx, line);
         return line;
       });
     STATE.pendingByAccount[accountId] = rows;
@@ -491,16 +574,17 @@
     const target = rows.find(item => String(item.id) === String(txId));
     if (!target || !target._ui) return;
     target._ui[field] = value;
+    if (!target._ui.touched) target._ui.touched = {};
+    target._ui.touched[field] = true;
     target._ui.error = '';
     const txKey = String(txId || '');
     if (txKey) {
       if (!STATE.userState.txState[txKey]) STATE.userState.txState[txKey] = {};
       STATE.userState.txState[txKey][field] = value;
+      if (!STATE.userState.txState[txKey].touched) STATE.userState.txState[txKey].touched = {};
+      STATE.userState.txState[txKey].touched[field] = true;
       STATE.userState.txState[txKey].error = '';
       persistUserState();
-    }
-    if (field === 'description' && String(getAccountById(accountId)?.accountType || '').toUpperCase() === 'CREDIT') {
-      applyCategoryMemory(target, target);
     }
   }
 
@@ -579,6 +663,39 @@
     persistUserState();
   }
 
+  function rememberTag(description, tag) {
+    const normTag = normalizeText(tag);
+    if (!normTag) return;
+    const allTags = getAllTags();
+    if (!allTags.some(item => normalizeComparableText(item) === normalizeComparableText(normTag))) return;
+    const key = normalizeDescriptionKey(description);
+    if (!key) return;
+    STATE.userState.tagMemory[key] = normTag;
+    persistUserState();
+  }
+
+  function propagateMemoryToPendingRows(sourceTx, category, tag) {
+    const sourceKey = normalizeDescriptionKey(sourceTx?._ui?.originalDescription || sourceTx?.descriptionRaw || sourceTx?.description || '');
+    if (!sourceKey) return;
+    const allCategories = getAllCategories();
+    const allTags = getAllTags();
+    Object.values(STATE.pendingByAccount || {}).forEach((rows) => {
+      if (!Array.isArray(rows)) return;
+      rows.forEach((row) => {
+        if (!row?._ui) return;
+        const rowKey = normalizeDescriptionKey(row._ui.originalDescription || row.descriptionRaw || row.description || '');
+        if (rowKey !== sourceKey) return;
+        if (!row._ui.touched) row._ui.touched = {};
+        if (category && !row._ui.touched.category && allCategories.some((c) => normalizeComparableText(c) === normalizeComparableText(category))) {
+          row._ui.category = allCategories.find((c) => normalizeComparableText(c) === normalizeComparableText(category)) || row._ui.category;
+        }
+        if (tag && !row._ui.touched.tag && allTags.some((t) => normalizeComparableText(t) === normalizeComparableText(tag))) {
+          row._ui.tag = allTags.find((t) => normalizeComparableText(t) === normalizeComparableText(tag)) || row._ui.tag;
+        }
+      });
+    });
+  }
+
   function commitCreditTransaction(accountId, txId) {
     const account = getAccountById(accountId);
     if (!account) throw new Error('Conta Pluggy nao encontrada.');
@@ -643,7 +760,10 @@
     if (typeof global.syncUnifiedOutflowLegacyData === 'function') global.syncUnifiedOutflowLegacyData(month);
     if (typeof global.recalcTotals === 'function') global.recalcTotals(month);
 
-    rememberCategory(description, base.category);
+    const originalPluggyDescription = normalizeText(tx?._ui?.originalDescription || tx?.descriptionRaw || tx?.description || description);
+    rememberCategory(originalPluggyDescription, base.category);
+    rememberTag(originalPluggyDescription, base.tag);
+    propagateMemoryToPendingRows(tx, base.category, base.tag);
     if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
     persistUserState();
     global.save(true);
@@ -694,10 +814,20 @@
   }
 
   function categoryOptions(selected) {
-    return [''].concat(getAllCategories()).map(cat => {
-      const value = normalizeText(cat);
-      const label = value || 'Sem categoria';
-      return `<option value="${escapeHtml(value)}" ${value === String(selected || '') ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    const usage = getCurrentMonthCategoriesUsage();
+    const entries = getAllCategoryEntries().sort((a, b) => {
+      const au = usage[normalizeComparableText(a.name)] || 0;
+      const bu = usage[normalizeComparableText(b.name)] || 0;
+      if (bu !== au) return bu - au;
+      return a.name.localeCompare(b.name, 'pt-BR');
+    });
+    const optionEntries = [{ name: '', symbol: '' }].concat(entries);
+    const selectedValue = normalizeScalarText(selected);
+    return optionEntries.map((cat) => {
+      const value = normalizeScalarText(cat?.name || cat);
+      const symbol = normalizeScalarText(cat?.symbol || cat?.emoji || cat?.icon || '');
+      const label = value ? `${symbol ? `${symbol} ` : ''}${value}` : 'Categoria';
+      return `<option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(label)}</option>`;
     }).join('');
   }
 
@@ -717,8 +847,7 @@
     list.forEach(item => {
       const id = String(item?.id || '');
       const name = dedupeLabel(String(item?.name || item?.nome || id || 'Sem nome'));
-      const iconText = isCredit ? (getCardMeta(item)?.short || 'CARD') : 'BANK';
-      options.push(`<option value="${escapeHtml(id)}" ${id === String(selectedId || '') ? 'selected' : ''}>[${escapeHtml(iconText)}] ${escapeHtml(name)}</option>`);
+      options.push(`<option value="${escapeHtml(id)}" ${id === String(selectedId || '') ? 'selected' : ''}>${escapeHtml(name)}</option>`);
     });
     return options.join('');
   }
@@ -767,7 +896,7 @@
   }
 
   function ensureLinkedId(account) {
-    const key = String(account?.accountId || '');
+    const key = String(getGroupKey(account) || '');
     if (!key) return '';
     const existing = normalizeText(STATE.userState.links[key] || '');
     const validIds = validLinkIdsForAccountType(account.accountType);
@@ -799,7 +928,7 @@
   function sortableHeader(accountId, key, label) {
     const state = getSortState(accountId);
     const isActive = state.column === key;
-    const marker = isActive ? (state.dir === 'asc' ? ' â†‘' : ' â†“') : '';
+    const marker = isActive ? (state.dir === 'asc' ? ' &#8593;' : ' &#8595;') : '';
     const cls = isActive ? 'pluggy-sort-active' : '';
     return `<button class="pluggy-sort-btn ${cls}" type="button" onclick="PluggyBanking.sortBy('${escapeHtml(String(accountId))}','${escapeHtml(key)}')">${escapeHtml(label)}${marker}</button>`;
   }
@@ -998,6 +1127,33 @@
     renderWorkspace();
   }
 
+  function updateGroupHeaderMetrics(accountId) {
+    const account = getAccountById(accountId);
+    if (!account) return;
+    const key = String(getGroupKey(account) || '');
+    const rows = getRowsForAccount(account);
+    const pendingCount = rows.length;
+    const totalPending = rows.reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
+    const groupNode = document.querySelector(`section.pluggy-account-group[data-account-id="${cssEscape(key)}"]`);
+    if (!groupNode) return;
+    const countNode = groupNode.querySelector('.pluggy-account-origin[data-role="pending-meta"]');
+    if (countNode) countNode.textContent = `${pendingCount} pendente(s) • ${money(totalPending)}`;
+    if (!pendingCount) {
+      const tbody = groupNode.querySelector('tbody');
+      const isCredit = String(account.accountType || '').toUpperCase() === 'CREDIT';
+      if (tbody) tbody.innerHTML = `<tr><td colspan="${isCredit ? 6 : 5}" class="text-muted" style="padding:14px">Sem transacoes pendentes para revisao.</td></tr>`;
+    }
+  }
+
+  function removeRowFromDom(accountId, txId) {
+    const key = String(accountId || '');
+    const rowNode = document.querySelector(`tr[data-account-id="${cssEscape(key)}"][data-tx-id="${cssEscape(String(txId || ''))}"]`);
+    if (!rowNode) return false;
+    rowNode.remove();
+    updateGroupHeaderMetrics(accountId);
+    return true;
+  }
+
   function changeLink(accountId, value) {
     const account = getAccountById(accountId);
     if (!account) return;
@@ -1091,11 +1247,11 @@
       const amountAbs = Math.abs(Number(tx.amount || 0));
       if (isCredit) {
         return `
-          <tr>
+          <tr data-account-id="${escapeHtml(accountKey)}" data-tx-id="${escapeHtml(String(tx.id || ''))}">
             <td>${renderDateCell(tx)}</td>
             <td><input class="pluggy-input" value="${escapeHtml(tx._ui?.description || '')}" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','description',this.value)"></td>
             <td>
-              <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','category',this.value)">
+              <select class="pluggy-input pluggy-category-select" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','category',this.value)">
                 ${categoryOptions(tx._ui?.category || '')}
               </select>
             </td>
@@ -1106,7 +1262,7 @@
             </td>
             <td class="amount-neg">${escapeHtml(money(amountAbs))}</td>
             <td class="pluggy-actions-cell">
-              <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')">Adicionar</button>
+              <button class="btn btn-link-action btn-sm pluggy-ok-btn" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Adicionar" aria-label="Adicionar">✓</button>
               <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
               ${tx?._ui?.error ? `<div class="pluggy-row-error">${escapeHtml(tx._ui.error)}</div>` : ''}
             </td>
@@ -1115,7 +1271,7 @@
       }
 
       return `
-        <tr>
+        <tr data-account-id="${escapeHtml(accountKey)}" data-tx-id="${escapeHtml(String(tx.id || ''))}">
           <td>${renderDateCell(tx)}</td>
           <td>
             <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','movementType',this.value)">
@@ -1126,7 +1282,7 @@
           <td><input class="pluggy-input" value="${escapeHtml(tx._ui?.description || '')}" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','description',this.value)"></td>
           <td class="${tx._ui?.movementType === 'aporte' ? 'amount-pos' : 'amount-neg'}">${escapeHtml(money(amountAbs))}</td>
           <td class="pluggy-actions-cell">
-            <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')">Adicionar</button>
+            <button class="btn btn-link-action btn-sm pluggy-ok-btn" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Adicionar" aria-label="Adicionar">✓</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
             ${tx?._ui?.error ? `<div class="pluggy-row-error">${escapeHtml(tx._ui.error)}</div>` : ''}
           </td>
@@ -1150,19 +1306,19 @@
     const collapsed = isGroupCollapsed(key);
 
     return `
-      <section class="pluggy-account-group">
+      <section class="pluggy-account-group" data-account-id="${escapeHtml(key)}">
         <div class="pluggy-account-header ${collapsed ? 'is-collapsed' : ''}">
           <div class="pluggy-account-head-left">
+            <button class="btn btn-link-action btn-sm pluggy-caret-left" type="button" onclick="PluggyBanking.toggleGroup('${escapeHtml(key)}')" title="${collapsed ? 'Abrir' : 'Fechar'}" aria-label="${collapsed ? 'Abrir' : 'Fechar'}">${collapsed ? '▸' : '▾'}</button>
             <h3 class="pluggy-account-name">
               ${resolveLinkedTitleMarkup(account, selectedLink)}
             </h3>
             <small class="pluggy-account-origin">Origem: ${escapeHtml(account.accountName || alias)}</small>
-            <small class="pluggy-account-origin">${pendingCount} pendente(s) • ${escapeHtml(money(totalPending))}</small>
+            <small class="pluggy-account-origin" data-role="pending-meta">${pendingCount} pendente(s) • ${escapeHtml(money(totalPending))}</small>
           </div>
           <div class="pluggy-account-head-right">
             <button class="btn btn-subtle btn-sm" type="button" onclick="PluggyBanking.addAll('${escapeHtml(key)}')">Adicionar todos</button>
             <button class="btn btn-link-action btn-sm pluggy-icon-btn" type="button" onclick="PluggyBanking.openLinkDialog('${escapeHtml(key)}')" title="Editar vínculo" aria-label="Editar vínculo">✎</button>
-            <button class="btn btn-link-action btn-sm pluggy-icon-btn" type="button" onclick="PluggyBanking.toggleGroup('${escapeHtml(key)}')" title="${collapsed ? 'Abrir' : 'Fechar'}" aria-label="${collapsed ? 'Abrir' : 'Fechar'}">${collapsed ? '▾' : '▴'}</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.clearGroup('${escapeHtml(key)}')">Limpar listas</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.hideGroup('${escapeHtml(key)}')" title="Ocultar grupo">✕</button>
           </div>
@@ -1193,6 +1349,15 @@
     }
     const groupsHtml = accounts.map(renderGroup).join('');
     return groupsHtml || '<div class="section"><div class="section-body text-muted" style="padding:16px">Todos os grupos desta visao foram ocultados.</div></div>';
+  }
+
+  function resetCollapsedGroupsToClosed() {
+    STATE.collapsedGroups = {};
+    const accounts = Array.isArray(STATE.rawData?.accounts) ? STATE.rawData.accounts : [];
+    accounts.forEach((account) => {
+      const key = getGroupKey(account);
+      if (key) STATE.collapsedGroups[String(key)] = true;
+    });
   }
 
   function renderWorkspace() {
@@ -1234,6 +1399,7 @@
       STATE.loadedAt = new Date().toISOString();
       STATE.pendingByAccount = {};
       loadUserState();
+      resetCollapsedGroupsToClosed();
     } catch (error) {
       STATE.error = error?.message || 'Falha ao carregar dados do Pluggy.';
     } finally {
@@ -1256,12 +1422,23 @@
       }
       if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, txId);
       else commitBankTransaction(accountId, txId);
-      renderWorkspace();
+      if (!removeRowFromDom(accountId, txId)) renderWorkspace();
       showStatus('Lancamento adicionado com sucesso.', 'ok');
     } catch (error) {
       const message = error?.message || 'Falha ao adicionar lançamento.';
       setRowError(accountId, txId, message);
-      renderWorkspace();
+      const rowNode = document.querySelector(`tr[data-account-id="${cssEscape(String(accountId || ''))}"][data-tx-id="${cssEscape(String(txId || ''))}"]`);
+      if (rowNode) {
+        let errorNode = rowNode.querySelector('.pluggy-row-error');
+        if (!errorNode) {
+          errorNode = document.createElement('div');
+          errorNode.className = 'pluggy-row-error';
+          rowNode.querySelector('.pluggy-actions-cell')?.appendChild(errorNode);
+        }
+        errorNode.textContent = message;
+      } else {
+        renderWorkspace();
+      }
       showStatus(message, 'error');
     }
   }
@@ -1300,7 +1477,7 @@
 
   function dismiss(accountId, txId) {
     removePendingTx(accountId, txId);
-    renderWorkspace();
+    if (!removeRowFromDom(accountId, txId)) renderWorkspace();
   }
 
   function switchView(view) {
@@ -1312,7 +1489,10 @@
     STATE.mountId = String(mountId || 'internetBankingWorkspace');
     loadUserState();
     if (forceReload || !STATE.rawData) await loadData();
-    else renderWorkspace();
+    else {
+      resetCollapsedGroupsToClosed();
+      renderWorkspace();
+    }
   }
 
   global.PluggyBanking = {
