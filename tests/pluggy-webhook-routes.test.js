@@ -92,6 +92,50 @@ test('webhook uses resolved tenant for item and transactions upsert', async () =
   ]);
 });
 
+test('webhook processes item/updated and transactions/updated', async () => {
+  const app = createMockApp();
+  const calls = [];
+
+  registerPluggyWebhookRoutes(app, {
+    noStore: (_req, _res, next) => next?.(),
+    upsertConnection: async (item, tenantUserId) => {
+      calls.push({ kind: 'item', tenantUserId, itemId: item.id });
+    },
+    upsertTransactions: async (items, tenantUserId) => {
+      calls.push({ kind: 'tx', tenantUserId, count: items.length });
+      return { inserted: items.length, skipped: 0 };
+    }
+  });
+
+  const webhookHandler = app.routes.get('POST /api/pluggy/webhook');
+
+  const itemUpdatedRes = createMockRes();
+  await webhookHandler({
+    headers: {},
+    body: {
+      event: 'item/updated',
+      data: { item: { id: 'it-updated' }, clientUserId: 'user-C' }
+    }
+  }, itemUpdatedRes);
+  assert.equal(itemUpdatedRes.statusCode, 200);
+
+  const txUpdatedRes = createMockRes();
+  await webhookHandler({
+    headers: {},
+    body: {
+      event: 'transactions/updated',
+      clientUserId: 'user-D',
+      data: { transactions: [{ id: 'tx-10' }] }
+    }
+  }, txUpdatedRes);
+  assert.equal(txUpdatedRes.statusCode, 200);
+
+  assert.deepEqual(calls, [
+    { kind: 'item', tenantUserId: 'user-C', itemId: 'it-updated' },
+    { kind: 'tx', tenantUserId: 'user-D', count: 1 }
+  ]);
+});
+
 test('webhook rejects invalid secret when configured', async () => {
   const app = createMockApp();
   registerPluggyWebhookRoutes(app, {

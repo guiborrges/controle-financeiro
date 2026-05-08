@@ -288,23 +288,27 @@ function registerPluggyWebhookRoutes(app, deps = {}) {
       console.log(`[pluggy-webhook] recebido eventType=${eventType || 'unknown'} tenant=${tenantUserId}`);
 
       const isItemCreated = eventType === 'item/created' || eventType === 'item.created';
+      const isItemUpdated = eventType === 'item/updated' || eventType === 'item.updated';
+      const isItemLoginSucceeded = eventType === 'item/login_succeeded' || eventType === 'item.login_succeeded';
       const isTransactionsCreated = eventType === 'transactions/created' || eventType === 'transactions.created';
+      const isTransactionsUpdated = eventType === 'transactions/updated' || eventType === 'transactions.updated';
+      const isTransactionsEvent = isTransactionsCreated || isTransactionsUpdated;
 
-      if (isItemCreated) {
+      if (isItemCreated || isItemUpdated || isItemLoginSucceeded) {
         const itemId = String(item?.id || '').trim();
         if (!itemId) {
-          console.warn('[pluggy-webhook] item/created sem item.id');
+          console.warn('[pluggy-webhook] item event sem item.id');
           return res.status(400).json({ message: 'Webhook Pluggy sem item.id.' });
         }
         await upsertConnectionFn(item, tenantUserId);
-        console.log(`[pluggy-webhook] item/created salvo itemId=${itemId}`);
+        console.log(`[pluggy-webhook] item event processado eventType=${eventType} itemId=${itemId}`);
         return res.status(200).json({ ok: true, eventType, itemId });
       }
 
-      if (isTransactionsCreated) {
+      if (isTransactionsEvent) {
         const transactions = normalizeTransactionsFromWebhook(payload);
         const result = await upsertTransactionsFn(transactions, tenantUserId);
-        console.log(`[pluggy-webhook] transactions/created processado count=${transactions.length} inserted=${result.inserted} skipped=${result.skipped}`);
+        console.log(`[pluggy-webhook] transactions event processado eventType=${eventType} count=${transactions.length} inserted=${result.inserted} skipped=${result.skipped}`);
         return res.status(200).json({ ok: true, eventType, ...result });
       }
 
