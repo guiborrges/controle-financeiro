@@ -20,6 +20,12 @@ function normalize(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function sanitizePositiveInteger(value, fallback = 1) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return fallback;
+  return Math.max(1, Math.floor(numericValue));
+}
+
 function isUserAllowed(user) {
   if (!user) return false;
   const id = normalize(user.id);
@@ -108,7 +114,7 @@ SELECT pluggy_item_id, provider_name, status, updated_at
 }
 
 async function loadTransactions(tenantUserId, limit = 300) {
-  const safeLimit = Math.max(1, Number(limit || 300));
+  const safeLimit = sanitizePositiveInteger(limit, 300);
   return withConnection(async conn => {
     const rs = await conn.execute(
       `
@@ -187,7 +193,7 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
       if (!tenantUserId) {
         return res.status(401).json({ message: 'Sessao invalida para internet banking.' });
       }
-      const limit = Number(req.query?.limit || 300);
+      const limit = sanitizePositiveInteger(req.query?.limit, 300);
       const [connections, transactions] = await Promise.all([
         loadConnectionSummaryFn(tenantUserId),
         loadTransactionsFn(tenantUserId, limit)
@@ -220,7 +226,7 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
         return res.status(401).json({ message: 'Sessao invalida para internet banking.' });
       }
 
-      const limit = Number(req.query?.limit || 1200);
+      const limit = sanitizePositiveInteger(req.query?.limit, 1200);
       const [connections, transactions] = await Promise.all([
         loadConnectionSummaryFn(tenantUserId),
         loadTransactionsFn(tenantUserId, limit)

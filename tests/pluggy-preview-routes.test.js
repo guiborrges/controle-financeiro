@@ -94,3 +94,28 @@ test('pluggy preview route blocks not-allowed users', async () => {
   await handler({ query: {} }, res);
   assert.equal(res.statusCode, 403);
 });
+
+test('pluggy transactions route sanitizes invalid limit query', async () => {
+  const app = createMockApp();
+  const seenLimits = [];
+  process.env.PLUGGY_ALLOWED_USER_IDS = 'user-A';
+
+  registerPluggyPreviewRoutes(app, {
+    noStore: (_req, _res, next) => next?.(),
+    requireAuth: (_req, _res, next) => next?.(),
+    getAuthenticatedUser: () => ({ id: 'user-A', username: 'a' }),
+    loadConnectionSummary: async () => [],
+    loadTransactions: async (_tenantUserId, limit) => {
+      seenLimits.push(limit);
+      return [];
+    }
+  });
+
+  const handler = app.routes.get('GET /api/pluggy/transactions');
+  const res = createMockRes();
+  await handler({ query: { limit: 'abc' } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(seenLimits, [1200]);
+  delete process.env.PLUGGY_ALLOWED_USER_IDS;
+});
