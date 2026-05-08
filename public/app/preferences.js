@@ -518,6 +518,7 @@ async function run() {
     buildMediumWidget(widget, data);
   }
 
+  widget.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
   Script.setWidget(widget);
   if (!config.runsInWidget) {
     if (size === 'small') {
