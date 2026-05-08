@@ -4461,7 +4461,9 @@ function renderMes() {
   }
   saveMonthMetricOrder();
 
-  const monthlyResultUnified = totalIncome - Number(unifiedMetrics?.doneExpenses || 0);
+  // Resultado precisa usar a mesma base exibida em "Despesas do mês"
+  // para evitar divergência visual e lógica no topo.
+  const monthlyResultUnified = totalIncome - Number(unifiedPlanningTotal || 0);
   const previousMonth = getPreviousMonthFor(m);
   const previousUnifiedMetrics = unifiedPilotEnabled && previousMonth ? getUnifiedMonthPilotMetrics(previousMonth) : null;
   const previousPlanningTotal = unifiedPilotEnabled && previousMonth ? calculateUnifiedPlanningTotal(previousMonth) : 0;
