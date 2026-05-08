@@ -198,3 +198,35 @@ test('non-GET /api/widget/finance-summary returns 405', () => {
   assert.equal(res.statusCode, 405);
 });
 
+test('GET /api/widget/script/latest returns script text for valid token', () => {
+  const token = 'd'.repeat(80);
+  const { app } = registerRoutes({ users: [{ id: 'u1', widgetToken: token }] });
+  const handler = app.routes.get('GET /api/widget/script/latest');
+  const req = {
+    query: { token },
+    protocol: 'https',
+    get: (name) => (name === 'host' ? 'meufin.duckdns.org' : '')
+  };
+  const res = {
+    statusCode: 200,
+    headers: {},
+    body: '',
+    setHeader(name, value) { this.headers[name] = value; },
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.body = JSON.stringify(payload); return this; },
+    send(payload) { this.body = String(payload || ''); return this; }
+  };
+  handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.match(res.body, /const TOKEN = "d{80}"/);
+  assert.match(res.body, /selfUpdateIfNeeded/);
+});
+
+test('GET /api/widget/script/latest rejects invalid token', () => {
+  const { app } = registerRoutes();
+  const handler = app.routes.get('GET /api/widget/script/latest');
+  const req = { query: { token: 'bad-token' }, protocol: 'https', get: () => 'meufin.duckdns.org' };
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 401);
+});

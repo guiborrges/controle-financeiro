@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { buildWidgetScript } = require('../../widget-script-template');
 
 function maskToken(token) {
   const value = String(token || '').trim();
@@ -94,6 +95,29 @@ function registerWidgetRoutes(app, deps = {}) {
       return res.status(404).json({ error: 'Snapshot não encontrado.' });
     }
     return res.json(snapshot);
+  });
+
+  app.get('/api/widget/script/latest', noStore, (req, res) => {
+    const token = String(req.query?.token || '').trim().toLowerCase();
+    if (!token) {
+      return res.status(401).json({ error: 'Token ausente.' });
+    }
+    if (!/^[a-f0-9]{80}$/.test(token)) {
+      return res.status(401).json({ error: 'Token inválido.' });
+    }
+
+    const store = readUsersStore();
+    const users = Array.isArray(store?.users) ? store.users : [];
+    const tokenIndex = buildTokenIndex(users);
+    const user = tokenIndex.get(token);
+    if (!user) {
+      return res.status(401).json({ error: 'Token inválido.' });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const code = buildWidgetScript(token, baseUrl);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.status(200).send(code);
   });
 
   app.all('/api/widget/finance-summary', noStore, (_req, res) => {
