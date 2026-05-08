@@ -81,6 +81,10 @@ function readUsersStore() {
       nextUser.recoveryWrappedKey = '';
       nextChanged = true;
     }
+    if (typeof nextUser.widgetToken !== 'string') {
+      nextUser.widgetToken = '';
+      nextChanged = true;
+    }
     if (!Number.isFinite(nextUser.loginCount)) {
       nextUser.loginCount = 0;
       nextChanged = true;
@@ -242,6 +246,7 @@ function createUser(payload) {
     rememberTokens: Array.isArray(payload.rememberTokens) ? payload.rememberTokens : [],
     passwordResetTokens: Array.isArray(payload.passwordResetTokens) ? payload.passwordResetTokens : [],
     recoveryWrappedKey: String(payload.recoveryWrappedKey || ''),
+    widgetToken: String(payload.widgetToken || ''),
     loginCount: Number(payload.loginCount || 0),
     lastLoginAt: String(payload.lastLoginAt || ''),
     lastUsedAt: String(payload.lastUsedAt || ''),
@@ -281,6 +286,9 @@ function updateUser(userId, patch) {
     lastLoginAt: patch.lastLoginAt !== undefined ? String(patch.lastLoginAt || '') : String(current.lastLoginAt || ''),
     lastUsedAt: patch.lastUsedAt !== undefined ? String(patch.lastUsedAt || '') : String(current.lastUsedAt || ''),
     lastRestoreAt: patch.lastRestoreAt !== undefined ? String(patch.lastRestoreAt || '') : String(current.lastRestoreAt || ''),
+    widgetToken: patch.widgetToken !== undefined
+      ? String(patch.widgetToken || '')
+      : String(current.widgetToken || ''),
     backupStats: {
       ...(current.backupStats || {}),
       ...((patch.backupStats && typeof patch.backupStats === 'object') ? patch.backupStats : {})

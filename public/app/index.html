@@ -1343,6 +1343,40 @@
         </div>
         <p class="preferences-note">Essas ações não apagam seus dados financeiros. Elas afetam apenas layout, preferências e a checagem de consistência do sistema.</p>
       </div>
+      <div class="section" style="margin:0;box-shadow:none">
+        <div class="section-head">
+          <h3 style="font-size:12px">Widget para iPhone</h3>
+        </div>
+        <div class="section-body">
+          <div id="widgetTokenStatus" style="font-size:13px;color:var(--text2);margin-bottom:12px">
+            Carregando status...
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <button class="btn btn-ghost" id="btnGenerateWidget" onclick="generateWidgetToken()">
+              Gerar widget
+            </button>
+            <button class="btn btn-ghost" id="btnCopyWidget" onclick="copyWidgetCode()" style="display:none">
+              Copiar código
+            </button>
+            <button class="btn btn-ghost" id="btnRevokeWidget" onclick="revokeWidgetToken()" style="display:none">
+              Revogar token
+            </button>
+          </div>
+          <div id="widgetInstructions" style="display:none;font-size:12px;color:var(--text2);line-height:1.7">
+            <strong style="color:var(--text);display:block;margin-bottom:6px">Como usar:</strong>
+            1. Instale o app <strong>Scriptable</strong> no iPhone (App Store, gratuito)<br>
+            2. Abra o Scriptable e toque em <strong>+</strong> para criar novo script<br>
+            3. Cole o código copiado e toque em <strong>Done</strong><br>
+            4. Na tela inicial do iPhone, pressione e segure → toque em <strong>+</strong><br>
+            5. Busque por <strong>Scriptable</strong> e adicione o widget médio<br>
+            6. Toque no widget → selecione o script criado
+          </div>
+        </div>
+        <p class="preferences-note">
+          O widget usa um token seguro e individual. Nunca compartilhe esse token.
+          Você pode revogar e gerar um novo a qualquer momento.
+        </p>
+      </div>
       <div id="preferencesStatus" style="font-size:12px;color:var(--text2)"></div>
     </div>
     <div class="form-actions" style="margin-top:20px">

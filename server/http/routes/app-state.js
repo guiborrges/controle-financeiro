@@ -12,7 +12,9 @@ function registerAppStateRoutes(app, deps) {
     writeUserAppState,
     ensureCsrfToken,
     buildPrivateProfile,
-    hasUserAppState
+    hasUserAppState,
+    buildWidgetSnapshot,
+    saveWidgetSnapshot
   } = deps;
 
   // Constantes para tolerância de conflito (2 segundos)
@@ -163,6 +165,14 @@ function registerAppStateRoutes(app, deps) {
       }
 
       const saved = writeUserAppState(user.id, state, req.session?.dataEncryptionKey || '');
+      if (user?.widgetToken && typeof buildWidgetSnapshot === 'function' && typeof saveWidgetSnapshot === 'function') {
+        try {
+          const snapshot = buildWidgetSnapshot(user.id, state);
+          saveWidgetSnapshot(user.id, snapshot);
+        } catch (snapshotError) {
+          console.error('[widget-snapshot] Erro ao gerar snapshot:', snapshotError?.message || String(snapshotError));
+        }
+      }
       
       console.log('[app-state] ✅ Salvamento bem-sucedido', {
         userId: user.id,

@@ -13,6 +13,8 @@ const { registerAppStateRoutes } = require('./server/http/routes/app-state');
 const { registerBillImportAiRoutes } = require('./server/http/routes/bill-import-ai');
 const { registerPluggyWebhookRoutes } = require('./server/http/routes/pluggy-webhook');
 const { registerPluggyPreviewRoutes } = require('./server/http/routes/pluggy-preview');
+const { registerWidgetRoutes } = require('./server/http/routes/widget');
+const { buildWidgetSnapshot, saveWidgetSnapshot, readWidgetSnapshot } = require('./server/widget-snapshot');
 const {
   REMEMBER_COOKIE_NAME,
   ensureSessionSecret,
@@ -400,7 +402,9 @@ registerAppStateRoutes(app, {
   writeUserAppState,
   ensureCsrfToken,
   buildPrivateProfile,
-  hasUserAppState
+  hasUserAppState,
+  buildWidgetSnapshot,
+  saveWidgetSnapshot
 });
 
 registerBillImportAiRoutes(app, {
@@ -418,6 +422,19 @@ registerPluggyPreviewRoutes(app, {
   noStore,
   requireAuth,
   getAuthenticatedUser
+});
+
+registerWidgetRoutes(app, {
+  noStore,
+  requireAuth,
+  requireCsrf,
+  getAuthenticatedUser,
+  readUsersStore,
+  updateUser,
+  readWidgetSnapshot,
+  readUserAppState,
+  buildWidgetSnapshot,
+  saveWidgetSnapshot
 });
 
 app.use((req, res) => {
