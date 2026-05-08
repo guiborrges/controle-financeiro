@@ -53,7 +53,60 @@
       if (typeof value.id === 'string') return value.id.trim();
       return '';
     }
-    return String(value).trim();
+    const text = String(value).trim();
+    return text === '[object Object]' ? '' : text;
+  }
+
+  function stripLegacyCategoryIconPrefix(rawName) {
+    const txt = normalizeScalarText(rawName);
+    if (!txt) return '';
+    const cleaned = txt.replace(/\s+/g, ' ').trim();
+    const match = cleaned.match(/^([a-z][a-z0-9_-]{1,24})\s+(.+)$/i);
+    if (!match) return cleaned;
+    const iconToken = String(match[1] || '').toLowerCase();
+    const tail = String(match[2] || '').trim();
+    const knownTokens = new Set([
+      'food', 'phone', 'market', 'shopping', 'education', 'card', 'home', 'health', 'fun', 'tag', 'work', 'car', 'bank'
+    ]);
+    if (!knownTokens.has(iconToken) || !tail) return cleaned;
+    return tail;
+  }
+
+  function toVisualCategorySymbol(rawSymbol, categoryName = '') {
+    const symbol = normalizeScalarText(rawSymbol);
+    const iconEmojiMap = {
+      food: '🍽️',
+      phone: '📱',
+      market: '🛒',
+      shopping: '🛍️',
+      education: '📘',
+      card: '💳',
+      home: '🏠',
+      health: '🩺',
+      fun: '🎉',
+      tag: '🏷️',
+      work: '💼',
+      car: '🚗',
+      bank: '🏦',
+      invoice: '🧾',
+      gift: '🎁'
+    };
+    if (symbol) {
+      if (typeof global.normalizeCategoryIconId === 'function') {
+        const iconId = global.normalizeCategoryIconId(symbol);
+        if (iconEmojiMap[iconId]) return iconEmojiMap[iconId];
+      } else {
+        const normalizedRaw = symbol.toLowerCase();
+        if (iconEmojiMap[normalizedRaw]) return iconEmojiMap[normalizedRaw];
+      }
+      if (/[\u2190-\u2BFF\u{1F000}-\u{1FAFF}]/u.test(symbol)) return symbol;
+    }
+    if (typeof global.inferCategoryVisual === 'function') {
+      const visual = global.inferCategoryVisual(categoryName || '');
+      const inferred = String(visual?.icon || '').trim();
+      if (iconEmojiMap[inferred]) return iconEmojiMap[inferred];
+    }
+    return '';
   }
 
   function normalizeComparableText(value) {
@@ -223,7 +276,7 @@
       const entries = global.getSelectableCategoryEntriesForMonth(month, { includeFallbackBase: false }) || [];
       if (entries.length) {
         return entries.map((entry) => ({
-          name: normalizeScalarText(entry?.name || ''),
+          name: stripLegacyCategoryIconPrefix(entry?.name || ''),
           symbol: normalizeScalarText(entry?.symbol || '')
         })).filter((entry) => entry.name);
       }
@@ -231,11 +284,11 @@
     if (global.BillImportUtils?.getAllCategoriesFromUserData) {
       const list = global.BillImportUtils.getAllCategoriesFromUserData(getDataRef()).list || [];
       return list.map((item) => ({
-        name: normalizeScalarText(item?.name || item),
+        name: stripLegacyCategoryIconPrefix(item?.name || item),
         symbol: normalizeScalarText(item?.emoji || item?.symbol || item?.icon || item?.emojiId || ''),
       })).filter((item) => item.name);
     }
-    return getAllCategories().map((name) => ({ name: normalizeScalarText(name), symbol: '' }));
+    return getAllCategories().map((name) => ({ name: stripLegacyCategoryIconPrefix(name), symbol: '' }));
   }
 
   function getAllTags() {
@@ -852,10 +905,10 @@
       return a.name.localeCompare(b.name, 'pt-BR');
     });
     const optionEntries = [{ name: '', symbol: '' }].concat(entries);
-    const selectedValue = normalizeScalarText(selected);
+    const selectedValue = stripLegacyCategoryIconPrefix(selected);
     return optionEntries.map((cat) => {
-      const value = normalizeScalarText(cat?.name || cat);
-      const symbol = normalizeScalarText(cat?.symbol || cat?.emoji || cat?.icon || '');
+      const value = stripLegacyCategoryIconPrefix(cat?.name || cat);
+      const symbol = toVisualCategorySymbol(cat?.symbol || cat?.emoji || cat?.icon || '', value);
       const label = value ? `${symbol ? `${symbol} ` : ''}${value}` : 'Categoria';
       return `<option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(label)}</option>`;
     }).join('');
@@ -1555,7 +1608,9 @@
     isSaldoSyncDescription,
     inferBankMovementType,
     resolveTenantLikeUserKey: getUserId,
-    dedupeLabel
+    dedupeLabel,
+    stripLegacyCategoryIconPrefix,
+    toVisualCategorySymbol
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 

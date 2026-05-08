@@ -52,6 +52,19 @@ test('normalizeDescriptionKey keeps compatible keys for same Pluggy merchant tex
   assert.equal(a, b);
 });
 
+test('stripLegacyCategoryIconPrefix removes leaked icon ids from category labels', () => {
+  const helpers = loadHelpers();
+  assert.equal(helpers.stripLegacyCategoryIconPrefix('food ALIMENTACAO'), 'ALIMENTACAO');
+  assert.equal(helpers.stripLegacyCategoryIconPrefix('phone ASSINATURAS'), 'ASSINATURAS');
+  assert.equal(helpers.stripLegacyCategoryIconPrefix('MERCADO'), 'MERCADO');
+});
+
+test('toVisualCategorySymbol maps icon id to display emoji', () => {
+  const helpers = loadHelpers();
+  assert.equal(helpers.toVisualCategorySymbol('food', 'ALIMENTACAO'), '🍽️');
+  assert.equal(helpers.toVisualCategorySymbol('home', 'MORADIA'), '🏠');
+});
+
 test('resolveTenantLikeUserKey uses session user identity', () => {
   const source = fs.readFileSync(
     path.join(__dirname, '..', 'public', 'app', 'pluggy-banking.js'),
