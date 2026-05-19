@@ -142,6 +142,7 @@ test('webhook rejects invalid secret when configured', async () => {
   registerPluggyWebhookRoutes(app, {
     noStore: (_req, _res, next) => next?.(),
     webhookSecret: 'expected',
+    requireWebhookSecret: true,
     upsertConnection: async () => {},
     upsertTransactions: async () => ({ inserted: 0, skipped: 0 })
   });
@@ -154,11 +155,12 @@ test('webhook rejects invalid secret when configured', async () => {
   assert.equal(res.statusCode, 401);
 });
 
-test('webhook is disabled when secret is missing', async () => {
+test('webhook is disabled when secret is missing and strict mode is enabled', async () => {
   const app = createMockApp();
   registerPluggyWebhookRoutes(app, {
     noStore: (_req, _res, next) => next?.(),
-    webhookSecret: ''
+    webhookSecret: '',
+    requireWebhookSecret: true
   });
 
   const res = createMockRes();
@@ -167,4 +169,23 @@ test('webhook is disabled when secret is missing', async () => {
     body: { event: 'item/created', data: { item: { id: 'it-1' } } }
   }, res);
   assert.equal(res.statusCode, 503);
+});
+
+test('webhook accepts requests without secret in compatibility mode', async () => {
+  const app = createMockApp();
+  let called = 0;
+  registerPluggyWebhookRoutes(app, {
+    noStore: (_req, _res, next) => next?.(),
+    webhookSecret: '',
+    requireWebhookSecret: false,
+    upsertConnection: async () => { called += 1; }
+  });
+
+  const res = createMockRes();
+  await app.routes.get('POST /api/pluggy/webhook')({
+    headers: {},
+    body: { event: 'item/created', data: { item: { id: 'it-1' } } }
+  }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(called, 1);
 });

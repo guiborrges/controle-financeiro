@@ -4,6 +4,9 @@ const { withConnection } = require('../../../workers/lib/oracle-db');
 
 const DEFAULT_TENANT_USER_ID = String(process.env.PLUGGY_TENANT_USER_ID || 'guilherme').trim();
 const WEBHOOK_SECRET = String(process.env.PLUGGY_WEBHOOK_SECRET || '').trim();
+const REQUIRE_WEBHOOK_SECRET = ['1', 'true', 'yes', 'on'].includes(
+  String(process.env.PLUGGY_WEBHOOK_REQUIRE_SECRET || 'false').trim().toLowerCase()
+);
 
 async function ensureConnectionsTable(conn) {
   const sql = `
@@ -268,17 +271,24 @@ function getItem(payload) {
 function registerPluggyWebhookRoutes(app, deps = {}) {
   const noStore = typeof deps.noStore === 'function' ? deps.noStore : ((_, __, next) => next());
   const webhookSecret = String((deps.webhookSecret ?? WEBHOOK_SECRET) || '').trim();
+  const requireWebhookSecret = typeof deps.requireWebhookSecret === 'boolean'
+    ? deps.requireWebhookSecret
+    : REQUIRE_WEBHOOK_SECRET;
   const upsertConnectionFn = typeof deps.upsertConnection === 'function' ? deps.upsertConnection : upsertConnection;
   const upsertTransactionsFn = typeof deps.upsertTransactions === 'function' ? deps.upsertTransactions : upsertTransactions;
   const resolveTenantUserIdFn = typeof deps.resolveTenantUserId === 'function' ? deps.resolveTenantUserId : resolveTenantUserId;
 
   app.post('/api/pluggy/webhook', noStore, async (req, res) => {
     try {
-      if (!webhookSecret) {
-        return res.status(503).json({ message: 'Webhook Pluggy desabilitado: PLUGGY_WEBHOOK_SECRET nao configurado.' });
-      }
       const provided = String(req.headers['x-pluggy-webhook-secret'] || '').trim();
-      if (!provided || provided !== webhookSecret) {
+      if (requireWebhookSecret) {
+        if (!webhookSecret) {
+          return res.status(503).json({ message: 'Webhook Pluggy desabilitado: PLUGGY_WEBHOOK_SECRET nao configurado.' });
+        }
+        if (!provided || provided !== webhookSecret) {
+          return res.status(401).json({ message: 'Webhook Pluggy nao autorizado.' });
+        }
+      } else if (provided && webhookSecret && provided !== webhookSecret) {
         return res.status(401).json({ message: 'Webhook Pluggy nao autorizado.' });
       }
 
