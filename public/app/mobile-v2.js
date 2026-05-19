@@ -39,7 +39,6 @@
         <section id="mobileV2Screen-mes" class="mobile-v2-screen" data-mobile-v2-screen="mes"></section>
         <section id="mobileV2Screen-patrimonio" class="mobile-v2-screen" data-mobile-v2-screen="patrimonio"></section>
         <section id="mobileV2Screen-historico" class="mobile-v2-screen" data-mobile-v2-screen="historico"></section>
-        <section id="mobileV2Screen-perfil" class="mobile-v2-screen" data-mobile-v2-screen="perfil"></section>
       </div>
       <div id="mobileV2BottomNavMount"></div>
       <button id="mobileV2Fab" type="button" aria-label="Adicionar lançamento">${icon('plus') || '+'}</button>
@@ -54,6 +53,7 @@
     global.MobileV2AddSheet?.ensureSheet?.();
     global.MobileV2OutflowForm?.ensureSheet?.();
     global.MobileV2FiltersSheet?.ensureSheet?.();
+    global.MobileV2PerfilSheet?.ensureSheet?.();
 
     return root;
   }
@@ -70,7 +70,7 @@
     else if (activePage === 'page-mes') state.currentTab = 'mes';
     else if (activePage === 'page-patrimonio') state.currentTab = 'patrimonio';
     else if (activePage === 'page-historico' || activePage === 'page-eso') state.currentTab = 'historico';
-    else if (activePage === 'page-perfil') state.currentTab = 'perfil';
+    else state.currentTab = state.currentTab || 'home';
   }
 
   function updateBodyClasses() {
@@ -88,13 +88,11 @@
     const screenMes = root.querySelector('#mobileV2Screen-mes');
     const screenPat = root.querySelector('#mobileV2Screen-patrimonio');
     const screenHis = root.querySelector('#mobileV2Screen-historico');
-    const screenPerfil = root.querySelector('#mobileV2Screen-perfil');
 
     global.MobileV2HomeScreen?.render?.(screenHome);
     global.MobileV2MesAtual?.render?.(screenMes);
     global.MobileV2Patrimonio?.render?.(screenPat);
     global.MobileV2Historico?.render?.(screenHis);
-    global.MobileV2Perfil?.render?.(screenPerfil);
 
     root.querySelectorAll('[data-mobile-v2-screen]').forEach((screen) => {
       const isActive = screen.getAttribute('data-mobile-v2-screen') === state.currentTab;
@@ -148,7 +146,6 @@
           if (page === 'mes') state.currentTab = 'mes';
           if (page === 'patrimonio') state.currentTab = 'patrimonio';
           if (page === 'historico') state.currentTab = 'historico';
-          if (page === 'perfil') state.currentTab = 'perfil';
           render();
         }
         return result;

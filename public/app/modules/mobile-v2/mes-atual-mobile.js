@@ -82,12 +82,16 @@
         <div class="m2-month-nav-row">
           <button class="m2-icon-btn" type="button" onclick="MobileV2MesAtual.prevMonth()" aria-label="Mês anterior">←</button>
           <div class="m2-month-title">${global.escapeHtml ? global.escapeHtml(String(month?.nome || 'Mês')) : String(month?.nome || 'Mês')}</div>
-          <button class="m2-icon-btn" type="button" onclick="MobileV2MesAtual.nextMonth()" aria-label="Próximo mês">→</button>
+          <div class="m2-header-actions">
+            <button class="m2-icon-btn" type="button" onclick="toggleNotificationsPopover(event)" aria-label="Notificações">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : '🔔'}</button>
+            <button class="m2-icon-btn" type="button" onclick="MobileV2PerfilSheet.open()" aria-label="Perfil">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '👤'}</button>
+            <button class="m2-icon-btn" type="button" onclick="MobileV2MesAtual.nextMonth()" aria-label="Próximo mês">→</button>
+          </div>
         </div>
         <div class="m2-month-metrics">
           <div class="m2-mini-metric"><div class="m2-mini-label">Renda</div><div class="m2-mini-value">${formatMoney(metrics.renda)}</div></div>
           <div class="m2-mini-metric"><div class="m2-mini-label">Despesas</div><div class="m2-mini-value">${formatMoney(metrics.despesas)}</div></div>
-          <div class="m2-mini-metric"><div class="m2-mini-label">Resultado</div><div class="m2-mini-value">${formatMoney(metrics.resultado)}</div></div>
+          <div class="m2-mini-metric"><div class="m2-mini-label">Resultado</div><div class="m2-mini-value ${metrics.resultado >= 0 ? 'positive' : 'negative'}">${formatMoney(metrics.resultado)}</div></div>
         </div>
       </div>
     `;
@@ -114,7 +118,6 @@
       <article class="m2-outflow-item" data-outflow-id="${escapeId(id)}">
         <div class="m2-swipe-actions" aria-hidden="true">
           <button class="m2-swipe-btn" type="button" data-action="edit" data-id="${escapeId(id)}" aria-label="Editar">✎</button>
-          <button class="m2-swipe-btn ${paid ? 'positive' : ''}" type="button" data-action="paid" data-id="${escapeId(id)}" data-paid="${paid ? '1' : '0'}" aria-label="Pago">${paid ? '✓' : '◻'}</button>
           <button class="m2-swipe-btn danger" type="button" data-action="delete" data-id="${escapeId(id)}" aria-label="Excluir">✕</button>
         </div>
         <div class="m2-outflow-surface" data-open-edit="${escapeId(id)}">
@@ -123,7 +126,11 @@
             <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(desc) : desc}</p>
             <div class="m2-row-meta">${global.escapeHtml ? global.escapeHtml(date) : date} · ${global.escapeHtml ? global.escapeHtml(category) : category}${paid ? ' · Pago' : ''}</div>
           </span>
-          <span class="m2-row-amount negative">${formatMoney(amount)}</span>
+          <span class="m2-row-tail">
+            <span class="m2-row-amount negative">${formatMoney(amount)}</span>
+            <button class="m2-paid-dot ${paid ? 'is-paid' : ''}" type="button" data-action="paid" data-id="${escapeId(id)}" data-paid="${paid ? '1' : '0'}" aria-label="Marcar como pago">${paid ? '✓' : ''}</button>
+            <button class="m2-inline-delete" type="button" data-action="delete" data-id="${escapeId(id)}" aria-label="Excluir">✕</button>
+          </span>
         </div>
       </article>
     `;
@@ -202,13 +209,15 @@
         <section class="m2-card">
           <h3 class="m2-card-title">Renda do mês</h3>
           ${rows.length ? rows.map((row) => `
-            <article class="m2-recent-item">
-              <span class="m2-icon-pill">💼</span>
-              <span>
-                <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(row.fonte) : row.fonte}</p>
-                <span class="m2-row-meta">${global.escapeHtml ? global.escapeHtml(row.data || 'Sem data') : (row.data || 'Sem data')} · ${row.paid ? 'Recebido' : 'Pendente'}</span>
-              </span>
-              <span class="m2-row-amount positive">${formatMoney(row.valor)}</span>
+            <article class="m2-outflow-item">
+              <div class="m2-outflow-surface">
+                <span class="m2-icon-pill">💼</span>
+                <span>
+                  <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(row.fonte) : row.fonte}</p>
+                  <span class="m2-row-meta">${global.escapeHtml ? global.escapeHtml(row.data || 'Sem data') : (row.data || 'Sem data')} · ${row.paid ? 'Recebido' : 'Pendente'}</span>
+                </span>
+                <span class="m2-row-amount positive">${formatMoney(row.valor)}</span>
+              </div>
             </article>
           `).join('') : '<div class="m2-empty">Sem rendas cadastradas.</div>'}
           <div style="padding-top:8px;font-weight:700">Total esperado: ${formatMoney(total)}</div>
@@ -272,7 +281,7 @@
       if (!dragging || !event.touches?.length) return;
       currentX = event.touches[0].clientX - startX;
       if (currentX >= 0) return;
-      const move = Math.max(currentX, -144);
+      const move = Math.max(currentX, -96);
       surface.style.transform = `translateX(${move}px)`;
     }, { passive: true });
 
@@ -281,7 +290,7 @@
       dragging = false;
       if (currentX < -54) {
         rowEl.classList.add('swiped');
-        surface.style.transform = 'translateX(-144px)';
+        surface.style.transform = 'translateX(-96px)';
       } else {
         rowEl.classList.remove('swiped');
         surface.style.transform = '';
@@ -334,7 +343,9 @@
     });
 
     target.querySelectorAll('[data-action]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         const action = btn.getAttribute('data-action');
         const id = btn.getAttribute('data-id') || '';
         if (!id) return;
@@ -355,6 +366,7 @@
 
         if (action === 'delete' && typeof global.deleteUnifiedOutflow === 'function') {
           haptic('error');
+          if (global.confirm && !global.confirm('Excluir este lançamento?')) return;
           global.deleteUnifiedOutflow(id);
           global.MobileV2?.refresh?.();
         }

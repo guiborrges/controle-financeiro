@@ -54,8 +54,12 @@
     });
     return Array.from(totals.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([name, total]) => ({ name, total }));
+      .slice(0, 5)
+      .map(([name, total]) => ({
+        name,
+        total,
+        icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(name) : '•'
+      }));
   }
 
   function getRecentRows(month) {
@@ -83,10 +87,13 @@
           <h2 class="m2-title">Olá, ${userName.split(' ')[0]}</h2>
           <p class="m2-subtitle">${global.escapeHtml ? global.escapeHtml(String(month?.nome || 'Mês atual')) : String(month?.nome || 'Mês atual')}</p>
         </div>
-        <button class="m2-icon-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : '🔔'}</button>
+        <div class="m2-header-actions">
+          <button class="m2-icon-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : '🔔'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '👤'}</button>
+        </div>
       </div>
 
-      <section class="hero-result-card">
+      <section class="hero-result-card ${metrics.result >= 0 ? 'is-positive' : 'is-negative'}">
         <div class="hero-result-label">Resultado do mês</div>
         <div class="hero-result-value">${formatMoney(metrics.result)}</div>
       </section>
@@ -109,12 +116,13 @@
           const percent = Math.max(4, Math.round((entry.total / max) * 100));
           return `
             <div class="category-progress-row">
-              <div style="width:96px;font-size:12px;color:var(--text2)">${global.escapeHtml ? global.escapeHtml(entry.name) : entry.name}</div>
+              <div class="m2-category-progress-label"><span class="m2-icon-pill">${entry.icon}</span><span>${global.escapeHtml ? global.escapeHtml(entry.name) : entry.name}</span></div>
               <div class="category-bar-fill"><div class="category-bar-fill-inner" style="width:${percent}%"></div></div>
               <div style="font-size:12px;font-weight:600">${formatMoney(entry.total)}</div>
             </div>
           `;
         }).join('') : '<p style="color:var(--text3);font-size:12px">Sem gastos categorizados no mês.</p>'}
+        <button class="m2-chip-btn" type="button" onclick="window.MobileV2?.setTab('mes'); window.MobileV2MesAtual?.setSubtab('gastos'); window.MobileV2?.refresh?.();">Ver todas</button>
       </section>
 
       <section class="m2-card">
@@ -131,7 +139,7 @@
                 <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(desc) : desc}</p>
                 <span class="m2-row-meta">${global.escapeHtml ? global.escapeHtml(date) : date}</span>
               </span>
-              <span class="m2-row-amount negative">${formatMoney(amount)}</span>
+              <span class="m2-row-amount ${Number(item?.amount || 0) >= 0 ? 'negative' : 'positive'}">${formatMoney(amount)}</span>
             </button>
           `;
         }).join('') : '<p style="color:var(--text3);font-size:12px">Sem lançamentos recentes.</p>'}

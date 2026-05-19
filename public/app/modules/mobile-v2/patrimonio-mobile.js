@@ -19,7 +19,10 @@
           <h2 class="m2-title">Patrimônio</h2>
           <p class="m2-subtitle">Visão consolidada das contas</p>
         </div>
-        <button class="m2-icon-btn" type="button" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : '🔔'}</button>
+        <div class="m2-header-actions">
+          <button class="m2-icon-btn" type="button" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : '🔔'}</button>
+          <button class="m2-icon-btn" type="button" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '👤'}</button>
+        </div>
       </div>
 
       <section class="hero-result-card" style="background:linear-gradient(135deg,#1f6f4a 0%,#245a4a 100%)">

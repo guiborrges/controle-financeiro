@@ -5,8 +5,7 @@
     { key: 'home', label: 'Início', icon: 'dashboard' },
     { key: 'mes', label: 'Mês', icon: 'month' },
     { key: 'patrimonio', label: 'Patrimônio', icon: 'wealth' },
-    { key: 'historico', label: 'Histórico', icon: 'history' },
-    { key: 'perfil', label: 'Perfil', icon: 'user' }
+    { key: 'historico', label: 'Histórico', icon: 'history' }
   ];
 
   function icon(name) {
