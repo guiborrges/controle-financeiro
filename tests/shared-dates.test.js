@@ -43,3 +43,11 @@ test('mascara central permite dia simples e data completa progressiva', () => {
   assert.equal(dates.formatDateInputProgressive('1004'), '10/04');
   assert.equal(dates.formatDateInputProgressive('10042026'), '10/04/2026');
 });
+
+test('mascara central preserva zero a esquerda durante digitacao', () => {
+  const dates = loadDates();
+  assert.equal(dates.formatDateInputProgressive('0'), '0');
+  assert.equal(dates.formatDateInputProgressive('01'), '01');
+  assert.equal(dates.formatDateInputProgressive('0905'), '09/05');
+  assert.equal(dates.formatDateInputProgressive('090526'), '09/05/26');
+});

@@ -61,3 +61,26 @@ test('calendar day ledger includes cross-month launches by real date', () => {
   assert.equal(ledger.outflows, 45);
   assert.equal(ledger.launches.length, 1);
 });
+
+test('calendar includes installment rows after first installment when they are real launches', () => {
+  const april = createMonth('m-apr', 'ABRIL 2026', [
+    {
+      id: 'of-inst-2',
+      type: 'spend',
+      description: 'Parcela 2/3',
+      date: '15/04/26',
+      amount: 90,
+      outputKind: 'card',
+      installmentsTotal: 3,
+      installmentIndex: 2
+    }
+  ]);
+
+  global.getAllFinanceMonths = () => [april];
+  global.getMonthDateFromMonthObject = () => new Date(2026, 3, 1);
+  global.normalizeVarDate = (value) => String(value || '').trim();
+  global.OutflowAmounts = { getEffectiveOutflowAmount: (item) => Number(item?.amount || 0) };
+
+  const byDay = calendarUtils.getVariableOutflowsByDay(april);
+  assert.equal(byDay[15], 90);
+});

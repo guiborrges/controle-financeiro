@@ -26,6 +26,7 @@
       categoryMemory: {},
       tagMemory: {},
       importedTxIds: {},
+      importedTxKeys: {},
       txState: {}
     }
   };
@@ -188,6 +189,7 @@
     STATE.userState.categoryMemory = {};
     STATE.userState.tagMemory = {};
     STATE.userState.importedTxIds = {};
+    STATE.userState.importedTxKeys = {};
     STATE.userState.txState = {};
   }
 
@@ -202,6 +204,7 @@
       STATE.userState.categoryMemory = parsed.categoryMemory && typeof parsed.categoryMemory === 'object' ? parsed.categoryMemory : {};
       STATE.userState.tagMemory = parsed.tagMemory && typeof parsed.tagMemory === 'object' ? parsed.tagMemory : {};
       STATE.userState.importedTxIds = parsed.importedTxIds && typeof parsed.importedTxIds === 'object' ? parsed.importedTxIds : {};
+      STATE.userState.importedTxKeys = parsed.importedTxKeys && typeof parsed.importedTxKeys === 'object' ? parsed.importedTxKeys : {};
       STATE.userState.txState = parsed.txState && typeof parsed.txState === 'object' ? parsed.txState : {};
     } catch (_err) {
       resetUserState();
@@ -468,6 +471,7 @@
     const txId = String(tx?.id || '');
     if (!txId) return true;
     if (STATE.userState.importedTxIds[txId]) return true;
+    if (STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)]) return true;
     if (STATE.userState.hiddenGroups[`tx:${txId}`]) return true;
     if (isSaldoSyncDescription(tx?.description || tx?.descriptionRaw || '')) return true;
     if (String(account?.accountType || '').toUpperCase() === 'CREDIT' && isCreditBillPayment(tx)) return true;
@@ -722,6 +726,28 @@
     });
   }
 
+  function buildImportedCompositeKey(account, tx) {
+    const userId = getUserId();
+    const accountNameOriginal = normalizeText(account?.accountName || '');
+    const recordTypeRaw = String(account?.accountType || '').toUpperCase();
+    const dataTransacaoOriginal = normalizeText(tx?.date || '');
+    const transacaoValorRaw = Number(tx?.amount || 0).toFixed(2);
+    const descOriginal = normalizeDescriptionKey(
+      tx?._ui?.originalDescription
+      || tx?.descriptionRaw
+      || tx?.description
+      || ''
+    );
+    return [
+      userId,
+      accountNameOriginal,
+      recordTypeRaw,
+      dataTransacaoOriginal,
+      transacaoValorRaw,
+      descOriginal
+    ].join('|');
+  }
+
   function rememberCategory(description, category) {
     const normCategory = normalizeText(category);
     if (!normCategory) return;
@@ -847,6 +873,7 @@
     rememberTag(originalPluggyDescription, base.tag);
     propagateMemoryToPendingRows(tx, base.category, base.tag);
     if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
+    STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] = true;
     persistUserState();
     global.save(true);
     removePendingTx(accountId, txId);
@@ -889,6 +916,7 @@
     const updatedMovements = [movement].concat(getPatrimonioMovementsRef());
     setPatrimonioMovementsRef(updatedMovements);
     if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
+    STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] = true;
     persistUserState();
     global.save(true);
     if (typeof global.renderPatrimonioMetrics === 'function') global.renderPatrimonioMetrics();
@@ -1610,7 +1638,8 @@
     resolveTenantLikeUserKey: getUserId,
     dedupeLabel,
     stripLegacyCategoryIconPrefix,
-    toVisualCategorySymbol
+    toVisualCategorySymbol,
+    buildImportedCompositeKey
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 

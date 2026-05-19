@@ -269,9 +269,12 @@
     if (!item || item.type !== 'spend') return false;
     if (item.recurringSpend === true) return false;
     if (isExpenseType(item)) return false;
-    if (item.installmentsTotal > 1 && item.installmentIndex > 1 && item.outputKind === 'card') {
-      return false;
-    }
+    return Number(item.amount || 0) > 0;
+  }
+
+  function isCalendarRealOutflow(item) {
+    if (!item || item.type !== 'spend') return false;
+    if (item.recurringSpend === true) return false;
     return Number(item.amount || 0) > 0;
   }
 
@@ -311,7 +314,7 @@
     const context = getMonthContext(month);
     const byDay = {};
     getCalendarOutflowsForTargetMonth(month).forEach(({ item, calendarDate }) => {
-      if (!isVariableOutflow(item)) return;
+      if (!isCalendarRealOutflow(item)) return;
       const day = calendarDate.getDate();
       if (!day || day > context.daysInMonth) return;
       const amount = Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0);
@@ -329,6 +332,7 @@
     const paymentItems = [];
     const receivingItems = [];
     getCalendarOutflowsForTargetMonth(month).forEach(({ item }) => {
+      if (!isCalendarRealOutflow(item)) return;
       const itemDay = getMonthDayFromOutflow(item, month);
       if (itemDay !== safeDay) return;
       const amount = Math.max(0, Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0));

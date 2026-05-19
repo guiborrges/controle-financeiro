@@ -3,7 +3,9 @@
 let historicoSort = { field: 'mes', direction: 'desc' };
 
 function getHistoricoEligibleData() {
-  const list = getHistoricoEligibleData();
+  const list = typeof getFilteredData === 'function'
+    ? getFilteredData()
+    : (Array.isArray(data) ? data : []);
   const currentSortValue = typeof getRealCurrentMonthSortValue === 'function'
     ? getRealCurrentMonthSortValue(new Date())
     : Number.POSITIVE_INFINITY;

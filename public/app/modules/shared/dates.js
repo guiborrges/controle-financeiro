@@ -70,10 +70,12 @@
   function formatDateInputProgressive(rawValue) {
     const digits = String(rawValue || '').replace(/\D/g, '').slice(0, 8);
     if (!digits) return '';
-    if (digits.length <= 2) return String(clamp(digits, 1, 31));
-    const day = String(clamp(digits.slice(0, 2), 1, 31)).padStart(2, '0');
+    if (digits.length <= 2) return digits;
+    const rawDay = Number(digits.slice(0, 2) || 0);
+    const day = String(rawDay > 0 ? clamp(rawDay, 1, 31) : 0).padStart(2, '0');
     if (digits.length <= 4) return `${day}/${digits.slice(2, 4)}`;
-    const month = String(clamp(digits.slice(2, 4), 1, 12)).padStart(2, '0');
+    const rawMonth = Number(digits.slice(2, 4) || 0);
+    const month = String(rawMonth > 0 ? clamp(rawMonth, 1, 12) : 0).padStart(2, '0');
     return `${day}/${month}/${digits.slice(4)}`;
   }
 

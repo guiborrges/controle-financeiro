@@ -85,3 +85,34 @@ test('resolveTenantLikeUserKey uses session user identity', () => {
   const h = sandbox.__pluggyBankingTest;
   assert.equal(h.resolveTenantLikeUserKey(), 'user-id-1');
 });
+
+test('composite imported key uses original Pluggy description for dedupe', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'app', 'pluggy-banking.js'),
+    'utf8'
+  );
+  const sandbox = {
+    window: {},
+    currentSession: {
+      user: { id: 'user-tenant-1' }
+    },
+    localStorage: {
+      getItem() { return null; },
+      setItem() {}
+    }
+  };
+  sandbox.window = sandbox;
+  vm.runInNewContext(source, sandbox);
+  const h = sandbox.__pluggyBankingTest;
+  const account = { accountName: 'Cartao XP', accountType: 'CREDIT' };
+  const tx = {
+    date: '2026-05-08T12:00:00.000Z',
+    amount: 14.58,
+    description: 'Descricao editada',
+    descriptionRaw: 'DL*MERCADO',
+    _ui: { originalDescription: 'DL*MERCADO' }
+  };
+  const key = h.buildImportedCompositeKey(account, tx);
+  assert.match(key, /^user-tenant-1\|Cartao XP\|CREDIT\|2026-05-08T12:00:00.000Z\|14\.58\|/);
+  assert.equal(key.includes('descricao editada'), false);
+});
