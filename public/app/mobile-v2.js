@@ -119,8 +119,12 @@
   }
 
   function apply() {
+    const wasEnabled = state.enabled;
     state.enabled = isMobileV2Mode();
-    syncTabFromCurrentPage();
+    if (!wasEnabled && state.enabled) {
+      // Sync only when entering mobile mode; resize during scroll must not reset active tab.
+      syncTabFromCurrentPage();
+    }
     updateBodyClasses();
     const root = ensureRoot();
     if (root) root.style.display = state.enabled ? '' : 'none';
