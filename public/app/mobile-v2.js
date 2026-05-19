@@ -15,8 +15,20 @@
     }
   }
 
+  function isDesktopLikeUserAgent() {
+    try {
+      const ua = String(navigator.userAgent || '');
+      if (!ua) return false;
+      const mobileMarkers = /(Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile)/i;
+      return !mobileMarkers.test(ua);
+    } catch {
+      return false;
+    }
+  }
+
   function isMobileV2Mode() {
     const width = Number(global.innerWidth || document.documentElement?.clientWidth || 0);
+    if (isDesktopLikeUserAgent()) return false;
     return width > 0 && width <= MOBILE_BREAKPOINT && supportsTouch();
   }
 
