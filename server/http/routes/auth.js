@@ -28,6 +28,7 @@ function registerAuthRoutes(app, deps) {
     getClientCryptoConfig,
     parseCookies,
     REMEMBER_COOKIE_NAME,
+    REMEMBER_COOKIE_HOST_NAME,
     revokeRememberMeToken,
     crypto
   } = deps;
@@ -164,8 +165,11 @@ function registerAuthRoutes(app, deps) {
     if (!isValidEmail(email)) {
       return res.status(400).json({ message: 'Digite um e-mail valido.' });
     }
-    if (newPassword.length < deps.MIN_USER_PASSWORD_LENGTH) {
-      return res.status(400).json({ message: `A nova senha precisa ter pelo menos ${deps.MIN_USER_PASSWORD_LENGTH} caracteres.` });
+    const resetPasswordValidation = typeof deps.validateUserPassword === 'function'
+      ? deps.validateUserPassword(newPassword)
+      : { ok: newPassword.length >= deps.MIN_USER_PASSWORD_LENGTH };
+    if (!resetPasswordValidation.ok) {
+      return res.status(400).json({ message: resetPasswordValidation.message || `A nova senha precisa ter pelo menos ${deps.MIN_USER_PASSWORD_LENGTH} caracteres.` });
     }
     if (newPassword !== confirmPassword) {
       return res.status(400).json({ message: 'A confirmacao da senha nao confere.' });
@@ -294,8 +298,11 @@ function registerAuthRoutes(app, deps) {
       if (!/^\d{2}\/\d{2}\/\d{4}$/.test(cleanBirthDate)) {
         return res.status(400).json({ message: 'Digite a data de nascimento no formato dd/mm/aaaa.' });
       }
-      if (cleanPassword.length < deps.MIN_USER_PASSWORD_LENGTH) {
-        return res.status(400).json({ message: `A senha precisa ter pelo menos ${deps.MIN_USER_PASSWORD_LENGTH} caracteres.` });
+      const registerPasswordValidation = typeof deps.validateUserPassword === 'function'
+        ? deps.validateUserPassword(cleanPassword)
+        : { ok: cleanPassword.length >= deps.MIN_USER_PASSWORD_LENGTH };
+      if (!registerPasswordValidation.ok) {
+        return res.status(400).json({ message: registerPasswordValidation.message || `A senha precisa ter pelo menos ${deps.MIN_USER_PASSWORD_LENGTH} caracteres.` });
       }
 
       const user = createUser({
@@ -347,7 +354,8 @@ function registerAuthRoutes(app, deps) {
   });
 
   app.post('/api/auth/logout', noStore, requireAuth, requireCsrf, (req, res, next) => {
-    const rememberToken = parseCookies(req)[REMEMBER_COOKIE_NAME];
+    const cookies = parseCookies(req);
+    const rememberToken = cookies[REMEMBER_COOKIE_HOST_NAME] || cookies[REMEMBER_COOKIE_NAME];
     const user = getAuthenticatedUser(req);
     if (user && rememberToken) {
       revokeRememberMeToken(user, rememberToken);
@@ -356,6 +364,7 @@ function registerAuthRoutes(app, deps) {
     req.session.destroy(error => {
       if (error) return next(error);
       res.clearCookie('fin.sid');
+      res.clearCookie('__Host-fin.sid');
       clearRememberMeCookie(res);
       return res.json({ ok: true });
     });

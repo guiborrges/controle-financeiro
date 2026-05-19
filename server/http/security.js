@@ -3,6 +3,7 @@ const crypto = require('crypto');
 
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const REMEMBER_COOKIE_NAME = 'fin.remember';
+const REMEMBER_COOKIE_HOST_NAME = '__Host-fin.remember';
 const CSP_SCRIPT_SRC = "'self' 'unsafe-inline' https://cdnjs.cloudflare.com";
 const CSP_STYLE_SRC = "'self' 'unsafe-inline' https://fonts.googleapis.com";
 const CSP_FONT_SRC = "'self' https://fonts.gstatic.com data:";
@@ -48,6 +49,24 @@ function hashRememberToken(token) {
     .digest('base64');
 }
 
+function isLocalHost(hostname) {
+  const value = String(hostname || '').trim().toLowerCase().replace(/:\d+$/, '');
+  return value === 'localhost' || value === '127.0.0.1' || value === '::1';
+}
+
+function shouldUseSecureCookies(req) {
+  const forwardedProto = String(req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const requestProtocol = String(req?.protocol || '').trim().toLowerCase();
+  const hostHeader = String(req?.headers?.host || '').trim();
+  const host = hostHeader.split(',')[0].trim();
+  if (forwardedProto === 'https' || requestProtocol === 'https') return true;
+  return !!host && !isLocalHost(host);
+}
+
+function getRememberCookieName(req) {
+  return shouldUseSecureCookies(req) ? REMEMBER_COOKIE_HOST_NAME : REMEMBER_COOKIE_NAME;
+}
+
 function deriveRememberTokenKey(token) {
   return crypto
     .createHmac('sha512', `${REMEMBER_TOKEN_SECRET}:remember:wrap`)
@@ -64,22 +83,27 @@ function pruneRememberTokens(tokens) {
 }
 
 function setRememberMeCookie(res, token, rememberMeMaxAgeMs) {
-  res.cookie(REMEMBER_COOKIE_NAME, token, {
+  const secure = shouldUseSecureCookies(res?.req);
+  const rememberCookieName = getRememberCookieName(res?.req);
+  res.cookie(rememberCookieName, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: 'auto',
+    secure,
     maxAge: rememberMeMaxAgeMs,
     path: '/'
   });
 }
 
 function clearRememberMeCookie(res) {
-  res.clearCookie(REMEMBER_COOKIE_NAME, {
+  const secure = shouldUseSecureCookies(res?.req);
+  const options = {
     httpOnly: true,
     sameSite: 'lax',
-    secure: 'auto',
+    secure,
     path: '/'
-  });
+  };
+  res.clearCookie(REMEMBER_COOKIE_NAME, options);
+  res.clearCookie(REMEMBER_COOKIE_HOST_NAME, options);
 }
 
 function applySecurityHeaders(req, res, next) {
@@ -190,6 +214,7 @@ module.exports = {
   ensureSessionSecret,
   noStore,
   parseCookies,
+  getRememberCookieName,
   hashRememberToken,
   deriveRememberTokenKey,
   pruneRememberTokens,
@@ -203,5 +228,6 @@ module.exports = {
   requireDeveloper,
   normalizeBirthDate,
   isValidEmail,
-  isValidBrazilPhone
+  isValidBrazilPhone,
+  REMEMBER_COOKIE_HOST_NAME
 };

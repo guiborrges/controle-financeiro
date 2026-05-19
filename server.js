@@ -18,6 +18,7 @@ const { registerWidgetRoutes } = require('./server/http/routes/widget');
 const { buildWidgetSnapshot, saveWidgetSnapshot, readWidgetSnapshot } = require('./server/widget-snapshot');
 const {
   REMEMBER_COOKIE_NAME,
+  REMEMBER_COOKIE_HOST_NAME,
   ensureSessionSecret,
   noStore,
   parseCookies,
@@ -171,6 +172,23 @@ function derivePasswordRecoveryKey() {
     .toString('base64');
 }
 
+function validateUserPassword(password) {
+  const raw = String(password || '');
+  if (raw.length < MIN_USER_PASSWORD_LENGTH) {
+    return {
+      ok: false,
+      message: `A senha precisa ter pelo menos ${MIN_USER_PASSWORD_LENGTH} caracteres.`
+    };
+  }
+  if (!/\d/.test(raw)) {
+    return {
+      ok: false,
+      message: 'A senha precisa incluir pelo menos 1 numero.'
+    };
+  }
+  return { ok: true };
+}
+
 function wrapRecoveryEncryptionKey(dataEncryptionKey) {
   const recoveryKey = derivePasswordRecoveryKey();
   if (!recoveryKey || !dataEncryptionKey) return '';
@@ -227,7 +245,7 @@ async function sendPasswordResetEmail({ email, displayName, token, resetLink, ex
 function restoreRememberedSession(req, res, next) {
   if (req.session?.authenticated) return next();
   const cookies = parseCookies(req);
-  const rememberToken = cookies[REMEMBER_COOKIE_NAME];
+  const rememberToken = cookies[REMEMBER_COOKIE_HOST_NAME] || cookies[REMEMBER_COOKIE_NAME];
   if (!rememberToken) return next();
 
   const tokenHash = hashRememberToken(rememberToken);
@@ -283,7 +301,15 @@ function getDeveloperSessionPayload(req) {
 }
 
 app.disable('x-powered-by');
-app.set('trust proxy', process.env.FIN_TRUST_PROXY === '1' ? 1 : false);
+function resolveTrustProxySetting() {
+  const raw = String(process.env.FIN_TRUST_PROXY || '').trim().toLowerCase();
+  if (!raw) return 'loopback';
+  if (['0', 'false', 'off', 'no'].includes(raw)) return false;
+  if (raw === '1' || raw === 'true') return 1;
+  if (raw === 'loopback') return 'loopback';
+  return raw;
+}
+app.set('trust proxy', resolveTrustProxySetting());
 app.use(applySecurityHeaders);
 app.use('/api', (req, res, next) => {
   const origin = String(req.get('origin') || '').trim();
@@ -397,10 +423,12 @@ registerAuthRoutes(app, {
   sendPasswordResetEmail,
   parseCookies,
   REMEMBER_COOKIE_NAME,
+  REMEMBER_COOKIE_HOST_NAME,
   revokeRememberMeToken,
   crypto,
   REMEMBER_ME_MAX_AGE_MS,
-  MIN_USER_PASSWORD_LENGTH
+  MIN_USER_PASSWORD_LENGTH,
+  validateUserPassword
 });
 
 registerProfileRoutes(app, {
