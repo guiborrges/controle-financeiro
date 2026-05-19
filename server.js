@@ -4,6 +4,31 @@ const path = require('path');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { ROOT_DIR, resolveStoragePath } = require('./server/paths');
+
+function loadEnvFile() {
+  const envPath = path.join(ROOT_DIR, '.env');
+  try {
+    const fs = require('fs');
+    if (!fs.existsSync(envPath)) return;
+    const text = fs.readFileSync(envPath, 'utf8');
+    for (const rawLine of String(text || '').split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const idx = line.indexOf('=');
+      if (idx <= 0) continue;
+      const key = line.slice(0, idx).trim();
+      let value = line.slice(idx + 1).trim();
+      if (!key || process.env[key] !== undefined) continue;
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      process.env[key] = value;
+    }
+  } catch (error) {
+    console.warn('[startup] Falha ao carregar .env:', error?.message || error);
+  }
+}
+loadEnvFile();
 const { createPersistentRateLimitStore } = require('./server/rate-limit-store');
 const { recoverMissingMonthsFromLegacyBackups } = require('./server/http/month-recovery');
 const { registerPageRoutes } = require('./server/http/routes/pages');
