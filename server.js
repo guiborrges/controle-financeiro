@@ -111,6 +111,10 @@ const deleteUserAppState = stateStore.deleteUserAppState || deleteUserAppStateFi
 
 ensureUsersStore();
 ensureDeveloperStore();
+if (process.env.NODE_ENV === 'production' && !String(process.env.FIN_SESSION_SECRET || '').trim()) {
+  console.error('[security] FIN_SESSION_SECRET obrigatorio em producao. Defina no ambiente.');
+  process.exit(1);
+}
 if (!String(process.env.PLUGGY_WEBHOOK_SECRET || '').trim()) {
   console.warn('[security] PLUGGY_WEBHOOK_SECRET nao configurado: webhook Pluggy sera rejeitado (HTTP 503).');
 }
@@ -310,6 +314,8 @@ function resolveTrustProxySetting() {
   return raw;
 }
 app.set('trust proxy', resolveTrustProxySetting());
+const SESSION_COOKIE_NAME = String(process.env.FIN_SESSION_COOKIE_NAME || (process.env.NODE_ENV === 'production' ? '__Host-fin.sid' : 'fin.sid')).trim() || 'fin.sid';
+const SESSION_COOKIE_SECURE = SESSION_COOKIE_NAME.startsWith('__Host-') ? true : 'auto';
 app.use(applySecurityHeaders);
 app.use('/api', (req, res, next) => {
   const origin = String(req.get('origin') || '').trim();
@@ -340,14 +346,15 @@ app.use('/api/bill-import-ai', express.urlencoded({ extended: false, limit: proc
 app.use(express.json({ limit: process.env.FIN_DEFAULT_BODY_LIMIT || '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: process.env.FIN_DEFAULT_BODY_LIMIT || '2mb' }));
 app.use(session({
-  name: 'fin.sid',
+  name: SESSION_COOKIE_NAME,
   secret: ensureSessionSecret(SESSION_SECRET_PATH),
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: 'auto'
+    secure: SESSION_COOKIE_SECURE,
+    path: '/'
   }
 }));
 app.use(restoreRememberedSession);
