@@ -748,6 +748,98 @@
     ].join('|');
   }
 
+  function buildImportedCompositeKeyFromParts(accountName, accountType, dateValue, amountValue, descriptionValue) {
+    const userId = getUserId();
+    const accountNameOriginal = normalizeText(accountName || '');
+    const recordTypeRaw = String(accountType || '').toUpperCase();
+    const dataTransacaoOriginal = normalizeText(dateValue || '');
+    const transacaoValorRaw = Number(amountValue || 0).toFixed(2);
+    const descOriginal = normalizeDescriptionKey(descriptionValue || '');
+    return [
+      userId,
+      accountNameOriginal,
+      recordTypeRaw,
+      dataTransacaoOriginal,
+      transacaoValorRaw,
+      descOriginal
+    ].join('|');
+  }
+
+  function recordImportedMarker(account, tx) {
+    if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
+    STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] = true;
+  }
+
+  function hasMatchingOutflowInSystem(accountName, dateBr, amountAbs, descriptionNorm) {
+    const months = getDataRef();
+    for (const month of months) {
+      const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
+      const found = outflows.some((item) => {
+        const itemAmount = Math.abs(Number(item?.amount || item?.valor || 0));
+        if (Math.abs(itemAmount - amountAbs) > 0.009) return false;
+        if (normalizeText(item?.date || '') !== normalizeText(dateBr)) return false;
+        const itemDescNorm = normalizeDescriptionKey(item?.description || item?.descricao || '');
+        if (!itemDescNorm || !descriptionNorm) return false;
+        if (!(itemDescNorm === descriptionNorm || itemDescNorm.includes(descriptionNorm) || descriptionNorm.includes(itemDescNorm))) return false;
+        // Prioriza matching de origem quando disponível
+        const sourceAccount = normalizeText(item?.ibAccountNameOriginal || item?.sourceAccountName || '');
+        if (sourceAccount && normalizeComparableText(sourceAccount) !== normalizeComparableText(accountName)) return false;
+        return true;
+      });
+      if (found) return true;
+    }
+    return false;
+  }
+
+  function hasMatchingPatrimonioMovementInSystem(accountName, dateIso, amountAbs, descriptionNorm) {
+    const movements = getPatrimonioMovementsRef();
+    return movements.some((item) => {
+      const itemValue = Math.abs(Number(item?.value || item?.valor || 0));
+      if (Math.abs(itemValue - amountAbs) > 0.009) return false;
+      if (normalizeText(item?.date || item?.data || '') !== normalizeText(dateIso)) return false;
+      const itemDescNorm = normalizeDescriptionKey(item?.description || item?.descricao || '');
+      if (!itemDescNorm || !descriptionNorm) return false;
+      if (!(itemDescNorm === descriptionNorm || itemDescNorm.includes(descriptionNorm) || descriptionNorm.includes(itemDescNorm))) return false;
+      const sourceAccount = normalizeText(item?.ibAccountNameOriginal || item?.sourceAccountName || '');
+      if (sourceAccount && normalizeComparableText(sourceAccount) !== normalizeComparableText(accountName)) return false;
+      return true;
+    });
+  }
+
+  function rebuildImportedStateFromSavedData() {
+    if (!Array.isArray(STATE.rawData?.accounts)) return;
+    STATE.rawData.accounts.forEach((account) => {
+      const accountName = normalizeText(account?.accountName || '');
+      const accountType = String(account?.accountType || '').toUpperCase();
+      const txList = Array.isArray(account?.transactions) ? account.transactions : [];
+      txList.forEach((tx) => {
+        const amountAbs = Math.abs(Number(tx?.amount || 0));
+        if (!(amountAbs > 0)) return;
+        const descriptionNorm = normalizeDescriptionKey(tx?.descriptionRaw || tx?.description || '');
+        if (!descriptionNorm) return;
+        let matched = false;
+        if (accountType === 'CREDIT') {
+          const dateBr = formatDateAndTime(tx?.date).dateBr;
+          if (!dateBr) return;
+          matched = hasMatchingOutflowInSystem(accountName, dateBr, amountAbs, descriptionNorm);
+        } else if (accountType === 'BANK') {
+          const dateIso = dateToIsoDay(tx?.date);
+          if (!dateIso) return;
+          matched = hasMatchingPatrimonioMovementInSystem(accountName, dateIso, amountAbs, descriptionNorm);
+        }
+        if (!matched) return;
+        if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
+        STATE.userState.importedTxKeys[buildImportedCompositeKeyFromParts(
+          accountName,
+          accountType,
+          normalizeText(tx?.date || ''),
+          Number(tx?.amount || 0),
+          tx?.descriptionRaw || tx?.description || ''
+        )] = true;
+      });
+    });
+  }
+
   function rememberCategory(description, category) {
     const normCategory = normalizeText(category);
     if (!normCategory) return;
@@ -858,7 +950,9 @@
       installmentsGroupId: '',
       installmentsTotal: Number(tx?.creditCardMetadata?.totalInstallments || 1) || 1,
       installmentIndex: Number(tx?.creditCardMetadata?.installmentNumber || 1) || 1,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      sourceAccountName: normalizeText(account?.accountName || ''),
+      ibAccountNameOriginal: normalizeText(account?.accountName || '')
     };
     const normalized = typeof global.normalizeUnifiedOutflowItem === 'function'
       ? global.normalizeUnifiedOutflowItem(base, 0)
@@ -872,8 +966,7 @@
     rememberCategory(originalPluggyDescription, base.category);
     rememberTag(originalPluggyDescription, base.tag);
     propagateMemoryToPendingRows(tx, base.category, base.tag);
-    if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
-    STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] = true;
+    recordImportedMarker(account, tx);
     persistUserState();
     global.save(true);
     removePendingTx(accountId, txId);
@@ -908,15 +1001,16 @@
       accountId: linkedAccountId,
       value,
       description,
-      date: dateIso
+      date: dateIso,
+      sourceAccountName: normalizeText(account?.accountName || ''),
+      ibAccountNameOriginal: normalizeText(account?.accountName || '')
     };
     const movement = typeof global.normalizePatrimonioMovement === 'function'
       ? global.normalizePatrimonioMovement(movementBase, getPatrimonioMovementsRef().length)
       : movementBase;
     const updatedMovements = [movement].concat(getPatrimonioMovementsRef());
     setPatrimonioMovementsRef(updatedMovements);
-    if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
-    STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] = true;
+    recordImportedMarker(account, tx);
     persistUserState();
     global.save(true);
     if (typeof global.renderPatrimonioMetrics === 'function') global.renderPatrimonioMetrics();
@@ -1510,6 +1604,8 @@
       STATE.loadedAt = new Date().toISOString();
       STATE.pendingByAccount = {};
       loadUserState();
+      rebuildImportedStateFromSavedData();
+      persistUserState();
       resetCollapsedGroupsToClosed();
     } catch (error) {
       STATE.error = error?.message || 'Falha ao carregar dados do Pluggy.';
