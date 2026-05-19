@@ -1,9 +1,35 @@
-ï»¿(function initMobileV2Home(global) {
+(function initMobileV2Home(global) {
   'use strict';
+
+  function escapeHtml(value) {
+    if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   function formatMoney(value) {
     if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  function toDateScore(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return 0;
+    const normalized = typeof global.normalizeVarDate === 'function' ? global.normalizeVarDate(text) : text;
+    const parts = String(normalized || '').split('/');
+    if (parts.length !== 3) return 0;
+    const [dd, mm, yy] = parts.map(Number);
+    const yyyy = yy > 99 ? yy : 2000 + (yy || 0);
+    return new Date(yyyy, Math.max(0, (mm || 1) - 1), dd || 1).getTime() || 0;
+  }
+
+  function getCurrentMonthSafe() {
+    if (typeof global.getCurrentMonth === 'function') return global.getCurrentMonth();
+    return null;
   }
 
   function getMonthMetrics(month) {
@@ -11,7 +37,7 @@
     const incomeRows = Array.isArray(month?.renda) ? month.renda : [];
     const projectRows = Array.isArray(month?.projetos) ? month.projetos : [];
 
-    const income = incomeRows.reduce((acc, item) => {
+    const monthlyIncome = incomeRows.reduce((acc, item) => {
       if (item?.includeInTotals === false) return acc;
       return acc + Number(item?.valor || 0);
     }, 0) + projectRows.reduce((acc, item) => {
@@ -19,26 +45,46 @@
       return acc + Number(item?.valor || 0);
     }, 0);
 
-    let expenses = 0;
+    let monthlyExpenses = 0;
+    let plannedCommitments = 0;
+    let variableExpenses = 0;
+
     outflows.forEach((item) => {
       if (item?.countsInPrimaryTotals === false) return;
       const value = Math.abs(Number(item?.amount || item?.valor || 0));
-      if (!value) return;
+      if (!(value > 0)) return;
+      const type = String(item?.type || '').toLowerCase();
       const kind = String(item?.outputKind || '').toLowerCase();
-      if (kind === 'card' && String(item?.type || '').toLowerCase() === 'spend') return;
-      expenses += value;
+
+      if (kind === 'card' && type === 'spend') {
+        return;
+      }
+
+      monthlyExpenses += value;
+      if (type === 'expense') plannedCommitments += value;
+      else variableExpenses += value;
     });
 
-    const bills = Array.isArray(month?.cardBills) ? month.cardBills : [];
-    bills.forEach((bill) => {
-      expenses += Math.abs(Number(bill?.amount || 0));
+    const cardBills = Array.isArray(month?.cardBills) ? month.cardBills : [];
+    cardBills.forEach((bill) => {
+      const amount = Math.abs(Number(bill?.amount || 0));
+      if (!(amount > 0)) return;
+      monthlyExpenses += amount;
+      plannedCommitments += amount;
     });
 
     return {
-      income,
-      expenses,
-      result: income - expenses
+      monthlyIncome,
+      monthlyExpenses,
+      monthlyResult: monthlyIncome - monthlyExpenses,
+      plannedCommitments,
+      variableExpenses
     };
+  }
+
+  function resolveCategory(item) {
+    const raw = item?.category || item?.categoria || 'OUTROS';
+    return String(global.resolveCategoryName ? global.resolveCategoryName(raw) : raw).trim() || 'OUTROS';
   }
 
   function getCategoryTotals(month) {
@@ -46,107 +92,178 @@
     const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
     outflows.forEach((item) => {
       if (item?.countsInPrimaryTotals === false) return;
-      if (String(item?.type || '').toLowerCase() !== 'spend') return;
       const amount = Math.abs(Number(item?.amount || 0));
       if (!(amount > 0)) return;
-      const category = String(global.resolveCategoryName ? global.resolveCategoryName(item?.category || item?.categoria || 'OUTROS') : (item?.category || 'OUTROS')).trim() || 'OUTROS';
+      const kind = String(item?.outputKind || '').toLowerCase();
+      const type = String(item?.type || '').toLowerCase();
+      if (kind === 'card' && type === 'spend') return;
+      const category = resolveCategory(item);
       totals.set(category, (totals.get(category) || 0) + amount);
     });
+
     return Array.from(totals.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([name, total]) => ({
         name,
         total,
-        icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(name) : 'â€¢'
+        icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(name) : '•'
       }));
+  }
+
+  function getGoalRows(month) {
+    const goals = month?.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
+    const spentByCategory = month?.categorias && typeof month.categorias === 'object' ? month.categorias : {};
+
+    return Object.entries(goals)
+      .map(([category, goalValue]) => {
+        const goal = Math.max(0, Number(goalValue || 0));
+        if (!(goal > 0)) return null;
+        const resolved = String(global.resolveCategoryName ? global.resolveCategoryName(category) : category).trim() || 'OUTROS';
+        const spent = Math.max(0, Number(spentByCategory[resolved] || spentByCategory[category] || 0));
+        const percent = Math.max(0, Math.round((spent / goal) * 100));
+        return {
+          category: resolved,
+          icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(resolved) : '•',
+          spent,
+          goal,
+          percent
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.percent - a.percent)
+      .slice(0, 4);
   }
 
   function getRecentRows(month) {
     const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
-    const sorted = [...outflows].sort((a, b) => String(b?.date || '').localeCompare(String(a?.date || '')));
-    return sorted.slice(0, 5);
+    return [...outflows]
+      .sort((a, b) => toDateScore(b?.date) - toDateScore(a?.date))
+      .slice(0, 5);
+  }
+
+  function openOutflow(itemId) {
+    if (!itemId || typeof global.openUnifiedOutflowModal !== 'function') return;
+    global.openUnifiedOutflowModal(itemId);
   }
 
   function render(target) {
     if (!target) return;
-    const month = typeof global.getCurrentMonth === 'function' ? global.getCurrentMonth() : null;
+    const month = getCurrentMonthSafe();
     if (!month) {
-      target.innerHTML = '<div class="m2-card"><p>Sem dados para exibir.</p></div>';
+      target.innerHTML = '<div class="m2-empty">Sem dados para exibir no dashboard.</div>';
       return;
     }
 
-    const userName = document.getElementById('sessionUserName')?.textContent?.trim() || 'UsuÃ¡rio';
     const metrics = getMonthMetrics(month);
-    const catTotals = getCategoryTotals(month);
+    const categoryTotals = getCategoryTotals(month);
+    const goals = getGoalRows(month);
     const recents = getRecentRows(month);
 
     target.innerHTML = `
-      <div class="m2-header">
+      <header class="m2-header">
         <div>
-          <h2 class="m2-title">OlÃ¡, ${userName.split(' ')[0]}</h2>
-          <p class="m2-subtitle">${global.escapeHtml ? global.escapeHtml(String(month?.nome || 'MÃªs atual')) : String(month?.nome || 'MÃªs atual')}</p>
+          <h2 class="m2-title">Dashboard</h2>
+          <p class="m2-subtitle">${escapeHtml(String(month?.nome || 'Mês atual'))}</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="NotificaÃ§Ãµes" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : 'ðŸ””'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : 'ðŸ‘¤'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Tags" onclick="MobileV2FiltersSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('tag') : '???'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '??'}</button>
         </div>
-      </div>
+      </header>
 
-      <section class="hero-result-card ${metrics.result >= 0 ? 'is-positive' : 'is-negative'}">
-        <div class="hero-result-label">Resultado do mÃªs</div>
-        <div class="hero-result-value">${formatMoney(metrics.result)}</div>
+      <section class="hero-card ${metrics.monthlyResult < 0 ? 'is-negative' : ''}">
+        <div class="hero-result-label">RESULTADO DO MÊS</div>
+        <div class="hero-result">${formatMoney(metrics.monthlyResult)}</div>
+        <div class="hero-sub">
+          <span>Renda ${formatMoney(metrics.monthlyIncome)}</span>
+          <span>Gastos ${formatMoney(metrics.monthlyExpenses)}</span>
+        </div>
       </section>
 
-      <div class="metric-pair">
-        <article class="metric-small-card">
-          <div class="metric-small-label">Renda</div>
-          <div class="metric-small-value">${formatMoney(metrics.income)}</div>
+      <section class="dash-pair">
+        <article class="dash-mini-card">
+          <div class="dash-mini-label">Compromissos</div>
+          <div class="dash-mini-value">${formatMoney(metrics.plannedCommitments)}</div>
+          <div class="dash-mini-note">Plano do mês</div>
         </article>
-        <article class="metric-small-card">
-          <div class="metric-small-label">Despesas</div>
-          <div class="metric-small-value">${formatMoney(metrics.expenses)}</div>
+        <article class="dash-mini-card">
+          <div class="dash-mini-label">Gastos var.</div>
+          <div class="dash-mini-value">${formatMoney(metrics.variableExpenses)}</div>
+          <div class="dash-mini-note">Variáveis</div>
         </article>
-      </div>
+      </section>
 
-      <section class="m2-card">
-        <h3 class="m2-card-title">Gastos por categoria</h3>
-        ${catTotals.length ? catTotals.map((entry) => {
-          const max = catTotals[0]?.total || 1;
-          const percent = Math.max(4, Math.round((entry.total / max) * 100));
+      <section class="dash-section">
+        <div class="dash-section-header">
+          <span>Gastos por categoria</span>
+          <button class="dash-section-link" type="button" onclick="window.MobileV2?.setTab('mes'); window.MobileV2MesAtual?.setSubtab('gastos-metas'); window.MobileV2?.refresh?.();">Ver todas</button>
+        </div>
+        ${categoryTotals.length ? categoryTotals.map((entry) => {
+          const max = categoryTotals[0]?.total || 1;
+          const width = Math.max(5, Math.round((entry.total / max) * 100));
           return `
-            <div class="category-progress-row">
-              <div class="m2-category-progress-label"><span class="m2-icon-pill">${entry.icon}</span><span>${global.escapeHtml ? global.escapeHtml(entry.name) : entry.name}</span></div>
-              <div class="category-bar-fill"><div class="category-bar-fill-inner" style="width:${percent}%"></div></div>
-              <div style="font-size:12px;font-weight:600">${formatMoney(entry.total)}</div>
+            <div class="dash-row dash-row-progress">
+              <span class="dash-row-icon">${escapeHtml(entry.icon)}</span>
+              <span class="dash-row-name">${escapeHtml(entry.name)}</span>
+              <span class="dash-row-bar"><span class="dash-row-bar-fill" style="width:${width}%"></span></span>
+              <span class="dash-row-value expense">${formatMoney(entry.total)}</span>
             </div>
           `;
-        }).join('') : '<p style="color:var(--text3);font-size:12px">Sem gastos categorizados no mÃªs.</p>'}
-        <button class="m2-chip-btn" type="button" onclick="window.MobileV2?.setTab('mes'); window.MobileV2MesAtual?.setSubtab('gastos'); window.MobileV2?.refresh?.();">Ver todas</button>
+        }).join('') : '<div class="dash-row"><span class="dash-row-date">Sem categorias com gastos no mês.</span></div>'}
       </section>
 
-      <section class="m2-card">
-        <h3 class="m2-card-title">LanÃ§amentos recentes</h3>
+      <section class="dash-section">
+        <div class="dash-section-header">
+          <span>Metas do mês</span>
+          <button class="dash-section-link" type="button" onclick="window.MobileV2?.setTab('mes'); window.MobileV2MesAtual?.setSubtab('gastos-metas'); window.MobileV2?.refresh?.();">Ver todas</button>
+        </div>
+        ${goals.length ? goals.map((goal) => {
+          const fillClass = goal.percent > 100 ? 'over' : '';
+          const clamped = Math.min(goal.percent, 100);
+          return `
+            <div class="dash-row dash-row-goal">
+              <span class="dash-row-icon">${escapeHtml(goal.icon)}</span>
+              <div class="dash-row-info">
+                <span class="dash-row-name">${escapeHtml(goal.category)}</span>
+                <span class="dash-row-date">${formatMoney(goal.spent)} / ${formatMoney(goal.goal)} · ${goal.percent}%</span>
+              </div>
+              <span class="dash-row-bar"><span class="dash-row-bar-fill ${fillClass}" style="width:${clamped}%"></span></span>
+            </div>
+          `;
+        }).join('') : '<div class="dash-row"><span class="dash-row-date">Nenhuma meta ativa no mês.</span></div>'}
+      </section>
+
+      <section class="dash-section">
+        <div class="dash-section-header">
+          <span>Lançamentos recentes</span>
+          <button class="dash-section-link" type="button" onclick="window.MobileV2?.setTab('mes')">Ver todos</button>
+        </div>
         ${recents.length ? recents.map((item) => {
           const amount = Math.abs(Number(item?.amount || 0));
-          const desc = String(item?.description || 'LanÃ§amento');
-          const date = String(item?.date || '');
-          const icon = global.getCategoryEmoji ? global.getCategoryEmoji(item?.category || item?.categoria || 'OUTROS') : 'â€¢';
+          const isExpense = Number(item?.amount || 0) >= 0;
+          const desc = String(item?.description || 'Lançamento');
+          const date = String(item?.date || 'Sem data');
+          const category = resolveCategory(item);
+          const icon = typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(category) : '•';
+          const safeId = String(item?.id || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
           return `
-            <button class="m2-recent-item" type="button" onclick="openUnifiedOutflowModal('${String(item?.id || '').replace(/'/g, "\\'")}')">
-              <span class="m2-icon-pill">${icon}</span>
-              <span>
-                <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(desc) : desc}</p>
-                <span class="m2-row-meta">${global.escapeHtml ? global.escapeHtml(date) : date}</span>
+            <button class="dash-row dash-row-click" type="button" onclick="MobileV2HomeScreen.openOutflow('${safeId}')">
+              <span class="dash-row-icon">${escapeHtml(icon)}</span>
+              <span class="dash-row-info">
+                <span class="dash-row-name">${escapeHtml(desc)}</span>
+                <span class="dash-row-date">${escapeHtml(date)} · ${escapeHtml(category)}</span>
               </span>
-              <span class="m2-row-amount ${Number(item?.amount || 0) >= 0 ? 'negative' : 'positive'}">${formatMoney(amount)}</span>
+              <span class="dash-row-value ${isExpense ? 'expense' : 'income'}">${formatMoney(amount)}</span>
             </button>
           `;
-        }).join('') : '<p style="color:var(--text3);font-size:12px">Sem lanÃ§amentos recentes.</p>'}
-        <button class="m2-chip-btn" type="button" onclick="window.MobileV2?.setTab('mes')">Ver todos</button>
+        }).join('') : '<div class="dash-row"><span class="dash-row-date">Sem lançamentos recentes.</span></div>'}
       </section>
     `;
   }
 
-  global.MobileV2HomeScreen = { render };
+  global.MobileV2HomeScreen = {
+    render,
+    openOutflow
+  };
 })(window);

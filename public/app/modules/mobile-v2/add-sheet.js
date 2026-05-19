@@ -1,44 +1,49 @@
-ï»¿(function initMobileV2AddSheet(global) {
+(function initMobileV2AddSheet(global) {
   'use strict';
+
+  const TYPE_OPTIONS = [
+    { key: 'launch', icon: '??', title: 'Lançamento', desc: 'Gasto ou receita simples' },
+    { key: 'recurring', icon: '??', title: 'Recorrente', desc: 'Repete automaticamente todo mês' },
+    { key: 'installment', icon: '??', title: 'Parcelado', desc: 'Divide em parcelas futuras' },
+    { key: 'shared', icon: '??', title: 'Compartilhado', desc: 'Divide com outras pessoas' }
+  ];
 
   function ensureSheet() {
     let root = document.getElementById('mobileV2AddSheet');
     if (root) return root;
+
     root = document.createElement('div');
     root.id = 'mobileV2AddSheet';
     root.className = 'bottom-sheet';
     root.innerHTML = `
       <button class="bottom-sheet-scrim" type="button" aria-label="Fechar"></button>
-      <div class="bottom-sheet-panel" role="dialog" aria-modal="true" aria-label="Adicionar lanÃ§amento">
+      <div class="bottom-sheet-panel" role="dialog" aria-modal="true" aria-label="Adicionar lançamento">
         <div class="bottom-sheet-grip"></div>
-        <h3 style="margin:0 0 4px;font-size:18px">O que deseja adicionar?</h3>
-        <p style="margin:0 0 12px;color:var(--text3);font-size:12px">Escolha como quer registrar a saÃ­da.</p>
-        <div class="m2-choose-grid">
-          <button type="button" class="m2-choose-card" data-m2-add-type="spend">
-            <strong style="font-size:15px;display:block">ðŸ’³ Gasto</strong>
-            <span style="font-size:12px;color:var(--text3)">Compra/saÃ­da rÃ¡pida</span>
-          </button>
-          <button type="button" class="m2-choose-card" data-m2-add-type="expense">
-            <strong style="font-size:15px;display:block">ðŸ“‹ Despesa</strong>
-            <span style="font-size:12px;color:var(--text3)">Compromisso/recorrÃªncia</span>
-          </button>
+        <h3 class="m2-sheet-title">Adicionar lançamento</h3>
+        <p class="m2-sheet-subtitle">Escolha o tipo para continuar.</p>
+        <div class="m2-type-list">
+          ${TYPE_OPTIONS.map((option) => `
+            <button type="button" class="type-option" data-m2-add-type="${option.key}">
+              <span class="type-option-icon">${option.icon}</span>
+              <span>
+                <strong>${option.title}</strong>
+                <span class="type-option-desc">${option.desc}</span>
+              </span>
+              <span class="type-option-arrow">›</span>
+            </button>
+          `).join('')}
         </div>
       </div>
     `;
+
     document.body.appendChild(root);
 
     root.querySelector('.bottom-sheet-scrim')?.addEventListener('click', close);
-    root.querySelectorAll('[data-m2-add-type]').forEach(btn => {
+    root.querySelectorAll('[data-m2-add-type]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const type = btn.getAttribute('data-m2-add-type');
+        const mode = btn.getAttribute('data-m2-add-type') || 'launch';
         close();
-        if (global.MobileV2OutflowForm?.open) {
-          global.MobileV2OutflowForm.open(type);
-          return;
-        }
-        if (typeof global.openUnifiedOutflowModal === 'function') {
-          global.openUnifiedOutflowModal('', { mobileType: type });
-        }
+        global.MobileV2OutflowForm?.open?.(mode);
       });
     });
 
@@ -53,5 +58,9 @@
     document.getElementById('mobileV2AddSheet')?.classList.remove('open');
   }
 
-  global.MobileV2AddSheet = { ensureSheet, open, close };
+  global.MobileV2AddSheet = {
+    ensureSheet,
+    open,
+    close
+  };
 })(window);

@@ -1,4 +1,4 @@
-Ôªø(function initMobileV2Patrimonio(global) {
+(function initMobileV2Patrimonio(global) {
   'use strict';
 
   function formatMoney(value) {
@@ -6,68 +6,136 @@
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  function render(target) {
-    if (!target) return;
+  function escapeHtml(value) {
+    if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function resolveData() {
     const accounts = Array.isArray(global.patrimonioAccounts) ? global.patrimonioAccounts : [];
     const movements = Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements : [];
-    const total = accounts.reduce((sum, acc) => sum + Number(acc?.balance || acc?.saldoAtual || acc?.initialBalance || 0), 0);
+
+    if (accounts.length || movements.length) {
+      return { accounts, movements };
+    }
+
+    try {
+      if (typeof global.getPatrimonioData === 'function') {
+        const data = global.getPatrimonioData();
+        return {
+          accounts: Array.isArray(data?.accounts) ? data.accounts : [],
+          movements: Array.isArray(data?.movements) ? data.movements : []
+        };
+      }
+    } catch {}
+
+    try {
+      const state = global.appState || global.dataState || null;
+      return {
+        accounts: Array.isArray(state?.patrimonioAccounts) ? state.patrimonioAccounts : [],
+        movements: Array.isArray(state?.patrimonioMovements) ? state.patrimonioMovements : []
+      };
+    } catch {
+      return { accounts: [], movements: [] };
+    }
+  }
+
+  function getAccountBalance(account) {
+    return Number(account?.balance || account?.saldoAtual || account?.initialBalance || 0);
+  }
+
+  function render(target) {
+    if (!target) return;
+
+    const resolved = resolveData();
+    const accounts = resolved.accounts;
+    const movements = resolved.movements;
+
+    const total = accounts.reduce((sum, account) => sum + getAccountBalance(account), 0);
     const recent = [...movements].slice(-5).reverse();
 
     target.innerHTML = `
       <div class="m2-header">
         <div>
-          <h2 class="m2-title">Patrim√¥nio</h2>
-          <p class="m2-subtitle">Vis√£o consolidada das contas</p>
+          <h2 class="m2-title">PatrimÙnio</h2>
+          <p class="m2-subtitle">Vis„o consolidada das contas</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : 'üîî'}</button>
-          <button class="m2-icon-btn" type="button" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : 'üë§'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="NotificaÁıes" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : '??'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '??'}</button>
         </div>
       </div>
 
-      <section class="hero-result-card" style="background:linear-gradient(135deg,#1f6f4a 0%,#245a4a 100%)">
-        <div class="hero-result-label">Total patrimonial</div>
-        <div class="hero-result-value">${formatMoney(total)}</div>
+      <section class="hero-card hero-card-wealth">
+        <div class="hero-result-label">TOTAL PATRIMONIAL</div>
+        <div class="hero-result">${formatMoney(total)}</div>
+        <div class="hero-sub"><span>${accounts.length} conta(s) acompanhada(s)</span></div>
       </section>
 
-      <section class="m2-card">
-        <h3 class="m2-card-title">Contas</h3>
-        ${accounts.length ? accounts.map((acc) => {
-          const name = String(acc?.name || acc?.nome || 'Conta');
-          const value = Number(acc?.balance || acc?.saldoAtual || acc?.initialBalance || 0);
-          const icon = acc?.icon || acc?.symbol || 'üè¶';
+      <section class="m-list-card">
+        <h3 class="m-list-title">Contas</h3>
+        ${accounts.length ? accounts.map((account) => {
+          const name = String(account?.name || account?.nome || 'Conta');
+          const icon = String(account?.icon || account?.symbol || '??');
+          const balance = getAccountBalance(account);
           return `
-            <article class="m2-recent-item">
-              <span class="m2-icon-pill">${icon}</span>
-              <span><p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(name) : name}</p></span>
-              <span class="m2-row-amount ${value >= 0 ? 'positive' : 'negative'}">${formatMoney(value)}</span>
+            <article class="m-item m-item-income">
+              <div class="m-item-surface static">
+                <div class="m-item-info">
+                  <span class="m-item-name">${escapeHtml(icon)} ${escapeHtml(name)}</span>
+                </div>
+                <span class="m-item-value ${balance >= 0 ? 'income' : ''}">${formatMoney(balance)}</span>
+              </div>
             </article>
           `;
-        }).join('') : '<p style="color:var(--text3);font-size:12px">Nenhuma conta patrimonial cadastrada.</p>'}
-        <button class="m2-chip-btn" type="button" onclick="openPatrimonioAccountModal?.()">+ Nova conta</button>
+        }).join('') : '<div class="m2-empty">Nenhuma conta patrimonial cadastrada.</div>'}
+        <div class="m2-list-actions">
+          <button class="m2-chip-btn" type="button" onclick="openPatrimonioAccountModal?.()">+ Nova conta</button>
+        </div>
       </section>
 
-      <section class="m2-card">
-        <h3 class="m2-card-title">Movimenta√ß√µes recentes</h3>
-        ${recent.length ? recent.map((mv) => {
-          const type = String(mv?.type || 'aporte');
-          const desc = String(mv?.description || mv?.descricao || type);
-          const val = Number(mv?.value || mv?.valor || 0);
-          const date = String(mv?.date || mv?.data || '');
+      <section class="m-list-card">
+        <h3 class="m-list-title">MovimentaÁıes recentes</h3>
+        ${recent.length ? recent.map((movement) => {
+          const type = String(movement?.type || 'aporte');
+          const description = String(movement?.description || movement?.descricao || type);
+          const date = String(movement?.date || movement?.data || 'Sem data');
+          const value = Math.abs(Number(movement?.value || movement?.valor || 0));
+          const icon = type === 'retirada' ? '?' : (type === 'transferencia' ? '?' : '?');
           return `
-            <article class="m2-recent-item">
-              <span class="m2-icon-pill">${type === 'retirada' ? '‚Üò' : '‚Üó'}</span>
-              <span>
-                <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(desc) : desc}</p>
-                <span class="m2-row-meta">${global.escapeHtml ? global.escapeHtml(date) : date}</span>
-              </span>
-              <span class="m2-row-amount ${type === 'retirada' ? 'negative' : 'positive'}">${formatMoney(Math.abs(val))}</span>
+            <article class="m-item m-item-income">
+              <div class="m-item-surface static">
+                <div class="m-item-info">
+                  <span class="m-item-name">${escapeHtml(icon)} ${escapeHtml(description)}</span>
+                  <span class="m-item-meta">${escapeHtml(date)}</span>
+                </div>
+                <span class="m-item-value ${type === 'retirada' ? '' : 'income'}">${formatMoney(value)}</span>
+              </div>
             </article>
           `;
-        }).join('') : '<p style="color:var(--text3);font-size:12px">Sem movimenta√ß√µes recentes.</p>'}
+        }).join('') : '<div class="m2-empty">Sem movimentaÁıes recentes.</div>'}
       </section>
     `;
   }
 
-  global.MobileV2Patrimonio = { render };
+  function refreshIfVisible() {
+    if (!global.MobileV2?.isEnabled?.()) return;
+    const screen = document.getElementById('mobileV2Screen-patrimonio');
+    if (!screen || !screen.classList.contains('active')) return;
+    render(screen);
+  }
+
+  global.MobileV2Patrimonio = {
+    render,
+    refreshIfVisible
+  };
+
+  document.addEventListener('appStateUpdated', refreshIfVisible);
+  document.addEventListener('dataLoaded', refreshIfVisible);
+  global.addEventListener('load', refreshIfVisible);
 })(window);
