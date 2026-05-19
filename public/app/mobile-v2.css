@@ -38,7 +38,8 @@
     display: none;
     flex: 1;
     overflow-y: auto;
-    padding: 12px 14px 16px;
+    padding: 12px 14px 18px;
+    -webkit-overflow-scrolling: touch;
   }
 
   html.mobile-v2 .mobile-v2-screen.active {
@@ -81,7 +82,7 @@
     border-radius: 20px;
     padding: 18px;
     margin-bottom: 12px;
-    box-shadow: 0 4px 20px rgba(36,74,121,.25);
+    box-shadow: 0 8px 24px rgba(36,74,121,.22);
   }
 
   html.mobile-v2 .hero-result-label {
@@ -129,6 +130,7 @@
     border-radius: 16px;
     padding: 12px;
     margin-bottom: 12px;
+    box-shadow: 0 3px 10px rgba(20, 27, 39, 0.04);
   }
 
   html.mobile-v2 .m2-card-title {
@@ -186,7 +188,8 @@
     position: sticky;
     top: 0;
     z-index: 3;
-    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(6px);
     padding: 8px 0 10px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 12px;
@@ -230,6 +233,10 @@
     gap: 8px;
     margin: 12px 0;
     padding-bottom: 2px;
+    position: sticky;
+    top: 76px;
+    z-index: 2;
+    background: var(--bg);
   }
 
   html.mobile-v2 .m2-subtab {
@@ -261,8 +268,8 @@
   html.mobile-v2 .m2-outflow-item {
     position: relative;
     overflow: hidden;
-    border-radius: 12px;
-    margin-bottom: 6px;
+    border-radius: 14px;
+    margin-bottom: 8px;
     background: var(--surface-strong);
     border: 1px solid var(--border);
     padding: 0;
@@ -273,7 +280,7 @@
     grid-template-columns: auto 1fr auto;
     gap: 8px;
     align-items: center;
-    padding: 10px;
+    padding: 10px 10px 10px 8px;
     background: var(--surface-strong);
     position: relative;
     z-index: 2;
@@ -295,7 +302,8 @@
     border: 0;
     background: var(--surface2);
     color: var(--text2);
-    font-size: 15px;
+    font-size: 16px;
+    font-weight: 700;
   }
 
   html.mobile-v2 .m2-swipe-btn.positive { color: var(--green); }
@@ -346,7 +354,10 @@
     background: var(--surface-strong);
     padding: 0 12px;
     font-size: 16px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    position: sticky;
+    top: 118px;
+    z-index: 2;
   }
 
   html.mobile-v2 .bottom-nav {
@@ -355,7 +366,8 @@
     right: 0;
     bottom: 0;
     z-index: 500;
-    background: var(--surface-strong);
+    background: color-mix(in srgb, var(--surface-strong) 95%, transparent);
+    backdrop-filter: blur(8px);
     border-top: 1px solid var(--border);
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -394,7 +406,7 @@
     border: none;
     background: #d64545;
     color: #fff;
-    box-shadow: 0 10px 26px rgba(214, 69, 69, .38);
+    box-shadow: 0 10px 24px rgba(214, 69, 69, .32);
     z-index: 520;
     display: none;
     align-items: center;
@@ -457,7 +469,7 @@
     border-radius: 14px;
     background: var(--surface-strong);
     padding: 12px;
-    min-height: 100px;
+    min-height: 96px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -474,5 +486,15 @@
     justify-content: space-between;
     color: var(--text);
     font-size: 14px;
+  }
+
+  html.mobile-v2 .m2-empty {
+    text-align: center;
+    color: var(--text3);
+    font-size: 12px;
+    padding: 18px 8px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
   }
 }

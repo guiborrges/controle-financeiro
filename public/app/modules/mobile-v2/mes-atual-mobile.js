@@ -19,6 +19,7 @@
     if (!month) return;
     month.mobileV2 = month.mobileV2 || {};
     if (!SUBTABS.includes(month.mobileV2.subtab)) month.mobileV2.subtab = activeSubtab;
+    if (typeof month.mobileV2.allSearch !== 'string') month.mobileV2.allSearch = '';
     activeSubtab = month.mobileV2.subtab;
   }
 
@@ -136,11 +137,11 @@
       <div class="m2-tab-panel ${activeSubtab === 'resumo' ? 'active' : ''}" data-tab-panel="resumo">
         <section class="m2-card">
           <h3 class="m2-card-title">Compromissos do mês</h3>
-          ${fixed.length ? fixed.slice(0, 10).map(renderSwipeableOutflow).join('') : '<p style="color:var(--text3);font-size:12px">Sem compromissos registrados.</p>'}
+          ${fixed.length ? fixed.slice(0, 10).map(renderSwipeableOutflow).join('') : '<div class="m2-empty">Sem compromissos registrados.</div>'}
         </section>
         <section class="m2-card">
           <h3 class="m2-card-title">Gastos variáveis</h3>
-          ${spends.length ? spends.slice(0, 10).map(renderSwipeableOutflow).join('') : '<p style="color:var(--text3);font-size:12px">Sem gastos registrados.</p>'}
+          ${spends.length ? spends.slice(0, 10).map(renderSwipeableOutflow).join('') : '<div class="m2-empty">Sem gastos registrados.</div>'}
         </section>
       </div>
     `;
@@ -168,7 +169,7 @@
                 <div class="m2-category-list">${items.slice(0, 8).map(renderSwipeableOutflow).join('')}</div>
               </details>
             `;
-          }).join('') : '<p style="color:var(--text3);font-size:12px">Sem categorias com gastos.</p>'}
+          }).join('') : '<div class="m2-empty">Sem categorias com gastos.</div>'}
         </section>
       </div>
     `;
@@ -176,11 +177,12 @@
 
   function renderTodos(month) {
     const all = getOutflowRows(month);
+    const searchValue = String(month?.mobileV2?.allSearch || '');
     return `
       <div class="m2-tab-panel ${activeSubtab === 'todos' ? 'active' : ''}" data-tab-panel="todos">
-        <input id="mobileV2AllSearch" class="m2-search" type="search" placeholder="Buscar lançamentos...">
+        <input id="mobileV2AllSearch" class="m2-search" type="search" placeholder="Buscar lançamentos..." value="${global.escapeHtml ? global.escapeHtml(searchValue) : searchValue}">
         <section class="m2-card" id="mobileV2AllList">
-          ${all.length ? all.map(renderSwipeableOutflow).join('') : '<p style="color:var(--text3);font-size:12px">Sem lançamentos no mês.</p>'}
+          ${all.length ? all.map(renderSwipeableOutflow).join('') : '<div class="m2-empty">Sem lançamentos no mês.</div>'}
         </section>
       </div>
     `;
@@ -208,7 +210,7 @@
               </span>
               <span class="m2-row-amount positive">${formatMoney(row.valor)}</span>
             </article>
-          `).join('') : '<p style="color:var(--text3);font-size:12px">Sem rendas cadastradas.</p>'}
+          `).join('') : '<div class="m2-empty">Sem rendas cadastradas.</div>'}
           <div style="padding-top:8px;font-weight:700">Total esperado: ${formatMoney(total)}</div>
         </section>
       </div>
@@ -237,7 +239,7 @@
                 <div class="m2-row-meta" style="margin-top:6px">${remain >= 0 ? 'Falta' : 'Passou'} ${formatMoney(Math.abs(remain))}</div>
               </article>
             `;
-          }).join('') : '<p style="color:var(--text3);font-size:12px">Nenhuma meta definida.</p>'}
+          }).join('') : '<div class="m2-empty">Nenhuma meta definida.</div>'}
         </section>
       </div>
     `;
@@ -300,12 +302,17 @@
     const searchInput = target.querySelector('#mobileV2AllSearch');
     const list = target.querySelector('#mobileV2AllList');
     if (searchInput && list) {
-      searchInput.addEventListener('input', () => {
+      const applySearch = () => {
         const term = String(searchInput.value || '').trim().toLowerCase();
+        month.mobileV2.allSearch = searchInput.value || '';
         list.querySelectorAll('[data-outflow-id]').forEach((row) => {
           const text = row.textContent.toLowerCase();
           row.style.display = !term || text.includes(term) ? '' : 'none';
         });
+      };
+      applySearch();
+      searchInput.addEventListener('input', () => {
+        applySearch();
       });
     }
 
