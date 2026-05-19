@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { ROOT_DIR, resolveStoragePath } = require('./server/paths');
+const { createPersistentRateLimitStore } = require('./server/rate-limit-store');
 const { recoverMissingMonthsFromLegacyBackups } = require('./server/http/month-recovery');
 const { registerPageRoutes } = require('./server/http/routes/pages');
 const { registerDeveloperRoutes } = require('./server/http/routes/developer');
@@ -97,9 +98,9 @@ const DEVELOPER_DIR = path.join(ROOT_DIR, 'public', 'developer');
 const SHARED_DIR = path.join(ROOT_DIR, 'public', 'shared');
 const USERS_DATA_DIR = resolveStoragePath('data', 'users');
 const SESSION_SECRET_PATH = resolveStoragePath('auth', 'session-secret.txt');
-const rateLimitState = new Map();
+const rateLimitState = createPersistentRateLimitStore(resolveStoragePath('auth', 'rate-limit-state.json'));
 const REMEMBER_ME_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
-const MIN_USER_PASSWORD_LENGTH = 4;
+const MIN_USER_PASSWORD_LENGTH = Math.max(12, Number(process.env.FIN_MIN_USER_PASSWORD_LENGTH || 12));
 const MIN_DEVELOPER_PASSWORD_LENGTH = 8;
 const stateStore = createStateStore();
 const hasUserAppState = stateStore.hasUserAppState || hasUserAppStateFile;
@@ -109,6 +110,12 @@ const deleteUserAppState = stateStore.deleteUserAppState || deleteUserAppStateFi
 
 ensureUsersStore();
 ensureDeveloperStore();
+if (!String(process.env.PLUGGY_WEBHOOK_SECRET || '').trim()) {
+  console.warn('[security] PLUGGY_WEBHOOK_SECRET nao configurado: webhook Pluggy sera rejeitado (HTTP 503).');
+}
+if (!String(process.env.FIN_REMEMBER_TOKEN_SECRET || '').trim()) {
+  console.warn('[security] FIN_REMEMBER_TOKEN_SECRET nao configurado: defina um segredo dedicado para tokens remember-me.');
+}
 syncAllUserAppStateLocations();
 purgeExpiredDeletedUserBackups();
 try {
@@ -153,7 +160,15 @@ const PASSWORD_RECOVERY_SECRET = String(process.env.FIN_PASSWORD_RECOVERY_SECRET
 
 function derivePasswordRecoveryKey() {
   if (!PASSWORD_RECOVERY_SECRET) return '';
-  return crypto.createHash('sha256').update(PASSWORD_RECOVERY_SECRET).digest('base64');
+  return crypto
+    .pbkdf2Sync(
+      PASSWORD_RECOVERY_SECRET,
+      Buffer.from('fin:password-recovery:key'),
+      210000,
+      32,
+      'sha512'
+    )
+    .toString('base64');
 }
 
 function wrapRecoveryEncryptionKey(dataEncryptionKey) {
@@ -202,7 +217,7 @@ async function sendPasswordResetEmail({ email, displayName, token, resetLink, ex
   ].filter(Boolean).join('\n');
 
   if (!transporter) {
-    console.log('[auth] SMTP nao configurado. Codigo de reset (dev):', { email, token, resetLink, expiresAt });
+    console.log('[auth] SMTP nao configurado. Reset solicitado (codigo nao logado por seguranca):', { email, resetLink, expiresAt });
     return;
   }
 
@@ -268,10 +283,36 @@ function getDeveloperSessionPayload(req) {
 }
 
 app.disable('x-powered-by');
-app.set('trust proxy', 1);
+app.set('trust proxy', process.env.FIN_TRUST_PROXY === '1' ? 1 : false);
 app.use(applySecurityHeaders);
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+app.use('/api', (req, res, next) => {
+  const origin = String(req.get('origin') || '').trim();
+  if (!origin) return next();
+  let originHost = '';
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return res.status(403).json({ message: 'Origin invalida.' });
+  }
+  const requestHost = String(req.get('host') || '').trim();
+  if (!originHost || !requestHost || originHost !== requestHost) {
+    return res.status(403).json({ message: 'Origin nao permitida.' });
+  }
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    return res.status(204).end();
+  }
+  return next();
+});
+app.use('/api/app-state', express.json({ limit: process.env.FIN_APP_STATE_BODY_LIMIT || '20mb' }));
+app.use('/api/app-state', express.urlencoded({ extended: false, limit: process.env.FIN_APP_STATE_BODY_LIMIT || '20mb' }));
+app.use('/api/bill-import-ai', express.json({ limit: process.env.FIN_IMPORT_BODY_LIMIT || '15mb' }));
+app.use('/api/bill-import-ai', express.urlencoded({ extended: false, limit: process.env.FIN_IMPORT_BODY_LIMIT || '15mb' }));
+app.use(express.json({ limit: process.env.FIN_DEFAULT_BODY_LIMIT || '2mb' }));
+app.use(express.urlencoded({ extended: false, limit: process.env.FIN_DEFAULT_BODY_LIMIT || '2mb' }));
 app.use(session({
   name: 'fin.sid',
   secret: ensureSessionSecret(SESSION_SECRET_PATH),
@@ -280,7 +321,7 @@ app.use(session({
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production'
+    secure: 'auto'
   }
 }));
 app.use(restoreRememberedSession);
@@ -451,20 +492,24 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
-  console.error(error);
+  const requestId = crypto.randomUUID();
+  const safeMessage = String(error?.message || 'Erro interno').slice(0, 300);
+  const safePath = String(req?.path || '');
+  console.error(`[error:${requestId}] ${safePath} ${safeMessage}`);
   if (res.headersSent) return next(error);
   if (req.path.startsWith('/api/')) {
     if (error?.type === 'entity.too.large' || error?.status === 413) {
       return res.status(413).json({ message: 'Os dados enviados são grandes demais para o servidor.' });
     }
-    return res.status(500).json({ message: 'Erro interno no servidor.' });
+    return res.status(500).json({ message: 'Erro interno no servidor.', requestId });
   }
-  return res.status(500).send('Erro interno no servidor.');
+  return res.status(500).send(`Erro interno no servidor. Ref: ${requestId}`);
 });
 
 app.listen(PORT, () => {
   console.log(`Controle Financeiro protegido rodando em http://localhost:${PORT} (state-backend=${stateStore.backend || 'json'})`);
 });
+
 
 
 

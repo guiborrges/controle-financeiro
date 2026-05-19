@@ -3,6 +3,16 @@ const crypto = require('crypto');
 
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const REMEMBER_COOKIE_NAME = 'fin.remember';
+const CSP_SCRIPT_SRC = "'self' 'unsafe-inline' https://cdnjs.cloudflare.com";
+const CSP_STYLE_SRC = "'self' 'unsafe-inline' https://fonts.googleapis.com";
+const CSP_FONT_SRC = "'self' https://fonts.gstatic.com data:";
+const CSP_IMG_SRC = "'self' data: blob:";
+const REMEMBER_TOKEN_SECRET = String(
+  process.env.FIN_REMEMBER_TOKEN_SECRET
+  || process.env.FIN_SESSION_SECRET
+  || process.env.FIN_PASSWORD_RECOVERY_SECRET
+  || ''
+).trim();
 
 function ensureSessionSecret(sessionSecretPath) {
   if (process.env.FIN_SESSION_SECRET) return process.env.FIN_SESSION_SECRET;
@@ -32,11 +42,17 @@ function parseCookies(req) {
 }
 
 function hashRememberToken(token) {
-  return crypto.createHash('sha256').update(String(token || '')).digest('base64');
+  return crypto
+    .createHmac('sha256', `${REMEMBER_TOKEN_SECRET}:remember:hash`)
+    .update(String(token || ''))
+    .digest('base64');
 }
 
 function deriveRememberTokenKey(token) {
-  return crypto.createHash('sha256').update(String(token || '')).digest('base64');
+  return crypto
+    .createHmac('sha512', `${REMEMBER_TOKEN_SECRET}:remember:wrap`)
+    .update(String(token || ''))
+    .digest('base64');
 }
 
 function pruneRememberTokens(tokens) {
@@ -51,7 +67,7 @@ function setRememberMeCookie(res, token, rememberMeMaxAgeMs) {
   res.cookie(REMEMBER_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: 'auto',
     maxAge: rememberMeMaxAgeMs,
     path: '/'
   });
@@ -61,7 +77,7 @@ function clearRememberMeCookie(res) {
   res.clearCookie(REMEMBER_COOKIE_NAME, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: 'auto',
     path: '/'
   });
 }
@@ -73,6 +89,20 @@ function applySecurityHeaders(req, res, next) {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      `script-src ${CSP_SCRIPT_SRC}`,
+      `style-src ${CSP_STYLE_SRC}`,
+      `font-src ${CSP_FONT_SRC}`,
+      `img-src ${CSP_IMG_SRC}`,
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "object-src 'none'"
+    ].join('; ')
+  );
   if (process.env.NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }

@@ -274,11 +274,12 @@ function registerPluggyWebhookRoutes(app, deps = {}) {
 
   app.post('/api/pluggy/webhook', noStore, async (req, res) => {
     try {
-      if (webhookSecret) {
-        const provided = String(req.headers['x-pluggy-webhook-secret'] || '').trim();
-        if (!provided || provided !== webhookSecret) {
-          return res.status(401).json({ message: 'Webhook Pluggy nao autorizado.' });
-        }
+      if (!webhookSecret) {
+        return res.status(503).json({ message: 'Webhook Pluggy desabilitado: PLUGGY_WEBHOOK_SECRET nao configurado.' });
+      }
+      const provided = String(req.headers['x-pluggy-webhook-secret'] || '').trim();
+      if (!provided || provided !== webhookSecret) {
+        return res.status(401).json({ message: 'Webhook Pluggy nao autorizado.' });
       }
 
       const payload = req.body || {};

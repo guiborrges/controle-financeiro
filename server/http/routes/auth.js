@@ -31,8 +31,16 @@ function registerAuthRoutes(app, deps) {
     revokeRememberMeToken,
     crypto
   } = deps;
+  const RESET_TOKEN_SECRET = String(process.env.FIN_RESET_TOKEN_SECRET || process.env.FIN_PASSWORD_RECOVERY_SECRET || 'fin-reset-token').trim();
+  const DUMMY_PASSWORD_HASH = deps.hashPassword ? deps.hashPassword('invalid-password-sentinel') : 'pbkdf2$sha512$210000$AA==$AA==';
 
   function hashResetToken(token) {
+    if (typeof crypto.createHmac === 'function') {
+      return crypto
+        .createHmac('sha256', `${RESET_TOKEN_SECRET}:password-reset`)
+        .update(String(token || ''))
+        .digest('hex');
+    }
     return crypto.createHash('sha256').update(String(token || '')).digest('hex');
   }
 
@@ -212,7 +220,8 @@ function registerAuthRoutes(app, deps) {
     try {
       const { email = '', password = '', rememberMe = false } = req.body || {};
       const user = findUserByEmail(email);
-      const passwordOk = !!user && !!password && verifyPassword(password, user.passwordHash);
+      const passwordHash = user?.passwordHash || DUMMY_PASSWORD_HASH;
+      const passwordOk = !!password && verifyPassword(password, passwordHash) && !!user;
 
       if (!user || !passwordOk) {
         return res.status(401).json({ message: 'E-mail ou senha inválidos.' });

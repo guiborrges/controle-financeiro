@@ -98,6 +98,7 @@ test('webhook processes item/updated and transactions/updated', async () => {
 
   registerPluggyWebhookRoutes(app, {
     noStore: (_req, _res, next) => next?.(),
+    webhookSecret: 'secret-2',
     upsertConnection: async (item, tenantUserId) => {
       calls.push({ kind: 'item', tenantUserId, itemId: item.id });
     },
@@ -111,7 +112,7 @@ test('webhook processes item/updated and transactions/updated', async () => {
 
   const itemUpdatedRes = createMockRes();
   await webhookHandler({
-    headers: {},
+    headers: { 'x-pluggy-webhook-secret': 'secret-2' },
     body: {
       event: 'item/updated',
       data: { item: { id: 'it-updated' }, clientUserId: 'user-C' }
@@ -121,7 +122,7 @@ test('webhook processes item/updated and transactions/updated', async () => {
 
   const txUpdatedRes = createMockRes();
   await webhookHandler({
-    headers: {},
+    headers: { 'x-pluggy-webhook-secret': 'secret-2' },
     body: {
       event: 'transactions/updated',
       clientUserId: 'user-D',
@@ -151,4 +152,19 @@ test('webhook rejects invalid secret when configured', async () => {
     body: { event: 'item/created', data: { item: { id: 'it-1' } } }
   }, res);
   assert.equal(res.statusCode, 401);
+});
+
+test('webhook is disabled when secret is missing', async () => {
+  const app = createMockApp();
+  registerPluggyWebhookRoutes(app, {
+    noStore: (_req, _res, next) => next?.(),
+    webhookSecret: ''
+  });
+
+  const res = createMockRes();
+  await app.routes.get('POST /api/pluggy/webhook')({
+    headers: {},
+    body: { event: 'item/created', data: { item: { id: 'it-1' } } }
+  }, res);
+  assert.equal(res.statusCode, 503);
 });
