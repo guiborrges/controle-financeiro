@@ -20,6 +20,23 @@
     return Promise.resolve();
   }
 
+  function openInternetBanking() {
+    const openLoadedModule = () => global.MobileV2InternetBanking?.open?.();
+    if (global.MobileV2InternetBanking?.open) {
+      openLoadedModule();
+      return Promise.resolve();
+    }
+    return loadMobileModule('internet-banking')
+      .then(openLoadedModule)
+      .catch(() => {
+        global.MobileV2OutflowForm?.openInlineSheet?.({
+          title: 'Internet Banking',
+          subtitle: 'Pré-visualização indisponível',
+          body: '<div class="m2-empty">Não foi possível abrir os dados do Internet Banking agora.</div>'
+        });
+      });
+  }
+
   function supportsTouch() {
     try {
       return 'ontouchstart' in global || navigator.maxTouchPoints > 0 || global.matchMedia?.('(pointer: coarse)')?.matches === true;
@@ -219,6 +236,7 @@
     apply,
     refresh,
     loadMobileModule,
+    openInternetBanking,
     setTab,
     isEnabled: () => state.enabled
   };

@@ -4,7 +4,7 @@
   function ensureWorkspace() {
     let mount = document.getElementById('mobileV2InternetBankingMount');
     if (mount) return mount;
-    const host = document.getElementById('mobileV2OutflowFormSheetBody');
+    const host = document.getElementById('mobileV2OutflowFormBody');
     if (!host) return null;
     mount = document.createElement('div');
     mount.id = 'mobileV2InternetBankingMount';

@@ -55,9 +55,7 @@
         const mode = String(btn.getAttribute('data-m2-add-type') || 'launch');
         close();
         if (mode === 'internet-banking') {
-          const openBanking = () => global.MobileV2InternetBanking?.open?.();
-          if (global.MobileV2InternetBanking?.open) openBanking();
-          else global.MobileV2?.loadMobileModule?.('internet-banking')?.then(openBanking);
+          global.MobileV2?.openInternetBanking?.();
           return;
         }
         if (mode === 'renda') {

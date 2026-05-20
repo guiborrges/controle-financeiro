@@ -53,7 +53,7 @@
           <p class="m2-subtitle">Visão consolidada das contas</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Internet Banking" onclick="MobileV2InternetBanking.open()">${global.MobileV2BottomNav?.ICONS?.calendario || ''}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Internet Banking" onclick="MobileV2.openInternetBanking()">${global.MobileV2BottomNav?.ICONS?.calendario || ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
