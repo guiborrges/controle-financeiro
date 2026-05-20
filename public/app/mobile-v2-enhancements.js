@@ -365,8 +365,30 @@
 
   function registerPwa() {
     if (!('serviceWorker' in navigator)) return;
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/app-assets/mobile-v2-sw.js', { scope: '/' }).catch(() => {});
+    window.addEventListener('load', async () => {
+      try {
+        const isMobile = isMobileEnabled();
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        const mobileV2Regs = registrations.filter((registration) => {
+          const scriptUrl = String(registration?.active?.scriptURL || registration?.installing?.scriptURL || registration?.waiting?.scriptURL || '');
+          return scriptUrl.includes('/app-assets/mobile-v2-sw.js');
+        });
+
+        if (!isMobile) {
+          // Desktop must never stay under the mobile service worker cache layer.
+          await Promise.all(mobileV2Regs.map((registration) => registration.unregister()));
+          if (window.caches?.keys) {
+            const keys = await caches.keys();
+            await Promise.all(keys.filter((key) => key.includes('controle-financeiro-mobile-v2')).map((key) => caches.delete(key)));
+          }
+          return;
+        }
+
+        const alreadyRegistered = mobileV2Regs.length > 0;
+        if (!alreadyRegistered) {
+          await navigator.serviceWorker.register('/app-assets/mobile-v2-sw.js', { scope: '/app-assets/' });
+        }
+      } catch {}
     }, { once: true });
   }
 

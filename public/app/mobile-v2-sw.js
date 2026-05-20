@@ -1,6 +1,5 @@
-const CACHE_NAME = 'controle-financeiro-mobile-v2-v1';
+const CACHE_NAME = 'controle-financeiro-mobile-v2-v2';
 const CORE_ASSETS = [
-  '/app',
   '/app-assets/styles.css',
   '/app-assets/mobile-v2.css',
   '/app-assets/mobile-v2.js',
@@ -32,8 +31,10 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
+  if (!url.pathname.startsWith('/app-assets/')) return;
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+      if (!response || response.status >= 400 || response.type === 'opaque') return response;
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => undefined);
       return response;
