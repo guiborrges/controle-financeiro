@@ -97,6 +97,20 @@ function mapTransactionRow(row = {}) {
   };
 }
 
+function isPluggyStorageUnavailable(error) {
+  const message = String(error?.message || error || '').toUpperCase();
+  return (
+    message.includes('ORA-00942') ||
+    message.includes('ORA-01017') ||
+    message.includes('ORA-12154') ||
+    message.includes('NJS-') ||
+    message.includes('DPI-') ||
+    message.includes('ECONNREFUSED') ||
+    message.includes('NOT_CONNECTED') ||
+    message.includes('CONNECTION NOT INITIALIZED')
+  );
+}
+
 async function loadConnectionSummary(tenantUserId) {
   return withConnection(async conn => {
     const rs = await conn.execute(
@@ -176,6 +190,15 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
         connectionsCount: connections.length
       });
     } catch (error) {
+      if (isPluggyStorageUnavailable(error)) {
+        return res.json({
+          connected: false,
+          tenantUserId: '',
+          connectionsCount: 0,
+          degraded: true,
+          message: 'Internet banking temporariamente indisponível.'
+        });
+      }
       return res.status(500).json({
         message: 'Falha ao verificar conexao do internet banking.',
         details: error?.message || String(error)
@@ -207,6 +230,17 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
         transactions
       });
     } catch (error) {
+      if (isPluggyStorageUnavailable(error)) {
+        return res.json({
+          connected: false,
+          tenantUserId: '',
+          latestUpdatedAt: null,
+          connections: [],
+          transactions: [],
+          degraded: true,
+          message: 'Internet banking temporariamente indisponível.'
+        });
+      }
       return res.status(500).json({
         message: 'Falha ao carregar pre-visualizacao do internet banking.',
         details: error?.message || String(error)
@@ -253,6 +287,16 @@ function registerPluggyPreviewRoutes(app, deps = {}) {
         accounts: Array.from(byAccount.values())
       });
     } catch (error) {
+      if (isPluggyStorageUnavailable(error)) {
+        return res.json({
+          connected: false,
+          tenantUserId: '',
+          latestUpdatedAt: null,
+          accounts: [],
+          degraded: true,
+          message: 'Internet banking temporariamente indisponível.'
+        });
+      }
       return res.status(500).json({
         message: 'Falha ao carregar transacoes do internet banking.',
         details: error?.message || String(error)
