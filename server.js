@@ -386,7 +386,15 @@ app.use(restoreRememberedSession);
 
 app.use('/login-assets', noStore, express.static(LOGIN_DIR, { index: false }));
 app.use('/shared-assets', noStore, express.static(SHARED_DIR, { index: false }));
-app.use('/app-assets', noStore, requireAuth, express.static(APP_DIR, { index: false, fallthrough: false }));
+app.use('/app-assets', noStore, requireAuth, express.static(APP_DIR, {
+  index: false,
+  fallthrough: false,
+  setHeaders: (res, filePath) => {
+    if (typeof filePath === 'string' && filePath.toLowerCase().endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+  }
+}));
 app.use('/developer-assets', noStore, requireDeveloper, express.static(DEVELOPER_DIR, { index: false, fallthrough: false }));
 
 registerPageRoutes(app, {

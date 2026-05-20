@@ -1,11 +1,11 @@
-(function initMobileV2PerfilSheet(global) {
+﻿(function initMobileV2PerfilSheet(global) {
   'use strict';
 
   function row(label, action, danger) {
     return `
       <button class="row-link" type="button" onclick="${action}">
         <span>${label}</span>
-        <span style="color:${danger ? 'var(--red)' : 'var(--text3)'}">›</span>
+        <span style="color:${danger ? 'var(--red)' : 'var(--text3)'}">â€º</span>
       </button>
     `;
   }
@@ -26,7 +26,7 @@
             <h2 class="m2-title" style="font-size:20px">Perfil</h2>
             <p id="mobileV2PerfilSubtitle" class="m2-subtitle"></p>
           </div>
-          <button class="m2-icon-btn" type="button" data-close-perfil aria-label="Fechar">✕</button>
+          <button class="m2-icon-btn" type="button" data-close-perfil aria-label="Fechar">âœ•</button>
         </div>
         <section class="m2-card m2-list-like">
           <h3 class="m2-card-title">Conta</h3>
@@ -40,8 +40,8 @@
           ${row('Categorias e tags', "openCategoryEditorModal()")}
         </section>
         <section class="m2-card m2-list-like">
-          <h3 class="m2-card-title">Preferências</h3>
-          ${row('Abrir preferências', "openPreferences()")}
+          <h3 class="m2-card-title">PreferÃªncias</h3>
+          ${row('Abrir preferÃªncias', "openPreferences()")}
         </section>
         <section class="m2-card">
           <button class="btn" type="button" style="width:100%" onclick="logout()">Sair da conta</button>
@@ -58,7 +58,7 @@
 
   function open() {
     const root = ensureSheet();
-    const userName = document.getElementById('sessionUserName')?.textContent?.trim() || 'Usuário';
+    const userName = document.getElementById('sessionUserName')?.textContent?.trim() || 'UsuÃ¡rio';
     const subtitle = root.querySelector('#mobileV2PerfilSubtitle');
     if (subtitle) subtitle.textContent = userName;
     root.classList.add('open');
@@ -75,4 +75,5 @@
     close
   };
 })(window);
+
 

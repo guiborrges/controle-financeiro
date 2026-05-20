@@ -4,7 +4,7 @@
   const MOBILE_BREAKPOINT = 900;
   const state = {
     enabled: false,
-    currentTab: 'home'
+    currentTab: 'dashboard'
   };
 
   function supportsTouch() {
@@ -47,10 +47,11 @@
     root.id = 'mobileV2Root';
     root.innerHTML = `
       <div class="mobile-v2-content">
-        <section id="mobileV2Screen-home" class="mobile-v2-screen active" data-mobile-v2-screen="home"></section>
+        <section id="mobileV2Screen-dashboard" class="mobile-v2-screen active" data-mobile-v2-screen="dashboard"></section>
         <section id="mobileV2Screen-mes" class="mobile-v2-screen" data-mobile-v2-screen="mes"></section>
         <section id="mobileV2Screen-patrimonio" class="mobile-v2-screen" data-mobile-v2-screen="patrimonio"></section>
         <section id="mobileV2Screen-historico" class="mobile-v2-screen" data-mobile-v2-screen="historico"></section>
+        <section id="mobileV2Screen-calendario" class="mobile-v2-screen" data-mobile-v2-screen="calendario"></section>
       </div>
       <div id="mobileV2BottomNavMount"></div>
       <button id="mobileV2Fab" type="button" aria-label="Adicionar lançamento">${icon('plus') || '+'}</button>
@@ -78,11 +79,12 @@
 
   function syncTabFromCurrentPage() {
     const activePage = document.querySelector('.page.active')?.id || '';
-    if (activePage === 'page-dashboard') state.currentTab = 'home';
+    if (activePage === 'page-dashboard') state.currentTab = 'dashboard';
     else if (activePage === 'page-mes') state.currentTab = 'mes';
     else if (activePage === 'page-patrimonio') state.currentTab = 'patrimonio';
     else if (activePage === 'page-historico' || activePage === 'page-eso') state.currentTab = 'historico';
-    else state.currentTab = state.currentTab || 'home';
+    else if (activePage === 'page-calendario') state.currentTab = 'calendario';
+    else state.currentTab = state.currentTab || 'dashboard';
   }
 
   function updateBodyClasses() {
@@ -96,15 +98,17 @@
   }
 
   function renderScreens(root) {
-    const screenHome = root.querySelector('#mobileV2Screen-home');
+    const screenDashboard = root.querySelector('#mobileV2Screen-dashboard');
     const screenMes = root.querySelector('#mobileV2Screen-mes');
     const screenPat = root.querySelector('#mobileV2Screen-patrimonio');
     const screenHis = root.querySelector('#mobileV2Screen-historico');
+    const screenCal = root.querySelector('#mobileV2Screen-calendario');
 
-    global.MobileV2HomeScreen?.render?.(screenHome);
+    global.MobileV2HomeScreen?.render?.(screenDashboard);
     global.MobileV2MesAtual?.render?.(screenMes);
     global.MobileV2Patrimonio?.render?.(screenPat);
     global.MobileV2Historico?.render?.(screenHis);
+    global.MobileV2Calendario?.render?.(screenCal);
 
     root.querySelectorAll('[data-mobile-v2-screen]').forEach((screen) => {
       const isActive = screen.getAttribute('data-mobile-v2-screen') === state.currentTab;
@@ -158,10 +162,11 @@
       global.nav = function patchedNav(page) {
         const result = oldNav.apply(this, arguments);
         if (state.enabled) {
-          if (page === 'dashboard') state.currentTab = 'home';
+          if (page === 'dashboard') state.currentTab = 'dashboard';
           if (page === 'mes') state.currentTab = 'mes';
           if (page === 'patrimonio') state.currentTab = 'patrimonio';
           if (page === 'historico') state.currentTab = 'historico';
+          if (page === 'calendario') state.currentTab = 'calendario';
           render();
         }
         return result;
@@ -180,3 +185,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })(window);
+

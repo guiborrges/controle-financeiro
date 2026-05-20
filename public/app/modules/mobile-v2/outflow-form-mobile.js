@@ -1,8 +1,9 @@
-(function initMobileV2OutflowForm(global) {
+Ôªø(function initMobileV2OutflowForm(global) {
   'use strict';
 
   const MODE_LABEL = {
-    launch: 'LanÁamento',
+    launch: 'Lan√ßamento',
+    renda: 'Renda',
     recurring: 'Recorrente',
     installment: 'Parcelado',
     shared: 'Compartilhado'
@@ -14,8 +15,17 @@
   }
 
   function getCurrentMonth() {
-    if (typeof global.getCurrentMonth === 'function') return global.getCurrentMonth();
-    return null;
+    return typeof global.getCurrentMonth === 'function' ? global.getCurrentMonth() : null;
+  }
+
+  function escapeHtml(value) {
+    if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function resolveCategories(month) {
@@ -46,26 +56,20 @@
       const resolved = String(global.resolveCategoryName ? global.resolveCategoryName(category) : category).trim();
       if (!resolved) return;
       if (fallback.some((entry) => entry.value === resolved)) return;
-      fallback.push({ value: resolved, label: resolved, icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(resolved) : '' });
+      fallback.push({
+        value: resolved,
+        label: resolved,
+        icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(resolved) : ''
+      });
     });
 
     if (!fallback.length) {
-      ['ALIMENTA«√O', 'MERCADO', 'MORADIA', 'TRANSPORTE', 'SA⁄DE', 'LAZER', 'OUTROS'].forEach((entry) => {
+      ['ALIMENTA√á√ÉO', 'MERCADO', 'MORADIA', 'TRANSPORTE', 'SA√öDE', 'LAZER', 'OUTROS'].forEach((entry) => {
         fallback.push({ value: entry, label: entry, icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(entry) : '' });
       });
     }
 
     return fallback;
-  }
-
-  function escapeHtml(value) {
-    if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 
   function ensureSheet() {
@@ -77,7 +81,7 @@
     root.className = 'bottom-sheet';
     root.innerHTML = `
       <button class="bottom-sheet-scrim" type="button" aria-label="Fechar"></button>
-      <div class="bottom-sheet-panel form-sheet" role="dialog" aria-modal="true" aria-label="Formul·rio de lanÁamento">
+      <div class="bottom-sheet-panel form-sheet" role="dialog" aria-modal="true" aria-label="Formul√°rio de lan√ßamento">
         <div class="bottom-sheet-grip"></div>
         <div id="mobileV2OutflowFormBody"></div>
       </div>
@@ -103,16 +107,17 @@
     const showInstallments = mode === 'installment';
     const showShared = mode === 'shared';
     const showRecurring = mode === 'recurring';
+    const showIncomeToggle = mode === 'launch' || mode === 'renda';
 
     body.innerHTML = `
       <div class="m2-sheet-head-inline">
-        <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">? Tipo</button>
-        <h3 class="form-title">${MODE_LABEL[mode] || 'LanÁamento'}</h3>
+        <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">‚Üê Tipo</button>
+        <h3 class="form-title">${MODE_LABEL[mode] || 'Lan√ßamento'}</h3>
       </div>
 
       <div class="form-field">
-        <label class="form-label" for="mobileV2OutflowDescription">DescriÁ„o</label>
-        <input id="mobileV2OutflowDescription" class="form-input" type="text" placeholder="Ex: Mercado, Aluguel">
+        <label class="form-label" for="mobileV2OutflowDescription">Descri√ß√£o</label>
+        <input id="mobileV2OutflowDescription" class="form-input" type="text" placeholder="Ex: Mercado, aluguel">
       </div>
 
       <div class="form-row-2">
@@ -134,9 +139,9 @@
         </select>
       </div>
 
-      <div class="form-toggle" ${mode !== 'launch' ? 'style="display:none"' : ''}>
-        <button type="button" class="form-toggle-btn active-expense" data-income="0">Gasto</button>
-        <button type="button" class="form-toggle-btn" data-income="1">Receita</button>
+      <div class="form-toggle" ${showIncomeToggle ? '' : 'style="display:none"'}>
+        <button type="button" class="form-toggle-btn ${mode === 'renda' ? '' : 'active-expense'}" data-income="0">Gasto</button>
+        <button type="button" class="form-toggle-btn ${mode === 'renda' ? 'active-income' : ''}" data-income="1">Receita</button>
       </div>
 
       <label class="form-check-row" ${showRecurring ? '' : 'style="display:none"'}>
@@ -164,7 +169,7 @@
           <input id="mobileV2SharedPeopleCount" class="form-input" type="number" min="2" max="20" value="2">
         </div>
         <div class="form-field" style="margin:0">
-          <label class="form-label" for="mobileV2SharedMode">Divis„o</label>
+          <label class="form-label" for="mobileV2SharedMode">Divis√£o</label>
           <select id="mobileV2SharedMode" class="form-input">
             <option value="equal">Igual</option>
             <option value="manual">Manual</option>
@@ -174,7 +179,7 @@
 
       <label class="form-check-row">
         <input id="mobileV2PlanningToggle" type="checkbox">
-        <span class="form-check-label">Aparecer no planejamento do mÍs</span>
+        <span class="form-check-label">Aparecer no planejamento do m√™s</span>
       </label>
 
       <div class="form-actions">
@@ -182,9 +187,6 @@
         <button class="btn-submit" type="button" id="mobileV2OutflowSubmit">Adicionar</button>
       </div>
     `;
-
-    const desc = document.getElementById('mobileV2OutflowDescription');
-    desc?.focus();
 
     body.querySelector('#mobileV2OutflowBack')?.addEventListener('click', () => {
       close();
@@ -196,7 +198,7 @@
 
   function applyToUnifiedModal(mode, payload) {
     if (typeof global.openUnifiedOutflowModal !== 'function' || typeof global.saveUnifiedOutflow !== 'function') {
-      throw new Error('Fluxo de lanÁamento indisponÌvel no momento.');
+      throw new Error('Fluxo de lan√ßamento indispon√≠vel no momento.');
     }
 
     global.openUnifiedOutflowModal('', {});
@@ -227,11 +229,13 @@
     const installmentsToggle = document.getElementById('unifiedOutflowInstallmentsToggle');
     const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
     const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
+    const incomeToggle = document.getElementById('unifiedOutflowIncomeToggle');
 
     if (recurringToggle) recurringToggle.checked = mode === 'recurring';
     if (installmentsToggle) installmentsToggle.checked = mode === 'installment';
     if (sharedToggle) sharedToggle.checked = mode === 'shared';
     if (planningToggle) planningToggle.checked = payload.planning || mode === 'recurring';
+    if (incomeToggle) incomeToggle.checked = mode === 'renda';
 
     if (typeof global.toggleUnifiedOutflowInstallments === 'function') {
       global.toggleUnifiedOutflowInstallments();
@@ -265,8 +269,8 @@
     const planning = document.getElementById('mobileV2PlanningToggle')?.checked === true;
 
     if (!description || !category || !(amount > 0) || !date) {
-      if (typeof global.showAppStatus === 'function') global.showAppStatus('Preencha descriÁ„o, categoria, valor e data.', 'error');
-      else global.alert?.('Preencha descriÁ„o, categoria, valor e data.');
+      if (typeof global.showAppStatus === 'function') global.showAppStatus('Preencha descri√ß√£o, categoria, valor e data.', 'error');
+      else global.alert?.('Preencha descri√ß√£o, categoria, valor e data.');
       return;
     }
 
@@ -286,11 +290,52 @@
       close();
       global.MobileV2?.setTab?.('mes');
       global.MobileV2?.refresh?.();
-      if (typeof global.showAppStatus === 'function') global.showAppStatus('LanÁamento adicionado com sucesso.', 'success');
+      if (typeof global.showAppStatus === 'function') global.showAppStatus('Lan√ßamento adicionado com sucesso.', 'success');
     } catch (error) {
-      if (typeof global.showAppStatus === 'function') global.showAppStatus(error?.message || 'N„o foi possÌvel adicionar o lanÁamento.', 'error');
-      else global.alert?.(error?.message || 'N„o foi possÌvel adicionar o lanÁamento.');
+      if (typeof global.showAppStatus === 'function') global.showAppStatus(error?.message || 'N√£o foi poss√≠vel adicionar o lan√ßamento.', 'error');
+      else global.alert?.(error?.message || 'N√£o foi poss√≠vel adicionar o lan√ßamento.');
     }
+  }
+
+  function openInlineSheet({ title, subtitle, body }) {
+    const sheet = ensureSheet();
+    const mount = document.getElementById('mobileV2OutflowFormBody');
+    if (!mount) return;
+    mount.innerHTML = `
+      <div class="m2-sheet-head-inline">
+        <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">‚Üê Voltar</button>
+        <h3 class="form-title">${escapeHtml(String(title || 'Detalhes'))}</h3>
+      </div>
+      ${subtitle ? `<p class="m2-sheet-subtitle">${escapeHtml(String(subtitle))}</p>` : ''}
+      <div class="mobile-v2-inline-sheet-body">${String(body || '')}</div>
+    `;
+    mount.querySelector('#mobileV2OutflowBack')?.addEventListener('click', () => {
+      close();
+      global.MobileV2AddSheet?.open?.();
+    });
+    sheet.classList.add('open');
+  }
+
+  function openIncomePicker() {
+    openInlineSheet({
+      title: 'Tipo de renda',
+      subtitle: 'Escolha como deseja registrar a entrada',
+      body: `
+        <div class="m2-choose-grid">
+          <button type="button" class="m2-choose-card" id="mobileV2IncomeFixed">
+            <strong>Renda fixa</strong>
+            <span>Sal√°rio, pr√≥-labore ou aluguel</span>
+          </button>
+          <button type="button" class="m2-choose-card" id="mobileV2IncomeExtra">
+            <strong>Renda extra</strong>
+            <span>Freelance, comiss√£o ou venda</span>
+          </button>
+        </div>
+      `
+    });
+
+    document.getElementById('mobileV2IncomeFixed')?.addEventListener('click', () => open('renda'));
+    document.getElementById('mobileV2IncomeExtra')?.addEventListener('click', () => open('renda'));
   }
 
   function open(mode = 'launch') {
@@ -307,6 +352,9 @@
   global.MobileV2OutflowForm = {
     ensureSheet,
     open,
-    close
+    close,
+    openInlineSheet,
+    openIncomePicker
   };
 })(window);
+

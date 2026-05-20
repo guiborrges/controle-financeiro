@@ -1,4 +1,4 @@
-(function initMobileV2Patrimonio(global) {
+Ôªø(function initMobileV2Patrimonio(global) {
   'use strict';
 
   function formatMoney(value) {
@@ -19,30 +19,19 @@
   function resolveData() {
     const accounts = Array.isArray(global.patrimonioAccounts) ? global.patrimonioAccounts : [];
     const movements = Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements : [];
+    if (accounts.length || movements.length) return { accounts, movements };
 
-    if (accounts.length || movements.length) {
-      return { accounts, movements };
-    }
-
-    try {
-      if (typeof global.getPatrimonioData === 'function') {
+    if (typeof global.getPatrimonioData === 'function') {
+      try {
         const data = global.getPatrimonioData();
         return {
           accounts: Array.isArray(data?.accounts) ? data.accounts : [],
           movements: Array.isArray(data?.movements) ? data.movements : []
         };
-      }
-    } catch {}
-
-    try {
-      const state = global.appState || global.dataState || null;
-      return {
-        accounts: Array.isArray(state?.patrimonioAccounts) ? state.patrimonioAccounts : [],
-        movements: Array.isArray(state?.patrimonioMovements) ? state.patrimonioMovements : []
-      };
-    } catch {
-      return { accounts: [], movements: [] };
+      } catch {}
     }
+
+    return { accounts: [], movements: [] };
   }
 
   function getAccountBalance(account) {
@@ -52,24 +41,22 @@
   function render(target) {
     if (!target) return;
 
-    const resolved = resolveData();
-    const accounts = resolved.accounts;
-    const movements = resolved.movements;
-
+    const { accounts, movements } = resolveData();
     const total = accounts.reduce((sum, account) => sum + getAccountBalance(account), 0);
     const recent = [...movements].slice(-5).reverse();
 
     target.innerHTML = `
-      <div class="m2-header">
+      <header class="m2-header m2-page-header">
         <div>
-          <h2 class="m2-title">PatrimÙnio</h2>
-          <p class="m2-subtitle">Vis„o consolidada das contas</p>
+          <h2 class="m2-title">Patrim√¥nio</h2>
+          <p class="m2-subtitle">Vis√£o consolidada das contas</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="NotificaÁıes" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : '??'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '??'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Internet Banking" onclick="MobileV2InternetBanking.open()">${global.MobileV2BottomNav?.ICONS?.calendario || ''}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Notifica√ß√µes" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : ''}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
-      </div>
+      </header>
 
       <section class="hero-card hero-card-wealth">
         <div class="hero-result-label">TOTAL PATRIMONIAL</div>
@@ -81,7 +68,7 @@
         <h3 class="m-list-title">Contas</h3>
         ${accounts.length ? accounts.map((account) => {
           const name = String(account?.name || account?.nome || 'Conta');
-          const icon = String(account?.icon || account?.symbol || '??');
+          const icon = String(account?.icon || account?.symbol || 'üè¶');
           const balance = getAccountBalance(account);
           return `
             <article class="m-item m-item-income">
@@ -100,13 +87,13 @@
       </section>
 
       <section class="m-list-card">
-        <h3 class="m-list-title">MovimentaÁıes recentes</h3>
+        <h3 class="m-list-title">Movimenta√ß√µes recentes</h3>
         ${recent.length ? recent.map((movement) => {
           const type = String(movement?.type || 'aporte');
           const description = String(movement?.description || movement?.descricao || type);
           const date = String(movement?.date || movement?.data || 'Sem data');
           const value = Math.abs(Number(movement?.value || movement?.valor || 0));
-          const icon = type === 'retirada' ? '?' : (type === 'transferencia' ? '?' : '?');
+          const icon = type === 'retirada' ? '‚Üó' : (type === 'transferencia' ? '‚áÑ' : '‚Üò');
           return `
             <article class="m-item m-item-income">
               <div class="m-item-surface static">
@@ -118,7 +105,7 @@
               </div>
             </article>
           `;
-        }).join('') : '<div class="m2-empty">Sem movimentaÁıes recentes.</div>'}
+        }).join('') : '<div class="m2-empty">Sem movimenta√ß√µes recentes.</div>'}
       </section>
     `;
   }
@@ -137,5 +124,5 @@
 
   document.addEventListener('appStateUpdated', refreshIfVisible);
   document.addEventListener('dataLoaded', refreshIfVisible);
-  global.addEventListener('load', refreshIfVisible);
 })(window);
+

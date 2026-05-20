@@ -107,3 +107,4 @@
 
   global.MobileV2Historico = { render };
 })(window);
+
