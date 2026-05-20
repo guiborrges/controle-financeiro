@@ -386,15 +386,12 @@ app.use(restoreRememberedSession);
 
 app.use('/login-assets', noStore, express.static(LOGIN_DIR, { index: false }));
 app.use('/shared-assets', noStore, express.static(SHARED_DIR, { index: false }));
-app.use('/app-assets', noStore, requireAuth, express.static(APP_DIR, {
+app.use('/app-assets', noStore, express.static(APP_DIR, {
   index: false,
   fallthrough: false,
   setHeaders: (res, filePath) => {
     if (typeof filePath === 'string' && filePath.toLowerCase().endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-    }
-    if (typeof filePath === 'string' && path.basename(filePath).toLowerCase() === 'mobile-v2-sw.js') {
-      res.setHeader('Service-Worker-Allowed', '/');
     }
   }
 }));
