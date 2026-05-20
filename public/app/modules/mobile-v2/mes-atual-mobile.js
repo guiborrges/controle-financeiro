@@ -9,6 +9,15 @@
   ];
 
   let activeSubtab = 'planejamento';
+  const activeFilters = {
+    search: ''
+  };
+  const monthCache = new Map();
+  const virtualState = new WeakMap();
+  let dataVersion = 0;
+  const VIRTUAL_ITEM_HEIGHT = 62;
+  const VIRTUAL_THRESHOLD = 80;
+  const VIRTUAL_BUFFER = 10;
 
   function escapeHtml(value) {
     if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
@@ -45,8 +54,51 @@
   }
 
   function getCurrentMonthSafe() {
-    if (typeof global.getCurrentMonth === 'function') return global.getCurrentMonth();
+    if (typeof global.getCurrentMonth === 'function') {
+      const current = global.getCurrentMonth();
+      if (current) return current;
+    }
+    const cached = global.MobileV2Enhancements?.getCachedFinanceMonths?.() || [];
+    const cachedState = global.__MOBILE_V2_CACHED_STATE__;
+    if (cached.length && cachedState?.currentMonthId) {
+      return cached.find((month) => String(month?.id || '') === String(cachedState.currentMonthId)) || cached[cached.length - 1];
+    }
+    if (cached.length) return cached[cached.length - 1];
     return null;
+  }
+
+  function invalidateCache() {
+    dataVersion += 1;
+    monthCache.clear();
+  }
+
+  function getMonthCacheKey(month) {
+    const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
+    const renda = Array.isArray(month?.renda) ? month.renda : [];
+    const projetos = Array.isArray(month?.projetos) ? month.projetos : [];
+    const bills = Array.isArray(month?.cardBills) ? month.cardBills : [];
+    return [
+      month?.id || '',
+      outflows.length,
+      renda.length,
+      projetos.length,
+      bills.length,
+      JSON.stringify(month?.dailyGoals || {}),
+      dataVersion
+    ].join('|');
+  }
+
+  function getCachedMonthView(month) {
+    const monthId = String(month?.id || 'current');
+    const cacheKey = getMonthCacheKey(month);
+    const cached = monthCache.get(monthId);
+    if (cached?.cacheKey === cacheKey) return cached;
+    const outflowRows = getOutflowRows(month);
+    const metrics = getMonthMetrics(month);
+    const categoryRows = buildCategoryRowsFromRows(outflowRows);
+    const next = { cacheKey, outflowRows, metrics, categoryRows };
+    monthCache.set(monthId, next);
+    return next;
   }
 
   function resolveCategory(item) {
@@ -102,7 +154,7 @@
   }
 
   function renderMonthNav(month) {
-    const metrics = getMonthMetrics(month);
+    const metrics = getCachedMonthView(month).metrics;
     return `
       <div class="m2-month-nav">
         <div class="m2-month-nav-row">
@@ -144,6 +196,21 @@
     };
   }
 
+  function emptyState(message, actionLabel = 'Adicionar primeiro lançamento') {
+    return `
+      <div class="m2-empty m2-empty-rich">
+        <div class="m2-empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M8 7h8M8 11h8M8 15h5"></path>
+            <rect x="5" y="3" width="14" height="18" rx="3"></rect>
+          </svg>
+        </div>
+        <strong>${escapeHtml(message || 'Nenhum lançamento neste mês')}</strong>
+        <button class="m2-chip-btn positive" type="button" data-action="add-first">${escapeHtml(actionLabel)}</button>
+      </div>
+    `;
+  }
+
   function renderListCard(title, rows, options = {}) {
     const isReadonly = options.readonly === true;
     return `
@@ -161,13 +228,13 @@
               <span class="m-item-value">${formatMoney(row.amount)}</span>
             </div>
           </article>
-        `).join('') : '<div class="m2-empty">Sem itens nesta seção.</div>'}
+        `).join('') : emptyState('Nenhum lançamento neste mês')}
       </section>
     `;
   }
 
   function renderPlanejamento(month) {
-    const rows = getOutflowRows(month).filter((item) => {
+    const rows = getCachedMonthView(month).outflowRows.filter((item) => {
       const type = String(item?.type || '').toLowerCase();
       return type === 'expense' || item?.showInMonthPlanning === true;
     }).map(toItemView);
@@ -210,9 +277,9 @@
     return `<div class="m2-tab-panel ${activeSubtab === 'planejamento' ? 'active' : ''}" data-tab-panel="planejamento">${renderListCard('Compromissos do mês', normalRows)}${cardSections}</div>`;
   }
 
-  function buildCategoryRows(month) {
+  function buildCategoryRowsFromRows(rows) {
     const byCategory = new Map();
-    getOutflowRows(month).forEach((item) => {
+    rows.forEach((item) => {
       if (item?.countsInPrimaryTotals === false) return;
       const type = String(item?.type || '').toLowerCase();
       if (type !== 'spend' && type !== 'launch') return;
@@ -230,23 +297,33 @@
       }));
   }
 
+  function buildCategoryRows(month) {
+    return getCachedMonthView(month).categoryRows;
+  }
+
   function renderGastosMetas(month) {
-    const categoryRows = buildCategoryRows(month);
+    const categoryRows = getCachedMonthView(month).categoryRows;
     const max = categoryRows[0]?.total || 1;
     const goals = month?.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
     const spentByCategory = month?.categorias && typeof month.categorias === 'object' ? month.categorias : {};
 
-    const goalRows = Object.entries(goals)
-      .map(([category, goalValue]) => {
+    const categoryNames = new Set([
+      ...categoryRows.map((row) => row.name),
+      ...Object.keys(goals || {}),
+      ...Object.keys(spentByCategory || {})
+    ]);
+
+    const goalRows = Array.from(categoryNames)
+      .map((category) => {
+        const goalValue = goals[category];
         const goal = Math.max(0, Number(goalValue || 0));
-        if (!(goal > 0)) return null;
         const resolved = String(global.resolveCategoryName ? global.resolveCategoryName(category) : category).trim() || 'OUTROS';
         const spent = Math.max(0, Number(spentByCategory[resolved] || spentByCategory[category] || 0));
-        const percent = Math.max(0, Math.round((spent / goal) * 100));
+        const percent = goal > 0 ? Math.max(0, Math.round((spent / goal) * 100)) : 0;
         return { category: resolved, goal, spent, percent };
       })
       .filter(Boolean)
-      .sort((a, b) => b.percent - a.percent);
+      .sort((a, b) => (b.goal > 0 ? 1 : 0) - (a.goal > 0 ? 1 : 0) || b.percent - a.percent || b.spent - a.spent);
 
     return `
       <div class="m2-tab-panel ${activeSubtab === 'gastos-metas' ? 'active' : ''}" data-tab-panel="gastos-metas">
@@ -273,23 +350,26 @@
               <div class="cat-bar-row goal-row">
                 <span class="cat-bar-name">${escapeHtml(row.category)}</span>
                 <span class="cat-bar-track"><span class="cat-bar-fill ${over ? 'over-budget' : ''}" style="width:${clamped}%"></span></span>
-                <span class="cat-bar-value">${row.percent}%</span>
+                <span class="cat-bar-value">${row.goal > 0 ? `${row.percent}%` : 'Sem meta'}</span>
+                <button class="m2-icon-mini" type="button" data-action="edit-goal" data-category="${escapeHtml(row.category)}" aria-label="${row.goal > 0 ? 'Editar meta' : 'Definir meta de gasto'}">✎</button>
               </div>
             `;
-          }).join('') : '<div class="m2-empty">Nenhuma meta definida neste mês.</div>'}
+          }).join('') : emptyState('Nenhuma categoria encontrada', 'Adicionar lançamento')}
         </section>
       </div>
     `;
   }
 
   function renderTodos(month) {
-    const allRows = getOutflowRows(month).map(toItemView);
-    const searchValue = String(month?.mobileV2?.allSearch || '');
+    const allRows = getCachedMonthView(month).outflowRows.map(toItemView);
+    const searchValue = String(activeFilters.search || month?.mobileV2?.allSearch || '');
+    const badgeCount = searchValue.trim() ? 1 : 0;
 
     return `
       <div class="m2-tab-panel ${activeSubtab === 'todos' ? 'active' : ''}" data-tab-panel="todos">
+        ${badgeCount ? `<div class="m2-filter-badge">${badgeCount} filtro ativo</div>` : ''}
         <input id="mobileV2AllSearch" class="m2-search" type="search" placeholder="Buscar lançamentos..." value="${escapeHtml(searchValue)}">
-        <section class="m-list-card" id="mobileV2AllList">
+        <section class="m-list-card ${allRows.length >= VIRTUAL_THRESHOLD ? 'm2-virtual-list-card' : ''}" id="mobileV2AllList" data-virtual-list="${allRows.length >= VIRTUAL_THRESHOLD ? '1' : '0'}">
           ${allRows.length ? allRows.map((row) => `
             <article class="m-item" data-outflow-id="${row.id}">
               <div class="m-item-action"><button class="btn-delete-swipe" type="button" data-action="delete" data-id="${row.id}" aria-label="Excluir">Excluir</button></div>
@@ -301,7 +381,7 @@
                 <span class="m-item-value">${formatMoney(row.amount)}</span>
               </div>
             </article>
-          `).join('') : '<div class="m2-empty">Sem lançamentos no mês.</div>'}
+          `).join('') : emptyState('Nenhum lançamento neste mês')}
         </section>
       </div>
     `;
@@ -327,7 +407,7 @@
                 <span class="m-item-value income">${formatMoney(row?.valor || 0)}</span>
               </div>
             </article>
-          `).join('') : '<div class="m2-empty">Sem renda fixa cadastrada.</div>'}
+          `).join('') : emptyState('Nenhuma renda fixa cadastrada')}
           <h3 class="m-list-title" style="margin-top:10px">Renda extra</h3>
           ${rendaExtra.length ? rendaExtra.map((row) => `
             <article class="m-item m-item-income">
@@ -340,7 +420,7 @@
                 <span class="m-item-value income">${formatMoney(row?.valor || 0)}</span>
               </div>
             </article>
-          `).join('') : '<div class="m2-empty">Sem renda extra cadastrada.</div>'}
+          `).join('') : emptyState('Nenhuma renda extra cadastrada')}
           <div class="m2-list-total">Total esperado: ${formatMoney(total)}</div>
         </section>
       </div>
@@ -408,6 +488,7 @@
       const apply = () => {
         const term = String(searchInput.value || '').trim().toLowerCase();
         month.mobileV2.allSearch = searchInput.value || '';
+        activeFilters.search = searchInput.value || '';
         list?.querySelectorAll('.m-item[data-outflow-id]').forEach((row) => {
           row.style.display = !term || row.textContent.toLowerCase().includes(term) ? '' : 'none';
         });
@@ -429,7 +510,11 @@
           if (surface) surface.style.transform = '';
           return;
         }
-        if (typeof global.openUnifiedOutflowModal === 'function') {
+        const item = (month?.outflows || []).find((entry) => String(entry?.id || '') === id);
+        if (global.MobileV2OutflowForm?.openEdit && item) {
+          event.preventDefault();
+          global.MobileV2OutflowForm.openEdit(item);
+        } else if (typeof global.openUnifiedOutflowModal === 'function') {
           event.preventDefault();
           global.openUnifiedOutflowModal(id);
         }
@@ -442,30 +527,123 @@
         event.stopPropagation();
         const id = btn.getAttribute('data-id') || '';
         if (!id || typeof global.deleteUnifiedOutflow !== 'function') return;
-        if (global.confirm && !global.confirm('Excluir este lançamento?')) return;
-        global.deleteUnifiedOutflow(id);
+        const row = btn.closest('.m-item');
+        row?.classList.add('pending-delete');
+        let undone = false;
+        const finish = () => {
+          if (undone) return;
+          global.deleteUnifiedOutflow(id);
+          global.MobileV2Enhancements?.notifyDataChanged?.('outflow-delete');
+          global.MobileV2Enhancements?.haptic?.('medium');
+          global.MobileV2?.refresh?.();
+        };
+        const undo = () => {
+          undone = true;
+          row?.classList.remove('pending-delete', 'swiped');
+          const surface = row?.querySelector('.m-item-surface');
+          if (surface) surface.style.transform = '';
+        };
+        if (typeof global.showToast === 'function') {
+          global.showToast('Lançamento excluído.', { actionLabel: 'Desfazer', onAction: undo, duration: 4000, onClose: finish });
+        } else if (!global.confirm || global.confirm('Excluir este lançamento?')) {
+          finish();
+        } else {
+          undo();
+        }
+      });
+    });
+
+    target.querySelectorAll('[data-action="add-first"]').forEach((btn) => {
+      btn.addEventListener('click', () => global.MobileV2AddSheet?.open?.());
+    });
+
+    target.querySelectorAll('[data-action="edit-goal"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const category = btn.getAttribute('data-category') || '';
+        if (!category) return;
+        const current = Number(month?.dailyGoals?.[category] || 0) || '';
+        const label = current ? 'Editar meta de gasto' : 'Definir meta de gasto';
+        const raw = global.prompt?.(`${label} para ${category}`, current ? String(current) : '');
+        if (raw === null || raw === undefined) return;
+        const value = Number(String(raw).replace(',', '.'));
+        if (!(value > 0)) return;
+        month.dailyGoals = month.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
+        month.dailyGoals[category] = value;
+        if (typeof global.save === 'function') global.save(true);
+        invalidateCache();
+        global.MobileV2Enhancements?.notifyDataChanged?.('goal-save');
         global.MobileV2?.refresh?.();
       });
+    });
+
+    setupVirtualLists(target);
+  }
+
+  function setupVirtualLists(target) {
+    target.querySelectorAll('[data-virtual-list="1"]').forEach((list) => {
+      const items = Array.from(list.querySelectorAll('.m-item[data-outflow-id]'));
+      if (items.length < VIRTUAL_THRESHOLD || virtualState.has(list)) return;
+      const spacer = document.createElement('div');
+      spacer.className = 'm2-virtual-spacer';
+      spacer.style.height = `${items.length * VIRTUAL_ITEM_HEIGHT}px`;
+      items.forEach((item) => {
+        item.classList.add('m2-virtual-item');
+        item.style.height = `${VIRTUAL_ITEM_HEIGHT}px`;
+      });
+      list.appendChild(spacer);
+      const virtual = { items, ticking: false };
+      virtualState.set(list, virtual);
+      const update = () => {
+        virtual.ticking = false;
+        const viewport = list.closest('.mobile-v2-screen') || list;
+        const viewportRect = viewport.getBoundingClientRect();
+        const listRect = list.getBoundingClientRect();
+        const scrollTop = Math.max(0, viewport.scrollTop - Math.max(0, listRect.top - viewportRect.top));
+        const viewportHeight = viewport.clientHeight || 520;
+        const start = Math.max(0, Math.floor(scrollTop / VIRTUAL_ITEM_HEIGHT) - VIRTUAL_BUFFER);
+        const end = Math.min(items.length - 1, Math.ceil((scrollTop + viewportHeight) / VIRTUAL_ITEM_HEIGHT) + VIRTUAL_BUFFER);
+        items.forEach((item, index) => {
+          if (index < start || index > end) {
+            item.style.display = 'none';
+            return;
+          }
+          item.style.display = '';
+          item.style.transform = `translateY(${index * VIRTUAL_ITEM_HEIGHT}px)`;
+        });
+      };
+      const schedule = () => {
+        if (virtual.ticking) return;
+        virtual.ticking = true;
+        requestAnimationFrame(update);
+      };
+      const viewport = list.closest('.mobile-v2-screen') || list;
+      viewport.addEventListener('scroll', schedule, { passive: true });
+      window.addEventListener('resize', schedule, { passive: true });
+      update();
     });
   }
 
   function prevMonth() {
-    const allMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []);
+    const liveMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []);
+    const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
     const current = getCurrentMonthSafe();
     if (!allMonths.length || !current) return;
     const idx = allMonths.findIndex((entry) => entry?.id === current.id);
     if (idx <= 0 || typeof global.selectMonth !== 'function') return;
     global.selectMonth(allMonths[idx - 1].id);
+    global.MobileV2Enhancements?.haptic?.('light');
     global.MobileV2?.refresh?.();
   }
 
   function nextMonth() {
-    const allMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []);
+    const liveMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []);
+    const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
     const current = getCurrentMonthSafe();
     if (!allMonths.length || !current) return;
     const idx = allMonths.findIndex((entry) => entry?.id === current.id);
     if (idx < 0 || idx >= allMonths.length - 1 || typeof global.selectMonth !== 'function') return;
     global.selectMonth(allMonths[idx + 1].id);
+    global.MobileV2Enhancements?.haptic?.('light');
     global.MobileV2?.refresh?.();
   }
 
@@ -498,8 +676,11 @@
     nextMonth,
     setSubtab(tab) {
       if (SUBTABS.some((entry) => entry.key === tab)) activeSubtab = tab;
-    }
+    },
+    getActiveFilters: () => ({ ...activeFilters }),
+    invalidateCache
   };
+  document.addEventListener('mobileDataChanged', invalidateCache);
 })(window);
 
 

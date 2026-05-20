@@ -26,12 +26,13 @@
         const data = global.getPatrimonioData();
         return {
           accounts: Array.isArray(data?.accounts) ? data.accounts : [],
-          movements: Array.isArray(data?.movements) ? data.movements : []
+          movements: Array.isArray(data?.movements) ? data.movements : [],
+          error: String(data?.error || '')
         };
       } catch {}
     }
 
-    return { accounts: [], movements: [] };
+    return { accounts: [], movements: [], error: 'Dados de patrimônio indisponíveis no momento.' };
   }
 
   function getAccountBalance(account) {
@@ -41,7 +42,7 @@
   function render(target) {
     if (!target) return;
 
-    const { accounts, movements } = resolveData();
+    const { accounts, movements, error } = resolveData();
     const total = accounts.reduce((sum, account) => sum + getAccountBalance(account), 0);
     const recent = [...movements].slice(-5).reverse();
 
@@ -61,7 +62,7 @@
       <section class="hero-card hero-card-wealth">
         <div class="hero-result-label">TOTAL PATRIMONIAL</div>
         <div class="hero-result">${formatMoney(total)}</div>
-        <div class="hero-sub"><span>${accounts.length} conta(s) acompanhada(s)</span></div>
+        <div class="hero-sub"><span>${error ? escapeHtml(error) : `${accounts.length} conta(s) acompanhada(s)`}</span></div>
       </section>
 
       <section class="m-list-card">

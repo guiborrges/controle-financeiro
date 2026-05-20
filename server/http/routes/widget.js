@@ -61,6 +61,30 @@ function registerWidgetRoutes(app, deps = {}) {
     return res.json({ ok: true });
   });
 
+  app.post('/api/widget/rebuild-snapshot', noStore, requireAuth, requireCsrf, (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ message: 'SessÃ£o expirada ou inexistente.' });
+    }
+    if (!String(user?.widgetToken || '').trim()) {
+      return res.json({ ok: true, rebuilt: false, reason: 'widget-token-missing' });
+    }
+    if (!buildWidgetSnapshot || !saveWidgetSnapshot) {
+      return res.status(503).json({ message: 'Rebuild do widget indisponivel.' });
+    }
+    try {
+      const statePayload = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
+      const state = statePayload?.state && typeof statePayload.state === 'object' ? statePayload.state : null;
+      if (!state) return res.status(404).json({ message: 'Estado financeiro nao encontrado.' });
+      const snapshot = buildWidgetSnapshot(user.id, state);
+      saveWidgetSnapshot(user.id, snapshot);
+      return res.json({ ok: true, rebuilt: true });
+    } catch (error) {
+      console.error('[widget] Falha ao reconstruir snapshot:', error?.message || String(error));
+      return res.status(400).json({ message: error?.message || 'Falha ao reconstruir snapshot do widget.' });
+    }
+  });
+
   app.get('/api/widget/token-status', noStore, requireAuth, (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {

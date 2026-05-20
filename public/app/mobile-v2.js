@@ -6,6 +6,19 @@
     enabled: false,
     currentTab: 'dashboard'
   };
+  const modulePromises = {};
+
+  function loadMobileModule(key) {
+    if (key === 'calendario' && !global.MobileV2Calendario) {
+      modulePromises.calendario = modulePromises.calendario || import('/app-assets/modules/mobile-v2/calendario-mobile.js').then(() => render());
+      return modulePromises.calendario;
+    }
+    if (key === 'internet-banking' && !global.MobileV2InternetBanking) {
+      modulePromises.internetBanking = modulePromises.internetBanking || import('/app-assets/modules/mobile-v2/internet-banking-mobile.js');
+      return modulePromises.internetBanking;
+    }
+    return Promise.resolve();
+  }
 
   function supportsTouch() {
     try {
@@ -34,6 +47,25 @@
 
   function icon(name) {
     return global.SystemIcons?.render ? global.SystemIcons.render(name) : '';
+  }
+
+  function getPatrimonioData() {
+    const accounts = Array.isArray(global.patrimonioAccounts) ? global.patrimonioAccounts : [];
+    const movements = Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements : [];
+    if (accounts.length || movements.length) return { accounts, movements, error: '' };
+    const storage = global.Storage?.getJSON;
+    if (typeof storage === 'function' && global.STORAGE_KEYS) {
+      const storedAccounts = storage(global.STORAGE_KEYS.patrimonioAccounts, []);
+      const storedMovements = storage(global.STORAGE_KEYS.patrimonioMovements, []);
+      if (Array.isArray(storedAccounts) || Array.isArray(storedMovements)) {
+        return {
+          accounts: Array.isArray(storedAccounts) ? storedAccounts : [],
+          movements: Array.isArray(storedMovements) ? storedMovements : [],
+          error: ''
+        };
+      }
+    }
+    return { accounts: [], movements: [], error: 'Dados de patrimônio indisponíveis no momento.' };
   }
 
   function ensureRoot() {
@@ -74,6 +106,7 @@
   function setTab(tabKey) {
     if (!tabKey) return;
     state.currentTab = tabKey;
+    loadMobileModule(tabKey).catch(() => {});
     render();
   }
 
@@ -108,7 +141,14 @@
     global.MobileV2MesAtual?.render?.(screenMes);
     global.MobileV2Patrimonio?.render?.(screenPat);
     global.MobileV2Historico?.render?.(screenHis);
-    global.MobileV2Calendario?.render?.(screenCal);
+    if (state.currentTab === 'calendario' && !global.MobileV2Calendario) {
+      if (screenCal) screenCal.innerHTML = '<div class="m2-empty">Carregando calendário...</div>';
+      loadMobileModule('calendario').catch(() => {
+        if (screenCal) screenCal.innerHTML = '<div class="m2-empty">Não foi possível carregar o calendário.</div>';
+      });
+    } else {
+      global.MobileV2Calendario?.render?.(screenCal);
+    }
 
     root.querySelectorAll('[data-mobile-v2-screen]').forEach((screen) => {
       const isActive = screen.getAttribute('data-mobile-v2-screen') === state.currentTab;
@@ -178,9 +218,13 @@
     init,
     apply,
     refresh,
+    loadMobileModule,
     setTab,
     isEnabled: () => state.enabled
   };
+  if (typeof global.getPatrimonioData !== 'function') {
+    global.getPatrimonioData = getPatrimonioData;
+  }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();

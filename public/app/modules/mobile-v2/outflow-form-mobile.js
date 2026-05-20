@@ -201,7 +201,7 @@
       throw new Error('Fluxo de lançamento indisponível no momento.');
     }
 
-    global.openUnifiedOutflowModal('', {});
+    global.openUnifiedOutflowModal(payload.editId || '', {});
 
     const setValue = (id, value) => {
       const el = document.getElementById(id);
@@ -275,6 +275,7 @@
     }
 
     const payload = {
+      editId: String(document.getElementById('mobileV2OutflowSheet')?.getAttribute('data-mobile-v2-edit-id') || ''),
       description,
       category,
       amount,
@@ -290,7 +291,10 @@
       close();
       global.MobileV2?.setTab?.('mes');
       global.MobileV2?.refresh?.();
-      if (typeof global.showAppStatus === 'function') global.showAppStatus('Lançamento adicionado com sucesso.', 'success');
+      global.MobileV2Enhancements?.notifyDataChanged?.('outflow-save');
+      global.MobileV2Enhancements?.haptic?.('light');
+      if (typeof global.showToast === 'function') global.showToast(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.');
+      else if (typeof global.showAppStatus === 'function') global.showAppStatus(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.', 'success');
     } catch (error) {
       if (typeof global.showAppStatus === 'function') global.showAppStatus(error?.message || 'Não foi possível adicionar o lançamento.', 'error');
       else global.alert?.(error?.message || 'Não foi possível adicionar o lançamento.');
@@ -341,7 +345,37 @@
   function open(mode = 'launch') {
     const sheet = ensureSheet();
     sheet.setAttribute('data-mobile-v2-mode', mode);
+    sheet.removeAttribute('data-mobile-v2-edit-id');
     renderForm(mode);
+    sheet.classList.add('open');
+  }
+
+  function openEdit(item) {
+    const source = item && typeof item === 'object' ? item : null;
+    if (!source) return open('launch');
+    const sheet = ensureSheet();
+    sheet.setAttribute('data-mobile-v2-mode', 'launch');
+    sheet.setAttribute('data-mobile-v2-edit-id', String(source.id || ''));
+    renderForm('launch');
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = value == null ? '' : String(value);
+      try {
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch {}
+    };
+    setValue('mobileV2OutflowDescription', source.description || source.nome || '');
+    setValue('mobileV2OutflowAmount', Math.abs(Number(source.amount || source.valor || 0)) || '');
+    setValue('mobileV2OutflowDate', source.date || source.data || '');
+    setValue('mobileV2OutflowCategory', source.category || source.categoria || '');
+    const planning = document.getElementById('mobileV2PlanningToggle');
+    if (planning) planning.checked = source.showInMonthPlanning === true || String(source.type || '').toLowerCase() === 'expense';
+    const submit = document.getElementById('mobileV2OutflowSubmit');
+    if (submit) submit.textContent = 'Salvar';
+    const title = document.querySelector('#mobileV2OutflowFormBody .form-title');
+    if (title) title.textContent = 'Editar lançamento';
     sheet.classList.add('open');
   }
 
@@ -352,6 +386,7 @@
   global.MobileV2OutflowForm = {
     ensureSheet,
     open,
+    openEdit,
     close,
     openInlineSheet,
     openIncomePicker

@@ -393,6 +393,9 @@ app.use('/app-assets', noStore, requireAuth, express.static(APP_DIR, {
     if (typeof filePath === 'string' && filePath.toLowerCase().endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     }
+    if (typeof filePath === 'string' && path.basename(filePath).toLowerCase() === 'mobile-v2-sw.js') {
+      res.setHeader('Service-Worker-Allowed', '/');
+    }
   }
 }));
 app.use('/developer-assets', noStore, requireDeveloper, express.static(DEVELOPER_DIR, { index: false, fallthrough: false }));

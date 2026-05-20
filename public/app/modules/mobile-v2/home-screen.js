@@ -9,6 +9,9 @@
   ];
 
   let activePeriod = 6;
+  let resizeObserver = null;
+  let previousChartState = null;
+  let chartAnimationFrame = 0;
 
   function escapeHtml(value) {
     if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
@@ -64,7 +67,8 @@
   }
 
   function getMonthsForPeriod(value) {
-    const allMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
+    const liveMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
+    const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
     if (!allMonths.length) return [];
     if (value === 'year') {
       const curr = allMonths[allMonths.length - 1];
@@ -93,6 +97,31 @@
       });
     });
     return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, value]) => ({ name, value }));
+  }
+
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function interpolateSeries(previous, next, progress) {
+    return next.map((item, index) => {
+      const prior = previous?.[index] || {};
+      return {
+        ...item,
+        renda: Number(prior.renda || 0) + (Number(item.renda || 0) - Number(prior.renda || 0)) * progress,
+        gastos: Number(prior.gastos || 0) + (Number(item.gastos || 0) - Number(prior.gastos || 0)) * progress
+      };
+    });
+  }
+
+  function interpolateCategories(previous, next, progress) {
+    return next.map((item, index) => {
+      const prior = previous?.find((entry) => entry.name === item.name) || previous?.[index] || {};
+      return {
+        ...item,
+        value: Number(prior.value || 0) + (Number(item.value || 0) - Number(prior.value || 0)) * progress
+      };
+    });
   }
 
   function drawLineChart(canvas, months) {
@@ -171,6 +200,29 @@
     ctx.fill();
   }
 
+  function animateCharts(target, months, categories) {
+    const line = target.querySelector('#mobileV2LineChart');
+    const pie = target.querySelector('#mobileV2PieChart');
+    const start = performance.now();
+    const fromMonths = previousChartState?.months || months.map((month) => ({ ...month, renda: 0, gastos: 0 }));
+    const fromCategories = previousChartState?.categories || categories.map((category) => ({ ...category, value: 0 }));
+    cancelAnimationFrame(chartAnimationFrame);
+    const step = (now) => {
+      const progress = easeInOutCubic(Math.min(1, (now - start) / 300));
+      drawLineChart(line, interpolateSeries(fromMonths, months, progress));
+      drawPieChart(pie, interpolateCategories(fromCategories, categories, progress));
+      if (progress < 1) {
+        chartAnimationFrame = requestAnimationFrame(step);
+      } else {
+        previousChartState = {
+          months: months.map((month) => ({ ...month })),
+          categories: categories.map((category) => ({ ...category }))
+        };
+      }
+    };
+    chartAnimationFrame = requestAnimationFrame(step);
+  }
+
   function bindPeriodButtons(target) {
     target.querySelectorAll('[data-m2-period]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -179,6 +231,76 @@
         render(target);
       });
     });
+  }
+
+  async function shareDashboardSnapshot() {
+    const months = getMonthsForPeriod(activePeriod);
+    if (!months.length) return;
+    const totalIncome = months.reduce((sum, month) => sum + month.renda, 0);
+    const totalExpenses = months.reduce((sum, month) => sum + month.gastos, 0);
+    const totalResult = totalIncome - totalExpenses;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FAFAF8';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#2471A3';
+    ctx.fillRect(0, 0, canvas.width, 330);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '700 62px Inter, Arial';
+    ctx.fillText('Controle Financeiro', 72, 118);
+    ctx.font = '500 32px Inter, Arial';
+    ctx.fillText(`Resumo ${PERIODS.find((period) => period.value === activePeriod)?.label || ''}`, 72, 174);
+    ctx.font = '700 76px Inter, Arial';
+    ctx.fillText(formatMoney(totalResult), 72, 278);
+    ctx.fillStyle = '#152033';
+    ctx.font = '700 44px Inter, Arial';
+    ctx.fillText('Renda', 72, 438);
+    ctx.fillText('Gastos', 72, 568);
+    ctx.fillText('Resultado', 72, 698);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#2471A3';
+    ctx.fillText(formatMoney(totalIncome), 1008, 438);
+    ctx.fillStyle = '#E74C3C';
+    ctx.fillText(formatMoney(totalExpenses), 1008, 568);
+    ctx.fillStyle = totalResult >= 0 ? '#27AE60' : '#E74C3C';
+    ctx.fillText(formatMoney(totalResult), 1008, 698);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#667085';
+    ctx.font = '400 28px Inter, Arial';
+    ctx.fillText('Gerado pelo app Controle Financeiro', 72, 1240);
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.92));
+    if (!blob) return;
+    const file = new File([blob], 'resumo-financeiro.png', { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+      await navigator.share({ files: [file], title: 'Resumo financeiro' });
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'resumo-financeiro.png';
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function observeCharts(target, months, categories) {
+    resizeObserver?.disconnect?.();
+    if (!target || typeof ResizeObserver !== 'function') return;
+    const line = target.querySelector('#mobileV2LineChart');
+    const pie = target.querySelector('#mobileV2PieChart');
+    let frame = 0;
+    resizeObserver = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        drawLineChart(line, months);
+        drawPieChart(pie, categories);
+      });
+    });
+    if (line?.parentElement) resizeObserver.observe(line.parentElement);
+    if (pie?.parentElement) resizeObserver.observe(pie.parentElement);
   }
 
   function render(target) {
@@ -201,6 +323,7 @@
           <p class="m2-subtitle">Visão de médio e longo prazo</p>
         </div>
         <div class="m2-header-actions">
+          <button class="m2-icon-btn" type="button" aria-label="Compartilhar dashboard" data-m2-share-dashboard>${global.SystemIcons?.render ? global.SystemIcons.render('share') : '↗'}</button>
           <button class="m2-icon-btn" type="button" aria-label="Tags" onclick="MobileV2FiltersSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('tag') : ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
@@ -249,12 +372,18 @@
     `;
 
     bindPeriodButtons(target);
-    drawLineChart(target.querySelector('#mobileV2LineChart'), months);
-    drawPieChart(target.querySelector('#mobileV2PieChart'), categories);
+    target.querySelector('[data-m2-share-dashboard]')?.addEventListener('click', () => {
+      shareDashboardSnapshot().catch(() => {
+        if (typeof global.showToast === 'function') global.showToast('Não foi possível compartilhar agora.');
+      });
+    });
+    animateCharts(target, months, categories);
+    observeCharts(target, months, categories);
   }
 
   global.MobileV2HomeScreen = {
-    render
+    render,
+    shareDashboardSnapshot
   };
 })(window);
 

@@ -3,7 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2471A3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Controle Financeiro">
+<meta property="og:title" content="Controle Financeiro">
+<meta property="og:description" content="Acesso seguro ao controle financeiro pessoal.">
+<meta property="og:image" content="/app-assets/pwa-preview.svg">
 <title>Controle Financeiro</title>
+<link rel="manifest" href="/app-assets/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/app-assets/pwa-icon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script>
@@ -26,6 +34,7 @@
   <link rel="stylesheet" href="/app-assets/dark-mode.css">
 </head>
 <body>
+<div id="mobileV2Splash"><div class="mobile-v2-splash-logo">Controle Financeiro</div></div>
 <div id="appStatus" class="app-status" role="status" aria-live="polite">
   <div id="appStatusIcon" class="app-status-icon">!</div>
   <div class="app-status-copy">
@@ -1727,14 +1736,13 @@
   <script src="/app-assets/modules/mobile-v2/add-sheet.js"></script>
   <script src="/app-assets/modules/mobile-v2/outflow-form-mobile.js"></script>
   <script src="/app-assets/modules/mobile-v2/filters-sheet.js"></script>
-  <script src="/app-assets/modules/mobile-v2/internet-banking-mobile.js"></script>
   <script src="/app-assets/modules/mobile-v2/home-screen.js"></script>
   <script src="/app-assets/modules/mobile-v2/mes-atual-mobile.js"></script>
   <script src="/app-assets/modules/mobile-v2/patrimonio-mobile.js"></script>
   <script src="/app-assets/modules/mobile-v2/historico-mobile.js"></script>
-  <script src="/app-assets/modules/mobile-v2/calendario-mobile.js"></script>
   <script src="/app-assets/modules/mobile-v2/perfil-mobile.js"></script>
   <script src="/app-assets/mobile-v2.js"></script>
+  <script src="/app-assets/mobile-v2-enhancements.js"></script>
   <script src="/app-assets/core.js"></script>
   <script src="/app-assets/dashboard.js"></script>
   <script src="/app-assets/mes-atual.js"></script>

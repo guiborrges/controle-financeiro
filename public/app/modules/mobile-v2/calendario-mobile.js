@@ -112,11 +112,14 @@
     });
 
     setTimeout(() => {
-      const sheet = document.getElementById('mobileV2OutflowFormSheet');
+      const sheet = document.getElementById('mobileV2OutflowSheet');
       sheet?.querySelectorAll('[data-action="edit"]').forEach((el) => {
         el.addEventListener('click', () => {
           const id = el.getAttribute('data-id');
-          if (id && typeof global.openUnifiedOutflowModal === 'function') {
+          const item = (getCurrentMonth()?.outflows || []).find((entry) => String(entry?.id || '') === String(id || ''));
+          if (id && global.MobileV2OutflowForm?.openEdit && item) {
+            global.MobileV2OutflowForm.openEdit(item);
+          } else if (id && typeof global.openUnifiedOutflowModal === 'function') {
             global.MobileV2OutflowForm?.close?.();
             global.openUnifiedOutflowModal(id);
           }
