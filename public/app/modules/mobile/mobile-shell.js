@@ -30,6 +30,7 @@
     document.body?.classList.toggle('mobile-ui', enabled);
     updateViewportUnit();
     if (enabled) boot();
+    else teardown();
     if (global.MobileNav?.sync) global.MobileNav.sync();
     return enabled;
   }
@@ -97,8 +98,14 @@
     replaceStaticIcons();
   }
 
+  function teardown() {
+    booted = false;
+    document.getElementById('mobileAppHeader')?.remove();
+    document.getElementById('mobileActionFab')?.remove();
+    document.getElementById('mobileAddSheet')?.remove();
+  }
+
   function init() {
-    boot();
     applyState();
     global.addEventListener('resize', applyState, { passive: true });
     global.addEventListener('orientationchange', applyState);
