@@ -116,3 +116,35 @@ test('composite imported key uses original Pluggy description for dedupe', () =>
   assert.match(key, /^user-tenant-1\|Cartao XP\|CREDIT\|2026-05-08T12:00:00.000Z\|14\.58\|/);
   assert.equal(key.includes('descricao editada'), false);
 });
+
+test('extractImportedKeysFromSavedData reads persisted internet banking markers', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'app', 'pluggy-banking.js'),
+    'utf8'
+  );
+  const sandbox = {
+    window: {},
+    data: [
+      {
+        id: 'maio_2026',
+        outflows: [
+          { id: 'a', ibImportKey: 'key-outflow-1' },
+          { id: 'b', internetBankingImportKey: 'key-outflow-2' }
+        ]
+      }
+    ],
+    patrimonioMovements: [
+      { id: 'm1', ibImportKey: 'key-mov-1' },
+      { id: 'm2', internetBankingImportKey: 'key-mov-2' }
+    ],
+    localStorage: {
+      getItem() { return null; },
+      setItem() {}
+    }
+  };
+  sandbox.window = sandbox;
+  vm.runInNewContext(source, sandbox);
+  const h = sandbox.__pluggyBankingTest;
+  const keys = Array.from(h.extractImportedKeysFromSavedData());
+  assert.deepEqual(keys.sort(), ['key-mov-1', 'key-mov-2', 'key-outflow-1', 'key-outflow-2']);
+});

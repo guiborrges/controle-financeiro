@@ -770,6 +770,24 @@
     STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] = true;
   }
 
+  function extractImportedKeysFromSavedData() {
+    const keys = new Set();
+    const months = getDataRef();
+    months.forEach((month) => {
+      const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
+      outflows.forEach((item) => {
+        const rawKey = normalizeText(item?.ibImportKey || item?.internetBankingImportKey || '');
+        if (rawKey) keys.add(rawKey);
+      });
+    });
+    const movements = getPatrimonioMovementsRef();
+    movements.forEach((movement) => {
+      const rawKey = normalizeText(movement?.ibImportKey || movement?.internetBankingImportKey || '');
+      if (rawKey) keys.add(rawKey);
+    });
+    return keys;
+  }
+
   function hasMatchingOutflowInSystem(accountName, dateBr, amountAbs, descriptionNorm) {
     const months = getDataRef();
     for (const month of months) {
@@ -807,6 +825,11 @@
   }
 
   function rebuildImportedStateFromSavedData() {
+    const persistedKeys = extractImportedKeysFromSavedData();
+    persistedKeys.forEach((key) => {
+      STATE.userState.importedTxKeys[key] = true;
+    });
+
     if (!Array.isArray(STATE.rawData?.accounts)) return;
     STATE.rawData.accounts.forEach((account) => {
       const accountName = normalizeText(account?.accountName || '');
@@ -952,7 +975,8 @@
       installmentIndex: Number(tx?.creditCardMetadata?.installmentNumber || 1) || 1,
       createdAt: new Date().toISOString(),
       sourceAccountName: normalizeText(account?.accountName || ''),
-      ibAccountNameOriginal: normalizeText(account?.accountName || '')
+      ibAccountNameOriginal: normalizeText(account?.accountName || ''),
+      ibImportKey: buildImportedCompositeKey(account, tx)
     };
     const normalized = typeof global.normalizeUnifiedOutflowItem === 'function'
       ? global.normalizeUnifiedOutflowItem(base, 0)
@@ -1003,7 +1027,8 @@
       description,
       date: dateIso,
       sourceAccountName: normalizeText(account?.accountName || ''),
-      ibAccountNameOriginal: normalizeText(account?.accountName || '')
+      ibAccountNameOriginal: normalizeText(account?.accountName || ''),
+      ibImportKey: buildImportedCompositeKey(account, tx)
     };
     const movement = typeof global.normalizePatrimonioMovement === 'function'
       ? global.normalizePatrimonioMovement(movementBase, getPatrimonioMovementsRef().length)
@@ -1735,7 +1760,8 @@
     dedupeLabel,
     stripLegacyCategoryIconPrefix,
     toVisualCategorySymbol,
-    buildImportedCompositeKey
+    buildImportedCompositeKey,
+    extractImportedKeysFromSavedData
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
