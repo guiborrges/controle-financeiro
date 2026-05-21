@@ -11,6 +11,12 @@ runStartupSelfCheck();
       );
     }
     init();
+    if (window.MobileV2?.isEnabled?.()) {
+      window.MobileV2.apply?.();
+      window.MobileV2.refresh?.();
+      window.setTimeout(() => window.MobileV2?.refresh?.(), 500);
+      window.setTimeout(() => window.MobileV2?.refresh?.(), 1800);
+    }
   } catch (error) {
   showAppStatus(
     `${error?.message || 'Falha ao iniciar o sistema.'}\nRecarregue a pagina. Se o erro continuar, use o backup local salvo no navegador.`,

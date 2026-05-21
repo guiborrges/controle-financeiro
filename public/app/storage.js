@@ -353,22 +353,46 @@ async function initializeServerStorage() {
   if (storageInitialized && window.__APP_BOOTSTRAP__) return window.__APP_BOOTSTRAP__;
   let payload = null;
   let bootstrapErrorMessage = '';
+  const bootstrapAttempts = 3;
+  const bootstrapTimeoutMs = 12000;
+  const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+  async function fetchBootstrapAttempt() {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeoutHandle = controller ? window.setTimeout(() => controller.abort(), bootstrapTimeoutMs) : null;
+    try {
+      const response = await fetch('/api/app/bootstrap', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+        signal: controller?.signal
+      });
+      if (timeoutHandle) window.clearTimeout(timeoutHandle);
+      return response;
+    } catch (error) {
+      if (timeoutHandle) window.clearTimeout(timeoutHandle);
+      throw error;
+    }
+  }
   try {
-    const response = await fetch('/api/app/bootstrap', {
-      credentials: 'same-origin',
-      headers: { Accept: 'application/json' }
-    });
-    if (response.ok) {
-      payload = await response.json();
-    } else if (response.status === 401) {
-      window.location.replace('/login');
-      throw new Error('Sessao expirada ou inexistente.');
-    } else {
+    for (let attempt = 1; attempt <= bootstrapAttempts; attempt += 1) {
+      const response = await fetchBootstrapAttempt();
+      if (response.ok) {
+        payload = await response.json();
+        break;
+      }
+      if (response.status === 401) {
+        window.location.replace('/login');
+        throw new Error('Sessao expirada ou inexistente.');
+      }
       const failPayload = await response.json().catch(() => ({}));
       bootstrapErrorMessage = failPayload?.message || 'Falha ao carregar bootstrap.';
+      if (attempt < bootstrapAttempts) {
+        await wait(350 * attempt);
+      }
     }
   } catch (error) {
-    bootstrapErrorMessage = error?.message || bootstrapErrorMessage || 'Falha ao carregar bootstrap.';
+    bootstrapErrorMessage = error?.name === 'AbortError'
+      ? 'Timeout ao carregar dados iniciais.'
+      : (error?.message || bootstrapErrorMessage || 'Falha ao carregar bootstrap.');
   }
 
   if (!payload) {
