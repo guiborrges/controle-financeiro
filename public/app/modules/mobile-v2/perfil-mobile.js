@@ -11,6 +11,7 @@
   }
 
   function ensureSheet() {
+    if (global.MobileV2?.isEnabled?.() !== true) return null;
     let root = document.getElementById('mobileV2PerfilSheet');
     if (root) return root;
 
@@ -50,6 +51,8 @@
     `;
 
     document.body.appendChild(root);
+    root.setAttribute('hidden', 'hidden');
+    root.style.display = 'none';
     root.querySelectorAll('[data-close-perfil]').forEach((el) => {
       el.addEventListener('click', close);
     });
@@ -57,16 +60,23 @@
   }
 
   function open() {
+    if (global.MobileV2?.isEnabled?.() !== true) return;
     const root = ensureSheet();
+    if (!root) return;
     const userName = document.getElementById('sessionUserName')?.textContent?.trim() || 'UsuÃ¡rio';
     const subtitle = root.querySelector('#mobileV2PerfilSubtitle');
     if (subtitle) subtitle.textContent = userName;
+    root.style.display = '';
+    root.removeAttribute('hidden');
     root.classList.add('open');
   }
 
   function close() {
     const root = document.getElementById('mobileV2PerfilSheet');
-    if (root) root.classList.remove('open');
+    if (!root) return;
+    root.classList.remove('open');
+    root.setAttribute('hidden', 'hidden');
+    root.style.display = 'none';
   }
 
   global.MobileV2PerfilSheet = {

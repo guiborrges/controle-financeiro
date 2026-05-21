@@ -73,6 +73,7 @@
   }
 
   function ensureSheet() {
+    if (global.MobileV2?.isEnabled?.() !== true) return null;
     let root = document.getElementById('mobileV2OutflowSheet');
     if (root) return root;
 
@@ -89,6 +90,8 @@
 
     document.body.appendChild(root);
     root.querySelector('.bottom-sheet-scrim')?.addEventListener('click', close);
+    root.setAttribute('hidden', 'hidden');
+    root.style.display = 'none';
 
     return root;
   }
@@ -343,10 +346,14 @@
   }
 
   function open(mode = 'launch') {
+    if (global.MobileV2?.isEnabled?.() !== true) return;
     const sheet = ensureSheet();
+    if (!sheet) return;
     sheet.setAttribute('data-mobile-v2-mode', mode);
     sheet.removeAttribute('data-mobile-v2-edit-id');
     renderForm(mode);
+    sheet.style.display = '';
+    sheet.removeAttribute('hidden');
     sheet.classList.add('open');
   }
 
@@ -380,7 +387,11 @@
   }
 
   function close() {
-    document.getElementById('mobileV2OutflowSheet')?.classList.remove('open');
+    const sheet = document.getElementById('mobileV2OutflowSheet');
+    if (!sheet) return;
+    sheet.classList.remove('open');
+    sheet.setAttribute('hidden', 'hidden');
+    sheet.style.display = 'none';
   }
 
   global.MobileV2OutflowForm = {

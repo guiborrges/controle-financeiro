@@ -8,6 +8,22 @@
   };
   const modulePromises = {};
 
+  function closeLeakingMobileSheets() {
+    [
+      'mobileV2AddSheet',
+      'mobileV2OutflowSheet',
+      'mobileV2FiltersSheet',
+      'mobileV2PerfilSheet',
+      'mobileV2DatePickerSheet'
+    ].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('open', 'active');
+      el.setAttribute('hidden', 'hidden');
+      el.style.display = 'none';
+    });
+  }
+
   function loadMobileModule(key) {
     if (key === 'calendario' && !global.MobileV2Calendario) {
       modulePromises.calendario = modulePromises.calendario || import('/app-assets/modules/mobile-v2/calendario-mobile.js').then(() => render());
@@ -199,9 +215,22 @@
       syncTabFromCurrentPage();
     }
     updateBodyClasses();
-    const root = ensureRoot();
-    if (root) root.style.display = state.enabled ? '' : 'none';
-    if (state.enabled) render();
+    if (state.enabled) {
+      const root = ensureRoot();
+      if (root) {
+        root.removeAttribute('hidden');
+        root.style.display = '';
+      }
+      render();
+      return;
+    }
+
+    const root = document.getElementById('mobileV2Root');
+    if (root) {
+      root.setAttribute('hidden', 'hidden');
+      root.style.display = 'none';
+    }
+    closeLeakingMobileSheets();
   }
 
   function refresh() {

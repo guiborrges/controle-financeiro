@@ -2,6 +2,7 @@
   'use strict';
 
   function ensureSheet() {
+    if (global.MobileV2?.isEnabled?.() !== true) return null;
     let root = document.getElementById('mobileV2FiltersSheet');
     if (root) return root;
     root = document.createElement('div');
@@ -20,6 +21,8 @@
       </div>
     `;
     document.body.appendChild(root);
+    root.setAttribute('hidden', 'hidden');
+    root.style.display = 'none';
     root.querySelector('.bottom-sheet-scrim')?.addEventListener('click', close);
     root.querySelectorAll('[data-filter]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -33,8 +36,21 @@
     return root;
   }
 
-  function open() { ensureSheet().classList.add('open'); }
-  function close() { document.getElementById('mobileV2FiltersSheet')?.classList.remove('open'); }
+  function open() {
+    if (global.MobileV2?.isEnabled?.() !== true) return;
+    const sheet = ensureSheet();
+    if (!sheet) return;
+    sheet.style.display = '';
+    sheet.removeAttribute('hidden');
+    sheet.classList.add('open');
+  }
+  function close() {
+    const sheet = document.getElementById('mobileV2FiltersSheet');
+    if (!sheet) return;
+    sheet.classList.remove('open');
+    sheet.setAttribute('hidden', 'hidden');
+    sheet.style.display = 'none';
+  }
 
   global.MobileV2FiltersSheet = { ensureSheet, open, close };
 })(window);

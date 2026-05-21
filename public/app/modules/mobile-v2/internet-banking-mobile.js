@@ -14,6 +14,7 @@
   }
 
   async function open() {
+    if (global.MobileV2?.isEnabled?.() !== true) return;
     const hasRenderer = typeof global.renderInternetBankingPage === 'function';
     if (!hasRenderer) {
       global.MobileV2OutflowForm?.openInlineSheet?.({

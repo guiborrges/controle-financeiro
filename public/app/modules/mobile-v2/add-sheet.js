@@ -20,6 +20,7 @@
   ];
 
   function ensureSheet() {
+    if (global.MobileV2?.isEnabled?.() !== true) return null;
     let root = document.getElementById('mobileV2AddSheet');
     if (root) return root;
 
@@ -66,15 +67,26 @@
       });
     });
 
+    root.setAttribute('hidden', 'hidden');
+    root.style.display = 'none';
     return root;
   }
 
   function open() {
-    ensureSheet().classList.add('open');
+    if (global.MobileV2?.isEnabled?.() !== true) return;
+    const sheet = ensureSheet();
+    if (!sheet) return;
+    sheet.style.display = '';
+    sheet.removeAttribute('hidden');
+    sheet.classList.add('open');
   }
 
   function close() {
-    document.getElementById('mobileV2AddSheet')?.classList.remove('open');
+    const sheet = document.getElementById('mobileV2AddSheet');
+    if (!sheet) return;
+    sheet.classList.remove('open');
+    sheet.setAttribute('hidden', 'hidden');
+    sheet.style.display = 'none';
   }
 
   global.MobileV2AddSheet = {
