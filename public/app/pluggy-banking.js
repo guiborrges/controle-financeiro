@@ -1717,6 +1717,78 @@
     renderWorkspace();
   }
 
+  function getPlainLinkedLabel(account) {
+    const key = getGroupKey(account);
+    const selectedLink = normalizeText(STATE.userState.links[key] || getAutoLinkForAccount(account));
+    const type = String(account?.accountType || '').toUpperCase();
+    if (!selectedLink) return 'Sem vínculo';
+    if (type === 'CREDIT') {
+      const card = getAllCards().find((entry) => String(entry?.id || '') === selectedLink);
+      return card?.name || 'Cartão vinculado';
+    }
+    const patrimony = getPatrimonioAccountsRef().find((entry) => String(entry?.id || '') === selectedLink);
+    return patrimony?.name || 'Conta vinculada';
+  }
+
+  function toMobileRow(account, tx) {
+    const type = String(account?.accountType || '').toUpperCase();
+    const normalizedCategory = stripLegacyCategoryIconPrefix(tx?._ui?.category || '');
+    const categorySymbol = toVisualCategorySymbol(
+      tx?._ui?.categorySymbol || tx?._ui?.categoryIcon || tx?._ui?.category,
+      normalizedCategory
+    );
+    return {
+      id: String(tx?.id || ''),
+      date: String(tx?._ui?.dateDisplay || formatDateAndTime(tx?.date).dateBr || ''),
+      time: String(tx?._ui?.timeDisplay || formatDateAndTime(tx?.date).timeBr || ''),
+      description: String(tx?._ui?.description || ''),
+      category: normalizedCategory,
+      categorySymbol,
+      tag: String(tx?._ui?.tag || ''),
+      movementType: String(tx?._ui?.movementType || inferBankMovementType(tx)),
+      amount: Math.abs(Number(tx?.amount || 0)),
+      isValid: type === 'CREDIT' ? isCreditRowValid(tx) : true
+    };
+  }
+
+  function buildMobileGroup(account) {
+    const key = getGroupKey(account);
+    const rows = getRowsForAccount(account);
+    const alias = getGroupAlias(account);
+    const totalPending = rows.reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
+    const type = String(account?.accountType || '').toUpperCase();
+    return {
+      accountId: key,
+      accountType: type,
+      accountName: String(alias || account?.accountName || ''),
+      originName: String(account?.accountName || alias || ''),
+      linkedLabel: getPlainLinkedLabel(account),
+      pendingCount: rows.length,
+      totalPending,
+      rows: rows.map((tx) => toMobileRow(account, tx))
+    };
+  }
+
+  async function getMobileSnapshot(forceReload = false) {
+    loadUserState();
+    if (forceReload || !STATE.rawData) {
+      await loadData();
+    }
+    const accounts = Array.isArray(STATE.rawData?.accounts) ? STATE.rawData.accounts : [];
+    const credit = accounts
+      .filter((account) => String(account?.accountType || '').toUpperCase() === 'CREDIT')
+      .map(buildMobileGroup)
+      .filter((group) => group.pendingCount > 0);
+    const bank = accounts
+      .filter((account) => String(account?.accountType || '').toUpperCase() === 'BANK')
+      .map(buildMobileGroup)
+      .filter((group) => group.pendingCount > 0);
+    return {
+      loadedAt: STATE.loadedAt,
+      views: { credit, bank }
+    };
+  }
+
   async function renderPage(forceReload = false, mountId = 'internetBankingWorkspace') {
     STATE.mountId = String(mountId || 'internetBankingWorkspace');
     loadUserState();
@@ -1748,7 +1820,8 @@
     ,
     openLinkDialog,
     closeLinkDialog,
-    saveLinkDialog
+    saveLinkDialog,
+    getMobileSnapshot
   };
 
   global.renderInternetBankingPage = renderPage;

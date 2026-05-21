@@ -1,177 +1,204 @@
-# PROJECT_CONTEXT — Controle Financeiro (Atualizado em 2026-05-19)
+ï»¿# PROJECT_CONTEXT â€” Controle Financeiro (Atualizado em 2026-05-20)
 
-Este documento descreve o estado **real atual** do sistema para handoff técnico entre IAs e desenvolvedores.
+Este documento descreve o estado real do sistema para handoff tÃ©cnico entre IAs e devs.
 
-## 1) Escopo e objetivo do produto
-O sistema é um gestor financeiro pessoal multiusuário com:
-- autenticação por sessão
-- isolamento forte por usuário (dados, backups, staging, integrações)
-- controle mensal de lançamentos (planejamento, gastos, renda, metas)
-- patrimônio (contas e movimentações)
-- histórico
-- integração de internet banking via Pluggy em fluxo de pré-visualização (staging)
-- widget iPhone (Scriptable) com snapshot seguro por token
+## 1) Objetivo do produto
+Sistema de gestÃ£o financeira pessoal multiusuÃ¡rio, com:
+- autenticaÃ§Ã£o por sessÃ£o
+- isolamento estrito por usuÃ¡rio (dados, backups, integraÃ§Ãµes, staging)
+- gestÃ£o mensal de lanÃ§amentos (planejamento, gastos, renda, metas)
+- patrimÃ´nio (contas e movimentaÃ§Ãµes)
+- histÃ³rico
+- internet banking via Pluggy em modo revisÃ£o (staging)
+- trilha separada para PDF/Oracle AI
+- widget iPhone (Scriptable) por token + snapshot seguro
 
-Não existe importação automática cega para o mês: no internet banking, entrada em dados financeiros depende de ação do usuário (adicionar item/Adicionar todos).
+Regra central: nada do Internet Banking entra no financeiro sem aÃ§Ã£o explÃ­cita do usuÃ¡rio.
 
 ---
 
-## 2) Workspace canônico e estrutura
-Caminho canônico de desenvolvimento/deploy:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online`
+## 2) Workspace canÃ´nico
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online`
 
-Principais diretórios:
-- `server/` backend modular (HTTP, segurança, stores, integrações)
-- `public/app/` frontend principal autenticado
-- `public/login/` frontend de login/cadastro
-- `workers/` workers independentes (Pluggy e Oracle AI)
-- `tests/` suíte Node test runner (`node --test`)
-- `docs/` documentação técnica
+Estrutura principal:
+- `server/` backend
+- `public/app/` frontend autenticado
+- `public/login/` login/cadastro
+- `workers/` workers Pluggy/Oracle
+- `tests/` suÃ­te automatizada
+- `docs/` documentaÃ§Ã£o
 
-Entrypoint backend:
+Entrypoint:
 - `server.js`
 
 ---
 
-## 3) Arquitetura backend
-### 3.1 HTTP e segurança
-Componentes centrais:
-- `server/http/security.js`: sessão, cookies, CSRF, headers, regras de auth
-- middlewares de proteção por rota autenticada
+## 3) Backend e seguranÃ§a
+### 3.1 SeguranÃ§a HTTP
+- SessÃ£o e CSRF em mutaÃ§Ãµes
+- Rotas protegidas por auth (exceto endpoints pÃºblicos especÃ­ficos, como widget por token)
+- Headers de seguranÃ§a e validaÃ§Ãµes de payload em rotas crÃ­ticas
 
-Premissas:
-- `/app` é protegido por sessão
-- assets de app em rota autenticada (`/app-assets`)
-- mutações exigem CSRF
+### 3.2 PersistÃªncia
+- `server/user-store.js`: usuÃ¡rios
+- `server/app-state-store.js`: estado financeiro por usuÃ¡rio
+- `server/backup-store.js`: backup/restore por usuÃ¡rio
+- Dados em `auth/users.json` + `data/users/*`
 
-### 3.2 Persistência de usuários e estado
-- `server/user-store.js`: cadastro/atualização de usuários
-- `server/app-state-store.js`: estado financeiro por usuário
-- `server/backup-store.js`: backup/restore por usuário
-- `auth/users.json` + `data/users/` (ou diretório definido por env)
+CaracterÃ­sticas:
+- isolamento por `userId`
+- controle de revisÃ£o/conflito no app-state (409)
+- restore com ownership
 
-Características:
-- estado isolado por `userId`
-- controles de revisão/concorrência em `app-state`
-- cobertura de restore completo sem merge residual
+### 3.3 MudanÃ§as recentes importantes (produÃ§Ã£o)
+1. Isolamento desktop/mobile reforÃ§ado
+- evitado crossover de assets e shell mobile no desktop.
 
-### 3.3 Rotas relevantes
-- Auth/sessão (login, logout, sessão atual)
-- App-state (read/write, revisão, recovery)
-- Backup (criar/listar/restaurar com ownership)
-- Pluggy preview/import/webhook
-- Widget (token/status/snapshot/script)
+2. `/app-assets` servido corretamente
+- alterado para evitar retorno HTML em CSS/JS (erro MIME `text/html` em stylesheet/script).
+
+3. Service worker/cache legado mobile desativado/limpo
+- removida contaminaÃ§Ã£o de cache mobile no desktop.
+
+4. Pluggy connection/preview resilientes
+- rotas Pluggy retornam degradado controlado em indisponibilidade de storage ao invÃ©s de 500 bruto em alguns cenÃ¡rios transitÃ³rios.
 
 ---
 
-## 4) Modelo funcional do domínio financeiro (frontend)
-Tela principal: `public/app/index.html` + módulos JS em `public/app/`.
+## 4) Modelo financeiro (frontend)
+Tela base: `public/app/index.html` + mÃ³dulos em `public/app/*.js`.
 
-### 4.1 Mês Atual
-Base moderna de lançamentos unificados (`outflows`) com flags para:
-- recorrência
-- parcelamento
-- compartilhamento
-- inclusão no planejamento
+### 4.1 MÃªs Atual
+- modelo principal com lanÃ§amentos unificados (`outflows`)
+- suporte a recorrÃªncia, parcelamento, compartilhamento e planejamento
+- compatibilidade com legado via normalizaÃ§Ã£o/migraÃ§Ã£o
 
-Há compatibilidade com legado (normalização/migração) no carregamento.
-
-### 4.2 Categorias e metas
-- categorias normalizadas por helper central (`resolveCategoryName` e helpers correlatos)
-- metas por categoria em `dailyGoals`
-- cálculos e exibição reconciliados para reduzir divergências
+### 4.2 Categorias, metas e filtros
+- categorias normalizadas por helpers centrais
+- metas por categoria (`dailyGoals`)
+- filtros por tag/categoria em contextos suportados
 
 ### 4.3 Totais
-O sistema usa helpers de totais para:
-- despesas do mês
-- total de planejamento
-- impacto de compartilhamento (parte efetiva do dono)
-- prevenção de duplicação entre fatura e lançamentos de cartão
+- helpers de cÃ¡lculo para evitar divergÃªncia entre:
+  - despesas do mÃªs
+  - total de planejamento
+  - resultado
+- cuidado anti-duplicaÃ§Ã£o em cenÃ¡rios de cartÃ£o (fatura vs itens)
 
-### 4.4 Patrimônio
-- contas patrimoniais (`patrimonioAccounts`)
-- movimentações (`patrimonioMovements`)
-- tipos de movimento (aporte, retirada, transferência)
+### 4.4 PatrimÃ´nio
+- contas (`patrimonioAccounts`)
+- movimentos (`patrimonioMovements`)
+- tipos: aporte/retirada/transferÃªncia
 
 ---
 
-## 5) Integração Pluggy (Internet Banking)
-### 5.1 Conceito operacional
-A integração Pluggy é separada da trilha de PDF/Oracle AI.
+## 5) Pluggy (Internet Banking)
+### 5.1 Arquitetura funcional
+- Pluggy e Oracle AI sÃ£o trilhas independentes
+- Pluggy alimenta staging/revisÃ£o antes de entrar no financeiro
 
-Pluggy alimenta staging/preview para revisão manual antes da entrada no financeiro.
+### 5.2 Regras atuais
+- dedupe por `pluggyTransactionId` + fallback composto
+- memÃ³ria de categoria/tag por descriÃ§Ã£o original normalizada
+- separaÃ§Ã£o crÃ©dito x conta corrente
+- ocultaÃ§Ã£o de itens jÃ¡ importados na revisÃ£o
+- isolamento multiusuÃ¡rio em endpoints, staging e vÃ­nculos
 
-### 5.2 Fluxos
-- sincronização de itens/transações via worker + webhook
-- persistência por usuário/tenant
-- modal/tela “Internet banking (pré-visualização)” para revisão
-- ações por item e em lote (Adicionar/Adicionar todos)
-
-### 5.3 Regras críticas implementadas
-- deduplicação por `pluggyTransactionId` e fallback composto
-- memória de categoria/tag por descrição original normalizada
-- separação conta corrente x cartão
-- ocultação de itens já importados (status e marcadores)
-- filtros para não exibir entradas técnicas (ex.: saldo sincronizado)
-- isolamento multiusuário nos endpoints e no staging
-
-### 5.4 Webhook
-Endpoint usado na Pluggy:
+### 5.3 Endpoint de webhook
 - `https://meufin.duckdns.org/api/pluggy/webhook`
 
-Observação importante:
-- o sistema suporta modo estrito com secret e modo de compatibilidade sem header secret (conforme configuração)
+ObservaÃ§Ã£o:
+- como o dashboard atual da Pluggy nÃ£o fornece secret no webhook do plano atual, o sistema opera em modo de compatibilidade (sem validaÃ§Ã£o por secret header).
 
 ---
 
-## 6) Trilha Oracle AI (PDF)
-Existe pipeline paralela para PDF/faturas em worker próprio, sem conciliação obrigatória com Pluggy.
-
-Arquitetura independente:
-- `workers/worker_oracle_ai.js`
-- jobs/rotas de upload/status/import para processamento assíncrono
-
-A operação recente do produto prioriza Pluggy para internet banking e mantém trilha de PDF separada.
-
----
-
-## 7) Mobile V2/V3 (estado atual)
-O app mobile usa detecção por viewport/touch e ativa shell dedicado (`mobile-v2`).
+## 6) Oracle AI (PDF)
+Pipeline separado de Pluggy:
+- worker e rotas de processamento assÃ­ncrono de documentos/faturas
+- sem conciliaÃ§Ã£o obrigatÃ³ria com transaÃ§Ãµes Pluggy
 
 Arquivos principais:
+- `workers/worker_oracle_ai.js`
+
+---
+
+## 7) Mobile â€” funcionamento completo (estado atual)
+
+### 7.1 Camadas existentes
+HÃ¡ duas camadas histÃ³ricas:
+1. Legado mobile (`mobile-ui`):
+- `public/app/modules/mobile/*`
+- `public/app/mobile-layout.css`
+
+2. Atual (`mobile-v2`):
 - `public/app/mobile-v2.js`
 - `public/app/mobile-v2.css`
 - `public/app/modules/mobile-v2/*`
 
-Navegação mobile atual:
-- bottom nav com 4 abas: Início, Mês, Patrimônio, Histórico
-- FAB central para adicionar na aba Mês
+Meta atual: `mobile-v2` como experiÃªncia principal, sem invadir desktop.
 
-Refinamentos V3 já aplicados:
-- Home com dashboard consolidado (hero + mini-cards + categorias + metas + recentes)
-- Mês com abas: Planejamento, Gastos e Metas, Todos, Renda
-- lista simplificada no mobile (menos ruído visual; delete por swipe)
-- fluxo de adição redesenhado em bottom sheets por tipo
-- patrimônio mobile integrado com fontes reais e refresh por eventos
-- ajustes de contraste/dark mode
+### 7.2 AtivaÃ§Ã£o mobile
+`mobile-v2.js` ativa mobile quando:
+- viewport <= 900
+- dispositivo touch/pointer coarse
+- user-agent nÃ£o desktop-like
 
-Compatibilidade:
-- versão desktop deve aparecer quando navegador mobile solicita “versão para computador” (UA desktop-like)
+Classes de ativaÃ§Ã£o:
+- `html.mobile-v2`
+- `body.mobile-v2`
+
+Em desktop:
+- classes mobile removidas
+- shell legado nÃ£o deve montar header/FAB
+
+### 7.3 Estrutura de navegaÃ§Ã£o mobile
+`mobile-v2` monta root com abas/telas:
+- Dashboard
+- MÃªs
+- PatrimÃ´nio
+- HistÃ³rico
+- CalendÃ¡rio (em evoluÃ§Ã£o conforme branch/versÃ£o de mobile ativa)
+
+FAB:
+- aparece na aba de MÃªs para adicionar lanÃ§amento
+
+### 7.4 Fontes de dados no mobile
+- mobile usa a mesma fonte do desktop (`window.data` + helpers globais)
+- sem engine financeira paralela
+- persistÃªncia passa pelo pipeline canÃ´nico
+
+### 7.5 Internet Banking no mobile
+- abertura por mÃ³dulo mobile especÃ­fico (`internet-banking-mobile.js`)
+- deve usar pendÃªncias reais (mesma base lÃ³gica do desktop)
+- nÃ£o reimportar itens marcados/importados
+- manter dedupe e isolamento por usuÃ¡rio
+
+### 7.6 Compatibilidade â€œversÃ£o para computadorâ€
+- se navegador mobile solicita desktop site, sistema nÃ£o deve forÃ§ar layout mobile
+- decisÃ£o controlada por heurÃ­stica de UA desktop-like
+
+### 7.7 Problemas jÃ¡ tratados recentemente
+- espaÃ§o no topo do desktop causado por shell mobile legado
+- crossover desktop/mobile por cache/service worker
+- erros MIME por asset servido como HTML
+
+### 7.8 Contrato funcional esperado
+1. Mobile e desktop nÃ£o se sobrepÃµem visualmente.
+2. Dados financeiros sÃ£o Ãºnicos (mesma base).
+3. AÃ§Ãµes no mobile persistem como no desktop.
+4. Internet Banking mobile respeita pendÃªncia/importado.
+5. Solicitar versÃ£o desktop em navegador mobile deve abrir desktop normal.
 
 ---
 
 ## 8) Widget iPhone (Scriptable)
-### 8.1 Segurança e token
-- token por usuário (`widgetToken`) salvo no user store
-- geração/revogação via rotas autenticadas
-- endpoint público de leitura por token (somente snapshot)
+- token por usuÃ¡rio (`widgetToken`)
+- geraÃ§Ã£o/revogaÃ§Ã£o autenticadas
+- endpoint pÃºblico read-only por token
+- snapshot por usuÃ¡rio em `data/widget-snapshots/{userId}.json`
+- script dinÃ¢mico via endpoint `latest`
 
-### 8.2 Snapshot
-- snapshot em `data/widget-snapshots/{userId}.json`
-- atualizado quando estado principal é salvo
-- contém somente dados necessários do widget (sem segredos)
-
-### 8.3 Rotas widget
+Rotas:
 - `POST /api/widget/generate-token`
 - `POST /api/widget/revoke-token`
 - `GET /api/widget/token-status`
@@ -180,93 +207,74 @@ Compatibilidade:
 
 ---
 
-## 9) Segurança (estado prático)
-Fortalezas atuais:
-- autenticação por sessão + CSRF em mutações
-- isolamento multiusuário amplamente testado
-- backup/restore com ownership estrito
-- validações de payload em rotas críticas
-- proteção contra acessos cruzados em pluggy preview/staging
+## 9) Testes
+Comando padrÃ£o:
+- `npm test`
 
-Pontos de atenção operacionais:
-- variáveis sensíveis devem ficar somente em `.env`/secrets do host
-- webhook Pluggy deve seguir modo configurado (compatibilidade sem secret ou estrito com secret)
-- manter política de rotação/revogação de tokens de widget
-
----
-
-## 10) Testes automatizados
-Comando padrão:
-- `npm test` (`node --test tests/*.test.js`)
-
-Estado recente validado:
-- suíte ampla passando (142 testes / 0 falhas no último ciclo)
-
-Coberturas relevantes:
-- auth/sessão
-- app-state (roundtrip, conflito, recuperação)
-- backup (isolamento e restore)
-- importação (CSV/PDF)
-- Pluggy (helpers, rotas, dedupe, multiusuário, webhook)
-- calendário/totais/compartilhamento
-- widget token/snapshot/endpoints
-- regressões de utilitários centrais
+Cobertura relevante existente inclui:
+- auth/sessÃ£o
+- app-state (roundtrip, conflito, recovery)
+- backup/restore
+- Pluggy (helpers/rotas/dedupe/multiusuÃ¡rio)
+- widget (token/snapshot/endpoint)
+- partes crÃ­ticas de calendÃ¡rio/totais/utilitÃ¡rios
 
 ---
 
-## 11) Operação em VM (produção)
-Ambiente com PM2 usando processo principal e workers separados.
+## 10) OperaÃ§Ã£o em produÃ§Ã£o (Oracle VM)
+Processos PM2 usuais:
+- `financeiro` (web)
+- `sync-pluggy`
+- `process-pdf-ai`
 
-Processos usuais:
-- `financeiro` (web app)
-- `sync-pluggy` (worker Pluggy)
-- `process-pdf-ai` (worker Oracle AI)
-
-Fluxo padrão de deploy já utilizado:
+Fluxo operacional padrÃ£o:
 - `git pull`
-- restart PM2 com update env
+- restart com `pm2 restart ... --update-env`
 - `pm2 save`
 
 ---
 
-## 12) Convenções importantes para futuras mudanças
-1. Não quebrar isolamento multiusuário.
-2. Não introduzir duplicação de lançamentos entre fontes.
-3. Não alterar regra financeira sem alinhar helper único de totais.
-4. Reaproveitar helpers centrais (categoria, datas, compartilhado, dedupe).
-5. Rodar `npm test` em toda mudança de fluxo financeiro/internet banking/mobile.
-6. Em mobile, priorizar UX de lista e ações por toque/swipe sem regressão desktop.
+## 11) ConvenÃ§Ãµes obrigatÃ³rias para novas mudanÃ§as
+1. Nunca quebrar isolamento multiusuÃ¡rio.
+2. NÃ£o introduzir duplicaÃ§Ã£o de lanÃ§amento.
+3. NÃ£o mudar regra financeira sem alinhar helper central de cÃ¡lculo.
+4. Reaproveitar helpers de normalizaÃ§Ã£o/dedupe/categoria.
+5. Validar testes antes de subir alteraÃ§Ãµes sensÃ­veis.
+6. Em mudanÃ§as mobile, validar desktop junto (isolamento bidirecional).
 
 ---
 
-## 13) Arquivos-chave para onboarding rápido
+## 12) Arquivos-chave para onboarding
 Backend:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\http\security.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\http\routes\pluggy-*.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\http\routes\widget.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\widget-snapshot.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\server.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\server\http\security.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\server\http\routes\pluggy-preview.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\server\http\routes\pluggy-webhook.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\server\http\routes\widget.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\server\widget-snapshot.js`
 
 Frontend:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\index.html`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\mes-atual.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\pluggy-banking.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\mobile-v2.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\mobile-v2.css`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\modules\mobile-v2\*.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\public\app\index.html`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\public\app\mes-atual.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\public\app\pluggy-banking.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\public\app\mobile-v2.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\public\app\mobile-v2.css`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\public\app\mobile-v2-enhancements.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\public\app\modules\mobile\mobile-shell.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\public\app\modules\mobile-v2\*.js`
 
 Workers:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\workers\worker_pluggy.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\workers\worker_oracle_ai.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\workers\worker_pluggy.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\workers\worker_oracle_ai.js`
 
 Tests:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\tests\*.test.js`
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretÃ³rio Online\tests\*.test.js`
 
 ---
 
-## 14) Estado de maturidade atual (resumo executivo)
-- Core financeiro: estável e com regressões cobertas por testes.
-- Internet banking Pluggy: funcional com staging, memória, dedupe e isolamento por usuário.
-- Mobile V3: refinado e funcional, com nova UX de dashboard/mês/adicionar.
-- Widget iPhone: funcional com segurança por token e snapshot dedicado.
-- Segurança: boa base (sessão/CSRF/isolamento), com atenção contínua em segredos e configuração de webhook.
+## 13) Estado atual resumido
+- Core financeiro: estÃ¡vel, com proteÃ§Ã£o de conflito e isolamento por usuÃ¡rio.
+- Pluggy: funcional com revisÃ£o manual, dedupe e memÃ³ria por usuÃ¡rio.
+- Mobile: camada `mobile-v2` ativa e em evoluÃ§Ã£o; isolamento com desktop reforÃ§ado.
+- Widget iPhone: funcional por token/snapshot.
+- SeguranÃ§a: base sÃ³lida, com atenÃ§Ã£o contÃ­nua em segredos/env e polÃ­ticas de webhook.

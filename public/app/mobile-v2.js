@@ -170,16 +170,16 @@
     const screenHis = root.querySelector('#mobileV2Screen-historico');
     const screenCal = root.querySelector('#mobileV2Screen-calendario');
 
-    global.MobileV2HomeScreen?.render?.(screenDashboard);
-    global.MobileV2MesAtual?.render?.(screenMes);
-    global.MobileV2Patrimonio?.render?.(screenPat);
-    global.MobileV2Historico?.render?.(screenHis);
+    if (state.currentTab === 'dashboard') global.MobileV2HomeScreen?.render?.(screenDashboard);
+    if (state.currentTab === 'mes') global.MobileV2MesAtual?.render?.(screenMes);
+    if (state.currentTab === 'patrimonio') global.MobileV2Patrimonio?.render?.(screenPat);
+    if (state.currentTab === 'historico') global.MobileV2Historico?.render?.(screenHis);
     if (state.currentTab === 'calendario' && !global.MobileV2Calendario) {
       if (screenCal) screenCal.innerHTML = '<div class="m2-empty">Carregando calendário...</div>';
       loadMobileModule('calendario').catch(() => {
         if (screenCal) screenCal.innerHTML = '<div class="m2-empty">Não foi possível carregar o calendário.</div>';
       });
-    } else {
+    } else if (state.currentTab === 'calendario') {
       global.MobileV2Calendario?.render?.(screenCal);
     }
 

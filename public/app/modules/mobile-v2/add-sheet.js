@@ -12,11 +12,11 @@
 
   const TYPE_OPTIONS = [
     { key: 'internet-banking', iconKey: 'internetBanking', title: 'Internet Banking', desc: 'Importar do banco conectado' },
-    { key: 'launch', iconKey: 'launch', title: 'Lançamento', desc: 'Gasto ou receita simples' },
+    { key: 'launch', iconKey: 'launch', title: 'Gasto', desc: 'Saída simples' },
     { key: 'renda', iconKey: 'renda', title: 'Renda', desc: 'Renda fixa ou renda extra' },
-    { key: 'recurring', iconKey: 'recurring', title: 'Recorrente', desc: 'Repete automaticamente todo mês' },
-    { key: 'installment', iconKey: 'installment', title: 'Parcelado', desc: 'Divide em parcelas futuras' },
-    { key: 'shared', iconKey: 'shared', title: 'Compartilhado', desc: 'Divide com outras pessoas' }
+    { key: 'recurring', iconKey: 'recurring', title: 'Gasto Recorrente', desc: 'Repete automaticamente todo mês' },
+    { key: 'installment', iconKey: 'installment', title: 'Gasto Parcelado', desc: 'Divide em parcelas futuras' },
+    { key: 'shared', iconKey: 'shared', title: 'Gasto Compartilhado', desc: 'Divide com outras pessoas' }
   ];
 
   function ensureSheet() {
@@ -51,6 +51,19 @@
     document.body.appendChild(root);
 
     root.querySelector('.bottom-sheet-scrim')?.addEventListener('click', close);
+    const panel = root.querySelector('.bottom-sheet-panel');
+    let dragStartY = 0;
+    let dragCurrentY = 0;
+    panel?.addEventListener('touchstart', (event) => {
+      dragStartY = Number(event.touches?.[0]?.clientY || 0);
+      dragCurrentY = dragStartY;
+    }, { passive: true });
+    panel?.addEventListener('touchmove', (event) => {
+      dragCurrentY = Number(event.touches?.[0]?.clientY || dragStartY);
+    }, { passive: true });
+    panel?.addEventListener('touchend', () => {
+      if ((dragCurrentY - dragStartY) > 88) close();
+    });
     root.querySelectorAll('[data-m2-add-type]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const mode = String(btn.getAttribute('data-m2-add-type') || 'launch');
@@ -79,6 +92,7 @@
     sheet.style.display = '';
     sheet.removeAttribute('hidden');
     sheet.classList.add('open');
+    document.body.classList.add('mobile-v2-sheet-open');
   }
 
   function close() {
@@ -87,6 +101,7 @@
     sheet.classList.remove('open');
     sheet.setAttribute('hidden', 'hidden');
     sheet.style.display = 'none';
+    document.body.classList.remove('mobile-v2-sheet-open');
   }
 
   global.MobileV2AddSheet = {

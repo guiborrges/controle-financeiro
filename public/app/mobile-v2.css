@@ -301,6 +301,12 @@
 }
 
 @media (max-width: 900px) {
+  html.mobile-v2 body.mobile-v2-sheet-open {
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+
   html.mobile-v2 .m-item-cat-icon {
     width: 30px;
     height: 30px;
@@ -348,10 +354,29 @@
     gap: 6px;
     margin-bottom: 6px;
     font-size: 12px;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    padding: 0;
   }
   html.mobile-v2 .pie-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  html.mobile-v2 .pie-cat { flex: 1; color: var(--text2); }
+  html.mobile-v2 .pie-cat {
+    flex: 1;
+    color: var(--text2);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
   html.mobile-v2 .pie-pct { color: var(--text); font-weight: 700; }
+  html.mobile-v2 .m-item-cat-icon .smart-icon-badge {
+    width: 24px;
+    height: 24px;
+  }
+  html.mobile-v2 .m-item-cat-icon svg {
+    width: 14px;
+    height: 14px;
+  }
   html.mobile-v2 .card-section { border-left: 3px solid var(--accent); }
   html.mobile-v2 .card-items-note {
     font-size: 11px;
@@ -1555,6 +1580,47 @@
   html[data-theme="dark"].mobile-v2 .m-item,
   html[data-theme="dark"].mobile-v2 .dash-row {
     background: var(--surface-strong);
+  }
+
+  html.mobile-v2 .mobile-v2-banking-mount {
+    display: grid;
+    gap: 10px;
+    overflow-x: hidden;
+  }
+
+  html.mobile-v2 .mobile-banking-group-head {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 2px 0;
+    text-align: left;
+  }
+
+  html.mobile-v2 .mobile-banking-group-body {
+    display: grid;
+    gap: 8px;
+  }
+
+  html.mobile-v2 .mobile-banking-row {
+    align-items: flex-start;
+  }
+
+  html.mobile-v2 .mobile-banking-controls {
+    display: grid;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  html.mobile-v2 .mobile-banking-select {
+    min-height: 36px;
+    font-size: 13px;
+    padding: 0 10px;
   }
 }
 

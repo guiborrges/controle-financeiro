@@ -16,21 +16,6 @@
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  function parseMonthDate(text) {
-    const normalized = typeof global.normalizeVarDate === 'function' ? global.normalizeVarDate(String(text || '')) : String(text || '');
-    const parts = normalized.split('/').map(Number);
-    if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return null;
-    const year = parts[2] > 99 ? parts[2] : 2000 + parts[2];
-    const date = new Date(year, parts[1] - 1, parts[0]);
-    if (Number.isNaN(date.getTime())) return null;
-    return date;
-  }
-
-  function toDayNumber(text) {
-    const date = parseMonthDate(text);
-    return date ? date.getDate() : null;
-  }
-
   function getCurrentMonth() {
     return typeof global.getCurrentMonth === 'function' ? global.getCurrentMonth() : null;
   }
@@ -56,17 +41,29 @@
     return new Date();
   }
 
-  function collectDayMap(month) {
+  function getCategorySymbol(categoryName) {
+    const safeCategory = String(categoryName || 'OUTROS');
+    if (typeof global.renderSmartIconBadge === 'function' && typeof global.inferCategoryVisual === 'function') {
+      const visual = global.inferCategoryVisual(safeCategory);
+      return global.renderSmartIconBadge(visual.icon, visual.tone);
+    }
+    const emoji = typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(safeCategory) : '';
+    return escapeHtml(String(emoji || '•'));
+  }
+
+  function collectDayLedgerMap(month) {
+    const context = typeof global.FinanceCalendarUtils?.getMonthContext === 'function'
+      ? global.FinanceCalendarUtils.getMonthContext(month)
+      : null;
+    const daysInMonth = Number(context?.daysInMonth || new Date().getDate());
     const map = new Map();
-    const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
-    outflows.forEach((item) => {
-      if (String(item?.type || '').toLowerCase() === 'recurring') return;
-      const day = toDayNumber(item?.date);
-      if (!day) return;
-      if (!map.has(day)) map.set(day, []);
-      map.get(day).push(item);
-    });
-    return map;
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const ledger = typeof global.FinanceCalendarUtils?.getDayLedger === 'function'
+        ? global.FinanceCalendarUtils.getDayLedger(month, day)
+        : { outflows: 0, launches: [] };
+      map.set(day, ledger || { outflows: 0, launches: [] });
+    }
+    return { map, context };
   }
 
   function buildMonthMatrix(date) {
@@ -90,14 +87,14 @@
     }
     const rows = (items || []).map((item) => {
       const category = String(item?.category || item?.categoria || 'OUTROS');
-      const icon = typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(category) : '•';
+      const icon = getCategorySymbol(category);
       const amount = Math.abs(Number(item?.amount || item?.valor || 0));
       return `
         <article class="m-item m-item-income">
           <div class="m-item-surface static" data-action="edit" data-id="${escapeHtml(String(item?.id || ''))}">
             <div class="m-item-info">
               <span class="m-item-name">${escapeHtml(String(item?.description || 'Lançamento'))}</span>
-              <span class="m-item-meta">${escapeHtml(String(item?.date || ''))} · ${escapeHtml(icon)} ${escapeHtml(category)}</span>
+              <span class="m-item-meta">${escapeHtml(String(item?.date || ''))} · ${icon} ${escapeHtml(category)}</span>
             </div>
             <span class="m-item-value">${formatMoney(amount)}</span>
           </div>
@@ -155,8 +152,17 @@
     }
 
     const date = resolveMonthDate(month);
-    const dayMap = collectDayMap(month);
+    const dayLedgerContext = collectDayLedgerMap(month);
+    const dayMap = dayLedgerContext.map;
+    const dayContext = dayLedgerContext.context;
     const cells = buildMonthMatrix(new Date(date.getFullYear(), date.getMonth(), 1));
+    const totalsByDay = {};
+    dayMap.forEach((ledger, day) => {
+      totalsByDay[day] = Number(ledger?.outflows || 0);
+    });
+    const intensities = typeof global.FinanceCalendarUtils?.computeIntensitiesFromTotals === 'function'
+      ? global.FinanceCalendarUtils.computeIntensitiesFromTotals(totalsByDay, month)
+      : {};
 
     target.innerHTML = `
       <header class="m2-header m2-page-header">
@@ -165,25 +171,29 @@
           <p class="m2-subtitle">Visão diária dos lançamentos</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Tags" onclick="MobileV2FiltersSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('tag') : ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
       </header>
 
       <section class="m-list-card">
         <div class="cal-header">
-          <button class="m2-icon-btn" type="button" aria-label="Mês anterior" onclick="MobileV2Calendario.prevMonth()">${global.SystemIcons?.render ? global.SystemIcons.render('chev-left') : '‹'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Mês anterior" onclick="MobileV2Calendario.prevMonth()">&lt;</button>
           <span class="cal-month-title">${escapeHtml(monthTitle(month))}</span>
-          <button class="m2-icon-btn" type="button" aria-label="Próximo mês" onclick="MobileV2Calendario.nextMonth()">${global.SystemIcons?.render ? global.SystemIcons.render('chev-right') : '›'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Próximo mês" onclick="MobileV2Calendario.nextMonth()">&gt;</button>
         </div>
         <div class="cal-grid">
           ${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d) => `<div class="cal-weekday">${d}</div>`).join('')}
           ${cells.map((day) => {
             if (!day) return '<div class="cal-day-empty"></div>';
-            const items = dayMap.get(day) || [];
-            const total = items.reduce((sum, item) => sum + Math.abs(Number(item?.amount || item?.valor || 0)), 0);
+            const ledger = dayMap.get(day) || { outflows: 0, launches: [] };
+            const items = ledger?.launches || [];
+            const total = Number(ledger?.outflows || 0);
+            const intensity = Number(intensities?.[day] || 0);
+            const tone = typeof global.FinanceCalendarUtils?.getDayIntensityColor === 'function'
+              ? global.FinanceCalendarUtils.getDayIntensityColor(intensity)
+              : null;
             return `
-              <button type="button" class="cal-day ${items.length ? 'has-items' : ''}" data-cal-day="${day}">
+              <button type="button" class="cal-day ${items.length ? 'has-items' : ''}" data-cal-day="${day}" ${tone ? `style="background:${escapeHtml(tone)}"` : ''}>
                 <span class="cal-day-num">${day}</span>
                 ${items.length ? '<span class="cal-day-dot"></span>' : ''}
                 ${total > 0 ? `<span class="cal-day-total">${escapeHtml(formatMoney(total))}</span>` : ''}
@@ -198,7 +208,8 @@
       btn.addEventListener('click', () => {
         const day = Number(btn.getAttribute('data-cal-day') || 0);
         if (!day) return;
-        openDaySheet(day, dayMap.get(day) || [], monthTitle(month));
+        const launches = (dayMap.get(day) || { launches: [] }).launches || [];
+        openDaySheet(day, launches, monthTitle(month));
       });
     });
   }

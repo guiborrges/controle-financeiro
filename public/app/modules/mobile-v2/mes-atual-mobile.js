@@ -34,6 +34,16 @@
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  function getCategorySymbol(categoryName) {
+    const safeCategory = String(categoryName || 'OUTROS');
+    if (typeof global.renderSmartIconBadge === 'function' && typeof global.inferCategoryVisual === 'function') {
+      const visual = global.inferCategoryVisual(safeCategory);
+      return global.renderSmartIconBadge(visual.icon, visual.tone);
+    }
+    const emoji = typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(safeCategory) : '';
+    return escapeHtml(String(emoji || '•'));
+  }
+
   function parseDateScore(raw) {
     const text = String(raw || '').trim();
     if (!text) return 0;
@@ -113,25 +123,13 @@
   }
 
   function getMonthMetrics(month) {
-    const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
-    const renda = (month?.renda || []).reduce((acc, item) => acc + Number(item?.valor || 0), 0)
-      + (month?.projetos || []).reduce((acc, item) => acc + Number(item?.valor || 0), 0);
-
-    let despesas = 0;
-    outflows.forEach((item) => {
-      if (item?.countsInPrimaryTotals === false) return;
-      const value = Math.abs(Number(item?.amount || 0));
-      if (!(value > 0)) return;
-      const kind = String(item?.outputKind || '').toLowerCase();
-      const type = String(item?.type || '').toLowerCase();
-      if (kind === 'card' && type === 'spend') return;
-      despesas += value;
-    });
-
-    (month?.cardBills || []).forEach((bill) => {
-      despesas += Math.abs(Number(bill?.amount || 0));
-    });
-
+    const totals = typeof global.getEffectiveTotalsForMes === 'function'
+      ? global.getEffectiveTotalsForMes(month)
+      : null;
+    const renda = Number(totals?.rendaTotal || 0);
+    const despesas = typeof global.calculateUnifiedPlanningTotal === 'function'
+      ? Number(global.calculateUnifiedPlanningTotal(month) || 0)
+      : Number(totals?.totalGastos || 0);
     return {
       renda,
       despesas,
@@ -146,7 +144,6 @@
           <h2 class="m2-title">Mês Atual</h2>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Tags" onclick="MobileV2FiltersSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('tag') : '???'}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '??'}</button>
         </div>
       </header>
@@ -158,9 +155,9 @@
     return `
       <div class="m2-month-nav">
         <div class="m2-month-nav-row">
-          <button class="m2-icon-btn" type="button" onclick="MobileV2MesAtual.prevMonth()" aria-label="Mês anterior">?</button>
+          <button class="m2-icon-btn" type="button" onclick="MobileV2MesAtual.prevMonth()" aria-label="Mês anterior">&lt;</button>
           <div class="m2-month-title">${escapeHtml(String(month?.nome || 'Mês atual'))}</div>
-          <button class="m2-icon-btn" type="button" onclick="MobileV2MesAtual.nextMonth()" aria-label="Próximo mês">?</button>
+          <button class="m2-icon-btn" type="button" onclick="MobileV2MesAtual.nextMonth()" aria-label="Próximo mês">&gt;</button>
         </div>
         <div class="m2-month-metrics">
           <div class="m2-mini-metric"><div class="m2-mini-label">Renda</div><div class="m2-mini-value">${formatMoney(metrics.renda)}</div></div>
@@ -190,7 +187,7 @@
       description: String(item?.description || 'Lançamento'),
       date: String(item?.date || ''),
       category,
-      icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(category) : '•',
+      icon: getCategorySymbol(category),
       amount,
       raw: item
     };
@@ -220,7 +217,7 @@
           <article class="m-item" data-outflow-id="${row.id}">
             <div class="m-item-action"><button class="btn-delete-swipe" type="button" data-action="delete" data-id="${row.id}" aria-label="Excluir">Excluir</button></div>
             <div class="m-item-surface ${isReadonly ? 'static' : ''}" ${isReadonly ? '' : `data-action="edit" data-id="${row.id}"`}>
-              <div class="m-item-cat-icon">${escapeHtml(row.icon || '•')}</div>
+              <div class="m-item-cat-icon">${row.icon || '•'}</div>
               <div class="m-item-info">
                 <span class="m-item-name">${escapeHtml(row.description)}</span>
                 <span class="m-item-meta">${escapeHtml(row.date)} · ${escapeHtml(row.category)}</span>
@@ -257,12 +254,12 @@
       const total = cardRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
       return `
         <section class="m-list-card card-section">
-          <h3 class="m-list-title">${escapeHtml(title)} · ${formatMoney(total)}</h3>
+          <h3 class="m-list-title">${escapeHtml(title)} · ${formatMoney(total)} <button class="m2-icon-mini" type="button" data-action="edit-card-bill" data-card-id="${escapeHtml(cardId)}" aria-label="Editar fatura">✎</button></h3>
           <div class="card-items-note">Itens atrelados ao cartão — editar no cartão.</div>
           ${cardRows.map((row) => `
             <article class="m-item" data-outflow-id="${row.id}">
               <div class="m-item-surface static">
-                <div class="m-item-cat-icon">${escapeHtml(row.icon || '•')}</div>
+                <div class="m-item-cat-icon">${row.icon || '•'}</div>
                 <div class="m-item-info">
                   <span class="m-item-name">${escapeHtml(row.description)}</span>
                   <span class="m-item-meta">${escapeHtml(row.date)} · ${escapeHtml(row.category)}</span>
@@ -293,7 +290,7 @@
       .map(([name, total]) => ({
         name,
         total,
-        icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(name) : '•'
+        icon: getCategorySymbol(name)
       }));
   }
 
@@ -333,7 +330,7 @@
             const width = Math.max(5, Math.round((row.total / max) * 100));
             return `
               <div class="cat-bar-row">
-                <span class="cat-bar-name">${escapeHtml(row.icon)} ${escapeHtml(row.name)}</span>
+                <span class="cat-bar-name">${row.icon} <span>${escapeHtml(row.name)}</span></span>
                 <span class="cat-bar-track"><span class="cat-bar-fill" style="width:${width}%"></span></span>
                 <span class="cat-bar-value">${formatMoney(row.total)}</span>
               </div>
@@ -399,7 +396,7 @@
           ${rendaFixa.length ? rendaFixa.map((row) => `
             <article class="m-item m-item-income">
               <div class="m-item-surface static">
-                <div class="m-item-cat-icon">${escapeHtml(typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji('SALÁRIO') : '💼')}</div>
+                <div class="m-item-cat-icon">${getCategorySymbol('SALÁRIO')}</div>
                 <div class="m-item-info">
                   <span class="m-item-name">${escapeHtml(row?.fonte || 'Renda fixa')}</span>
                   <span class="m-item-meta">${escapeHtml(String(row?.dataRecebimento || 'Sem data'))} · ${row?.paid ? 'Recebido' : 'Pendente'}</span>
@@ -412,7 +409,7 @@
           ${rendaExtra.length ? rendaExtra.map((row) => `
             <article class="m-item m-item-income">
               <div class="m-item-surface static">
-                <div class="m-item-cat-icon">${escapeHtml(typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji('OUTROS') : '⚡')}</div>
+                <div class="m-item-cat-icon">${getCategorySymbol('OUTROS')}</div>
                 <div class="m-item-info">
                   <span class="m-item-name">${escapeHtml(row?.nome || 'Renda extra')}</span>
                   <span class="m-item-meta">${escapeHtml(String(row?.dataRecebimento || 'Sem data'))} · ${row?.paid ? 'Recebido' : 'Pendente'}</span>
@@ -572,6 +569,33 @@
         if (typeof global.save === 'function') global.save(true);
         invalidateCache();
         global.MobileV2Enhancements?.notifyDataChanged?.('goal-save');
+        global.MobileV2?.refresh?.();
+      });
+    });
+
+    target.querySelectorAll('[data-action="edit-card-bill"]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const cardId = String(btn.getAttribute('data-card-id') || '');
+        if (!cardId) return;
+        const bill = (month?.cardBills || []).find((entry) => String(entry?.cardId || '') === cardId);
+        if (!bill) return;
+        const currentAmount = Number(
+          typeof global.getUnifiedCardBillEffectiveAmount === 'function'
+            ? global.getUnifiedCardBillEffectiveAmount(month, bill)
+            : bill.amount
+        ) || 0;
+        const raw = global.prompt?.('Editar valor da fatura', String(currentAmount.toFixed(2)));
+        if (raw === null || raw === undefined) return;
+        const nextAmount = Number(String(raw).replace(',', '.'));
+        if (!(nextAmount >= 0)) return;
+        bill.amount = nextAmount;
+        bill.manualAmountSet = true;
+        if (typeof global.syncUnifiedOutflowLegacyData === 'function') global.syncUnifiedOutflowLegacyData(month);
+        if (typeof global.save === 'function') global.save(true);
+        invalidateCache();
+        global.MobileV2Enhancements?.notifyDataChanged?.('card-bill-edit');
         global.MobileV2?.refresh?.();
       });
     });

@@ -5,13 +5,15 @@
     { label: '3M', value: 3 },
     { label: '6M', value: 6 },
     { label: '12M', value: 12 },
-    { label: 'Ano', value: 'year' }
+    { label: 'Ano', value: 'year' },
+    { label: 'Período', value: 'custom' }
   ];
 
   let activePeriod = 6;
   let resizeObserver = null;
   let previousChartState = null;
   let chartAnimationFrame = 0;
+  let customRange = null;
 
   function escapeHtml(value) {
     if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
@@ -28,27 +30,27 @@
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  function getCategorySymbol(categoryName) {
+    const safeCategory = String(categoryName || 'OUTROS');
+    if (typeof global.renderSmartIconBadge === 'function' && typeof global.inferCategoryVisual === 'function') {
+      const visual = global.inferCategoryVisual(safeCategory);
+      return global.renderSmartIconBadge(visual.icon, visual.tone);
+    }
+    const emoji = typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(safeCategory) : '';
+    return escapeHtml(String(emoji || '•'));
+  }
+
   function monthExpenses(month) {
-    const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
-    let total = 0;
-    outflows.forEach((item) => {
-      if (item?.countsInPrimaryTotals === false) return;
-      const amount = Math.abs(Number(item?.amount || item?.valor || 0));
-      if (!(amount > 0)) return;
-      const kind = String(item?.outputKind || '').toLowerCase();
-      const type = String(item?.type || '').toLowerCase();
-      if (kind === 'card' && type === 'spend') return;
-      total += amount;
-    });
-    (month?.cardBills || []).forEach((bill) => {
-      total += Math.abs(Number(bill?.amount || 0));
-    });
-    return total;
+    if (typeof global.calculateUnifiedPlanningTotal === 'function') {
+      return Number(global.calculateUnifiedPlanningTotal(month) || 0);
+    }
+    const totals = typeof global.getEffectiveTotalsForMes === 'function' ? global.getEffectiveTotalsForMes(month) : null;
+    return Number(totals?.totalGastos || 0);
   }
 
   function monthIncome(month) {
-    return (month?.renda || []).reduce((sum, item) => sum + Number(item?.valor || 0), 0)
-      + (month?.projetos || []).reduce((sum, item) => sum + Number(item?.valor || 0), 0);
+    const totals = typeof global.getEffectiveTotalsForMes === 'function' ? global.getEffectiveTotalsForMes(month) : null;
+    return Number(totals?.rendaTotal || 0);
   }
 
   function toChartMonth(month) {
@@ -70,6 +72,12 @@
     const liveMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
     const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
     if (!allMonths.length) return [];
+    if (value === 'custom') {
+      if (!customRange) return allMonths.slice(-6).map(toChartMonth);
+      const startIdx = Math.max(0, Number(customRange.startIdx || 0));
+      const endIdx = Math.min(allMonths.length - 1, Number(customRange.endIdx || (allMonths.length - 1)));
+      return allMonths.slice(startIdx, endIdx + 1).map(toChartMonth);
+    }
     if (value === 'year') {
       const curr = allMonths[allMonths.length - 1];
       const year = String(curr?.nome || '').split(' ').pop();
@@ -83,17 +91,12 @@
     const totals = new Map();
     months.forEach((month) => {
       const rawMonth = (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []).find((m) => m?.id === month.id);
-      const outflows = Array.isArray(rawMonth?.outflows) ? rawMonth.outflows : [];
-      outflows.forEach((item) => {
-        if (item?.countsInPrimaryTotals === false) return;
-        const amount = Math.abs(Number(item?.amount || 0));
-        if (!(amount > 0)) return;
-        const kind = String(item?.outputKind || '').toLowerCase();
-        const type = String(item?.type || '').toLowerCase();
-        if (kind === 'card' && type === 'spend') return;
-        const catRaw = item?.category || item?.categoria || 'OUTROS';
-        const cat = String(global.resolveCategoryName ? global.resolveCategoryName(catRaw) : catRaw).trim() || 'OUTROS';
-        totals.set(cat, (totals.get(cat) || 0) + amount);
+      const monthCategoryTotals = typeof global.getVariableCategoryTotals === 'function'
+        ? global.getVariableCategoryTotals(rawMonth || {}) || {}
+        : {};
+      Object.entries(monthCategoryTotals).forEach(([categoryName, value]) => {
+        const safeCategory = String(global.resolveCategoryName ? global.resolveCategoryName(categoryName) : categoryName).trim() || 'OUTROS';
+        totals.set(safeCategory, Number(totals.get(safeCategory) || 0) + Math.max(0, Number(value || 0)));
       });
     });
     return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, value]) => ({ name, value }));
@@ -227,9 +230,57 @@
     target.querySelectorAll('[data-m2-period]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const raw = btn.getAttribute('data-m2-period');
+        if (raw === 'custom') {
+          const months = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
+          if (!months.length) return;
+          const startRaw = global.prompt?.(`Mês inicial (1-${months.length})`, '1');
+          if (startRaw === null) return;
+          const endRaw = global.prompt?.(`Mês final (1-${months.length})`, String(months.length));
+          if (endRaw === null) return;
+          const start = Math.max(1, Math.min(months.length, Number(startRaw || 1)));
+          const end = Math.max(start, Math.min(months.length, Number(endRaw || months.length)));
+          customRange = { startIdx: start - 1, endIdx: end - 1 };
+          activePeriod = 'custom';
+          render(target);
+          return;
+        }
         activePeriod = raw === 'year' ? 'year' : Number(raw || 6);
         render(target);
       });
+    });
+  }
+
+  function openCategoryDetails(categoryName, months) {
+    const allMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
+    const allowed = new Set((months || []).map((entry) => String(entry.id || '')));
+    const rows = [];
+    allMonths.forEach((month) => {
+      if (!allowed.has(String(month?.id || ''))) return;
+      (month?.outflows || []).forEach((item) => {
+        const cat = String(global.resolveCategoryName ? global.resolveCategoryName(item?.category || item?.categoria || 'OUTROS') : (item?.category || item?.categoria || 'OUTROS'));
+        if (cat !== categoryName) return;
+        rows.push({
+          date: String(item?.date || ''),
+          description: String(item?.description || 'Lançamento'),
+          amount: Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0),
+          output: String(item?.outputKind === 'card' ? 'Cartão' : (item?.outputMethod || 'Saída')),
+          tag: String(item?.tag || '')
+        });
+      });
+    });
+    const body = rows.length ? rows.map((row) => `
+      <article class="m2-recent-item">
+        <span>
+          <p class="m2-row-title">${escapeHtml(row.description)}</p>
+          <span class="m2-row-meta">${escapeHtml(row.date)} · ${escapeHtml(row.output)}${row.tag ? ` · ${escapeHtml(row.tag)}` : ''}</span>
+        </span>
+        <span class="m2-row-amount negative">${formatMoney(Math.abs(row.amount || 0))}</span>
+      </article>
+    `).join('') : '<div class="m2-empty">Sem gastos nessa categoria no período.</div>';
+    global.MobileV2OutflowForm?.openInlineSheet?.({
+      title: `Categoria: ${categoryName}`,
+      subtitle: `${rows.length} lançamento(s)`,
+      body
     });
   }
 
@@ -324,7 +375,6 @@
         </div>
         <div class="m2-header-actions">
           <button class="m2-icon-btn" type="button" aria-label="Compartilhar dashboard" data-m2-share-dashboard>${global.SystemIcons?.render ? global.SystemIcons.render('share') : '↗'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Tags" onclick="MobileV2FiltersSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('tag') : ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
       </header>
@@ -359,11 +409,11 @@
               const pct = Math.round((category.value / total) * 100);
               const colors = ['#2471A3', '#E74C3C', '#27AE60', '#F39C12', '#8E44AD', '#17A589'];
               return `
-                <div class="pie-legend-item">
+                <button type="button" class="pie-legend-item" data-m2-cat="${escapeHtml(category.name)}">
                   <span class="pie-dot" style="background:${colors[idx % colors.length]}"></span>
-                  <span class="pie-cat">${escapeHtml(category.name)}</span>
+                  <span class="pie-cat">${getCategorySymbol(category.name)} <span>${escapeHtml(category.name)}</span></span>
                   <span class="pie-pct">${pct}%</span>
-                </div>
+                </button>
               `;
             }).join('')}
           </div>
@@ -375,6 +425,13 @@
     target.querySelector('[data-m2-share-dashboard]')?.addEventListener('click', () => {
       shareDashboardSnapshot().catch(() => {
         if (typeof global.showToast === 'function') global.showToast('Não foi possível compartilhar agora.');
+      });
+    });
+    target.querySelectorAll('[data-m2-cat]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const category = String(btn.getAttribute('data-m2-cat') || '');
+        if (!category) return;
+        openCategoryDetails(category, months);
       });
     });
     animateCharts(target, months, categories);

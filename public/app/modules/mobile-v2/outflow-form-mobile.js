@@ -2,11 +2,11 @@
   'use strict';
 
   const MODE_LABEL = {
-    launch: 'Lançamento',
+    launch: 'Gasto',
     renda: 'Renda',
-    recurring: 'Recorrente',
-    installment: 'Parcelado',
-    shared: 'Compartilhado'
+    recurring: 'Gasto Recorrente',
+    installment: 'Gasto Parcelado',
+    shared: 'Gasto Compartilhado'
   };
 
   function formatDateDefault() {
@@ -72,6 +72,22 @@
     return fallback;
   }
 
+  function resolveOutputOptions(month) {
+    const options = [
+      { value: 'method:pix', label: 'Pix' },
+      { value: 'method:debito', label: 'Débito' },
+      { value: 'method:dinheiro', label: 'Dinheiro' },
+      { value: 'method:credito', label: 'Crédito' }
+    ];
+    const cards = Array.isArray(month?.outflowCards) ? month.outflowCards : [];
+    cards.forEach((card) => {
+      const cardId = String(card?.id || '').trim();
+      if (!cardId) return;
+      options.push({ value: `card:${cardId}`, label: String(card?.name || 'Cartão') });
+    });
+    return options;
+  }
+
   function ensureSheet() {
     if (global.MobileV2?.isEnabled?.() !== true) return null;
     let root = document.getElementById('mobileV2OutflowSheet');
@@ -90,6 +106,19 @@
 
     document.body.appendChild(root);
     root.querySelector('.bottom-sheet-scrim')?.addEventListener('click', close);
+    const panel = root.querySelector('.bottom-sheet-panel');
+    let dragStartY = 0;
+    let dragCurrentY = 0;
+    panel?.addEventListener('touchstart', (event) => {
+      dragStartY = Number(event.touches?.[0]?.clientY || 0);
+      dragCurrentY = dragStartY;
+    }, { passive: true });
+    panel?.addEventListener('touchmove', (event) => {
+      dragCurrentY = Number(event.touches?.[0]?.clientY || dragStartY);
+    }, { passive: true });
+    panel?.addEventListener('touchend', () => {
+      if ((dragCurrentY - dragStartY) > 88) close();
+    });
     root.setAttribute('hidden', 'hidden');
     root.style.display = 'none';
 
@@ -99,6 +128,7 @@
   function renderForm(mode) {
     const month = getCurrentMonth();
     const categories = resolveCategories(month);
+    const outputs = resolveOutputOptions(month);
     const body = document.getElementById('mobileV2OutflowFormBody');
     if (!body) return;
 
@@ -110,8 +140,6 @@
     const showInstallments = mode === 'installment';
     const showShared = mode === 'shared';
     const showRecurring = mode === 'recurring';
-    const showIncomeToggle = mode === 'launch' || mode === 'renda';
-
     body.innerHTML = `
       <div class="m2-sheet-head-inline">
         <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">← Tipo</button>
@@ -142,9 +170,11 @@
         </select>
       </div>
 
-      <div class="form-toggle" ${showIncomeToggle ? '' : 'style="display:none"'}>
-        <button type="button" class="form-toggle-btn ${mode === 'renda' ? '' : 'active-expense'}" data-income="0">Gasto</button>
-        <button type="button" class="form-toggle-btn ${mode === 'renda' ? 'active-income' : ''}" data-income="1">Receita</button>
+      <div class="form-field">
+        <label class="form-label" for="mobileV2OutflowOutput">Saída</label>
+        <select id="mobileV2OutflowOutput" class="form-input">
+          ${outputs.map((entry) => `<option value="${escapeHtml(entry.value)}">${escapeHtml(entry.label)}</option>`).join('')}
+        </select>
       </div>
 
       <label class="form-check-row" ${showRecurring ? '' : 'style="display:none"'}>
@@ -222,9 +252,11 @@
     setValue('unifiedOutflowCategory', payload.category);
 
     const outputSelect = document.getElementById('unifiedOutflowOutput');
-    if (outputSelect && !outputSelect.value) {
+    if (outputSelect) {
+      const preferredOutput = String(payload.output || '').trim();
+      const preferredOption = preferredOutput ? outputSelect.querySelector(`option[value="${preferredOutput}"]`) : null;
       const firstMethod = outputSelect.querySelector('option[value^="method:"]')?.value || 'method:debito';
-      outputSelect.value = firstMethod;
+      outputSelect.value = preferredOption ? preferredOutput : firstMethod;
       outputSelect.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
@@ -283,6 +315,7 @@
       category,
       amount,
       date,
+      output: String(document.getElementById('mobileV2OutflowOutput')?.value || 'method:debito'),
       planning,
       installmentsCount: Math.max(2, Number(document.getElementById('mobileV2InstallmentsCount')?.value || 2) || 2),
       sharedPeopleCount: Math.max(2, Number(document.getElementById('mobileV2SharedPeopleCount')?.value || 2) || 2),
@@ -321,6 +354,9 @@
       global.MobileV2AddSheet?.open?.();
     });
     sheet.classList.add('open');
+    sheet.style.display = '';
+    sheet.removeAttribute('hidden');
+    document.body.classList.add('mobile-v2-sheet-open');
   }
 
   function openIncomePicker() {
@@ -355,6 +391,7 @@
     sheet.style.display = '';
     sheet.removeAttribute('hidden');
     sheet.classList.add('open');
+    document.body.classList.add('mobile-v2-sheet-open');
   }
 
   function openEdit(item) {
@@ -377,6 +414,11 @@
     setValue('mobileV2OutflowAmount', Math.abs(Number(source.amount || source.valor || 0)) || '');
     setValue('mobileV2OutflowDate', source.date || source.data || '');
     setValue('mobileV2OutflowCategory', source.category || source.categoria || '');
+    if (source.outputKind === 'card' && source.outputRef) {
+      setValue('mobileV2OutflowOutput', `card:${source.outputRef}`);
+    } else if (source.outputMethod) {
+      setValue('mobileV2OutflowOutput', `method:${source.outputMethod}`);
+    }
     const planning = document.getElementById('mobileV2PlanningToggle');
     if (planning) planning.checked = source.showInMonthPlanning === true || String(source.type || '').toLowerCase() === 'expense';
     const submit = document.getElementById('mobileV2OutflowSubmit');
@@ -384,6 +426,7 @@
     const title = document.querySelector('#mobileV2OutflowFormBody .form-title');
     if (title) title.textContent = 'Editar lançamento';
     sheet.classList.add('open');
+    document.body.classList.add('mobile-v2-sheet-open');
   }
 
   function close() {
@@ -392,6 +435,7 @@
     sheet.classList.remove('open');
     sheet.setAttribute('hidden', 'hidden');
     sheet.style.display = 'none';
+    document.body.classList.remove('mobile-v2-sheet-open');
   }
 
   global.MobileV2OutflowForm = {
