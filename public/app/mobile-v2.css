@@ -1,5 +1,6 @@
 ﻿:root {
   --mobile-v2-nav-height: calc(56px + env(safe-area-inset-bottom, 0px));
+  --mobile-v2-nav-float-offset: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
 #mobileV2LoadingBar {
@@ -434,7 +435,7 @@
 
   html.mobile-v2 .main {
     margin: 0 !important;
-    padding: 0 0 var(--mobile-v2-nav-height) 0 !important;
+    padding: 0 0 calc(var(--mobile-v2-nav-height) + var(--mobile-v2-nav-float-offset) + 8px) 0 !important;
     max-width: 100% !important;
     width: 100% !important;
   }
@@ -862,17 +863,21 @@
 
   html.mobile-v2 .bottom-nav {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    left: 12px;
+    right: 12px;
+    bottom: var(--mobile-v2-nav-float-offset);
     z-index: 500;
-    background: color-mix(in srgb, var(--surface-strong) 95%, transparent);
-    backdrop-filter: blur(8px);
-    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-strong) 90%, transparent);
+    backdrop-filter: blur(12px);
+    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(12, 24, 46, .16);
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    height: var(--mobile-v2-nav-height);
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom, 0px));
+    min-height: 62px;
+    height: auto;
+    overflow: hidden;
   }
 
   html.mobile-v2 .bottom-nav-item {
@@ -886,9 +891,15 @@
     gap: 2px;
     font-size: 10px;
     font-weight: 600;
+    border-radius: 14px;
+    min-height: 48px;
+    transition: background-color .16s ease, color .16s ease;
   }
 
-  html.mobile-v2 .bottom-nav-item.active { color: var(--accent); }
+  html.mobile-v2 .bottom-nav-item.active {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
   html.mobile-v2 .bottom-nav-item .nav-icon,
   html.mobile-v2 .bottom-nav-item svg {
     width: 22px;
@@ -1623,4 +1634,7 @@
     padding: 0 10px;
   }
 }
+
+
+
 
