@@ -1,4 +1,6 @@
-﻿let loginProfile = { programName: 'Controle Financeiro' };
+let loginProfile = { programName: 'Controle Financeiro' };
+let loginInFlight = false;
+const LOGIN_REQUEST_TIMEOUT_MS = 15000;
 
 function formatBirthDateTyping(value) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
@@ -229,6 +231,7 @@ async function submitPasswordReset() {
 
 async function submitLogin(event) {
   event.preventDefault();
+  if (loginInFlight) return;
   const form = event.currentTarget;
   const emailInput = document.getElementById('emailInput');
   const passwordInput = document.getElementById('passwordInput');
@@ -239,20 +242,33 @@ async function submitLogin(event) {
   const password = passwordInput.value;
 
   errorEl.textContent = '';
+  loginInFlight = true;
   button.disabled = true;
   button.textContent = 'Entrando...';
 
+  let timeoutHandle = null;
   try {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    timeoutHandle = controller
+      ? window.setTimeout(() => controller.abort(), LOGIN_REQUEST_TIMEOUT_MS)
+      : null;
+
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      signal: controller?.signal,
       body: JSON.stringify({
         email,
         password,
         rememberMe: !!rememberMeInput?.checked
       })
     });
+
+    if (timeoutHandle) {
+      window.clearTimeout(timeoutHandle);
+      timeoutHandle = null;
+    }
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -272,8 +288,17 @@ async function submitLogin(event) {
     }
     window.location.replace('/app');
   } catch (error) {
-    errorEl.textContent = 'Falha ao conectar com o servidor de login.';
+    if (timeoutHandle) {
+      window.clearTimeout(timeoutHandle);
+      timeoutHandle = null;
+    }
+    if (error?.name === 'AbortError') {
+      errorEl.textContent = 'O login demorou para responder. Verifique sua conexao e tente novamente.';
+    } else {
+      errorEl.textContent = 'Falha ao conectar com o servidor de login.';
+    }
   } finally {
+    loginInFlight = false;
     button.disabled = false;
     button.textContent = 'Entrar';
   }
@@ -455,4 +480,5 @@ function hydrateResetFromQuery() {
 
 hydrateResetFromQuery();
 loadLoginProfile();
+
 

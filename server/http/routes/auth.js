@@ -233,7 +233,7 @@ function registerAuthRoutes(app, deps) {
 
       req.session.regenerate(error => {
         if (error) return next(error);
-        const loggedUser = registerUserLogin(user.id) || findUserById(user.id) || user;
+        const loggedUser = findUserById(user.id) || user;
         const encryptionKey = deriveDataKey(password, loggedUser.encryptionSalt).toString('base64');
         if (typeof deps.wrapRecoveryEncryptionKey === 'function') {
           const recoveryWrappedKey = deps.wrapRecoveryEncryptionKey(encryptionKey);
@@ -261,7 +261,17 @@ function registerAuthRoutes(app, deps) {
           req.session.cookie.maxAge = null;
           clearRememberMeCookie(res);
         }
-        return res.json({ ok: true, crypto: getClientCryptoConfig(loggedUser) });
+        const payload = { ok: true, crypto: getClientCryptoConfig(loggedUser) };
+        res.json(payload);
+        // Keep login response fast on mobile: heavy backup/login counters run asynchronously.
+        setImmediate(() => {
+          try {
+            registerUserLogin(loggedUser.id);
+          } catch (loginTrackingError) {
+            console.error('[auth] falha ao registrar estatisticas de login:', loginTrackingError?.message || loginTrackingError);
+          }
+        });
+        return;
       });
     } catch (error) {
       next(error);
