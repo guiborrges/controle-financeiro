@@ -39,18 +39,25 @@
       : []);
     const parsed = options.map((entry) => {
       if (entry && typeof entry === 'object') {
-        return { value: String(entry.value || entry.id || entry.name || ''), label: String(entry.label || entry.name || entry.value || '') };
+        return {
+          value: String(entry.value || entry.id || entry.name || ''),
+          label: String(entry.label || entry.name || entry.value || '')
+        };
       }
       return { value: String(entry || ''), label: String(entry || '') };
     }).filter((entry) => entry.value);
     const fallback = parsed.length ? parsed : [{ value: '', label: 'Categoria' }];
-    const head = `<option value="">Categoria</option>`;
-    const body = fallback.map((entry) => `<option value="${escapeHtml(entry.value)}" ${entry.value === current ? 'selected' : ''}>${escapeHtml(entry.label)}</option>`).join('');
+    const head = '<option value="">Categoria</option>';
+    const body = fallback
+      .map((entry) => `<option value="${escapeHtml(entry.value)}" ${entry.value === current ? 'selected' : ''}>${escapeHtml(entry.label)}</option>`)
+      .join('');
     return `${head}${body}`;
   }
 
   function tagOptions(current) {
-    const tags = typeof global.getAllTags === 'function' ? global.getAllTags() : (global.BillImportUtils?.getAllTagsFromUserData?.(global.data || []) || []);
+    const tags = typeof global.getAllTags === 'function'
+      ? global.getAllTags()
+      : (global.BillImportUtils?.getAllTagsFromUserData?.(global.data || []) || []);
     const safeTags = Array.isArray(tags) ? tags : [];
     return ['<option value="">Sem tag</option>']
       .concat(safeTags.map((tag) => {
@@ -65,7 +72,7 @@
     return (group.rows || []).map((row) => `
       <article class="m2-recent-item mobile-banking-row" data-account-id="${escapeHtml(group.accountId)}" data-tx-id="${escapeHtml(row.id)}">
         <div style="flex:1;min-width:0">
-          <p class="m2-row-title">${escapeHtml(row.description || 'Lançamento')}</p>
+          <p class="m2-row-title">${escapeHtml(row.description || 'Lancamento')}</p>
           <span class="m2-row-meta">${escapeHtml(row.date || '--')}${row.time ? ` · ${escapeHtml(row.time)}` : ''}</span>
           <div class="mobile-banking-controls">
             ${isCredit ? `
@@ -102,7 +109,7 @@
           <span>${isCollapsed ? '▸' : '▾'} ${escapeHtml(group.accountName || 'Conta')}</span>
           <span>${group.pendingCount} pendente(s) · ${escapeHtml(money(group.totalPending || 0))}</span>
         </button>
-        <div class="card-items-note">${escapeHtml(group.linkedLabel || 'Sem vínculo')} · Origem: ${escapeHtml(group.originName || group.accountName || '')}</div>
+        <div class="card-items-note">${escapeHtml(group.linkedLabel || 'Sem vinculo')} · Origem: ${escapeHtml(group.originName || group.accountName || '')}</div>
         ${isCollapsed ? '' : `
           <div class="mobile-banking-group-body">
             <div class="m2-list-actions">
@@ -127,10 +134,10 @@
     mount.innerHTML = `
       <div class="period-selector" style="padding:0 0 10px">
         <button type="button" class="period-btn ${MOBILE_STATE.view === 'bank' ? 'active' : ''}" data-action="view-bank">Conta corrente</button>
-        <button type="button" class="period-btn ${MOBILE_STATE.view === 'credit' ? 'active' : ''}" data-action="view-credit">Cartão</button>
+        <button type="button" class="period-btn ${MOBILE_STATE.view === 'credit' ? 'active' : ''}" data-action="view-credit">Cartao</button>
       </div>
-      <p class="m2-subtitle" style="padding:0 4px 8px">Última atualização: ${escapeHtml(loadedAt)}</p>
-      ${groups.length ? groups.map(renderGroup).join('') : '<div class="m2-empty">Sem pendências para revisão.</div>'}
+      <p class="m2-subtitle" style="padding:0 4px 8px">Ultima atualizacao: ${escapeHtml(loadedAt)}</p>
+      ${groups.length ? groups.map(renderGroup).join('') : '<div class="m2-empty">Sem pendencias para revisao.</div>'}
     `;
     bindEvents(snapshot);
   }
@@ -189,14 +196,14 @@
     if (!global.PluggyBanking?.getMobileSnapshot) {
       global.MobileV2OutflowForm?.openInlineSheet?.({
         title: 'Internet Banking',
-        subtitle: 'Pré-visualização indisponível',
-        body: '<div class="m2-empty">Não foi possível abrir os dados do Internet Banking agora.</div>'
+        subtitle: 'Pre-visualizacao indisponivel',
+        body: '<div class="m2-empty">Nao foi possivel abrir os dados do Internet Banking agora.</div>'
       });
       return;
     }
     global.MobileV2OutflowForm?.openInlineSheet?.({
       title: 'Internet Banking',
-      subtitle: 'Mostrando somente lançamentos pendentes',
+      subtitle: 'Mostrando somente lancamentos pendentes',
       body: '<div id="mobileV2InternetBankingMount" class="mobile-v2-banking-mount"><div class="m2-empty">Carregando dados...</div></div>'
     });
     try {

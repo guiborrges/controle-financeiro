@@ -142,7 +142,7 @@
     const showRecurring = mode === 'recurring';
     body.innerHTML = `
       <div class="m2-sheet-head-inline">
-        <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">← Tipo</button>
+        <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">&lt; Tipo</button>
         <h3 class="form-title">${MODE_LABEL[mode] || 'Lançamento'}</h3>
       </div>
 
@@ -343,7 +343,7 @@
     if (!mount) return;
     mount.innerHTML = `
       <div class="m2-sheet-head-inline">
-        <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">← Voltar</button>
+        <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">&lt; Voltar</button>
         <h3 class="form-title">${escapeHtml(String(title || 'Detalhes'))}</h3>
       </div>
       ${subtitle ? `<p class="m2-sheet-subtitle">${escapeHtml(String(subtitle))}</p>` : ''}

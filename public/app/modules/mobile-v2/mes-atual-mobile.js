@@ -117,6 +117,17 @@
   }
 
   function getOutflowRows(month) {
+    if (typeof global.getUnifiedFilterRows === 'function') {
+      const unifiedRows = global.getUnifiedFilterRows(month, 'all', '', '') || [];
+      const outflowRows = unifiedRows
+        .filter((row) => row?.kind === 'outflow' && Math.abs(Number(row?.item?.amount || 0)) > 0)
+        .map((row) => row.item);
+      if (typeof global.getSortedUnifiedRows === 'function') {
+        return global.getSortedUnifiedRows(month, outflowRows.map((item) => ({ kind: 'outflow', item })), 'data', 'desc')
+          .map((row) => row.item);
+      }
+      return outflowRows.sort((a, b) => parseDateScore(b?.date) - parseDateScore(a?.date));
+    }
     return [...(Array.isArray(month?.outflows) ? month.outflows : [])]
       .filter((item) => Math.abs(Number(item?.amount || item?.valor || 0)) > 0)
       .sort((a, b) => parseDateScore(b?.date) - parseDateScore(a?.date));
@@ -144,7 +155,7 @@
           <h2 class="m2-title">Mês Atual</h2>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '??'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
       </header>
     `;
@@ -251,7 +262,10 @@
     const cardSections = Array.from(cardGroups.entries()).map(([cardId, cardRows]) => {
       const card = monthCards.find((entry) => String(entry?.id || '') === cardId);
       const title = card?.name || `Cartão ${cardId.slice(0, 6)}`;
-      const total = cardRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      const bill = (month?.cardBills || []).find((entry) => String(entry?.cardId || '') === cardId);
+      const total = typeof global.getUnifiedCardBillEffectiveAmount === 'function'
+        ? Number(global.getUnifiedCardBillEffectiveAmount(month, bill) || 0)
+        : cardRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
       return `
         <section class="m-list-card card-section">
           <h3 class="m-list-title">${escapeHtml(title)} · ${formatMoney(total)} <button class="m2-icon-mini" type="button" data-action="edit-card-bill" data-card-id="${escapeHtml(cardId)}" aria-label="Editar fatura">✎</button></h3>
@@ -302,7 +316,9 @@
     const categoryRows = getCachedMonthView(month).categoryRows;
     const max = categoryRows[0]?.total || 1;
     const goals = month?.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
-    const spentByCategory = month?.categorias && typeof month.categorias === 'object' ? month.categorias : {};
+    const spentByCategory = typeof global.getVariableCategoryTotals === 'function'
+      ? (global.getVariableCategoryTotals(month) || {})
+      : (month?.categorias && typeof month.categorias === 'object' ? month.categorias : {});
 
     const categoryNames = new Set([
       ...categoryRows.map((row) => row.name),
@@ -387,7 +403,8 @@
   function renderRenda(month) {
     const rendaFixa = month?.renda || [];
     const rendaExtra = month?.projetos || [];
-    const total = [...rendaFixa, ...rendaExtra].reduce((sum, row) => sum + Number(row?.valor || 0), 0);
+    const monthMetrics = getCachedMonthView(month).metrics;
+    const total = Number(monthMetrics?.renda || 0);
 
     return `
       <div class="m2-tab-panel ${activeSubtab === 'renda' ? 'active' : ''}" data-tab-panel="renda">

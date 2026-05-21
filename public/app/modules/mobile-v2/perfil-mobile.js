@@ -5,7 +5,7 @@
     return `
       <button class="row-link" type="button" onclick="${action}">
         <span>${label}</span>
-        <span style="color:${danger ? 'var(--red)' : 'var(--text3)'}">â€º</span>
+        <span style="color:${danger ? 'var(--red)' : 'var(--text3)'}">&gt;</span>
       </button>
     `;
   }
@@ -27,7 +27,7 @@
             <h2 class="m2-title" style="font-size:20px">Perfil</h2>
             <p id="mobileV2PerfilSubtitle" class="m2-subtitle"></p>
           </div>
-          <button class="m2-icon-btn" type="button" data-close-perfil aria-label="Fechar">âœ•</button>
+          <button class="m2-icon-btn" type="button" data-close-perfil aria-label="Fechar">✕</button>
         </div>
         <section class="m2-card m2-list-like">
           <h3 class="m2-card-title">Conta</h3>
@@ -41,8 +41,8 @@
           ${row('Categorias e tags', "openCategoryEditorModal()")}
         </section>
         <section class="m2-card m2-list-like">
-          <h3 class="m2-card-title">PreferÃªncias</h3>
-          ${row('Abrir preferÃªncias', "openPreferences()")}
+          <h3 class="m2-card-title">Preferências</h3>
+          ${row('Abrir preferências', "openPreferences()")}
         </section>
         <section class="m2-card">
           <button class="btn" type="button" style="width:100%" onclick="logout()">Sair da conta</button>
@@ -63,7 +63,7 @@
     if (global.MobileV2?.isEnabled?.() !== true) return;
     const root = ensureSheet();
     if (!root) return;
-    const userName = document.getElementById('sessionUserName')?.textContent?.trim() || 'UsuÃ¡rio';
+    const userName = document.getElementById('sessionUserName')?.textContent?.trim() || 'Usuário';
     const subtitle = root.querySelector('#mobileV2PerfilSubtitle');
     if (subtitle) subtitle.textContent = userName;
     root.style.display = '';
