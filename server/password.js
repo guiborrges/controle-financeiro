@@ -1,10 +1,8 @@
 const crypto = require('crypto');
-const { promisify } = require('util');
 
 const DEFAULT_ALGORITHM = 'sha512';
 const DEFAULT_ITERATIONS = 210000;
 const DEFAULT_KEY_LENGTH = 32;
-const pbkdf2Async = promisify(crypto.pbkdf2);
 
 function hashPassword(password, options = {}) {
   const iterations = Number(options.iterations || DEFAULT_ITERATIONS);
@@ -25,24 +23,7 @@ function verifyPassword(password, storedHash) {
   return crypto.timingSafeEqual(derivedKey, storedBuffer);
 }
 
-async function verifyPasswordAsync(password, storedHash) {
-  if (!storedHash || typeof storedHash !== 'string') return false;
-  const [type, algorithm, iterations, salt, hash] = storedHash.split('$');
-  if (type !== 'pbkdf2' || !algorithm || !iterations || !salt || !hash) return false;
-  const storedBuffer = Buffer.from(hash, 'base64');
-  const derivedKey = await pbkdf2Async(
-    password,
-    Buffer.from(salt, 'base64'),
-    Number(iterations),
-    storedBuffer.length,
-    algorithm
-  );
-  if (derivedKey.length !== storedBuffer.length) return false;
-  return crypto.timingSafeEqual(derivedKey, storedBuffer);
-}
-
 module.exports = {
   hashPassword,
-  verifyPassword,
-  verifyPasswordAsync
+  verifyPassword
 };
