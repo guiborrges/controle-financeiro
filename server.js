@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const FileStoreFactory = require('session-file-store');
 const path = require('path');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
@@ -63,7 +64,7 @@ const {
   isValidBrazilPhone
 } = require('./server/http/security');
 
-const { verifyPassword, hashPassword } = require('./server/password');
+const { verifyPassword, verifyPasswordAsync, hashPassword } = require('./server/password');
 const {
   DATA_KEY_ALGORITHM,
   DATA_KEY_ITERATIONS,
@@ -123,6 +124,7 @@ const APP_DIR = path.join(ROOT_DIR, 'public', 'app');
 const DEVELOPER_DIR = path.join(ROOT_DIR, 'public', 'developer');
 const SHARED_DIR = path.join(ROOT_DIR, 'public', 'shared');
 const USERS_DATA_DIR = resolveStoragePath('data', 'users');
+const SESSIONS_DATA_DIR = resolveStoragePath('data', 'sessions');
 const SESSION_SECRET_PATH = resolveStoragePath('auth', 'session-secret.txt');
 const rateLimitState = createPersistentRateLimitStore(resolveStoragePath('auth', 'rate-limit-state.json'));
 const REMEMBER_ME_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
@@ -187,10 +189,12 @@ function revokeRememberMeToken(user, plainToken) {
 }
 
 const PASSWORD_RECOVERY_SECRET = String(process.env.FIN_PASSWORD_RECOVERY_SECRET || '').trim();
+let cachedPasswordRecoveryKey = null;
 
 function derivePasswordRecoveryKey() {
   if (!PASSWORD_RECOVERY_SECRET) return '';
-  return crypto
+  if (cachedPasswordRecoveryKey) return cachedPasswordRecoveryKey;
+  cachedPasswordRecoveryKey = crypto
     .pbkdf2Sync(
       PASSWORD_RECOVERY_SECRET,
       Buffer.from('fin:password-recovery:key'),
@@ -199,6 +203,7 @@ function derivePasswordRecoveryKey() {
       'sha512'
     )
     .toString('base64');
+  return cachedPasswordRecoveryKey;
 }
 
 function validateUserPassword(password) {
@@ -373,6 +378,12 @@ app.use(express.urlencoded({ extended: false, limit: process.env.FIN_DEFAULT_BOD
 app.use(session({
   name: SESSION_COOKIE_NAME,
   secret: ensureSessionSecret(SESSION_SECRET_PATH),
+  store: new FileStore({
+    path: SESSIONS_DATA_DIR,
+    ttl: Math.floor(REMEMBER_ME_MAX_AGE_MS / 1000),
+    retries: 1,
+    reapInterval: 60 * 60
+  }),
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -441,6 +452,7 @@ registerAuthRoutes(app, {
   ensureCsrfToken,
   findUserByEmail,
   verifyPassword,
+  verifyPasswordAsync,
   registerUserLogin,
   findUserById,
   deriveDataKey,
@@ -582,3 +594,4 @@ app.listen(PORT, () => {
 
 
 
+const FileStore = FileStoreFactory(session);

@@ -226,6 +226,12 @@ function hasUserAppState(userId) {
 }
 
 function readUserAppState(userId, encryptionKey = '') {
+  const cacheKey = `${String(userId || '')}|${String(encryptionKey || '')}`;
+  const cached = appStateReadCache.get(cacheKey);
+  if (cached && (Date.now() - cached.ts) < APP_STATE_READ_CACHE_TTL_MS) {
+    return cached.payload;
+  }
+  const startedAt = Date.now();
   const dir = ensureUserDataLocation(userId);
   const filePath = path.join(dir, 'state.json');
   if (!fs.existsSync(filePath)) return null;
@@ -242,11 +248,18 @@ function readUserAppState(userId, encryptionKey = '') {
     if (!encryptionKey) {
       throw new Error('A chave de criptografia da sessão não está disponível.');
     }
-    return {
+    const payload = {
       ...parsed,
       state: decryptDataWithKey(parsed.state, encryptionKey)
     };
+    appStateReadCache.set(cacheKey, { ts: Date.now(), payload });
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs > 100) console.warn(`[perf] app-state read lento: ${elapsedMs}ms para userId=${userId}`);
+    return payload;
   }
+  appStateReadCache.set(cacheKey, { ts: Date.now(), payload: parsed });
+  const elapsedMs = Date.now() - startedAt;
+  if (elapsedMs > 100) console.warn(`[perf] app-state read lento: ${elapsedMs}ms para userId=${userId}`);
   return parsed;
 }
 
@@ -257,6 +270,8 @@ function ensureOwnedStatePayload(payload, userId) {
 }
 
 const MAX_STATE_BYTES = 15 * 1024 * 1024;
+const APP_STATE_READ_CACHE_TTL_MS = 30 * 1000;
+const appStateReadCache = new Map();
 
 function sanitizeStateForStorage(state) {
   const base = state && typeof state === 'object' && !Array.isArray(state)
@@ -301,6 +316,9 @@ function writeUserAppState(userId, state, encryptionKey = '') {
     state: serializedState
   };
   writeJsonFileAtomic(filePath, payload);
+  for (const key of appStateReadCache.keys()) {
+    if (key.startsWith(`${String(userId || '')}|`)) appStateReadCache.delete(key);
+  }
   return payload;
 }
 
@@ -319,6 +337,9 @@ function deleteUserAppState(userId) {
       fs.unlinkSync(legacyFlat);
       removed = true;
     } catch {}
+  }
+  for (const key of appStateReadCache.keys()) {
+    if (key.startsWith(`${String(userId || '')}|`)) appStateReadCache.delete(key);
   }
   return removed;
 }
