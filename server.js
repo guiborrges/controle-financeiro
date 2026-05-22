@@ -346,6 +346,7 @@ function resolveTrustProxySetting() {
 app.set('trust proxy', resolveTrustProxySetting());
 const SESSION_COOKIE_NAME = String(process.env.FIN_SESSION_COOKIE_NAME || (process.env.NODE_ENV === 'production' ? '__Host-fin.sid' : 'fin.sid')).trim() || 'fin.sid';
 const SESSION_COOKIE_SECURE = SESSION_COOKIE_NAME.startsWith('__Host-') ? true : 'auto';
+const FileStore = FileStoreFactory(session);
 app.use(applySecurityHeaders);
 app.use('/api', (req, res, next) => {
   const origin = String(req.get('origin') || '').trim();
@@ -594,4 +595,3 @@ app.listen(PORT, () => {
 
 
 
-const FileStore = FileStoreFactory(session);
