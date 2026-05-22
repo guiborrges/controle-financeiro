@@ -1,4 +1,4 @@
-function registerAuthRoutes(app, deps) {
+﻿function registerAuthRoutes(app, deps) {
   const {
     noStore,
     requireAuth,
@@ -11,6 +11,7 @@ function registerAuthRoutes(app, deps) {
     ensureCsrfToken,
     findUserByEmail,
     verifyPassword,
+    verifyPasswordAsync,
     registerUserLogin,
     findUserById,
     deriveDataKey,
@@ -213,7 +214,7 @@ function registerAuthRoutes(app, deps) {
         recoveryWrappedKey: nextRecoveryWrappedKey || user.recoveryWrappedKey
       });
       deps.writeUserAppState(user.id, currentState?.state || {}, nextEncryptionKey);
-      return res.json({ ok: true, message: 'Senha redefinida com sucesso. Faça login com a nova senha.' });
+      return res.json({ ok: true, message: 'Senha redefinida com sucesso. FaÃ§a login com a nova senha.' });
     } catch (error) {
       console.error('[auth] falha ao redefinir senha:', error?.message || error);
       return res.status(500).json({ message: 'Nao foi possivel redefinir a senha agora.' });
@@ -225,13 +226,12 @@ function registerAuthRoutes(app, deps) {
       const { email = '', password = '', rememberMe = false } = req.body || {};
       const user = findUserByEmail(email);
       const passwordHash = user?.passwordHash || DUMMY_PASSWORD_HASH;
-      const passwordOk = !!password && verifyPassword(password, passwordHash) && !!user;
+      const completeLogin = (passwordOk) => {
+        if (!user || !passwordOk) {
+          return res.status(401).json({ message: 'E-mail ou senha invÃ¡lidos.' });
+        }
 
-      if (!user || !passwordOk) {
-        return res.status(401).json({ message: 'E-mail ou senha inválidos.' });
-      }
-
-      req.session.regenerate(error => {
+        req.session.regenerate(error => {
         if (error) return next(error);
         const loggedUser = findUserById(user.id) || user;
         const encryptionKey = deriveDataKey(password, loggedUser.encryptionSalt).toString('base64');
@@ -271,8 +271,19 @@ function registerAuthRoutes(app, deps) {
             console.error('[auth] falha ao registrar estatisticas de login:', loginTrackingError?.message || loginTrackingError);
           }
         });
+          return;
+        });
+      };
+
+      if (typeof verifyPasswordAsync === 'function') {
+        Promise.resolve(verifyPasswordAsync(password, passwordHash))
+          .then((passwordOk) => completeLogin(!!password && !!passwordOk && !!user))
+          .catch(next);
         return;
-      });
+      }
+
+      const passwordOk = !!password && verifyPassword(password, passwordHash) && !!user;
+      completeLogin(passwordOk);
     } catch (error) {
       next(error);
     }
@@ -297,13 +308,13 @@ function registerAuthRoutes(app, deps) {
       const cleanPasswordHint = String(passwordHint).trim();
 
       if (!cleanFullName || !cleanEmail || !cleanPhone || !cleanBirthDate || !cleanPassword) {
-        return res.status(400).json({ message: 'Preencha todos os campos obrigatórios.' });
+        return res.status(400).json({ message: 'Preencha todos os campos obrigatÃ³rios.' });
       }
       if (!isValidEmail(cleanEmail)) {
-        return res.status(400).json({ message: 'Digite um e-mail válido.' });
+        return res.status(400).json({ message: 'Digite um e-mail vÃ¡lido.' });
       }
       if (!isValidBrazilPhone(cleanPhone)) {
-        return res.status(400).json({ message: 'Digite um celular brasileiro válido.' });
+        return res.status(400).json({ message: 'Digite um celular brasileiro vÃ¡lido.' });
       }
       if (!/^\d{2}\/\d{2}\/\d{4}$/.test(cleanBirthDate)) {
         return res.status(400).json({ message: 'Digite a data de nascimento no formato dd/mm/aaaa.' });
@@ -382,4 +393,5 @@ function registerAuthRoutes(app, deps) {
 }
 
 module.exports = { registerAuthRoutes };
+
 

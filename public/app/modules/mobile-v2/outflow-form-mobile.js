@@ -14,6 +14,38 @@
     return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`;
   }
 
+  function parseMoneyInput(rawValue) {
+    const normalized = String(rawValue || '').trim();
+    if (!normalized) return 0;
+    const cleaned = normalized.replace(/[^0-9.,]/g, '');
+    if (!cleaned) return 0;
+    const hasComma = cleaned.includes(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    const lastComma = cleaned.lastIndexOf(',');
+    if (hasComma && lastDot > lastComma) {
+      return Number.parseFloat(cleaned.replace(/,/g, '')) || 0;
+    }
+    return Number.parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+
+  function bindMoneyMask() {
+    const amountInput = document.getElementById('mobileV2OutflowAmount');
+    if (!amountInput || amountInput.dataset.maskBound === '1') return;
+    amountInput.dataset.maskBound = '1';
+    amountInput.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!target) return;
+      let value = String(target.value || '').replace(/[^0-9.,]/g, '');
+      const firstSeparator = value.search(/[.,]/);
+      if (firstSeparator >= 0) {
+        const head = value.slice(0, firstSeparator + 1);
+        const tail = value.slice(firstSeparator + 1).replace(/[.,]/g, '');
+        value = head + tail;
+      }
+      target.value = value;
+    });
+  }
+
   function getCurrentMonth() {
     return typeof global.getCurrentMonth === 'function' ? global.getCurrentMonth() : null;
   }
@@ -154,7 +186,7 @@
       <div class="form-row-2">
         <div class="form-field" style="margin:0">
           <label class="form-label" for="mobileV2OutflowAmount">Valor</label>
-          <input id="mobileV2OutflowAmount" class="form-input form-input-value" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00">
+          <input id="mobileV2OutflowAmount" class="form-input form-input-value" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="0,00">
         </div>
         <div class="form-field" style="margin:0">
           <label class="form-label" for="mobileV2OutflowDate">Data</label>
@@ -227,6 +259,10 @@
     });
     body.querySelector('#mobileV2OutflowCancel')?.addEventListener('click', close);
     body.querySelector('#mobileV2OutflowSubmit')?.addEventListener('click', () => submitForm(mode));
+    bindMoneyMask();
+    if (typeof global.bindMobileDatePickerToInput === 'function') {
+      global.bindMobileDatePickerToInput('mobileV2OutflowDate');
+    }
   }
 
   function applyToUnifiedModal(mode, payload) {
@@ -299,7 +335,7 @@
   function submitForm(mode) {
     const description = String(document.getElementById('mobileV2OutflowDescription')?.value || '').trim();
     const category = String(document.getElementById('mobileV2OutflowCategory')?.value || '').trim();
-    const amount = Number(document.getElementById('mobileV2OutflowAmount')?.value || 0);
+    const amount = parseMoneyInput(document.getElementById('mobileV2OutflowAmount')?.value || '');
     const date = String(document.getElementById('mobileV2OutflowDate')?.value || '').trim();
     const planning = document.getElementById('mobileV2PlanningToggle')?.checked === true;
 
