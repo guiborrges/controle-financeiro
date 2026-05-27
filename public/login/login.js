@@ -1,6 +1,6 @@
 let loginProfile = { programName: 'Controle Financeiro' };
 let loginInFlight = false;
-const LOGIN_REQUEST_TIMEOUT_MS = 15000;
+const LOGIN_REQUEST_TIMEOUT_MS = 30000;
 
 function formatBirthDateTyping(value) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, 8);

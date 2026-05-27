@@ -306,7 +306,8 @@ function restoreRememberedSession(req, res, next) {
     return next();
   }
 
-  const nextUser = registerUserLogin(user.id) || findUserById(user.id) || user;
+  // Restoring remember-me should not trigger login counters/backups synchronously.
+  const nextUser = touchUserActivity(user.id) || findUserById(user.id) || user;
   req.session.authenticated = true;
   req.session.user = {
     id: nextUser.id,

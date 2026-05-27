@@ -21,20 +21,18 @@ function loadInitial(pathname) {
 
 function persist(pathname, map) {
   if (!pathname) return;
-  try {
-    const parent = pathname.replace(/[/\\][^/\\]+$/, '');
-    if (parent) fs.mkdirSync(parent, { recursive: true });
-    const out = {};
-    map.forEach((value, key) => {
-      out[key] = {
-        count: Number(value?.count || 0),
-        expiresAt: Number(value?.expiresAt || 0)
-      };
-    });
-    fs.writeFileSync(pathname, JSON.stringify(out), 'utf8');
-  } catch {
+  const parent = pathname.replace(/[/\\][^/\\]+$/, '');
+  if (parent) fs.mkdirSync(parent, { recursive: true });
+  const out = {};
+  map.forEach((value, key) => {
+    out[key] = {
+      count: Number(value?.count || 0),
+      expiresAt: Number(value?.expiresAt || 0)
+    };
+  });
+  fs.writeFile(pathname, JSON.stringify(out), 'utf8', () => {
     // no-op
-  }
+  });
 }
 
 function createPersistentRateLimitStore(pathname) {
@@ -92,4 +90,3 @@ function createPersistentRateLimitStore(pathname) {
 module.exports = {
   createPersistentRateLimitStore
 };
-

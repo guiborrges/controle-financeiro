@@ -12,6 +12,8 @@ const USER_BACKUP_ROOT = resolveStoragePath('data', 'user-backups');
 const MAX_BACKUPS_PER_USER = Math.max(0, Number(process.env.FIN_MAX_BACKUPS_PER_USER || 0) || 0);
 const MAX_LOG_ENTRIES = 80;
 const BACKUP_ID_PATTERN = /^[a-zA-Z0-9_-]{6,120}$/;
+const AUTO_BACKUP_MIN_INTERVAL_MS = Math.max(0, Number(process.env.FIN_AUTO_BACKUP_MIN_INTERVAL_MS || (30 * 60 * 1000)) || 0);
+const autoBackupInFlight = new Set();
 
 function ensureBackupRoot() {
   fs.mkdirSync(USER_BACKUP_ROOT, { recursive: true });
@@ -331,6 +333,11 @@ function maybeCreateAutomaticBackup(userId) {
     loginsSinceBackup: Number(user?.backupStats?.loginsSinceBackup || 0)
   };
   if (stats.loginsSinceBackup < 2) return null;
+  const lastBackupAtMs = Date.parse(String(user?.backupStats?.lastBackupAt || ''));
+  if (AUTO_BACKUP_MIN_INTERVAL_MS > 0 && Number.isFinite(lastBackupAtMs)) {
+    const elapsedMs = Date.now() - lastBackupAtMs;
+    if (elapsedMs < AUTO_BACKUP_MIN_INTERVAL_MS) return null;
+  }
   try {
     return createUserBackup(userId, {
       type: 'automatic',
@@ -347,6 +354,19 @@ function maybeCreateAutomaticBackup(userId) {
   }
 }
 
+function scheduleAutomaticBackup(userId) {
+  if (!userId || autoBackupInFlight.has(userId)) return;
+  autoBackupInFlight.add(userId);
+  const timer = setTimeout(() => {
+    try {
+      maybeCreateAutomaticBackup(userId);
+    } finally {
+      autoBackupInFlight.delete(userId);
+    }
+  }, 1500);
+  if (typeof timer.unref === 'function') timer.unref();
+}
+
 function registerUserLogin(userId) {
   const user = findUserById(userId);
   if (!user) return null;
@@ -360,7 +380,7 @@ function registerUserLogin(userId) {
     lastUsedAt: new Date().toISOString(),
     backupStats: nextStats
   });
-  maybeCreateAutomaticBackup(userId);
+  scheduleAutomaticBackup(userId);
   return nextUser;
 }
 

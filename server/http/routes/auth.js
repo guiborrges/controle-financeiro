@@ -222,12 +222,20 @@
   });
 
   app.post('/api/auth/login', noStore, createRateLimit(rateLimitState, { keyPrefix: 'login', maxAttempts: 10 }), (req, res, next) => {
+    const loginStart = Date.now();
+    const finishLoginTrace = (statusCode) => {
+      const elapsedMs = Date.now() - loginStart;
+      if (elapsedMs >= 1200) {
+        console.warn(`[perf] login lento status=${statusCode} tempo=${elapsedMs}ms ip=${String(req.ip || '')}`);
+      }
+    };
     try {
       const { email = '', password = '', rememberMe = false } = req.body || {};
       const user = findUserByEmail(email);
       const passwordHash = user?.passwordHash || DUMMY_PASSWORD_HASH;
       const completeLogin = (passwordOk) => {
         if (!user || !passwordOk) {
+          finishLoginTrace(401);
           return res.status(401).json({ message: 'E-mail ou senha invÃ¡lidos.' });
         }
 
@@ -262,6 +270,7 @@
           clearRememberMeCookie(res);
         }
         const payload = { ok: true, crypto: getClientCryptoConfig(loggedUser) };
+        finishLoginTrace(200);
         res.json(payload);
         // Keep login response fast on mobile: heavy backup/login counters run asynchronously.
         setImmediate(() => {
