@@ -5,11 +5,14 @@
     patched: false,
     loadingCount: 0,
     pullActive: false,
+    refreshInFlight: false,
+    lastRefreshToastAt: 0,
     idleWarningTimer: null,
     idleLogoutTimer: null,
     datePickerInput: null
   };
   const CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+  const REFRESH_TOAST_COOLDOWN_MS = 15000;
 
   function isMobileEnabled() {
     return global.MobileV2?.isEnabled?.() === true || document.documentElement.classList.contains('mobile-v2');
@@ -60,6 +63,7 @@
   }
 
   function ensureLoadingBar() {
+    if (!isMobileEnabled()) return null;
     let bar = document.getElementById('mobileV2LoadingBar');
     if (bar) return bar;
     bar = document.createElement('div');
@@ -69,8 +73,27 @@
   }
 
   function setLoading(active) {
+    if (!isMobileEnabled()) return;
     state.loadingCount = Math.max(0, state.loadingCount + (active ? 1 : -1));
-    ensureLoadingBar().classList.toggle('active', state.loadingCount > 0);
+    const bar = ensureLoadingBar();
+    if (!bar) return;
+    bar.classList.toggle('active', state.loadingCount > 0);
+  }
+
+  function shouldTrackFetchForLoading(args) {
+    const input = args?.[0];
+    const init = args?.[1] || {};
+    const rawUrl = typeof input === 'string'
+      ? input
+      : (typeof input?.url === 'string' ? input.url : '');
+    const method = String(init?.method || input?.method || 'GET').toUpperCase();
+    if (!rawUrl) return true;
+    const lowerUrl = rawUrl.toLowerCase();
+    // Background sync/autosave and session pings should not keep the top loading bar busy.
+    if (lowerUrl.includes('/api/app-state') && (method === 'PUT' || method === 'POST')) return false;
+    if (lowerUrl.includes('/api/auth/session') && method === 'GET') return false;
+    if (lowerUrl.includes('/api/developer/session') && method === 'GET') return false;
+    return true;
   }
 
   function patchFetch() {
@@ -78,11 +101,12 @@
     const originalFetch = global.fetch;
     if (typeof originalFetch !== 'function') return;
     const patched = async function mobileV2Fetch() {
-      setLoading(true);
+      const trackLoading = shouldTrackFetchForLoading(arguments);
+      if (trackLoading) setLoading(true);
       try {
         return await originalFetch.apply(this, arguments);
       } finally {
-        setLoading(false);
+        if (trackLoading) setLoading(false);
       }
     };
     patched.__mobileV2Patched = true;
@@ -238,6 +262,8 @@
   }
 
   async function refreshFromServer() {
+    if (state.refreshInFlight) return;
+    state.refreshInFlight = true;
     setLoading(true);
     try {
       if (typeof global.initializeServerStorage === 'function') {
@@ -245,28 +271,44 @@
       }
       document.dispatchEvent(new CustomEvent('mobileDataChanged', { detail: { reason: 'pull-refresh' } }));
       global.MobileV2?.refresh?.();
-      showToast('Dados atualizados.');
+      const now = Date.now();
+      if (now - state.lastRefreshToastAt > REFRESH_TOAST_COOLDOWN_MS) {
+        showToast('Dados atualizados.');
+        state.lastRefreshToastAt = now;
+      }
       haptic('light');
     } finally {
       setLoading(false);
+      state.refreshInFlight = false;
     }
   }
 
   function attachPullToRefresh() {
     let startY = 0;
+    let startX = 0;
+    let startAt = 0;
     let tracking = false;
     document.addEventListener('touchstart', (event) => {
       if (!isMobileEnabled() || !event.touches?.length) return;
       const screen = event.target?.closest?.('.mobile-v2-screen.active');
       if (!screen || screen.scrollTop > 0) return;
+      if (event.target?.closest?.('input, textarea, select, button, .bottom-sheet')) return;
       tracking = true;
       startY = event.touches[0].clientY;
+      startX = event.touches[0].clientX;
+      startAt = Date.now();
     }, { passive: true });
     document.addEventListener('touchend', (event) => {
       if (!tracking || state.pullActive) return;
       tracking = false;
       const endY = event.changedTouches?.[0]?.clientY || startY;
-      if (endY - startY < 70) return;
+      const endX = event.changedTouches?.[0]?.clientX || startX;
+      const deltaY = endY - startY;
+      const deltaX = Math.abs(endX - startX);
+      const gestureDuration = Date.now() - startAt;
+      if (deltaY < 90) return;
+      if (deltaX > 40) return;
+      if (gestureDuration > 900) return;
       state.pullActive = true;
       refreshFromServer().finally(() => { state.pullActive = false; });
     }, { passive: true });
@@ -482,21 +524,21 @@
   }
 
   function init() {
-    patchFetch();
+    if (isMobileEnabled()) patchFetch();
     patchSaveAndMutations();
-    hydrateCachedFinanceState();
+    if (isMobileEnabled()) hydrateCachedFinanceState();
     normalizeNumericInputs();
-    attachBottomSheetGestures();
-    attachPullToRefresh();
-    attachMonthSwipe();
-    attachPrivacyOverlay();
-    attachIdleTimer();
-    attachScreenshotWarning();
+    if (isMobileEnabled()) attachBottomSheetGestures();
+    if (isMobileEnabled()) attachPullToRefresh();
+    if (isMobileEnabled()) attachMonthSwipe();
+    if (isMobileEnabled()) attachPrivacyOverlay();
+    if (isMobileEnabled()) attachIdleTimer();
+    if (isMobileEnabled()) attachScreenshotWarning();
     attachObservers();
-    initDatePicker();
+    if (isMobileEnabled()) initDatePicker();
     registerPwa();
-    closeSplash();
-    document.addEventListener('mobileDataChanged', () => global.MobileV2?.refresh?.());
+    if (isMobileEnabled()) closeSplash();
+    if (isMobileEnabled()) document.addEventListener('mobileDataChanged', () => global.MobileV2?.refresh?.());
     window.setInterval(patchSaveAndMutations, 1000);
   }
 
