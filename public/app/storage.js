@@ -349,12 +349,13 @@ function scheduleServerStorageFlush(reason = 'unknown') {
   }, 250);
 }
 
-async function initializeServerStorage() {
+async function initializeServerStorage(options = {}) {
   if (storageInitialized && window.__APP_BOOTSTRAP__) return window.__APP_BOOTSTRAP__;
+  const allowPartialBootstrap = options?.allowPartial === true;
   let payload = null;
   let bootstrapErrorMessage = '';
-  const bootstrapAttempts = 3;
-  const bootstrapTimeoutMs = 12000;
+  const bootstrapAttempts = 4;
+  const bootstrapTimeoutMs = 18000;
   const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
   async function fetchBootstrapAttempt() {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
@@ -403,6 +404,10 @@ async function initializeServerStorage() {
     if (!sessionResponse.ok) {
       window.location.replace('/login');
       throw new Error('Nao foi possivel validar a sessao.');
+    }
+    if (!allowPartialBootstrap) {
+      const recoveryReason = String(bootstrapErrorMessage || 'Falha ao carregar dados iniciais.').trim();
+      throw new Error(`Nao foi possivel carregar seus dados com seguranca. ${recoveryReason} Recarregue a pagina.`);
     }
     const session = await sessionResponse.json();
     payload = {
