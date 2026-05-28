@@ -418,6 +418,11 @@
       splash.classList.add('leaving');
       window.setTimeout(() => splash.remove(), 240);
     }, 800);
+    // Fail-safe: never allow splash to block the app indefinitely.
+    window.setTimeout(() => {
+      splash.classList.add('leaving');
+      splash.remove();
+    }, 3500);
   }
 
   function attachObservers() {

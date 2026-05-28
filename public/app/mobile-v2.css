@@ -82,6 +82,7 @@
 }
 
 #mobileV2Splash {
+  display: none;
   position: fixed;
   inset: 0;
   z-index: 1400;
@@ -91,6 +92,10 @@
   align-items: center;
   justify-content: center;
   transition: opacity .22s ease, visibility .22s ease;
+}
+
+html.mobile-v2 #mobileV2Splash {
+  display: flex;
 }
 
 #mobileV2Splash.leaving {
