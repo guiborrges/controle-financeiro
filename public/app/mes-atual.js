@@ -750,10 +750,13 @@ function getUnifiedOutflowPilotKey(month) {
 }
 
 function normalizeUnifiedCardVisualId(value) {
+  const institutionMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
+    || (typeof window !== 'undefined' && window.PATRIMONIO_INSTITUTION_META)
+    || {};
   const raw = String(value || '').trim();
   if (!raw) return '';
   if (raw.startsWith('account:') || raw.startsWith('institution:')) return raw;
-  return PATRIMONIO_INSTITUTION_META[raw] ? `institution:${raw}` : raw;
+  return institutionMeta[raw] ? `institution:${raw}` : raw;
 }
 
 function normalizeUnifiedCardDateValue(value) {
@@ -1211,7 +1214,9 @@ function getUnifiedOutflowPaymentLabel(item, month = getCurrentMonth()) {
 }
 
 function getUnifiedCardInstitutionMeta(card) {
-  const allMeta = PATRIMONIO_INSTITUTION_META || {};
+  const allMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
+    || (typeof window !== 'undefined' && window.PATRIMONIO_INSTITUTION_META)
+    || {};
   if (!card) return { key: 'outra', meta: allMeta.outra || { label: 'Outra', short: '•', className: 'bank-outra' } };
   const rawVisualId = String(card.visualId || '').trim();
   let key = '';
@@ -1238,6 +1243,9 @@ function renderUnifiedCardLabel(card, fallbackName = 'Cartão') {
 }
 
 function getUnifiedOutflowVisualLabel(visualId) {
+  const allMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
+    || (typeof window !== 'undefined' && window.PATRIMONIO_INSTITUTION_META)
+    || {};
   const raw = String(visualId || '').trim();
   if (!raw) return 'Sem visual';
   if (raw.startsWith('account:')) {
@@ -1246,9 +1254,9 @@ function getUnifiedOutflowVisualLabel(visualId) {
   }
   if (raw.startsWith('institution:')) {
     const key = raw.slice(12);
-    return PATRIMONIO_INSTITUTION_META[key]?.label || 'Instituição';
+    return allMeta[key]?.label || 'Instituição';
   }
-  return PATRIMONIO_INSTITUTION_META[raw]?.label || 'Visual';
+  return allMeta[raw]?.label || 'Visual';
 }
 
 function getUnifiedSharedNoteHtml(item) {
@@ -2728,10 +2736,13 @@ function getUnifiedCardBankOptionMarkup(key, meta, selected) {
 }
 
 function renderUnifiedCardBankPicker(selected = '') {
+  const allMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
+    || (typeof window !== 'undefined' && window.PATRIMONIO_INSTITUTION_META)
+    || {};
   const menu = document.getElementById('unifiedCardBankMenu');
   const input = document.getElementById('unifiedCardBank');
   const triggerContent = document.getElementById('unifiedCardBankTriggerContent');
-  const selectedMeta = selected && selected !== 'outro' ? PATRIMONIO_INSTITUTION_META[selected] : null;
+  const selectedMeta = selected && selected !== 'outro' ? allMeta[selected] : null;
   const otherMeta = { label: 'Outro', short: '•', className: 'bank-outra' };
   if (triggerContent) {
     triggerContent.innerHTML = selectedMeta
@@ -2742,7 +2753,7 @@ function renderUnifiedCardBankPicker(selected = '') {
   }
   if (!menu || !input) return;
   input.value = selected || '';
-  const buttons = Object.entries(PATRIMONIO_INSTITUTION_META)
+  const buttons = Object.entries(allMeta)
     .filter(([key]) => key !== 'outra')
     .map(([key, meta]) => getUnifiedCardBankOptionMarkup(key, meta, selected))
     .join('');
@@ -3421,7 +3432,10 @@ function saveUnifiedCard() {
   ensureUnifiedOutflowPilotMonth(month);
   const bankValue = document.getElementById('unifiedCardBank').value || '';
   const otherBank = document.getElementById('unifiedCardOtherBank').value.trim();
-  const name = bankValue === 'outro' ? otherBank : (PATRIMONIO_INSTITUTION_META[bankValue]?.label || '');
+  const institutionMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
+    || (typeof window !== 'undefined' && window.PATRIMONIO_INSTITUTION_META)
+    || {};
+  const name = bankValue === 'outro' ? otherBank : (institutionMeta[bankValue]?.label || '');
   const closing = resolveUnifiedCardDateInput(document.getElementById('unifiedCardClosingDay').value || '', month);
   const payment = resolveUnifiedCardDateInput(document.getElementById('unifiedCardPaymentDay').value || '', month);
   const description = document.getElementById('unifiedCardDescription').value.trim();

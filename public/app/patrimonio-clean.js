@@ -69,6 +69,9 @@ const PATRIMONIO_INSTITUTION_META = {
   xp: { label: 'XP', short: 'XP', className: 'bank-xp' },
   outra: { label: 'Outra', short: 'â€¢', className: 'bank-outra' }
 };
+if (typeof globalThis !== 'undefined') {
+  globalThis.PATRIMONIO_INSTITUTION_META = PATRIMONIO_INSTITUTION_META;
+}
 
 function normalizePatrimonioAccount(account, idx = 0) {
   const color = String(account?.color || account?.cor || '').trim();
