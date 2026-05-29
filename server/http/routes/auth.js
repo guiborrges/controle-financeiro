@@ -15,6 +15,7 @@
     registerUserLogin,
     findUserById,
     deriveDataKey,
+    deriveDataKeyAsync,
     issueRememberMeToken,
     setRememberMeCookie,
     clearRememberMeCookie,
@@ -154,7 +155,7 @@
     return res.json({ ok: true, message: genericMessage });
   });
 
-  app.post('/api/auth/password-reset/confirm', noStore, createRateLimit(rateLimitState, { keyPrefix: 'password-reset-confirm', maxAttempts: 8 }), (req, res) => {
+  app.post('/api/auth/password-reset/confirm', noStore, createRateLimit(rateLimitState, { keyPrefix: 'password-reset-confirm', maxAttempts: 8 }), async (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const token = String(req.body?.token || '').trim();
     const newPassword = String(req.body?.newPassword || '');
@@ -203,7 +204,8 @@
       }
       const currentState = deps.readUserAppState(user.id, currentEncryptionKey);
       const nextPasswordHash = hashPassword(newPassword);
-      const nextEncryptionKey = deriveDataKey(newPassword, user.encryptionSalt).toString('base64');
+      const nextEncryptionKeyBuffer = await deriveDataKeyAsync(newPassword, user.encryptionSalt);
+      const nextEncryptionKey = nextEncryptionKeyBuffer.toString('base64');
       const nextRecoveryWrappedKey = typeof deps.wrapRecoveryEncryptionKey === 'function'
         ? deps.wrapRecoveryEncryptionKey(nextEncryptionKey)
         : '';
@@ -239,55 +241,60 @@
           return res.status(401).json({ message: 'E-mail ou senha invÃ¡lidos.' });
         }
 
-        req.session.regenerate(error => {
-        if (error) return next(error);
-        const loggedUser = findUserById(user.id) || user;
-        const encryptionKey = deriveDataKey(password, loggedUser.encryptionSalt).toString('base64');
-        if (typeof deps.wrapRecoveryEncryptionKey === 'function') {
-          const recoveryWrappedKey = deps.wrapRecoveryEncryptionKey(encryptionKey);
-          deps.updateUser(loggedUser.id, { recoveryWrappedKey });
-        }
-        req.session.authenticated = true;
-        req.session.dataEncryptionKey = encryptionKey;
-        req.session.csrfToken = crypto.randomBytes(32).toString('base64url');
-        req.session.user = {
-          id: loggedUser.id,
-          username: loggedUser.username,
-          displayName: loggedUser.displayName,
-          fullName: loggedUser.fullName || loggedUser.displayName,
-          legacyRecurrenceBackfillRestricted: !!loggedUser.legacyRecurrenceBackfillRestricted,
-          permissions: {
-            canAccessESO: !!loggedUser.permissions?.canAccessESO
-          }
-        };
-        if (rememberMe === true || rememberMe === 'true' || rememberMe === 1 || rememberMe === '1') {
-          req.session.cookie.maxAge = deps.REMEMBER_ME_MAX_AGE_MS;
+        req.session.regenerate(async (error) => {
+          if (error) return next(error);
           try {
-            const rememberToken = issueRememberMeToken(loggedUser, encryptionKey);
-            setRememberMeCookie(res, rememberToken, deps.REMEMBER_ME_MAX_AGE_MS);
-          } catch (rememberError) {
-            console.error('[auth] falha ao emitir remember-me token:', rememberError?.message || rememberError);
-            req.session.cookie.expires = false;
-            req.session.cookie.maxAge = null;
-            clearRememberMeCookie(res);
+            const loggedUser = findUserById(user.id) || user;
+            const encryptionKeyBuffer = await deriveDataKeyAsync(password, loggedUser.encryptionSalt);
+            const encryptionKey = encryptionKeyBuffer.toString('base64');
+            if (typeof deps.wrapRecoveryEncryptionKey === 'function') {
+              const recoveryWrappedKey = deps.wrapRecoveryEncryptionKey(encryptionKey);
+              deps.updateUser(loggedUser.id, { recoveryWrappedKey });
+            }
+            req.session.authenticated = true;
+            req.session.dataEncryptionKey = encryptionKey;
+            req.session.csrfToken = crypto.randomBytes(32).toString('base64url');
+            req.session.user = {
+              id: loggedUser.id,
+              username: loggedUser.username,
+              displayName: loggedUser.displayName,
+              fullName: loggedUser.fullName || loggedUser.displayName,
+              legacyRecurrenceBackfillRestricted: !!loggedUser.legacyRecurrenceBackfillRestricted,
+              permissions: {
+                canAccessESO: !!loggedUser.permissions?.canAccessESO
+              }
+            };
+            if (rememberMe === true || rememberMe === 'true' || rememberMe === 1 || rememberMe === '1') {
+              req.session.cookie.maxAge = deps.REMEMBER_ME_MAX_AGE_MS;
+              try {
+                const rememberToken = issueRememberMeToken(loggedUser, encryptionKey);
+                setRememberMeCookie(res, rememberToken, deps.REMEMBER_ME_MAX_AGE_MS);
+              } catch (rememberError) {
+                console.error('[auth] falha ao emitir remember-me token:', rememberError?.message || rememberError);
+                req.session.cookie.expires = false;
+                req.session.cookie.maxAge = null;
+                clearRememberMeCookie(res);
+              }
+            } else {
+              req.session.cookie.expires = false;
+              req.session.cookie.maxAge = null;
+              clearRememberMeCookie(res);
+            }
+            const payload = { ok: true, crypto: getClientCryptoConfig(loggedUser) };
+            finishLoginTrace(200);
+            res.json(payload);
+            // Keep login response fast on mobile: heavy backup/login counters run asynchronously.
+            setImmediate(() => {
+              try {
+                registerUserLogin(loggedUser.id);
+              } catch (loginTrackingError) {
+                console.error('[auth] falha ao registrar estatisticas de login:', loginTrackingError?.message || loginTrackingError);
+              }
+            });
+            return;
+          } catch (deriveError) {
+            return next(deriveError);
           }
-        } else {
-          req.session.cookie.expires = false;
-          req.session.cookie.maxAge = null;
-          clearRememberMeCookie(res);
-        }
-        const payload = { ok: true, crypto: getClientCryptoConfig(loggedUser) };
-        finishLoginTrace(200);
-        res.json(payload);
-        // Keep login response fast on mobile: heavy backup/login counters run asynchronously.
-        setImmediate(() => {
-          try {
-            registerUserLogin(loggedUser.id);
-          } catch (loginTrackingError) {
-            console.error('[auth] falha ao registrar estatisticas de login:', loginTrackingError?.message || loginTrackingError);
-          }
-        });
-          return;
         });
       };
 
@@ -305,7 +312,7 @@
     }
   });
 
-  app.post('/api/auth/register', noStore, createRateLimit(rateLimitState, { keyPrefix: 'register', maxAttempts: 5 }), (req, res, next) => {
+  app.post('/api/auth/register', noStore, createRateLimit(rateLimitState, { keyPrefix: 'register', maxAttempts: 5 }), async (req, res, next) => {
     try {
       const {
         fullName = '',
@@ -354,7 +361,8 @@
           canAccessESO: false
         }
       });
-      const encryptionKey = deriveDataKey(cleanPassword, user.encryptionSalt).toString('base64');
+      const encryptionKeyBuffer = await deriveDataKeyAsync(cleanPassword, user.encryptionSalt);
+      const encryptionKey = encryptionKeyBuffer.toString('base64');
       if (typeof deps.wrapRecoveryEncryptionKey === 'function') {
         const recoveryWrappedKey = deps.wrapRecoveryEncryptionKey(encryptionKey);
         deps.updateUser(user.id, { recoveryWrappedKey });

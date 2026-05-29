@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const { promisify } = require('util');
+const pbkdf2Async = promisify(crypto.pbkdf2);
 
 const DATA_KEY_ALGORITHM = 'sha512';
 const DATA_KEY_ITERATIONS = 210000;
@@ -15,6 +17,20 @@ function deriveDataKey(password, salt, options = {}) {
   const iterations = Number(options.iterations || DATA_KEY_ITERATIONS);
   const saltBuffer = Buffer.isBuffer(salt) ? salt : Buffer.from(String(salt || ''), 'base64');
   return crypto.pbkdf2Sync(String(password || ''), saltBuffer, iterations, DATA_KEY_LENGTH, algorithm);
+}
+
+async function deriveDataKeyAsync(password, salt, options = {}) {
+  const algorithm = options.algorithm || DATA_KEY_ALGORITHM;
+  const iterations = Number(options.iterations || DATA_KEY_ITERATIONS);
+  const saltBuffer = Buffer.isBuffer(salt) ? salt : Buffer.from(String(salt || ''), 'base64');
+  const derivedKey = await pbkdf2Async(
+    String(password || ''),
+    saltBuffer,
+    iterations,
+    DATA_KEY_LENGTH,
+    algorithm
+  );
+  return derivedKey;
 }
 
 function normalizeKeyBuffer(key) {
@@ -93,6 +109,7 @@ module.exports = {
   DATA_KEY_ITERATIONS,
   createEncryptionSalt,
   deriveDataKey,
+  deriveDataKeyAsync,
   encryptData,
   decryptData,
   encryptDataWithKey,

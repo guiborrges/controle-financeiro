@@ -1,9 +1,9 @@
-function todayIsoDate() {
+﻿function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
 function formatPatrimonioDate(value) {
-  if (!value) return '—';
+  if (!value) return 'â€”';
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split('-');
     return `${day}/${month}/${year}`;
@@ -12,7 +12,7 @@ function formatPatrimonioDate(value) {
 }
 
 function getPatrimonioDateInputValue(value) {
-  return formatPatrimonioDate(value || todayIsoDate()).replace('â€”', '');
+  return formatPatrimonioDate(value || todayIsoDate()).replace('Ã¢â‚¬â€', '');
 }
 
 function resolvePatrimonioMovementDateInput(value) {
@@ -47,9 +47,9 @@ function patrimonioId(prefix = 'patr') {
 
 const PATRIMONIO_ACCOUNT_COLOR_OPTIONS = [
   { value: '#1b9ed8', label: 'Azul', style: '#1b9ed8' },
-  { value: '#2f6fb6', label: 'Azul petróleo', style: '#2f6fb6' },
+  { value: '#2f6fb6', label: 'Azul petrÃ³leo', style: '#2f6fb6' },
   { value: '#8c39d8', label: 'Roxo', style: '#8c39d8' },
-  { value: '#5b6abf', label: 'Índigo', style: '#5b6abf' },
+  { value: '#5b6abf', label: 'Ãndigo', style: '#5b6abf' },
   { value: '#73a800', label: 'Verde', style: '#73a800' },
   { value: '#2f8f62', label: 'Verde floresta', style: '#2f8f62' },
   { value: '#f58a11', label: 'Laranja', style: '#f58a11' },
@@ -62,12 +62,12 @@ const PATRIMONIO_INSTITUTION_META = {
   nubank: { label: 'Nubank', short: 'nu', className: 'bank-nubank' },
   bb: { label: 'Banco do Brasil', short: 'BB', className: 'bank-bb' },
   caixa: { label: 'Caixa', short: 'X', className: 'bank-caixa' },
-  itau: { label: 'Itaú', short: 'itau', className: 'bank-itau' },
+  itau: { label: 'ItaÃº', short: 'itau', className: 'bank-itau' },
   bradesco: { label: 'Bradesco', short: 'B', className: 'bank-bradesco' },
   inter: { label: 'Banco Inter', short: 'inter', className: 'bank-inter' },
   c6: { label: 'C6 Bank', short: 'C6', className: 'bank-c6' },
   xp: { label: 'XP', short: 'XP', className: 'bank-xp' },
-  outra: { label: 'Outra', short: '•', className: 'bank-outra' }
+  outra: { label: 'Outra', short: 'â€¢', className: 'bank-outra' }
 };
 
 function normalizePatrimonioAccount(account, idx = 0) {
@@ -300,19 +300,19 @@ function renderPatrimonioMetrics() {
   const metrics = getPatrimonioMetrics();
   const patrimonioSub = document.getElementById('patrimonioSub');
   if (patrimonioSub) {
-    patrimonioSub.textContent = `${patrimonioAccounts.length} conta${patrimonioAccounts.length === 1 ? '' : 's'} com saldo acompanhado por movimentações manuais.`;
+    patrimonioSub.textContent = `${patrimonioAccounts.length} conta${patrimonioAccounts.length === 1 ? '' : 's'} com saldo acompanhado por movimentaÃ§Ãµes manuais.`;
   }
   const patrimonioGuide = document.getElementById('patrimonioGuide');
   if (patrimonioGuide) {
-    patrimonioGuide.innerHTML = '<strong>Onde está meu dinheiro guardado?</strong> Veja as contas à esquerda, escolha uma para acompanhar as movimentações e use os botões de entrada, saída ou transferência quando quiser atualizar o saldo.';
+    patrimonioGuide.innerHTML = '<strong>Onde estÃ¡ meu dinheiro guardado?</strong> Veja as contas Ã  esquerda, escolha uma para acompanhar as movimentaÃ§Ãµes e use os botÃµes de entrada, saÃ­da ou transferÃªncia quando quiser atualizar o saldo.';
   }
   container.innerHTML = `
     <div class="metric-card metric-card-wealth">
-      <span>Patrimônio total</span>
+      <span>PatrimÃ´nio total</span>
       <strong>${fmt(metrics.patrimonioTotal)}</strong>
     </div>
     <div class="metric-card metric-card-goals">
-      <span>Variação do mês</span>
+      <span>VariaÃ§Ã£o do mÃªs</span>
       <strong class="${metrics.currentMonthVariation >= 0 ? 'amount-pos' : 'amount-neg'}">${fmtSigned(metrics.currentMonthVariation)}</strong>
     </div>
   `;
@@ -414,12 +414,12 @@ function renderPatrimonioMovementRow(account, movement) {
       : 'income';
   const direction = movement.type === 'retirada' || isTransferOut ? -1 : 1;
   const symbol = movement.type === 'transferencia'
-    ? '⇄'
+    ? 'â‡„'
     : movement.type === 'retirada'
-      ? '−'
+      ? 'âˆ’'
       : '+';
   const movementTitle = movement.type === 'transferencia'
-    ? (isTransferOut ? 'Transferência enviada' : 'Transferência recebida')
+    ? (isTransferOut ? 'TransferÃªncia enviada' : 'TransferÃªncia recebida')
     : movement.type === 'retirada'
       ? 'Retirada'
       : 'Aporte';
@@ -441,8 +441,8 @@ function renderPatrimonioMovementRow(account, movement) {
       <td class="patrimonio-action-cell">
         ${movement.sourceType === 'financial-goal'
           ? '<span class="patrimonio-status-chip neutral">Meta</span>'
-          : `<button class="btn-icon" type="button" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">✎</button>`}
-        <button class="btn-icon" type="button" onclick="deletePatrimonioMovement('${movement.id}')">✕</button>
+          : `<button class="btn-icon" type="button" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">âœŽ</button>`}
+        <button class="btn-icon" type="button" onclick="deletePatrimonioMovement('${movement.id}')">âœ•</button>
       </td>
     </tr>
   `;
@@ -453,7 +453,7 @@ function renderPatrimonioDetail() {
   if (!container) return;
   const account = getPatrimonioSelectedAccount();
   if (!account) {
-    container.innerHTML = '<div class="patrimonio-empty">Selecione uma conta para ver as movimentações.</div>';
+    container.innerHTML = '<div class="patrimonio-empty">Selecione uma conta para ver as movimentaÃ§Ãµes.</div>';
     return;
   }
   const movements = getPatrimonioFilteredMovements().filter(movement =>
@@ -470,8 +470,9 @@ function renderPatrimonioDetail() {
         ${account.observacao ? `<p class="patrimonio-note">${escapeHtml(account.observacao)}</p>` : ''}
         <div class="patrimonio-detail-actions">
           <button class="btn btn-primary patrimonio-move-btn" type="button" title="Adicionar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'aporte' })">+</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">−</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">⇄</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">âˆ’</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">â‡„</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Atualizar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'atualizacao' })">↻</button>
         </div>
       </div>
       <div class="patrimonio-detail-balance">${fmt(saldo)}</div>
@@ -489,7 +490,7 @@ function renderPatrimonioDetail() {
         <tbody>
           ${movements.length
             ? movements.map(movement => renderPatrimonioMovementRow(account, movement)).join('')
-            : '<tr><td colspan="4" style="padding:18px 22px;color:var(--text3)">Nenhuma movimentação encontrada.</td></tr>'}
+            : '<tr><td colspan="4" style="padding:18px 22px;color:var(--text3)">Nenhuma movimentaÃ§Ã£o encontrada.</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -652,7 +653,7 @@ function changeFinancialGoalPatrimonioAccount(index, accountId, triggerEl = null
   const anchor = goal?.id ? `[data-goal-row="${goal.id}"]` : '#section-goals';
   if (triggerEl?.blur) triggerEl.blur();
   if (goal.patrimonioTransferredAt) {
-    alert('Essa meta já foi enviada para o patrimônio. Exclua a movimentação correspondente se quiser mudar o destino.');
+    alert('Essa meta jÃ¡ foi enviada para o patrimÃ´nio. Exclua a movimentaÃ§Ã£o correspondente se quiser mudar o destino.');
     preserveElementViewportPosition(anchor, () => renderMes());
     return;
   }
@@ -680,12 +681,12 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     return;
   }
   if (goal.patrimonioTransferredAt && goal.patrimonioMovementId) {
-    alert('Essa meta já foi enviada para o patrimônio.');
+    alert('Essa meta jÃ¡ foi enviada para o patrimÃ´nio.');
     return;
   }
   const account = getPatrimonioAccountById(goal.patrimonioAccountId);
   if (!account) {
-    alert('A conta patrimonial escolhida não existe mais.');
+    alert('A conta patrimonial escolhida nÃ£o existe mais.');
     return;
   }
   recordHistoryState();
@@ -694,7 +695,7 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     type: 'aporte',
     accountId: account.id,
     value: goal.valor,
-    description: `Meta financeira · ${goal.nome}`,
+    description: `Meta financeira Â· ${goal.nome}`,
     date: todayIsoDate(),
     createdAt: new Date().toISOString(),
     sourceType: 'financial-goal',
@@ -720,7 +721,7 @@ function changeFinancialGoalPatrimonioAccount(index, accountId, triggerEl = null
   const anchor = goal?.id ? `[data-goal-row="${goal.id}"]` : '#section-goals';
   if (triggerEl?.blur) triggerEl.blur();
   if (goal.patrimonioTransferredAt) {
-    alert('Essa meta já foi enviada para o patrimônio. Exclua a movimentação correspondente se quiser mudar o destino.');
+    alert('Essa meta jÃ¡ foi enviada para o patrimÃ´nio. Exclua a movimentaÃ§Ã£o correspondente se quiser mudar o destino.');
     preserveElementViewportPosition(anchor, () => renderMes());
     return;
   }
@@ -748,12 +749,12 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     return;
   }
   if (goal.patrimonioTransferredAt && goal.patrimonioMovementId) {
-    alert('Essa meta já foi enviada para o patrimônio.');
+    alert('Essa meta jÃ¡ foi enviada para o patrimÃ´nio.');
     return;
   }
   const account = getPatrimonioAccountById(goal.patrimonioAccountId);
   if (!account) {
-    alert('A conta patrimonial escolhida não existe mais.');
+    alert('A conta patrimonial escolhida nÃ£o existe mais.');
     return;
   }
   recordHistoryState();
@@ -762,7 +763,7 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     type: 'aporte',
     accountId: account.id,
     value: goal.valor,
-    description: `Meta financeira · ${goal.nome}`,
+    description: `Meta financeira Â· ${goal.nome}`,
     date: todayIsoDate(),
     createdAt: new Date().toISOString(),
     sourceType: 'financial-goal',
@@ -787,7 +788,7 @@ function changeFinancialGoalPatrimonioAccount(index, accountId, triggerEl = null
   const anchor = triggerEl?.closest?.('tr') || (goal?.id ? `[data-goal-row="${goal.id}"]` : '#section-goals');
   if (triggerEl?.blur) triggerEl.blur();
   if (month.financialGoals[index].patrimonioTransferredAt) {
-    alert('Essa meta já foi enviada para o patrimônio. Exclua a movimentação correspondente se quiser mudar o destino.');
+    alert('Essa meta jÃ¡ foi enviada para o patrimÃ´nio. Exclua a movimentaÃ§Ã£o correspondente se quiser mudar o destino.');
     preserveElementViewportPosition(anchor, () => renderMes());
     return;
   }
@@ -815,12 +816,12 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     return;
   }
   if (goal.patrimonioTransferredAt && goal.patrimonioMovementId) {
-    alert('Essa meta já foi enviada para o patrimônio.');
+    alert('Essa meta jÃ¡ foi enviada para o patrimÃ´nio.');
     return;
   }
   const account = getPatrimonioAccountById(goal.patrimonioAccountId);
   if (!account) {
-    alert('A conta patrimonial escolhida não existe mais.');
+    alert('A conta patrimonial escolhida nÃ£o existe mais.');
     return;
   }
   recordHistoryState();
@@ -829,7 +830,7 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     type: 'aporte',
     accountId: account.id,
     value: goal.valor,
-    description: `Meta financeira · ${goal.nome}`,
+    description: `Meta financeira Â· ${goal.nome}`,
     date: todayIsoDate(),
     createdAt: new Date().toISOString(),
     sourceType: 'financial-goal',
@@ -859,7 +860,7 @@ function renderPatrimonioCharts() {
     data: {
       labels: evolution.map(point => formatPatrimonioDate(point.date)),
       datasets: [{
-        label: 'Patrimônio total',
+        label: 'PatrimÃ´nio total',
         data: evolution.map(point => point.total),
         borderColor: '#1f6f5f',
         backgroundColor: 'rgba(31,111,95,.12)',
@@ -911,11 +912,11 @@ function openPatrimonioMovementModal(options = {}) {
   const movement = options.movementId ? patrimonioMovements.find(item => item.id === options.movementId) : null;
   const presetType = options.type || movement?.type || 'aporte';
   const title = movement
-    ? 'Editar movimentação'
+    ? 'Editar movimentaÃ§Ã£o'
     : presetType === 'retirada'
       ? 'Nova retirada'
       : presetType === 'transferencia'
-        ? 'Nova transferência'
+        ? 'Nova transferÃªncia'
         : 'Novo aporte';
   document.getElementById('patrimonioMovementModalTitle').textContent = title;
   document.getElementById('patrimonioMovementId').value = movement?.id || '';
@@ -942,15 +943,15 @@ function renderPatrimonioMetrics() {
   }
   const patrimonioGuide = document.getElementById('patrimonioGuide');
   if (patrimonioGuide) {
-    patrimonioGuide.innerHTML = '<strong>Onde está meu dinheiro?</strong> Veja primeiro as contas e os saldos. As movimentações detalhadas e as análises ficam abaixo, sem tirar o foco do patrimônio atual.';
+    patrimonioGuide.innerHTML = '<strong>Onde estÃ¡ meu dinheiro?</strong> Veja primeiro as contas e os saldos. As movimentaÃ§Ãµes detalhadas e as anÃ¡lises ficam abaixo, sem tirar o foco do patrimÃ´nio atual.';
   }
   container.innerHTML = `
     <div class="metric-card metric-card-wealth">
-      <span>Patrimônio total</span>
+      <span>PatrimÃ´nio total</span>
       <strong>${fmt(metrics.patrimonioTotal)}</strong>
     </div>
     <div class="metric-card metric-card-goals">
-      <span>Variação do mês</span>
+      <span>VariaÃ§Ã£o do mÃªs</span>
       <strong class="${metrics.currentMonthVariation >= 0 ? 'amount-pos' : 'amount-neg'}">${fmtSigned(metrics.currentMonthVariation)}</strong>
     </div>
   `;
@@ -961,7 +962,7 @@ function renderPatrimonioAccounts() {
   if (!grid) return;
   const rows = getPatrimonioFilteredAccounts();
   if (!rows.length) {
-    grid.innerHTML = '<div class="patrimonio-empty">Nenhuma conta patrimonial cadastrada ainda. Crie a primeira conta para começar a acompanhar onde o dinheiro está guardado.</div>';
+    grid.innerHTML = '<div class="patrimonio-empty">Nenhuma conta patrimonial cadastrada ainda. Crie a primeira conta para comeÃ§ar a acompanhar onde o dinheiro estÃ¡ guardado.</div>';
     return;
   }
   grid.innerHTML = rows.map(account => {
@@ -996,12 +997,12 @@ function renderPatrimonioMovementRow(account, movement) {
       : 'income';
   const direction = movement.type === 'retirada' || isTransferOut ? -1 : 1;
   const symbol = movement.type === 'transferencia'
-    ? '⇄'
+    ? 'â‡„'
     : movement.type === 'retirada'
-      ? '−'
+      ? 'âˆ’'
       : '+';
   const movementTitle = movement.type === 'transferencia'
-    ? (isTransferOut ? 'Transferência enviada' : 'Transferência recebida')
+    ? (isTransferOut ? 'TransferÃªncia enviada' : 'TransferÃªncia recebida')
     : movement.type === 'retirada'
       ? 'Retirada'
       : 'Aporte';
@@ -1024,8 +1025,8 @@ function renderPatrimonioMovementRow(account, movement) {
       <td class="patrimonio-action-cell">
         ${movement.sourceType === 'financial-goal'
           ? '<span class="patrimonio-status-chip neutral">Meta</span>'
-          : `<button class="btn-icon" type="button" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">✎</button>`}
-        <button class="btn-icon" type="button" onclick="deletePatrimonioMovement('${movement.id}')">✕</button>
+          : `<button class="btn-icon" type="button" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">âœŽ</button>`}
+        <button class="btn-icon" type="button" onclick="deletePatrimonioMovement('${movement.id}')">âœ•</button>
       </td>
     </tr>
   `;
@@ -1036,7 +1037,7 @@ function renderPatrimonioDetail() {
   if (!container) return;
   const account = getPatrimonioSelectedAccount();
   if (!account) {
-    container.innerHTML = '<div class="patrimonio-empty">Selecione uma conta à esquerda para ver as movimentações e registrar aporte, retirada ou transferência.</div>';
+    container.innerHTML = '<div class="patrimonio-empty">Selecione uma conta Ã  esquerda para ver as movimentaÃ§Ãµes e registrar aporte, retirada ou transferÃªncia.</div>';
     return;
   }
   const movements = getPatrimonioFilteredMovements().filter(movement =>
@@ -1053,8 +1054,9 @@ function renderPatrimonioDetail() {
         ${account.observacao ? `<p class="patrimonio-note">${escapeHtml(account.observacao)}</p>` : ''}
         <div class="patrimonio-detail-actions">
           <button class="btn btn-primary patrimonio-move-btn" type="button" title="Adicionar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'aporte' })">+</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">−</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">⇄</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">âˆ’</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">â‡„</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Atualizar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'atualizacao' })">↻</button>
         </div>
       </div>
       <div class="patrimonio-detail-balance">${fmt(saldo)}</div>
@@ -1072,7 +1074,7 @@ function renderPatrimonioDetail() {
         <tbody>
           ${movements.length
             ? movements.map(movement => renderPatrimonioMovementRow(account, movement)).join('')
-            : '<tr><td colspan="4" style="padding:18px 22px;color:var(--text3)">Nenhuma movimentação encontrada para esta conta ainda. Use + para registrar o primeiro aporte.</td></tr>'}
+            : '<tr><td colspan="4" style="padding:18px 22px;color:var(--text3)">Nenhuma movimentaÃ§Ã£o encontrada para esta conta ainda. Use + para registrar o primeiro aporte.</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -1091,7 +1093,7 @@ function renderPatrimonioCharts() {
     data: {
       labels: evolution.map(point => formatPatrimonioDate(point.date)),
       datasets: [{
-        label: 'Patrimônio total',
+        label: 'PatrimÃ´nio total',
         data: evolution.map(point => point.total),
         borderColor: '#1f6f5f',
         backgroundColor: 'rgba(31,111,95,.12)',
@@ -1142,7 +1144,7 @@ function renderPatrimonioForecasts() {
   if (!body) return;
   const plannedGoals = getPatrimonioPlannedGoals();
   if (!plannedGoals.length) {
-    body.innerHTML = '<tr><td colspan="5" style="padding:20px 22px;color:var(--text3)">Nenhuma meta financeira vinculada ao patrimônio ainda.</td></tr>';
+    body.innerHTML = '<tr><td colspan="5" style="padding:20px 22px;color:var(--text3)">Nenhuma meta financeira vinculada ao patrimÃ´nio ainda.</td></tr>';
     return;
   }
   body.innerHTML = plannedGoals.map(({ monthId, monthName, goal, account }) => {
@@ -1150,7 +1152,7 @@ function renderPatrimonioForecasts() {
     return `
       <tr>
         <td style="padding-left:22px">${escapeHtml(monthName)}</td>
-        <td>${escapeHtml(goal.nome || '—')}</td>
+        <td>${escapeHtml(goal.nome || 'â€”')}</td>
         <td>${account
           ? `<span class="movement-type-inline">${renderPatrimonioAccountBadge(account, visual)}<span>${escapeHtml(account.nome)}</span></span>`
           : '<span style="color:var(--text3)">Conta removida</span>'}</td>
@@ -1159,7 +1161,7 @@ function renderPatrimonioForecasts() {
           ${goal.patrimonioTransferredAt
             ? '<span class="patrimonio-status-chip ok">Transferida</span>'
             : account
-              ? `<button class="btn btn-ghost" type="button" onclick="transferFinancialGoalToPatrimonio('${monthId}','${goal.id}')">Adicionar ao patrimônio</button>`
+              ? `<button class="btn btn-ghost" type="button" onclick="transferFinancialGoalToPatrimonio('${monthId}','${goal.id}')">Adicionar ao patrimÃ´nio</button>`
               : '<span class="patrimonio-status-chip warn">Sem conta</span>'}
         </td>
       </tr>
@@ -1215,7 +1217,7 @@ function renderPatrimonioAccountColorGrid(selectedColor = '') {
       title="${option.label}"
       aria-label="${option.label}"
       onclick="setPatrimonioAccountColor('${option.value}')"
-    >${current === option.value ? '✓' : ''}</button>
+    >${current === option.value ? 'âœ“' : ''}</button>
   `).join('');
 }
 
@@ -1277,7 +1279,7 @@ function openPatrimonioAccountModal(accountId = '', options = {}) {
   document.getElementById('patrimonioAccountModalTitle').textContent = account ? 'Editar conta patrimonial' : 'Nova conta patrimonial';
   document.getElementById('patrimonioAccountId').value = account?.id || '';
   document.getElementById('patrimonioAccountName').value = account?.nome || presetName;
-  document.getElementById('patrimonioAccountType').value = account?.tipo || (presetType && ['Conta corrente','Dinheiro','Poupança','Investimentos','VR/VA','Outros'].includes(presetType) ? presetType : 'Conta corrente');
+  document.getElementById('patrimonioAccountType').value = account?.tipo || (presetType && ['Conta corrente','Dinheiro','PoupanÃ§a','Investimentos','VR/VA','Outros'].includes(presetType) ? presetType : 'Conta corrente');
   document.getElementById('patrimonioAccountInstitution').value = account?.institution || '';
   document.getElementById('patrimonioAccountNote').value = account?.observacao || '';
   document.getElementById('patrimonioAccountInitialValue').value = '';
@@ -1303,7 +1305,7 @@ function savePatrimonioAccount() {
   const color = document.getElementById('patrimonioAccountColor').value.trim();
   const initialValue = parsePatrimonioAmountInput(document.getElementById('patrimonioAccountInitialValue').value);
   if (kind === 'institution' && !PATRIMONIO_INSTITUTION_META[institution]) {
-    alert('Selecione a instituição da conta.');
+    alert('Selecione a instituiÃ§Ã£o da conta.');
     return;
   }
   if (!nome) {
@@ -1365,7 +1367,7 @@ function deletePatrimonioAccount(accountId) {
   );
   const linkedGoals = data.some(month => (month.financialGoals || []).some(goal => goal.patrimonioAccountId === accountId));
   if (relatedMovements.length || linkedGoals) {
-    alert('Essa conta já tem movimentações ou metas vinculadas. Remova ou ajuste esses vínculos antes de excluir.');
+    alert('Essa conta jÃ¡ tem movimentaÃ§Ãµes ou metas vinculadas. Remova ou ajuste esses vÃ­nculos antes de excluir.');
     return;
   }
   if (!confirm('Excluir esta conta patrimonial?')) return;
@@ -1377,25 +1379,66 @@ function deletePatrimonioAccount(accountId) {
   renderMes();
 }
 
+function refreshPatrimonioUpdatePreview() {
+  const preview = document.getElementById('patrimonioMovementPreview');
+  const valueLabel = document.getElementById('patrimonioMovementValueLabel');
+  const typeEl = document.getElementById('patrimonioMovementType');
+  const valueEl = document.getElementById('patrimonioMovementValue');
+  if (!preview || !valueLabel || !typeEl || !valueEl) return;
+  const type = typeEl.value;
+  if (type !== 'atualizacao') {
+    preview.style.display = 'none';
+    preview.textContent = '';
+    valueLabel.textContent = 'Valor';
+    return;
+  }
+  valueLabel.textContent = 'Saldo atual da conta';
+  const accountId = document.getElementById('patrimonioMovementAccount')?.value || '';
+  if (!accountId) {
+    preview.style.display = '';
+    preview.textContent = 'Selecione a conta para comparar com o saldo atual.';
+    return;
+  }
+  const target = parsePatrimonioAmountInput(valueEl.value);
+  if (!Number.isFinite(target) || target < 0) {
+    preview.style.display = '';
+    preview.textContent = 'Informe o saldo atual para calcular a diferen?a autom?tica.';
+    return;
+  }
+  const current = getPatrimonioBalanceForAccount(accountId);
+  const diff = Number((target - current).toFixed(2));
+  preview.style.display = '';
+  if (Math.abs(diff) < 0.005) {
+    preview.textContent = Saldo atual j? est? em  (sem ajuste necess?rio).;
+    return;
+  }
+  if (diff > 0) {
+    preview.textContent = Ser? lan?ado aporte autom?tico de  ( ? ).;
+    return;
+  }
+  preview.textContent = Ser? lan?ada retirada autom?tica de  ( ? ).;
+}
 function syncPatrimonioMovementModalVisibility() {
   const type = document.getElementById('patrimonioMovementType').value;
   const transferWrap = document.getElementById('patrimonioTransferAccounts');
   const accountWrap = document.getElementById('patrimonioSingleAccountWrap');
   if (transferWrap) transferWrap.style.display = type === 'transferencia' ? '' : 'none';
   if (accountWrap) accountWrap.style.display = type === 'transferencia' ? 'none' : '';
+  refreshPatrimonioUpdatePreview();
 }
-
 function openPatrimonioMovementModal(options = {}) {
   ensurePatrimonioData();
   const movement = options.movementId ? patrimonioMovements.find(item => item.id === options.movementId) : null;
   const presetType = options.type || movement?.type || 'aporte';
   const title = movement
-    ? 'Editar movimentação'
+    ? 'Editar movimenta??o'
     : presetType === 'retirada'
       ? 'Nova retirada'
       : presetType === 'transferencia'
-        ? 'Nova transferência'
-        : 'Novo aporte';
+        ? 'Nova transfer?ncia'
+        : presetType === 'atualizacao'
+          ? 'Atualizar saldo'
+          : 'Novo aporte';
   document.getElementById('patrimonioMovementModalTitle').textContent = title;
   document.getElementById('patrimonioMovementId').value = movement?.id || '';
   document.getElementById('patrimonioMovementType').value = presetType;
@@ -1407,39 +1450,62 @@ function openPatrimonioMovementModal(options = {}) {
   document.getElementById('patrimonioMovementDate').value = getPatrimonioDateInputValue(movement?.date || todayIsoDate());
   const extras = document.getElementById('patrimonioMovementExtras');
   if (extras) extras.open = Boolean(movement?.description);
+  const valueEl = document.getElementById('patrimonioMovementValue');
+  const accountEl = document.getElementById('patrimonioMovementAccount');
+  const typeEl = document.getElementById('patrimonioMovementType');
+  if (valueEl) valueEl.oninput = refreshPatrimonioUpdatePreview;
+  if (accountEl) accountEl.onchange = refreshPatrimonioUpdatePreview;
+  if (typeEl) typeEl.onchange = syncPatrimonioMovementModalVisibility;
   syncPatrimonioMovementModalVisibility();
   openModal('modalPatrimonioMovement');
 }
-
 function savePatrimonioMovement() {
   ensurePatrimonioData();
   if (!patrimonioAccounts.length) {
-    alert('Crie pelo menos uma conta patrimonial antes de lançar movimentações.');
+    alert('Crie pelo menos uma conta patrimonial antes de lan?ar movimenta??es.');
     return;
   }
   const id = document.getElementById('patrimonioMovementId').value;
-  const type = document.getElementById('patrimonioMovementType').value;
-  const value = Number(document.getElementById('patrimonioMovementValue').value || 0);
-  const description = document.getElementById('patrimonioMovementDescription').value.trim();
+  const requestedType = document.getElementById('patrimonioMovementType').value;
+  const inputValue = Number(document.getElementById('patrimonioMovementValue').value || 0);
+  let description = document.getElementById('patrimonioMovementDescription').value.trim();
   const date = resolvePatrimonioMovementDateInput(document.getElementById('patrimonioMovementDate').value);
   const accountId = document.getElementById('patrimonioMovementAccount').value;
   const fromAccountId = document.getElementById('patrimonioMovementFrom').value;
   const toAccountId = document.getElementById('patrimonioMovementTo').value;
-  if (!Number.isFinite(value) || value <= 0) {
-    alert('Informe um valor válido para a movimentação.');
+  if (!Number.isFinite(inputValue) || inputValue < 0) {
+    alert('Informe um valor v?lido para a movimenta??o.');
     return;
   }
   if (!date) {
     alert('Informe a data como dia (1 a 31) ou data completa.');
     return;
   }
-  if (type === 'transferencia') {
+  let type = requestedType;
+  let value = inputValue;
+  if (requestedType === 'transferencia') {
     if (!fromAccountId || !toAccountId || fromAccountId === toAccountId) {
-      alert('Escolha contas de origem e destino diferentes para a transferência.');
+      alert('Escolha contas de origem e destino diferentes para a transfer?ncia.');
       return;
     }
   } else if (!accountId) {
-    alert('Escolha a conta/ativo da movimentação.');
+    alert('Escolha a conta/ativo da movimenta??o.');
+    return;
+  }
+  if (requestedType === 'atualizacao') {
+    const current = getPatrimonioBalanceForAccount(accountId);
+    const diff = Number((value - current).toFixed(2));
+    if (Math.abs(diff) < 0.005) {
+      alert('O saldo informado ? igual ao saldo atual da conta. Nenhuma movimenta??o foi criada.');
+      return;
+    }
+    type = diff > 0 ? 'aporte' : 'retirada';
+    value = Math.abs(diff);
+    if (!description) {
+      description = 'Atualiza??o de saldo';
+    }
+  } else if (value <= 0) {
+    alert('Informe um valor v?lido para a movimenta??o.');
     return;
   }
   recordHistoryState();
@@ -1467,7 +1533,7 @@ function savePatrimonioMovement() {
 }
 
 function deletePatrimonioMovement(movementId) {
-  if (!confirm('Excluir esta movimentação?')) return;
+  if (!confirm('Excluir esta movimentaÃ§Ã£o?')) return;
   const movement = patrimonioMovements.find(item => item.id === movementId);
   if (!movement) return;
   if (movement.sourceType === 'financial-goal' && movement.sourceMonthId && movement.sourceGoalId) {
@@ -1489,7 +1555,7 @@ function changeFinancialGoalPatrimonioAccount(index, accountId) {
   const month = getCurrentMonth();
   if (!month || !month.financialGoals?.[index]) return;
   if (month.financialGoals[index].patrimonioTransferredAt) {
-    alert('Essa meta já foi enviada para o patrimônio. Exclua a movimentação correspondente se quiser mudar o destino.');
+    alert('Essa meta jÃ¡ foi enviada para o patrimÃ´nio. Exclua a movimentaÃ§Ã£o correspondente se quiser mudar o destino.');
     renderMes();
     return;
   }
@@ -1514,12 +1580,12 @@ function transferFinancialGoalToPatrimonio(monthId, goalId) {
     return;
   }
   if (goal.patrimonioTransferredAt && goal.patrimonioMovementId) {
-    alert('Essa meta já foi enviada para o patrimônio.');
+    alert('Essa meta jÃ¡ foi enviada para o patrimÃ´nio.');
     return;
   }
   const account = getPatrimonioAccountById(goal.patrimonioAccountId);
   if (!account) {
-    alert('A conta patrimonial escolhida não existe mais.');
+    alert('A conta patrimonial escolhida nÃ£o existe mais.');
     return;
   }
   recordHistoryState();
@@ -1528,7 +1594,7 @@ function transferFinancialGoalToPatrimonio(monthId, goalId) {
     type: 'aporte',
     accountId: account.id,
     value: goal.valor,
-    description: `Meta financeira · ${goal.nome}`,
+    description: `Meta financeira Â· ${goal.nome}`,
     date: todayIsoDate(),
     createdAt: new Date().toISOString(),
     sourceType: 'financial-goal',
@@ -1574,7 +1640,7 @@ function renderPatrimonioAccounts() {
   if (!grid) return;
   const rows = getPatrimonioFilteredAccounts();
   if (!rows.length) {
-    grid.innerHTML = '<div class="patrimonio-empty">Nenhuma conta patrimonial cadastrada ainda. Comece criando onde você guarda dinheiro.</div>';
+    grid.innerHTML = '<div class="patrimonio-empty">Nenhuma conta patrimonial cadastrada ainda. Comece criando onde vocÃª guarda dinheiro.</div>';
     return;
   }
   grid.innerHTML = rows.map(account => {
@@ -1609,12 +1675,12 @@ function renderPatrimonioMovementRow(account, movement) {
       : 'income';
   const direction = movement.type === 'retirada' || isTransferOut ? -1 : 1;
   const symbol = movement.type === 'transferencia'
-    ? '⇄'
+    ? 'â‡„'
     : movement.type === 'retirada'
-      ? '−'
+      ? 'âˆ’'
       : '+';
   const movementTitle = movement.type === 'transferencia'
-    ? (isTransferOut ? 'Transferência enviada' : 'Transferência recebida')
+    ? (isTransferOut ? 'TransferÃªncia enviada' : 'TransferÃªncia recebida')
     : movement.type === 'retirada'
       ? 'Retirada'
       : 'Aporte';
@@ -1636,8 +1702,8 @@ function renderPatrimonioMovementRow(account, movement) {
       <td class="patrimonio-action-cell">
         ${movement.sourceType === 'financial-goal'
           ? '<span class="patrimonio-status-chip neutral">Meta</span>'
-          : `<button class="btn-icon" type="button" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">✎</button>`}
-        <button class="btn-icon" type="button" onclick="deletePatrimonioMovement('${movement.id}')">✕</button>
+          : `<button class="btn-icon" type="button" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">âœŽ</button>`}
+        <button class="btn-icon" type="button" onclick="deletePatrimonioMovement('${movement.id}')">âœ•</button>
       </td>
     </tr>
   `;
@@ -1648,7 +1714,7 @@ function renderPatrimonioDetail() {
   if (!container) return;
   const account = getPatrimonioSelectedAccount();
   if (!account) {
-    container.innerHTML = '<div class="patrimonio-empty">Selecione uma conta à esquerda para ver as movimentações e agir nela.</div>';
+    container.innerHTML = '<div class="patrimonio-empty">Selecione uma conta Ã  esquerda para ver as movimentaÃ§Ãµes e agir nela.</div>';
     return;
   }
   const movements = getPatrimonioFilteredMovements().filter(movement =>
@@ -1665,8 +1731,8 @@ function renderPatrimonioDetail() {
         ${account.observacao ? `<p class="patrimonio-note">${escapeHtml(account.observacao)}</p>` : ''}
         <div class="patrimonio-detail-actions">
           <button class="btn btn-primary patrimonio-move-btn" type="button" title="Adicionar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'aporte' })">+</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">−</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">⇄</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">âˆ’</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">â‡„</button>
         </div>
       </div>
       <div class="patrimonio-detail-balance">${fmt(saldo)}</div>
@@ -1684,10 +1750,11 @@ function renderPatrimonioDetail() {
         <tbody>
           ${movements.length
             ? movements.map(movement => renderPatrimonioMovementRow(account, movement)).join('')
-            : '<tr><td colspan="4" style="padding:18px 22px;color:var(--text3)">Nenhuma movimentação encontrada para esta conta ainda.</td></tr>'}
+            : '<tr><td colspan="4" style="padding:18px 22px;color:var(--text3)">Nenhuma movimentaÃ§Ã£o encontrada para esta conta ainda.</td></tr>'}
         </tbody>
       </table>
     </div>
   `;
 }
+
 

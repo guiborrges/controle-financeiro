@@ -69,6 +69,7 @@ const {
   DATA_KEY_ALGORITHM,
   DATA_KEY_ITERATIONS,
   deriveDataKey,
+  deriveDataKeyAsync,
   encryptDataWithKey,
   decryptDataWithKey
 } = require('./server/data-crypto');
@@ -458,6 +459,7 @@ registerAuthRoutes(app, {
   registerUserLogin,
   findUserById,
   deriveDataKey,
+  deriveDataKeyAsync,
   issueRememberMeToken,
   setRememberMeCookie,
   clearRememberMeCookie,

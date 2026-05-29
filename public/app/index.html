@@ -1659,6 +1659,7 @@
           <option value="aporte">Aporte</option>
           <option value="retirada">Retirada</option>
           <option value="transferencia">Transferência</option>
+          <option value="atualizacao">Atualizar saldo</option>
         </select>
       </div>
       <div class="field" id="patrimonioSingleAccountWrap">
@@ -1678,8 +1679,9 @@
     </div>
     <div class="form-row">
       <div class="field">
-          <label class="form-help-label" data-help="Valor da movimentação patrimonial.">Valor</label>
+          <label id="patrimonioMovementValueLabel" class="form-help-label" data-help="Valor da movimentação patrimonial.">Valor</label>
         <input id="patrimonioMovementValue" type="number" step="0.01" placeholder="0,00">
+        <small id="patrimonioMovementPreview" style="display:none;color:var(--text3);margin-top:6px"></small>
       </div>
       <div class="field">
           <label class="form-help-label" data-help="Data em que a movimentação aconteceu ou deve ser registrada no patrimônio.">Data</label>

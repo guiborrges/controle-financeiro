@@ -60,6 +60,7 @@ function createBaseDeps(overrides = {}) {
     }),
     findUserById: () => null,
     deriveDataKey: () => Buffer.from('k'.repeat(32)),
+    deriveDataKeyAsync: async () => Buffer.from('k'.repeat(32)),
     issueRememberMeToken: () => 'remember-token',
     setRememberMeCookie: () => {},
     clearRememberMeCookie: () => {},
@@ -119,7 +120,7 @@ test('auth login rejects invalid credentials', () => {
   assert.match(String(res.payload?.message || ''), /inv/i);
 });
 
-test('auth login success populates authenticated session payload', () => {
+test('auth login success populates authenticated session payload', async () => {
   const app = createMockApp();
   const user = {
     id: 'u-auth-1',
@@ -146,6 +147,7 @@ test('auth login success populates authenticated session payload', () => {
   };
   const res = createMockRes();
   handler(req, res, () => {});
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(res.statusCode, 200);
   assert.equal(res.payload?.ok, true);
   assert.equal(req.session?.authenticated, true);
@@ -197,7 +199,7 @@ test('password reset request returns generic success response', async () => {
   assert.equal(res.payload?.ok, true);
 });
 
-test('password reset confirm rejects invalid token', () => {
+test('password reset confirm rejects invalid token', async () => {
   const app = createMockApp();
   const user = { id: 'u-reset-2', email: 'reset2@test.local', passwordResetTokens: [] };
   registerAuthRoutes(app, createBaseDeps({
@@ -213,7 +215,7 @@ test('password reset confirm rejects invalid token', () => {
     }
   };
   const res = createMockRes();
-  handler(req, res);
+  await handler(req, res);
   assert.equal(res.statusCode, 400);
 });
 
