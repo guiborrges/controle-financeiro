@@ -69,7 +69,7 @@ function getRememberCookieName(req) {
 
 function deriveRememberTokenKey(token) {
   return crypto
-    .createHmac('sha512', `${REMEMBER_TOKEN_SECRET}:remember:wrap`)
+    .createHmac('sha256', `${REMEMBER_TOKEN_SECRET}:remember:wrap`)
     .update(String(token || ''))
     .digest('base64');
 }

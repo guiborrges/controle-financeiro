@@ -262,8 +262,15 @@
         };
         if (rememberMe === true || rememberMe === 'true' || rememberMe === 1 || rememberMe === '1') {
           req.session.cookie.maxAge = deps.REMEMBER_ME_MAX_AGE_MS;
-          const rememberToken = issueRememberMeToken(loggedUser, encryptionKey);
-          setRememberMeCookie(res, rememberToken, deps.REMEMBER_ME_MAX_AGE_MS);
+          try {
+            const rememberToken = issueRememberMeToken(loggedUser, encryptionKey);
+            setRememberMeCookie(res, rememberToken, deps.REMEMBER_ME_MAX_AGE_MS);
+          } catch (rememberError) {
+            console.error('[auth] falha ao emitir remember-me token:', rememberError?.message || rememberError);
+            req.session.cookie.expires = false;
+            req.session.cookie.maxAge = null;
+            clearRememberMeCookie(res);
+          }
         } else {
           req.session.cookie.expires = false;
           req.session.cookie.maxAge = null;
