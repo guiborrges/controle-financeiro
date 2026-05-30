@@ -6,6 +6,186 @@
     collapsed: {}
   };
 
+  function injectMibStyles() {
+    if (document.getElementById('mib-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'mib-styles';
+    style.textContent = `
+      .mib-group {
+        background: var(--surface-strong, #fff);
+        border: 1px solid var(--border, #e5e7eb);
+        border-radius: 16px;
+        margin: 0 0 10px;
+        overflow: hidden;
+      }
+      .mib-group-header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .mib-group-header:active { background: var(--surface2, #f3f4f6); }
+      .mib-group-header-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .mib-group-chevron {
+        flex-shrink: 0;
+        color: var(--text3, #9ca3af);
+        transition: transform 0.2s;
+      }
+      .mib-group-chevron--open { transform: rotate(90deg); }
+      .mib-group-name {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text1, #111827);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+      }
+      .mib-group-origin {
+        display: block;
+        font-size: 11px;
+        color: var(--text3, #9ca3af);
+        margin-top: 1px;
+      }
+      .mib-group-summary {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        flex-shrink: 0;
+      }
+      .mib-group-count {
+        font-size: 11px;
+        color: var(--accent, #2471a3);
+        font-weight: 500;
+      }
+      .mib-group-total {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text1, #111827);
+        margin-top: 1px;
+      }
+      .mib-group-body { border-top: 1px solid var(--border, #e5e7eb); }
+      .mib-group-actions { padding: 10px 14px 6px; }
+      .mib-btn-add-all {
+        height: 34px;
+        padding: 0 14px;
+        border-radius: 20px;
+        border: 1px solid var(--border, #e5e7eb);
+        background: transparent;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text2, #374151);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .mib-btn-add-all:active { background: var(--surface2, #f3f4f6); }
+      .mib-item { border-top: 1px solid var(--border, #e5e7eb); }
+      .mib-item-main {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        min-height: 52px;
+      }
+      .mib-item-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        background: var(--surface2, #f3f4f6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+        color: var(--text2, #374151);
+      }
+      .mib-item-icon--placeholder { color: var(--text3, #9ca3af); }
+      .mib-item-body { flex: 1; min-width: 0; }
+      .mib-item-name {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text1, #111827);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mib-item-meta {
+        display: block;
+        font-size: 11px;
+        color: var(--text3, #9ca3af);
+        margin-top: 2px;
+      }
+      .mib-item-cat { color: var(--accent, #2471a3); font-weight: 500; }
+      .mib-item-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px;
+        flex-shrink: 0;
+      }
+      .mib-item-amount {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--red, #e74c3c);
+      }
+      .mib-item-actions { display: flex; gap: 5px; }
+      .mib-btn-ok, .mib-btn-dismiss {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .mib-btn-ok { background: #eafaf1; color: #1e8449; }
+      .mib-btn-ok:active { background: #d5f5e3; }
+      .mib-btn-dismiss { background: #fdedec; color: #c0392b; }
+      .mib-btn-dismiss:active { background: #fadbd8; }
+      .mib-item-fields { padding: 0 14px 10px 54px; }
+      .mib-field-pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .mib-select {
+        width: 100%;
+        height: 34px;
+        border-radius: 10px;
+        border: 1px solid var(--border, #e5e7eb);
+        background: var(--surface-strong, #fff);
+        font-size: 12px;
+        color: var(--text1, #111827);
+        padding: 0 8px;
+        appearance: auto;
+      }
+      .m2-empty {
+        padding: 24px 16px;
+        text-align: center;
+        font-size: 13px;
+        color: var(--text3, #9ca3af);
+      }
+      .m2-subtitle { font-size: 12px; color: var(--text3, #9ca3af); }
+    `;
+    document.head.appendChild(style);
+  }
+
   function escapeHtml(value) {
     if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
     return String(value || '')
@@ -69,51 +249,99 @@
 
   function renderRows(group) {
     const isCredit = group.accountType === 'CREDIT';
-    return (group.rows || []).map((row) => `
-      <article class="m2-recent-item mobile-banking-row" data-account-id="${escapeHtml(group.accountId)}" data-tx-id="${escapeHtml(row.id)}">
-        <div style="flex:1;min-width:0">
-          <p class="m2-row-title">${escapeHtml(row.description || 'Lancamento')}</p>
-          <span class="m2-row-meta">${escapeHtml(row.date || '--')}${row.time ? ` · ${escapeHtml(row.time)}` : ''}</span>
-          <div class="mobile-banking-controls">
-            ${isCredit ? `
-              <select class="form-input mobile-banking-select" data-field="category">
-                ${categoryOptions(row.category)}
-              </select>
-              <select class="form-input mobile-banking-select" data-field="tag">
-                ${tagOptions(row.tag)}
-              </select>
-            ` : `
-              <select class="form-input mobile-banking-select" data-field="movementType">
-                <option value="aporte" ${row.movementType === 'aporte' ? 'selected' : ''}>Aporte</option>
-                <option value="retirada" ${row.movementType === 'retirada' ? 'selected' : ''}>Retirada</option>
-              </select>
-            `}
+    return (group.rows || []).map((row) => {
+      const catIcon = (typeof global.getCategoryIcon === 'function')
+        ? global.getCategoryIcon(row.category || '')
+        : '';
+      const iconHtml = catIcon
+        ? `<div class="mib-item-icon" aria-hidden="true">${escapeHtml(catIcon)}</div>`
+        : `<div class="mib-item-icon mib-item-icon--placeholder" aria-hidden="true">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+               <line x1="2" y1="10" x2="22" y2="10"></line>
+             </svg>
+           </div>`;
+      const catLabel = row.category || '';
+      const fields = isCredit ? `
+        <div class="mib-item-fields">
+          <div class="mib-field-pair">
+            <select class="mib-select mobile-banking-select" data-field="category">
+              ${categoryOptions(row.category)}
+            </select>
+            <select class="mib-select mobile-banking-select" data-field="tag">
+              ${tagOptions(row.tag)}
+            </select>
           </div>
         </div>
-        <div style="display:grid;gap:6px;justify-items:end">
-          <span class="m2-row-amount negative">${escapeHtml(money(row.amount || 0))}</span>
-          <div style="display:flex;gap:6px">
-            <button type="button" class="m2-icon-mini" data-action="ok" title="Adicionar" aria-label="Adicionar">✓</button>
-            <button type="button" class="m2-icon-mini" data-action="x" title="Ignorar" aria-label="Ignorar">✕</button>
-          </div>
+      ` : `
+        <div class="mib-item-fields">
+          <select class="mib-select mobile-banking-select" data-field="movementType">
+            <option value="aporte" ${row.movementType === 'aporte' ? 'selected' : ''}>Aporte</option>
+            <option value="retirada" ${row.movementType === 'retirada' ? 'selected' : ''}>Retirada</option>
+          </select>
         </div>
-      </article>
-    `).join('');
+      `;
+
+      return `
+        <article class="mib-item mobile-banking-row" data-account-id="${escapeHtml(group.accountId)}" data-tx-id="${escapeHtml(row.id)}">
+          <div class="mib-item-main">
+            ${iconHtml}
+            <div class="mib-item-body">
+              <span class="mib-item-name">${escapeHtml(row.description || 'Lancamento')}</span>
+              <span class="mib-item-meta">
+                ${escapeHtml(row.date || '--')}${row.time ? ` · ${escapeHtml(row.time)}` : ''}${catLabel ? ` · <span class="mib-item-cat">${escapeHtml(catLabel)}</span>` : ''}
+              </span>
+            </div>
+            <div class="mib-item-right">
+              <span class="mib-item-amount">${escapeHtml(money(row.amount || 0))}</span>
+              <div class="mib-item-actions">
+                <button type="button" class="mib-btn-ok" data-action="ok" title="Adicionar" aria-label="Adicionar lancamento">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </button>
+                <button type="button" class="mib-btn-dismiss" data-action="x" title="Ignorar" aria-label="Ignorar lancamento">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          ${fields}
+        </article>
+      `;
+    }).join('');
   }
 
   function renderGroup(group) {
     const isCollapsed = MOBILE_STATE.collapsed[group.accountId] !== false;
+    const originLabel = group.linkedLabel && group.linkedLabel !== 'Sem vinculo'
+      ? group.linkedLabel
+      : (group.originName || group.accountName || '');
+
     return `
-      <section class="m-list-card mobile-banking-group" data-group-id="${escapeHtml(group.accountId)}">
-        <button type="button" class="m-list-title mobile-banking-group-head" data-action="toggle">
-          <span>${isCollapsed ? '▸' : '▾'} ${escapeHtml(group.accountName || 'Conta')}</span>
-          <span>${group.pendingCount} pendente(s) · ${escapeHtml(money(group.totalPending || 0))}</span>
+      <section class="mib-group mobile-banking-group" data-group-id="${escapeHtml(group.accountId)}">
+        <button type="button" class="mib-group-header" data-action="toggle">
+          <div class="mib-group-header-left">
+            <svg class="mib-group-chevron ${isCollapsed ? '' : 'mib-group-chevron--open'}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <div>
+              <span class="mib-group-name">${escapeHtml(group.accountName || 'Conta')}</span>
+              ${originLabel ? `<span class="mib-group-origin">${escapeHtml(originLabel)}</span>` : ''}
+            </div>
+          </div>
+          <div class="mib-group-summary">
+            <span class="mib-group-count">${group.pendingCount} pendente${group.pendingCount !== 1 ? 's' : ''}</span>
+            <span class="mib-group-total">${escapeHtml(money(group.totalPending || 0))}</span>
+          </div>
         </button>
-        <div class="card-items-note">${escapeHtml(group.linkedLabel || 'Sem vinculo')} · Origem: ${escapeHtml(group.originName || group.accountName || '')}</div>
         ${isCollapsed ? '' : `
-          <div class="mobile-banking-group-body">
-            <div class="m2-list-actions">
-              <button type="button" class="m2-chip-btn" data-action="all">Adicionar todos</button>
+          <div class="mib-group-body">
+            <div class="mib-group-actions">
+              <button type="button" class="mib-btn-add-all" data-action="all">Adicionar todos (${group.pendingCount})</button>
             </div>
             ${renderRows(group)}
           </div>
@@ -192,6 +420,7 @@
   }
 
   async function open() {
+    injectMibStyles();
     if (global.MobileV2?.isEnabled?.() !== true) return;
     if (!global.PluggyBanking?.getMobileSnapshot) {
       global.MobileV2OutflowForm?.openInlineSheet?.({
