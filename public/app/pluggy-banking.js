@@ -27,6 +27,8 @@
       tagMemory: {},
       importedTxIds: {},
       importedTxKeys: {},
+      ignoredTxIds: {},
+      ignoredTxKeys: {},
       txState: {}
     }
   };
@@ -190,6 +192,8 @@
     STATE.userState.tagMemory = {};
     STATE.userState.importedTxIds = {};
     STATE.userState.importedTxKeys = {};
+    STATE.userState.ignoredTxIds = {};
+    STATE.userState.ignoredTxKeys = {};
     STATE.userState.txState = {};
   }
 
@@ -205,6 +209,8 @@
       STATE.userState.tagMemory = parsed.tagMemory && typeof parsed.tagMemory === 'object' ? parsed.tagMemory : {};
       STATE.userState.importedTxIds = parsed.importedTxIds && typeof parsed.importedTxIds === 'object' ? parsed.importedTxIds : {};
       STATE.userState.importedTxKeys = parsed.importedTxKeys && typeof parsed.importedTxKeys === 'object' ? parsed.importedTxKeys : {};
+      STATE.userState.ignoredTxIds = parsed.ignoredTxIds && typeof parsed.ignoredTxIds === 'object' ? parsed.ignoredTxIds : {};
+      STATE.userState.ignoredTxKeys = parsed.ignoredTxKeys && typeof parsed.ignoredTxKeys === 'object' ? parsed.ignoredTxKeys : {};
       STATE.userState.txState = parsed.txState && typeof parsed.txState === 'object' ? parsed.txState : {};
     } catch (_err) {
       resetUserState();
@@ -472,6 +478,8 @@
     if (!txId) return true;
     if (STATE.userState.importedTxIds[txId]) return true;
     if (STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)]) return true;
+    if (STATE.userState.ignoredTxIds[txId]) return true;
+    if (STATE.userState.ignoredTxKeys[buildImportedCompositeKey(account, tx)]) return true;
     if (STATE.userState.hiddenGroups[`tx:${txId}`]) return true;
     if (isSaldoSyncDescription(tx?.description || tx?.descriptionRaw || '')) return true;
     if (String(account?.accountType || '').toUpperCase() === 'CREDIT' && isCreditBillPayment(tx)) return true;
@@ -672,7 +680,16 @@
 
   function removePendingTx(accountId, txId) {
     const rows = STATE.pendingByAccount[String(accountId)] || [];
+    const account = getAccountById(accountId);
+    const tx = rows.find(item => String(item?.id || '') === String(txId))
+      || (account?.transactions || []).find(item => String(item?.id || '') === String(txId))
+      || null;
     STATE.pendingByAccount[String(accountId)] = rows.filter(item => String(item.id) !== String(txId));
+    if (txId) STATE.userState.ignoredTxIds[String(txId)] = true;
+    if (account && tx) {
+      const ignoredCompositeKey = buildImportedCompositeKey(account, tx);
+      if (ignoredCompositeKey) STATE.userState.ignoredTxKeys[ignoredCompositeKey] = true;
+    }
     STATE.userState.hiddenGroups[`tx:${String(txId)}`] = true;
     persistUserState();
   }
@@ -1752,6 +1769,7 @@
   }
 
   function buildMobileGroup(account) {
+    if (STATE.userState.hiddenGroups[`group:${getGroupKey(account)}`]) return null;
     const key = getGroupKey(account);
     const rows = getRowsForAccount(account);
     const alias = getGroupAlias(account);
@@ -1769,20 +1787,21 @@
     };
   }
 
+  function getVisibleGroupsByType(type) {
+    const normalizedType = String(type || '').toUpperCase();
+    const accounts = getAccountsByType(normalizedType);
+    return accounts
+      .map(buildMobileGroup)
+      .filter((group) => group && group.pendingCount > 0);
+  }
+
   async function getMobileSnapshot(forceReload = false) {
     loadUserState();
     if (forceReload || !STATE.rawData) {
       await loadData();
     }
-    const accounts = Array.isArray(STATE.rawData?.accounts) ? STATE.rawData.accounts : [];
-    const credit = accounts
-      .filter((account) => String(account?.accountType || '').toUpperCase() === 'CREDIT')
-      .map(buildMobileGroup)
-      .filter((group) => group.pendingCount > 0);
-    const bank = accounts
-      .filter((account) => String(account?.accountType || '').toUpperCase() === 'BANK')
-      .map(buildMobileGroup)
-      .filter((group) => group.pendingCount > 0);
+    const credit = getVisibleGroupsByType('CREDIT');
+    const bank = getVisibleGroupsByType('BANK');
     return {
       loadedAt: STATE.loadedAt,
       views: { credit, bank }
