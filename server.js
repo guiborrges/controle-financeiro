@@ -385,7 +385,8 @@ app.use(session({
     path: SESSIONS_DATA_DIR,
     ttl: Math.floor(REMEMBER_ME_MAX_AGE_MS / 1000),
     retries: 1,
-    reapInterval: 60 * 60
+    reapInterval: 15 * 60,
+    reapAsync: true
   }),
   resave: false,
   saveUninitialized: false,

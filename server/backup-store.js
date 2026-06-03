@@ -5,7 +5,7 @@ const { writeJsonFileAtomic } = require('./fs-atomic');
 
 const pkg = require('../package.json');
 const { getUserDataPath, getDesiredUserDataDir } = require('./app-state-store');
-const { readUsersStore, findUserById, updateUser } = require('./user-store');
+const { readUsersStore, writeUsersStore, findUserById, updateUser } = require('./user-store');
 const { resolveStoragePath } = require('./paths');
 
 const USER_BACKUP_ROOT = resolveStoragePath('data', 'user-backups');
@@ -14,6 +14,8 @@ const MAX_LOG_ENTRIES = 80;
 const BACKUP_ID_PATTERN = /^[a-zA-Z0-9_-]{6,120}$/;
 const AUTO_BACKUP_MIN_INTERVAL_MS = Math.max(0, Number(process.env.FIN_AUTO_BACKUP_MIN_INTERVAL_MS || (30 * 60 * 1000)) || 0);
 const autoBackupInFlight = new Set();
+const pendingActivityUpdates = new Map();
+let activityFlushTimer = null;
 
 function ensureBackupRoot() {
   fs.mkdirSync(USER_BACKUP_ROOT, { recursive: true });
@@ -385,9 +387,34 @@ function registerUserLogin(userId) {
 }
 
 function touchUserActivity(userId) {
-  const user = findUserById(userId);
+  const store = readUsersStore();
+  const user = store.users.find(entry => entry.id === userId) || null;
   if (!user) return null;
-  return updateUser(userId, { lastUsedAt: new Date().toISOString() });
+  const now = new Date().toISOString();
+  user.lastUsedAt = now;
+  pendingActivityUpdates.set(userId, now);
+  if (!activityFlushTimer) {
+    activityFlushTimer = setTimeout(() => {
+      activityFlushTimer = null;
+      if (!pendingActivityUpdates.size) return;
+      try {
+        const currentStore = readUsersStore();
+        let changed = false;
+        for (const [uid, timestamp] of pendingActivityUpdates) {
+          const currentUser = currentStore.users.find(entry => entry.id === uid);
+          if (!currentUser) continue;
+          currentUser.lastUsedAt = timestamp;
+          changed = true;
+        }
+        pendingActivityUpdates.clear();
+        if (changed) writeUsersStore(currentStore);
+      } catch (error) {
+        console.error('[backup-store] Falha ao persistir atividade do usuario:', error?.message || String(error));
+      }
+    }, 3000);
+    if (typeof activityFlushTimer.unref === 'function') activityFlushTimer.unref();
+  }
+  return user;
 }
 
 function getUserBackupLogs(userId) {

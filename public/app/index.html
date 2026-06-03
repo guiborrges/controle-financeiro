@@ -26,7 +26,10 @@
 </script>
 <link rel="manifest" href="/app-assets/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/app-assets/pwa-icon.svg">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap"></noscript>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script>
   (() => {
@@ -1744,22 +1747,52 @@
   <script defer src="/app-assets/modules/calendar-events.js"></script>
   <script defer src="/app-assets/modules/calendar-render.js"></script>
   <script defer src="/app-assets/modules/calendar.js"></script>
-  <script defer src="/app-assets/modules/mobile/mobile-shell.js"></script>
-  <script defer src="/app-assets/modules/mobile/mobile-nav.js"></script>
-  <script defer src="/app-assets/modules/mobile/mobile-layout.js"></script>
-  <script defer src="/app-assets/mobile-ui.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/bottom-nav.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/add-sheet.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/outflow-form-mobile.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/filters-sheet.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/date-picker-mobile.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/home-screen.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/mes-atual-mobile.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/patrimonio-mobile.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/historico-mobile.js"></script>
-  <script defer src="/app-assets/modules/mobile-v2/perfil-mobile.js"></script>
-  <script defer src="/app-assets/mobile-v2.js"></script>
-  <script defer src="/app-assets/mobile-v2-enhancements.js"></script>
+  <script>
+    window.__loadMobileV2ScriptsIfNeeded = (() => {
+      let promise = null;
+      const scripts = [
+        '/app-assets/modules/mobile/mobile-shell.js',
+        '/app-assets/modules/mobile/mobile-nav.js',
+        '/app-assets/modules/mobile/mobile-layout.js',
+        '/app-assets/mobile-ui.js',
+        '/app-assets/modules/mobile-v2/bottom-nav.js',
+        '/app-assets/modules/mobile-v2/add-sheet.js',
+        '/app-assets/modules/mobile-v2/outflow-form-mobile.js',
+        '/app-assets/modules/mobile-v2/filters-sheet.js',
+        '/app-assets/modules/mobile-v2/date-picker-mobile.js',
+        '/app-assets/modules/mobile-v2/home-screen.js',
+        '/app-assets/modules/mobile-v2/mes-atual-mobile.js',
+        '/app-assets/modules/mobile-v2/patrimonio-mobile.js',
+        '/app-assets/modules/mobile-v2/historico-mobile.js',
+        '/app-assets/modules/mobile-v2/perfil-mobile.js',
+        '/app-assets/mobile-v2.js',
+        '/app-assets/mobile-v2-enhancements.js'
+      ];
+      function shouldLoadMobile() {
+        const width = Number(window.innerWidth || document.documentElement?.clientWidth || 0);
+        const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)')?.matches === true;
+        const isDesktopLike = !/(Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile)/i.test(String(navigator.userAgent || ''));
+        return width > 0 && width <= 900 && hasTouch && !isDesktopLike;
+      }
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.async = false;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error(`Falha ao carregar ${src}`));
+          document.head.appendChild(script);
+        });
+      }
+      return function loadMobileV2ScriptsIfNeeded() {
+        if (!shouldLoadMobile()) return Promise.resolve(false);
+        if (!promise) {
+          promise = scripts.reduce((chain, src) => chain.then(() => loadScript(src)), Promise.resolve()).then(() => true);
+        }
+        return promise;
+      };
+    })();
+  </script>
   <script defer src="/app-assets/core.js"></script>
   <script defer src="/app-assets/dashboard.js"></script>
   <script defer src="/app-assets/mes-atual.js"></script>

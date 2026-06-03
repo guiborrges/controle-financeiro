@@ -7,6 +7,10 @@ const { writeJsonFileAtomic } = require('./fs-atomic');
 
 const USERS_STORE_PATH = resolveStoragePath('auth', 'users.json');
 const LEGACY_USER_STORE_PATH = resolveStoragePath('auth', 'user-store.json');
+const USERS_STORE_CACHE_TTL_MS = 5000;
+
+let usersStoreCache = null;
+let usersStoreCacheTs = 0;
 
 function normalizeUsername(value) {
   return String(value || '').trim().toLowerCase();
@@ -55,11 +59,17 @@ function ensureUsersStore() {
 }
 
 function readUsersStore() {
+  const now = Date.now();
+  if (usersStoreCache && (now - usersStoreCacheTs) < USERS_STORE_CACHE_TTL_MS) {
+    return usersStoreCache;
+  }
   ensureUsersStore();
   const raw = fs.readFileSync(USERS_STORE_PATH, 'utf8');
   const parsed = JSON.parse(raw);
   if (!parsed || !Array.isArray(parsed.users)) {
-    return { users: [] };
+    usersStoreCache = { users: [] };
+    usersStoreCacheTs = now;
+    return usersStoreCache;
   }
   let changed = false;
   parsed.users = parsed.users.map(user => {
@@ -135,8 +145,11 @@ function readUsersStore() {
   });
   if (changed) {
     writeUsersStore({ users: parsed.users });
+    return usersStoreCache || { users: parsed.users };
   }
-  return parsed;
+  usersStoreCache = parsed;
+  usersStoreCacheTs = now;
+  return usersStoreCache;
 }
 
 function writeUsersStore(store) {
@@ -145,6 +158,8 @@ function writeUsersStore(store) {
     users: Array.isArray(store?.users) ? store.users : []
   };
   writeJsonFileAtomic(USERS_STORE_PATH, normalized);
+  usersStoreCache = normalized;
+  usersStoreCacheTs = Date.now();
 }
 
 function findUserById(userId) {

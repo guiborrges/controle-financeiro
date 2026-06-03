@@ -32,12 +32,14 @@ function showBootstrapFatalError(error) {
     await initializeServerStorage({ allowPartial: false });
     clearBootstrapRetryAction();
     init();
+    if (typeof window.__loadMobileV2ScriptsIfNeeded === 'function') {
+      await window.__loadMobileV2ScriptsIfNeeded();
+    }
     if (window.MobileV2?.isEnabled?.()) {
       window.MobileV2.apply?.();
-      window.MobileV2.refresh?.();
-      window.setTimeout(() => window.MobileV2?.refresh?.(), 500);
-      window.setTimeout(() => window.MobileV2?.refresh?.(), 1800);
+      window.requestAnimationFrame(() => window.MobileV2?.refresh?.());
     }
+    document.dispatchEvent(new CustomEvent('appReady'));
   } catch (error) {
     showBootstrapFatalError(error);
     return;
