@@ -4,6 +4,7 @@ let autoExitBackupBound = false;
 let autoExitBackupInFlight = false;
 let autoExitBackupLastAt = 0;
 const AUTO_EXIT_BACKUP_MIN_INTERVAL_MS = 60 * 1000;
+const LOGOUT_STEP_TIMEOUT_MS = 1500;
 
 function buildOperationToken(prefix = 'op') {
   const safePrefix = String(prefix || 'op').replace(/\s+/g, '-').toLowerCase();
@@ -64,6 +65,32 @@ async function requestAutoExitBackup(reason = 'exit', options = {}) {
       autoExitBackupInFlight = false;
     }, awaitCompletion ? 0 : 400);
   }
+}
+
+function withTimeout(promise, timeoutMs = LOGOUT_STEP_TIMEOUT_MS) {
+  let timer = null;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((resolve) => {
+      timer = window.setTimeout(() => resolve(false), timeoutMs);
+    })
+  ]).finally(() => {
+    if (timer) window.clearTimeout(timer);
+  });
+}
+
+function setLogoutUiBusy() {
+  try {
+    document.querySelectorAll('[onclick*="logout"]').forEach(button => {
+      if (!button || button.dataset.logoutBusy === '1') return;
+      button.dataset.logoutBusy = '1';
+      button.disabled = true;
+      if (button.tagName === 'BUTTON') button.textContent = 'Saindo...';
+    });
+    if (typeof showAppStatus === 'function') {
+      showAppStatus('Encerrando sua sessão...', 'Saindo', 'info');
+    }
+  } catch {}
 }
 
 function bindAutoExitBackupLifecycle() {
@@ -374,23 +401,24 @@ async function createManualBackup() {
 }
 
 async function logout() {
+  setLogoutUiBusy();
   try {
     try {
       if (typeof flushServerStorage === 'function') {
-        await flushServerStorage(true, 'logout');
+        await withTimeout(flushServerStorage(true, 'logout'), LOGOUT_STEP_TIMEOUT_MS);
       }
     } catch {}
     try {
-      await requestAutoExitBackup('logout', { force: true, awaitCompletion: true });
+      await withTimeout(requestAutoExitBackup('logout', { force: true, awaitCompletion: true }), LOGOUT_STEP_TIMEOUT_MS);
     } catch {}
     if (window.FinCrypto?.clearSessionEncryptionKey) {
       window.FinCrypto.clearSessionEncryptionKey();
     }
-    await fetch('/api/auth/logout', {
+    await withTimeout(fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'same-origin',
       headers: getCsrfHeaders({ 'Content-Type': 'application/json' })
-    });
+    }), LOGOUT_STEP_TIMEOUT_MS);
   } finally {
     window.location.replace('/login');
   }
