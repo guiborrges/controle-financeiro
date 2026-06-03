@@ -110,12 +110,12 @@ test('backup restore rejects invalid backup id format', () => {
   assert.match(out.message, /identificador de backup inválido/i);
 });
 
-test('backup retention is non-pruning by default (no loss on inactivity policy)', () => {
+test('backup retention keeps the 50 newest backups by default', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-retention-'));
   const script = `
     const { createUser } = require('./server/user-store.js');
     const { writeUserAppState } = require('./server/app-state-store.js');
-    const { createUserBackup, listUserBackups } = require('./server/backup-store.js');
+    const { createUserBackup, listUserBackups, MAX_BACKUPS_PER_USER } = require('./server/backup-store.js');
     const user = createUser({
       id: 'u_retention',
       username: 'uretention',
@@ -126,50 +126,75 @@ test('backup retention is non-pruning by default (no loss on inactivity policy)'
     });
     const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
     writeUserAppState(user.id, { finStateSchemaVersion: '3', finData: [] }, key);
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < 55; i += 1) {
       createUserBackup(user.id, { type: 'manual', note: 'n' + i });
     }
     const backups = listUserBackups(user.id);
-    console.log(JSON.stringify({ count: backups.length }));
+    console.log(JSON.stringify({
+      count: backups.length,
+      max: MAX_BACKUPS_PER_USER,
+      hasNewest: backups.some(item => item.note === 'n54'),
+      hasOldest: backups.some(item => item.note === 'n0')
+    }));
   `;
   const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
-  assert.equal(out.count, 7);
+  assert.equal(out.max, 50);
+  assert.equal(out.count, 50);
+  assert.equal(out.hasNewest, true);
+  assert.equal(out.hasOldest, false);
 });
 
-test('backup creation does not scan old backups when retention is unlimited', () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-no-prune-scan-'));
+test('backup retention can be lowered by environment limit', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-env-prune-'));
   const script = `
-    const fs = require('fs');
-    const path = require('path');
     const { createUser } = require('./server/user-store.js');
     const { writeUserAppState } = require('./server/app-state-store.js');
-    const { createUserBackup, USER_BACKUP_ROOT } = require('./server/backup-store.js');
+    const { createUserBackup, listUserBackups, MAX_BACKUPS_PER_USER } = require('./server/backup-store.js');
     const user = createUser({
-      id: 'u_no_prune_scan',
-      username: 'unoprune',
-      email: 'unoprune@test.local',
-      fullName: 'User No Prune Scan',
-      displayName: 'NoPrune',
+      id: 'u_env_prune',
+      username: 'uenvprune',
+      email: 'uenvprune@test.local',
+      fullName: 'User Env Prune',
+      displayName: 'EnvPrune',
       passwordHash: 'hash'
     });
     const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
     writeUserAppState(user.id, { finStateSchemaVersion: '3', finData: [] }, key);
-    createUserBackup(user.id, { type: 'manual', note: 'seed' });
-    const userBackupDir = fs.readdirSync(USER_BACKUP_ROOT)
-      .map(name => path.join(USER_BACKUP_ROOT, name))
-      .find(name => name.endsWith('__' + user.id));
-    const indexPath = path.join(userBackupDir, 'index.json');
-    fs.writeFileSync(indexPath, JSON.stringify({
-      backups: [
-        { id: '../invalid-old-backup-id', createdAt: '2026-01-01T00:00:00.000Z', type: 'manual' }
-      ],
-      logs: []
-    }), 'utf8');
-    const backup = createUserBackup(user.id, { type: 'manual', note: 'new backup' });
-    console.log(JSON.stringify({ created: !!backup?.id }));
+    for (let i = 0; i < 7; i += 1) {
+      createUserBackup(user.id, { type: 'manual', note: 'n' + i });
+    }
+    const backups = listUserBackups(user.id);
+    console.log(JSON.stringify({ count: backups.length, max: MAX_BACKUPS_PER_USER }));
   `;
-  const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot, FIN_MAX_BACKUPS_PER_USER: '0' });
-  assert.equal(out.created, true);
+  const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot, FIN_MAX_BACKUPS_PER_USER: '3' });
+  assert.equal(out.max, 3);
+  assert.equal(out.count, 3);
+});
+
+test('login registration does not create automatic backups', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-login-no-auto-'));
+  const script = `
+    const { createUser } = require('./server/user-store.js');
+    const { writeUserAppState } = require('./server/app-state-store.js');
+    const { registerUserLogin, listUserBackups } = require('./server/backup-store.js');
+    const user = createUser({
+      id: 'u_login_no_backup',
+      username: 'uloginnobackup',
+      email: 'uloginnobackup@test.local',
+      fullName: 'User Login No Backup',
+      displayName: 'LoginNoBackup',
+      passwordHash: 'hash'
+    });
+    const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
+    writeUserAppState(user.id, { finStateSchemaVersion: '3', finData: [] }, key);
+    for (let i = 0; i < 5; i += 1) registerUserLogin(user.id);
+    setTimeout(() => {
+      const backups = listUserBackups(user.id);
+      console.log(JSON.stringify({ count: backups.length }));
+    }, 20);
+  `;
+  const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
+  assert.equal(out.count, 0);
 });
 
 test('backup restore performs full replacement (no merge residues)', () => {

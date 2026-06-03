@@ -9,7 +9,11 @@ const { readUsersStore, writeUsersStore, findUserById, updateUser } = require('.
 const { resolveStoragePath } = require('./paths');
 
 const USER_BACKUP_ROOT = resolveStoragePath('data', 'user-backups');
-const MAX_BACKUPS_PER_USER = Math.max(0, Number(process.env.FIN_MAX_BACKUPS_PER_USER || 0) || 0);
+const DEFAULT_MAX_BACKUPS_PER_USER = 50;
+const MAX_BACKUPS_PER_USER = Math.max(
+  1,
+  Number(process.env.FIN_MAX_BACKUPS_PER_USER || DEFAULT_MAX_BACKUPS_PER_USER) || DEFAULT_MAX_BACKUPS_PER_USER
+);
 const MAX_LOG_ENTRIES = 80;
 const BACKUP_ID_PATTERN = /^[a-zA-Z0-9_-]{6,120}$/;
 const AUTO_BACKUP_MIN_INTERVAL_MS = Math.max(0, Number(process.env.FIN_AUTO_BACKUP_MIN_INTERVAL_MS || (30 * 60 * 1000)) || 0);
@@ -240,16 +244,18 @@ function listUserBackups(userId) {
 }
 
 function pruneOldBackups(user) {
-  if (MAX_BACKUPS_PER_USER <= 0) return [];
   const backups = listUserBackups(user.id);
   if (backups.length <= MAX_BACKUPS_PER_USER) return backups;
   const sorted = backups.slice().sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
   const keep = sorted.slice(0, MAX_BACKUPS_PER_USER);
   const remove = sorted.slice(MAX_BACKUPS_PER_USER);
+  const pruneLogs = [];
   remove.forEach(item => {
     try {
       fs.rmSync(getBackupItemDir(user, item.id), { recursive: true, force: true });
-      appendBackupLog(user, {
+      pruneLogs.push({
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
         action: 'backup_pruned',
         backupId: item.id,
         backupType: item.type,
@@ -263,8 +269,17 @@ function pruneOldBackups(user) {
     const { path: filePath, ...rest } = item;
     return rest;
   });
+  if (pruneLogs.length) {
+    index.logs = [...(Array.isArray(index.logs) ? index.logs : []), ...pruneLogs].slice(-MAX_LOG_ENTRIES);
+  }
   writeBackupIndex(user, index);
   return keep;
+}
+
+function pruneUserBackups(userId) {
+  const user = findUserById(userId);
+  if (!user) return [];
+  return pruneOldBackups(user);
 }
 
 function createUserBackup(userId, options = {}) {
@@ -372,17 +387,11 @@ function scheduleAutomaticBackup(userId) {
 function registerUserLogin(userId) {
   const user = findUserById(userId);
   if (!user) return null;
-  const nextStats = {
-    ...(user.backupStats || {}),
-    loginsSinceBackup: Number(user?.backupStats?.loginsSinceBackup || 0) + 1
-  };
   const nextUser = updateUser(userId, {
     loginCount: Number(user?.loginCount || 0) + 1,
     lastLoginAt: new Date().toISOString(),
-    lastUsedAt: new Date().toISOString(),
-    backupStats: nextStats
+    lastUsedAt: new Date().toISOString()
   });
-  scheduleAutomaticBackup(userId);
   return nextUser;
 }
 
@@ -544,9 +553,11 @@ function listDeveloperUsers() {
 
 module.exports = {
   USER_BACKUP_ROOT,
+  MAX_BACKUPS_PER_USER,
   listUserBackups,
   getUserBackupLogs,
   createUserBackup,
+  pruneUserBackups,
   registerUserLogin,
   touchUserActivity,
   getUserDataIntegrity,
