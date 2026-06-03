@@ -1214,9 +1214,22 @@ function getUnifiedOutflowPaymentLabel(item, month = getCurrentMonth()) {
 }
 
 function getUnifiedCardInstitutionMeta(card, fallbackName = '') {
-  const allMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
+  const localInstitutionMeta = {
+    santander: { label: 'Santander', short: 'S', className: 'bank-santander' },
+    nubank: { label: 'Nubank', short: 'nu', className: 'bank-nubank' },
+    bb: { label: 'Banco do Brasil', short: 'BB', className: 'bank-bb' },
+    caixa: { label: 'Caixa', short: 'X', className: 'bank-caixa' },
+    itau: { label: 'Itaú', short: 'itau', className: 'bank-itau' },
+    bradesco: { label: 'Bradesco', short: 'B', className: 'bank-bradesco' },
+    inter: { label: 'Banco Inter', short: 'inter', className: 'bank-inter' },
+    c6: { label: 'C6 Bank', short: 'C6', className: 'bank-c6' },
+    xp: { label: 'XP', short: 'XP', className: 'bank-xp' },
+    outra: { label: 'Outra', short: '•', className: 'bank-outra' }
+  };
+  const externalMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
     || (typeof window !== 'undefined' && window.PATRIMONIO_INSTITUTION_META)
     || {};
+  const allMeta = { ...localInstitutionMeta, ...externalMeta };
   const fallbackMeta = allMeta.outra || { label: 'Outra', short: '•', className: 'bank-outra' };
   const rawVisualId = String(card?.visualId || '').trim();
   let key = '';
