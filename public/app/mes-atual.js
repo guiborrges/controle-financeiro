@@ -1213,30 +1213,32 @@ function getUnifiedOutflowPaymentLabel(item, month = getCurrentMonth()) {
   return UNIFIED_OUTFLOW_METHOD_META[item.outputMethod]?.label || 'Saída';
 }
 
-function getUnifiedCardInstitutionMeta(card) {
+function getUnifiedCardInstitutionMeta(card, fallbackName = '') {
   const allMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
     || (typeof window !== 'undefined' && window.PATRIMONIO_INSTITUTION_META)
     || {};
-  if (!card) return { key: 'outra', meta: allMeta.outra || { label: 'Outra', short: '•', className: 'bank-outra' } };
-  const rawVisualId = String(card.visualId || '').trim();
+  const fallbackMeta = allMeta.outra || { label: 'Outra', short: '•', className: 'bank-outra' };
+  const rawVisualId = String(card?.visualId || '').trim();
   let key = '';
   if (rawVisualId.startsWith('institution:')) key = rawVisualId.slice(12);
   else if (Object.prototype.hasOwnProperty.call(allMeta, rawVisualId)) key = rawVisualId;
   if (!key) {
-    const cardLookup = normalizeLegacyLookup(card.name || '');
+    const cardLookup = normalizeLegacyLookup(card?.name || fallbackName || '');
     const found = Object.entries(allMeta).find(([metaKey, meta]) => (
       normalizeLegacyLookup(metaKey) === cardLookup
       || normalizeLegacyLookup(meta?.label || '') === cardLookup
+      || (cardLookup && normalizeLegacyLookup(metaKey) && cardLookup.includes(normalizeLegacyLookup(metaKey)))
+      || (cardLookup && normalizeLegacyLookup(meta?.label || '') && cardLookup.includes(normalizeLegacyLookup(meta.label)))
     ));
     if (found) key = found[0];
   }
-  const meta = allMeta[key] || allMeta.outra || { label: 'Outra', short: '•', className: 'bank-outra' };
+  const meta = allMeta[key] || fallbackMeta;
   return { key: key || 'outra', meta };
 }
 
 function renderUnifiedCardLabel(card, fallbackName = 'Cartão') {
   const name = String(card?.name || fallbackName || 'Cartão').trim() || 'Cartão';
-  const { meta } = getUnifiedCardInstitutionMeta(card);
+  const { meta } = getUnifiedCardInstitutionMeta(card, name);
   const short = String(meta?.short || '•').trim() || '•';
   const className = String(meta?.className || 'bank-outra').trim() || 'bank-outra';
   return `<span class="unified-card-inline-label"><span class="smart-icon-badge smart-bank-badge ${className}" aria-hidden="true">${escapeHtml(short)}</span><span>${escapeHtml(name)}</span></span>`;
