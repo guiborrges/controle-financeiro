@@ -240,8 +240,8 @@ function listUserBackups(userId) {
 }
 
 function pruneOldBackups(user) {
+  if (MAX_BACKUPS_PER_USER <= 0) return [];
   const backups = listUserBackups(user.id);
-  if (MAX_BACKUPS_PER_USER <= 0) return backups;
   if (backups.length <= MAX_BACKUPS_PER_USER) return backups;
   const sorted = backups.slice().sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
   const keep = sorted.slice(0, MAX_BACKUPS_PER_USER);

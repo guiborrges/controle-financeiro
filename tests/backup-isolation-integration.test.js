@@ -136,6 +136,42 @@ test('backup retention is non-pruning by default (no loss on inactivity policy)'
   assert.equal(out.count, 7);
 });
 
+test('backup creation does not scan old backups when retention is unlimited', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-no-prune-scan-'));
+  const script = `
+    const fs = require('fs');
+    const path = require('path');
+    const { createUser } = require('./server/user-store.js');
+    const { writeUserAppState } = require('./server/app-state-store.js');
+    const { createUserBackup, USER_BACKUP_ROOT } = require('./server/backup-store.js');
+    const user = createUser({
+      id: 'u_no_prune_scan',
+      username: 'unoprune',
+      email: 'unoprune@test.local',
+      fullName: 'User No Prune Scan',
+      displayName: 'NoPrune',
+      passwordHash: 'hash'
+    });
+    const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
+    writeUserAppState(user.id, { finStateSchemaVersion: '3', finData: [] }, key);
+    createUserBackup(user.id, { type: 'manual', note: 'seed' });
+    const userBackupDir = fs.readdirSync(USER_BACKUP_ROOT)
+      .map(name => path.join(USER_BACKUP_ROOT, name))
+      .find(name => name.endsWith('__' + user.id));
+    const indexPath = path.join(userBackupDir, 'index.json');
+    fs.writeFileSync(indexPath, JSON.stringify({
+      backups: [
+        { id: '../invalid-old-backup-id', createdAt: '2026-01-01T00:00:00.000Z', type: 'manual' }
+      ],
+      logs: []
+    }), 'utf8');
+    const backup = createUserBackup(user.id, { type: 'manual', note: 'new backup' });
+    console.log(JSON.stringify({ created: !!backup?.id }));
+  `;
+  const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot, FIN_MAX_BACKUPS_PER_USER: '0' });
+  assert.equal(out.created, true);
+});
+
 test('backup restore performs full replacement (no merge residues)', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-replace-'));
   const script = `
