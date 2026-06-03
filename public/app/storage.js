@@ -54,6 +54,7 @@ let needsFlushAgain = false;
 let flushSequence = 0;
 let pendingFlushReason = 'unknown';
 let storageSyncEventsBound = false;
+const STORAGE_FLUSH_DEBOUNCE_MS = 1200;
 const storageTabId = (() => {
   try {
     return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -346,7 +347,7 @@ function scheduleServerStorageFlush(reason = 'unknown') {
   storageFlushTimer = window.setTimeout(async () => {
     storageFlushTimer = null;
     await flushServerStorage(true, pendingFlushReason || 'timer');
-  }, 250);
+  }, STORAGE_FLUSH_DEBOUNCE_MS);
 }
 
 async function initializeServerStorage(options = {}) {

@@ -166,6 +166,16 @@ function ensureUserDataLocation(userId) {
   ensureUserDataDir();
   const desiredDir = getDesiredUserDataDir(userId);
   const desiredFile = path.join(desiredDir, 'state.json');
+  const locationCacheKey = String(userId || '');
+  const cachedLocation = userDataLocationCache.get(locationCacheKey);
+  if (
+    cachedLocation
+    && cachedLocation.dir === desiredDir
+    && (Date.now() - cachedLocation.ts) < USER_DATA_LOCATION_CACHE_TTL_MS
+    && fs.existsSync(desiredFile)
+  ) {
+    return desiredDir;
+  }
   fs.mkdirSync(desiredDir, { recursive: true });
 
   if (!fs.existsSync(desiredFile)) {
@@ -196,10 +206,12 @@ function ensureUserDataLocation(userId) {
     } catch {}
   });
 
+  userDataLocationCache.set(locationCacheKey, { dir: desiredDir, ts: Date.now() });
   return desiredDir;
 }
 
 function syncUserAppStateLocation(userId) {
+  clearUserDataLocationCache(userId);
   const dir = ensureUserDataLocation(userId);
   const filePath = path.join(dir, 'state.json');
   if (fs.existsSync(filePath)) {
@@ -226,7 +238,7 @@ function hasUserAppState(userId) {
 }
 
 function readUserAppState(userId, encryptionKey = '') {
-  const cacheKey = `${String(userId || '')}|${String(encryptionKey || '')}`;
+  const cacheKey = getStateReadCacheKey(userId, encryptionKey);
   const cached = appStateReadCache.get(cacheKey);
   if (cached && (Date.now() - cached.ts) < APP_STATE_READ_CACHE_TTL_MS) {
     return cached.payload;
@@ -252,12 +264,12 @@ function readUserAppState(userId, encryptionKey = '') {
       ...parsed,
       state: decryptDataWithKey(parsed.state, encryptionKey)
     };
-    appStateReadCache.set(cacheKey, { ts: Date.now(), payload });
+    setUserStateReadCache(userId, encryptionKey, payload);
     const elapsedMs = Date.now() - startedAt;
     if (elapsedMs > 100) console.warn(`[perf] app-state read lento: ${elapsedMs}ms para userId=${userId}`);
     return payload;
   }
-  appStateReadCache.set(cacheKey, { ts: Date.now(), payload: parsed });
+  setUserStateReadCache(userId, encryptionKey, parsed);
   const elapsedMs = Date.now() - startedAt;
   if (elapsedMs > 100) console.warn(`[perf] app-state read lento: ${elapsedMs}ms para userId=${userId}`);
   return parsed;
@@ -271,7 +283,33 @@ function ensureOwnedStatePayload(payload, userId) {
 
 const MAX_STATE_BYTES = 15 * 1024 * 1024;
 const APP_STATE_READ_CACHE_TTL_MS = 30 * 1000;
+const USER_DATA_LOCATION_CACHE_TTL_MS = 60 * 1000;
 const appStateReadCache = new Map();
+const userDataLocationCache = new Map();
+
+function getStateReadCacheKey(userId, encryptionKey = '') {
+  return `${String(userId || '')}|${String(encryptionKey || '')}`;
+}
+
+function clearUserStateReadCache(userId) {
+  const prefix = `${String(userId || '')}|`;
+  for (const key of appStateReadCache.keys()) {
+    if (key.startsWith(prefix)) appStateReadCache.delete(key);
+  }
+}
+
+function setUserStateReadCache(userId, encryptionKey, payload) {
+  appStateReadCache.set(getStateReadCacheKey(userId, encryptionKey), { ts: Date.now(), payload });
+}
+
+function clearUserDataLocationCache(userId) {
+  userDataLocationCache.delete(String(userId || ''));
+}
+
+function clearUserAppStateCache(userId) {
+  clearUserStateReadCache(userId);
+  clearUserDataLocationCache(userId);
+}
 
 function sanitizeStateForStorage(state) {
   const base = state && typeof state === 'object' && !Array.isArray(state)
@@ -316,9 +354,11 @@ function writeUserAppState(userId, state, encryptionKey = '') {
     state: serializedState
   };
   writeJsonFileAtomic(filePath, payload);
-  for (const key of appStateReadCache.keys()) {
-    if (key.startsWith(`${String(userId || '')}|`)) appStateReadCache.delete(key);
-  }
+  clearUserStateReadCache(userId);
+  setUserStateReadCache(userId, encryptionKey, {
+    ...payload,
+    state: sanitizedState
+  });
   return payload;
 }
 
@@ -338,9 +378,8 @@ function deleteUserAppState(userId) {
       removed = true;
     } catch {}
   }
-  for (const key of appStateReadCache.keys()) {
-    if (key.startsWith(`${String(userId || '')}|`)) appStateReadCache.delete(key);
-  }
+  clearUserStateReadCache(userId);
+  clearUserDataLocationCache(userId);
   return removed;
 }
 
@@ -608,6 +647,7 @@ module.exports = {
   hasUserAppState,
   readUserAppState,
   writeUserAppState,
+  clearUserAppStateCache,
   deleteUserAppState,
   archiveDeletedUserAppState,
   purgeExpiredDeletedUserBackups,

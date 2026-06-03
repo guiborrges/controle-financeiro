@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { writeJsonFileAtomic } = require('./fs-atomic');
 
 const pkg = require('../package.json');
-const { getUserDataPath, getDesiredUserDataDir } = require('./app-state-store');
+const { getUserDataPath, getDesiredUserDataDir, clearUserAppStateCache } = require('./app-state-store');
 const { readUsersStore, writeUsersStore, findUserById, updateUser } = require('./user-store');
 const { resolveStoragePath } = require('./paths');
 
@@ -483,6 +483,7 @@ function restoreUserBackup(userId, backupId) {
   const targetFile = getUserDataPath(user.id);
   fs.mkdirSync(path.dirname(targetFile), { recursive: true });
   fs.copyFileSync(sourceFile, targetFile);
+  if (typeof clearUserAppStateCache === 'function') clearUserAppStateCache(user.id);
   const restoredIntegrity = validateBackupStateFile(targetFile, user.id);
   if (restoredIntegrity.status !== 'ok') {
     throw new Error('Falha de integridade apos restauracao do backup.');
