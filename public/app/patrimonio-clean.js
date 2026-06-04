@@ -1412,14 +1412,14 @@ function refreshPatrimonioUpdatePreview() {
   const diff = Number((target - current).toFixed(2));
   preview.style.display = '';
   if (Math.abs(diff) < 0.005) {
-    preview.textContent = Saldo atual j? est? em  (sem ajuste necess?rio).;
+    preview.textContent = `Saldo atual ja esta em ${fmt(current)} (sem ajuste necessario).`;
     return;
   }
   if (diff > 0) {
-    preview.textContent = Ser? lan?ado aporte autom?tico de  ( ? ).;
+    preview.textContent = `Sera lancado aporte automatico de ${fmt(diff)} (${fmt(current)} -> ${fmt(target)}).`;
     return;
   }
-  preview.textContent = Ser? lan?ada retirada autom?tica de  ( ? ).;
+  preview.textContent = `Sera lancada retirada automatica de ${fmt(Math.abs(diff))} (${fmt(current)} -> ${fmt(target)}).`;
 }
 function syncPatrimonioMovementModalVisibility() {
   const type = document.getElementById('patrimonioMovementType').value;
