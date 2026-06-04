@@ -58,7 +58,7 @@ function registerWithDeps(overrides = {}) {
 
 test('bootstrap returns stateRevision from persisted state', () => {
   const { app } = registerWithDeps({
-    readUserAppState: () => ({ state: { finData: [] }, updatedAt: '2026-04-18T10:30:00.000Z', encrypted: true, partitioned: true, partitionVersion: 2 })
+    readUserAppState: () => ({ state: { finData: [] }, updatedAt: '2026-04-18T10:30:00.000Z', encrypted: true, partitioned: true, partitionVersion: 3 })
   });
   const handler = app.routes.get('GET /api/app/bootstrap');
   const req = { session: { dataEncryptionKey: 'k' } };
@@ -169,11 +169,11 @@ test('bootstrap upgrades old partitioned state bundle to current partition versi
       updatedAt: '2026-04-18T10:30:00.000Z',
       encrypted: true,
       partitioned: true,
-      partitionVersion: 1
+      partitionVersion: 2
     }),
     writeUserAppState: (_id, state) => {
       wroteState = state;
-      return { updatedAt: '2026-04-18T10:37:00.000Z', partitionVersion: 2 };
+      return { updatedAt: '2026-04-18T10:37:00.000Z', partitionVersion: 3 };
     }
   });
   const handler = app.routes.get('GET /api/app/bootstrap');

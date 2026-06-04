@@ -167,8 +167,10 @@ function getFileSize(filePath) {
 function findMissingNestedPartitionFile(partsDir, partitionName, partFile) {
   if (partitionName !== 'months') return '';
   const partPayload = readJsonSafe(partFile, null);
-  if (partPayload?.format !== 'per-month-v1') return '';
-  const monthEntries = Array.isArray(partPayload.months) ? partPayload.months : [];
+  if (partPayload?.format !== 'per-month-v1' && partPayload?.format !== 'by-year-v1') return '';
+  const monthEntries = Array.isArray(partPayload.months)
+    ? partPayload.months
+    : (Array.isArray(partPayload.chunks) ? partPayload.chunks : []);
   const monthsDir = path.join(partsDir, 'months');
   const missing = monthEntries.find(entry => {
     const monthFile = path.join(monthsDir, path.basename(String(entry?.file || '')));

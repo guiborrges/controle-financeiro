@@ -71,7 +71,7 @@ function registerAppStateRoutes(app, deps) {
           state: recovered.state,
           updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
         };
-      } else if (!savedState.partitioned || Number(savedState.partitionVersion || 0) < 2) {
+      } else if (!savedState.partitioned || Number(savedState.partitionVersion || 0) < 3) {
         const rewritten = writeUserAppState(refreshedUser.id, savedState.state || {}, req.session?.dataEncryptionKey || '');
         savedState = {
           ...savedState,

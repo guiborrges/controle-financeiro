@@ -73,7 +73,11 @@ test('app-state writer stores state as partitioned bundle', () => {
     const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
     const state = {
       finStateSchemaVersion: '3',
-      finData: Array.from({ length: 3 }, (_, idx) => ({ id: 'm' + idx, outflows: [{ id: 'o' + idx }] })),
+      finData: [
+        { id: 'janeiro_2026', outflows: [{ id: 'o0' }] },
+        { id: 'fevereiro_2026', outflows: [{ id: 'o1' }] },
+        { id: 'janeiro_2027', outflows: [{ id: 'o2' }] }
+      ],
       finPatrimonioAccounts: [{ id: 'acc1', saldo: 100 }],
       finEsoData: [{ id: 'eso1' }],
       finCategoryEmojis: { MERCADO: '🛒' }
@@ -92,26 +96,30 @@ test('app-state writer stores state as partitioned bundle', () => {
       manifestHasEncryptedBlob: typeof manifest.state === 'string',
       hasMonthsPart: partFiles.includes('months.json'),
       monthsFormat: monthsManifest.format,
-      monthFileCount: monthFiles.length,
-      firstMonthFileEncrypted: JSON.parse(fs.readFileSync(path.join(partsDir, 'months', monthFiles[0]), 'utf8')).encrypted === true,
+      chunkFileCount: monthFiles.length,
+      firstChunkFileEncrypted: JSON.parse(fs.readFileSync(path.join(partsDir, 'months', monthFiles[0]), 'utf8')).encrypted === true,
+      chunkCount: monthsManifest.chunkCount,
       hasPatrimonioPart: partFiles.includes('patrimonio.json'),
       hasEsoPart: partFiles.includes('eso.json'),
       monthCount: loaded.state.finData.length,
+      monthOrder: loaded.state.finData.map(m => m.id).join('|'),
       accountId: loaded.state.finPatrimonioAccounts[0].id,
       emoji: loaded.state.finCategoryEmojis.MERCADO
     }));
   `;
   const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
   assert.equal(out.partitioned, true);
-  assert.equal(out.partitionVersion, 2);
+  assert.equal(out.partitionVersion, 3);
   assert.equal(out.manifestHasEncryptedBlob, false);
   assert.equal(out.hasMonthsPart, true);
-  assert.equal(out.monthsFormat, 'per-month-v1');
-  assert.equal(out.monthFileCount, 3);
-  assert.equal(out.firstMonthFileEncrypted, true);
+  assert.equal(out.monthsFormat, 'by-year-v1');
+  assert.equal(out.chunkFileCount, 2);
+  assert.equal(out.chunkCount, 2);
+  assert.equal(out.firstChunkFileEncrypted, true);
   assert.equal(out.hasPatrimonioPart, true);
   assert.equal(out.hasEsoPart, true);
   assert.equal(out.monthCount, 3);
+  assert.equal(out.monthOrder, 'janeiro_2026|fevereiro_2026|janeiro_2027');
   assert.equal(out.accountId, 'acc1');
   assert.equal(out.emoji, '🛒');
 });
