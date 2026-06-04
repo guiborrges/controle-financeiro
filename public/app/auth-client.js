@@ -3,7 +3,7 @@ let profileCache = null;
 let autoExitBackupBound = false;
 let autoExitBackupInFlight = false;
 let autoExitBackupLastAt = 0;
-const AUTO_EXIT_BACKUP_MIN_INTERVAL_MS = 60 * 1000;
+const AUTO_EXIT_BACKUP_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const LOGOUT_STEP_TIMEOUT_MS = 1500;
 
 function buildOperationToken(prefix = 'op') {
@@ -98,10 +98,6 @@ function bindAutoExitBackupLifecycle() {
   autoExitBackupBound = true;
   window.addEventListener('pagehide', () => {
     requestAutoExitBackup('pagehide');
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'hidden') return;
-    requestAutoExitBackup('hidden');
   });
   window.addEventListener('beforeunload', () => {
     requestAutoExitBackup('beforeunload');

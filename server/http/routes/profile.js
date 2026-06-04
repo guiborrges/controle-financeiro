@@ -71,7 +71,7 @@ function registerProfileRoutes(app, deps) {
       return res.status(403).json({ message: 'Token CSRF invalido.' });
     }
 
-    const minIntervalMs = Math.max(5_000, Number(process.env.FIN_AUTO_EXIT_BACKUP_MIN_MS || 60_000) || 60_000);
+    const minIntervalMs = Math.max(5_000, Number(process.env.FIN_AUTO_EXIT_BACKUP_MIN_MS || 21_600_000) || 21_600_000);
     const lastAutoExitAtMs = Date.parse(String(user?.backupStats?.lastAutoExitBackupAt || ''));
     const nowMs = Date.now();
     if (Number.isFinite(lastAutoExitAtMs) && (nowMs - lastAutoExitAtMs) < minIntervalMs) {

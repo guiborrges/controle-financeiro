@@ -144,6 +144,40 @@ test('auto-exit backup respects cooldown and skips duplicate triggers', () => {
   assert.equal(res.payload?.skipped, true);
 });
 
+test('auto-exit backup default cooldown skips triggers within six hours', () => {
+  let created = 0;
+  const twoHoursAgo = new Date(Date.now() - (2 * 60 * 60 * 1000)).toISOString();
+  const { app } = registerWithDeps({
+    getAuthenticatedUser: () => ({
+      id: 'u1',
+      backupStats: {
+        lastAutoExitBackupAt: twoHoursAgo
+      }
+    }),
+    createUserBackup: () => {
+      created += 1;
+      return {
+        id: 'b_auto',
+        createdAt: '2026-04-22T00:00:00.000Z',
+        type: 'automatic'
+      };
+    }
+  });
+  const handler = app.routes.get('POST /api/backups/auto-exit');
+  const req = createReq({
+    body: {
+      csrfToken: 'csrf-token',
+      reason: 'pagehide'
+    }
+  });
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(created, 0);
+  assert.equal(res.payload?.ok, true);
+  assert.equal(res.payload?.skipped, true);
+});
+
 test('auto-exit backup rejects invalid csrf token', () => {
   const { app } = registerWithDeps();
   const handler = app.routes.get('POST /api/backups/auto-exit');
@@ -157,4 +191,3 @@ test('auto-exit backup rejects invalid csrf token', () => {
   assert.equal(res.statusCode, 403);
   assert.match(String(res.payload?.message || ''), /csrf/i);
 });
-
