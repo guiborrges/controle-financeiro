@@ -42,6 +42,18 @@ function registerAppStateRoutes(app, deps) {
     return base !== current;
   }
 
+  function getFinDataCount(state) {
+    return Array.isArray(state?.finData) ? state.finData.length : 0;
+  }
+
+  function hasDangerousMonthDrop(previousState, nextState) {
+    const previousCount = getFinDataCount(previousState);
+    const nextCount = getFinDataCount(nextState);
+    if (previousCount < 10) return false;
+    if (nextCount >= previousCount - 2) return false;
+    return nextCount < Math.ceil(previousCount * 0.8);
+  }
+
   app.get('/api/app/bootstrap', noStore, requireAuth, (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
@@ -146,8 +158,9 @@ function registerAppStateRoutes(app, deps) {
     
     try {
       // ✅ NOVO: Validar conflito APENAS se baseRevision não estiver vazio
+      let currentState = null;
       if (baseRevision) {
-        const currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
+        currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
         const currentRevision = String(currentState?.updatedAt || '').trim();
         
         if (DEBUG_APP_STATE) {
@@ -172,6 +185,28 @@ function registerAppStateRoutes(app, deps) {
             currentRevision
           });
         }
+      }
+
+      if (!currentState) {
+        currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
+      }
+      if (hasDangerousMonthDrop(currentState?.state, state)) {
+        const previousCount = getFinDataCount(currentState?.state);
+        const nextCount = getFinDataCount(state);
+        console.warn('[app-state] Queda brusca de meses bloqueada', {
+          ...buildRequestContext(req, user.id),
+          userId: user.id,
+          previousCount,
+          nextCount,
+          baseRevision
+        });
+        return res.status(409).json({
+          message: 'Salvamento bloqueado para proteger seus dados: a aba tentou salvar uma versao com muitos meses a menos. Recarregue a pagina.',
+          conflict: true,
+          currentRevision: String(currentState?.updatedAt || '').trim(),
+          previousMonthCount: previousCount,
+          nextMonthCount: nextCount
+        });
       }
 
       const saved = writeUserAppState(user.id, state, req.session?.dataEncryptionKey || '');

@@ -116,6 +116,34 @@ test('put app-state accepts matching baseRevision and persists', () => {
   assert.equal(wrote, true);
 });
 
+test('put app-state blocks dangerous month count drop', () => {
+  let wrote = false;
+  const existingMonths = Array.from({ length: 74 }, (_item, index) => ({ id: `mes_${index + 1}` }));
+  const reducedMonths = Array.from({ length: 24 }, (_item, index) => ({ id: `mes_${index + 1}` }));
+  const { app } = registerWithDeps({
+    readUserAppState: () => ({ state: { finData: existingMonths }, updatedAt: '2026-04-18T10:30:00.000Z', encrypted: true }),
+    writeUserAppState: () => {
+      wrote = true;
+      return { updatedAt: '2026-04-18T10:31:00.000Z' };
+    }
+  });
+  const handler = app.routes.get('PUT /api/app-state');
+  const req = {
+    session: { dataEncryptionKey: 'k' },
+    body: {
+      state: { finData: reducedMonths },
+      baseRevision: '2026-04-18T10:30:00.000Z'
+    }
+  };
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.payload.conflict, true);
+  assert.equal(res.payload.previousMonthCount, 74);
+  assert.equal(res.payload.nextMonthCount, 24);
+  assert.equal(wrote, false);
+});
+
 test('bootstrap returns rewritten revision when bootstrap recovery rewrites state', () => {
   const { app } = registerWithDeps({
     readUserAppState: () => ({
