@@ -171,6 +171,75 @@ test('backup retention can be lowered by environment limit', () => {
   assert.equal(out.count, 3);
 });
 
+test('backup retention preserves monthly anchors beyond regular limit', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-monthly-anchors-'));
+  const script = `
+    const fs = require('fs');
+    const path = require('path');
+    const { createUser } = require('./server/user-store.js');
+    const { writeUserAppState } = require('./server/app-state-store.js');
+    const {
+      createUserBackup,
+      listUserBackups,
+      pruneUserBackups,
+      USER_BACKUP_ROOT,
+      MAX_BACKUPS_PER_USER,
+      MAX_MONTHLY_BACKUPS_PER_USER
+    } = require('./server/backup-store.js');
+    const user = createUser({
+      id: 'u_monthly_anchor',
+      username: 'umonthlyanchor',
+      email: 'umonthlyanchor@test.local',
+      fullName: 'User Monthly Anchor',
+      displayName: 'MonthlyAnchor',
+      passwordHash: 'hash'
+    });
+    const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
+    writeUserAppState(user.id, { finStateSchemaVersion: '3', finData: [] }, key);
+    const seed = createUserBackup(user.id, { type: 'manual', note: 'seed' });
+    const userBackupDir = fs.readdirSync(USER_BACKUP_ROOT)
+      .map(name => path.join(USER_BACKUP_ROOT, name))
+      .find(name => name.endsWith('__' + user.id));
+    const seedState = path.join(userBackupDir, 'items', seed.id, 'state.json');
+    const itemsDir = path.join(userBackupDir, 'items');
+    const entries = [
+      ['b_jun_30', '2026-06-30T22:00:00.000Z', 'jun30'],
+      ['b_jun_29', '2026-06-29T22:00:00.000Z', 'jun29'],
+      ['b_jun_28', '2026-06-28T22:00:00.000Z', 'jun28'],
+      ['b_may_31', '2026-05-31T22:00:00.000Z', 'may31'],
+      ['b_apr_30', '2026-04-30T22:00:00.000Z', 'apr30'],
+      ['b_mar_31', '2026-03-31T22:00:00.000Z', 'mar31']
+    ];
+    for (const [id] of entries) {
+      const dir = path.join(itemsDir, id);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.copyFileSync(seedState, path.join(dir, 'state.json'));
+    }
+    fs.writeFileSync(path.join(userBackupDir, 'index.json'), JSON.stringify({
+      backups: entries.map(([id, createdAt, note]) => ({ id, createdAt, note, type: 'manual' })),
+      logs: []
+    }), 'utf8');
+    pruneUserBackups(user.id);
+    const backups = listUserBackups(user.id);
+    const notes = backups.map(item => item.note).sort();
+    console.log(JSON.stringify({
+      count: backups.length,
+      max: MAX_BACKUPS_PER_USER,
+      monthlyMax: MAX_MONTHLY_BACKUPS_PER_USER,
+      notes
+    }));
+  `;
+  const out = runNodeScript(script, {
+    FIN_STORAGE_DIR: tempRoot,
+    FIN_MAX_BACKUPS_PER_USER: '3',
+    FIN_MONTHLY_BACKUPS_PER_USER: '2'
+  });
+  assert.equal(out.max, 3);
+  assert.equal(out.monthlyMax, 2);
+  assert.equal(out.count, 5);
+  assert.deepEqual(out.notes, ['apr30', 'jun28', 'jun29', 'jun30', 'may31']);
+});
+
 test('login registration does not create automatic backups', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-login-no-auto-'));
   const script = `

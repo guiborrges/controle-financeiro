@@ -14,6 +14,11 @@ const MAX_BACKUPS_PER_USER = Math.max(
   1,
   Number(process.env.FIN_MAX_BACKUPS_PER_USER || DEFAULT_MAX_BACKUPS_PER_USER) || DEFAULT_MAX_BACKUPS_PER_USER
 );
+const DEFAULT_MONTHLY_BACKUPS_PER_USER = 12;
+const MAX_MONTHLY_BACKUPS_PER_USER = Math.max(
+  0,
+  Number(process.env.FIN_MONTHLY_BACKUPS_PER_USER || DEFAULT_MONTHLY_BACKUPS_PER_USER) || DEFAULT_MONTHLY_BACKUPS_PER_USER
+);
 const MAX_LOG_ENTRIES = 80;
 const BACKUP_ID_PATTERN = /^[a-zA-Z0-9_-]{6,120}$/;
 const AUTO_BACKUP_MIN_INTERVAL_MS = Math.max(0, Number(process.env.FIN_AUTO_BACKUP_MIN_INTERVAL_MS || (30 * 60 * 1000)) || 0);
@@ -243,12 +248,37 @@ function listUserBackups(userId) {
   return nextBackups;
 }
 
+function getBackupMonthKey(backup) {
+  const time = Date.parse(String(backup?.createdAt || ''));
+  if (!Number.isFinite(time)) return '';
+  const date = new Date(time);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function selectMonthlyBackupAnchors(sortedBackups, excludedMonthKeys = new Set()) {
+  if (MAX_MONTHLY_BACKUPS_PER_USER <= 0) return [];
+  const selected = [];
+  const seenMonthKeys = new Set(excludedMonthKeys);
+  for (const backup of sortedBackups) {
+    const monthKey = getBackupMonthKey(backup);
+    if (!monthKey || seenMonthKeys.has(monthKey)) continue;
+    seenMonthKeys.add(monthKey);
+    selected.push(backup);
+    if (selected.length >= MAX_MONTHLY_BACKUPS_PER_USER) break;
+  }
+  return selected;
+}
+
 function pruneOldBackups(user) {
   const backups = listUserBackups(user.id);
   if (backups.length <= MAX_BACKUPS_PER_USER) return backups;
   const sorted = backups.slice().sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
-  const keep = sorted.slice(0, MAX_BACKUPS_PER_USER);
-  const remove = sorted.slice(MAX_BACKUPS_PER_USER);
+  const regularKeep = sorted.slice(0, MAX_BACKUPS_PER_USER);
+  const regularMonthKeys = new Set(regularKeep.map(getBackupMonthKey).filter(Boolean));
+  const monthlyKeep = selectMonthlyBackupAnchors(sorted, regularMonthKeys);
+  const keepIds = new Set([...regularKeep, ...monthlyKeep].map(item => item.id));
+  const keep = sorted.filter(item => keepIds.has(item.id));
+  const remove = sorted.filter(item => !keepIds.has(item.id));
   const pruneLogs = [];
   remove.forEach(item => {
     try {
@@ -554,6 +584,7 @@ function listDeveloperUsers() {
 module.exports = {
   USER_BACKUP_ROOT,
   MAX_BACKUPS_PER_USER,
+  MAX_MONTHLY_BACKUPS_PER_USER,
   listUserBackups,
   getUserBackupLogs,
   createUserBackup,
