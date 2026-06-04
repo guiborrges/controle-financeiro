@@ -498,9 +498,10 @@ function nav(page) {
   if (typeof closeNotificationsPopover === 'function') closeNotificationsPopover();
   activePage = page;
   if (page === 'mes') {
-    currentMonthId = getCurrentRealMonthId(true);
+    if (!currentMonthId || !data.some(month => month?.id === currentMonthId)) {
+      currentMonthId = getDefaultMonthId();
+    }
     buildMonthSelect();
-    window.__rotateMonthMessage = true;
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');

@@ -794,13 +794,56 @@ function init() {
     end: currentMonthId
   });
   restoreUIState();
-  currentMonthId = getCurrentRealMonthId(true);
+  currentMonthId = resolveStartupMonthId(currentMonthId);
   loadDashSeriesSelectionState();
   saveDashSeriesSelection();
   if (typeof ensurePatrimonioData === 'function') ensurePatrimonioData();
   buildMonthSelect();
   renderTitles();
   nav(activePage);
+}
+
+function getStartupMonthContentScore(month) {
+  if (!month || typeof month !== 'object') return 0;
+  const countValuedItems = (items, amountKeys) => (Array.isArray(items) ? items : []).reduce((acc, item) => {
+    if (!item || typeof item !== 'object') return acc;
+    const hasLabel = Object.values(item).some(value => typeof value === 'string' && value.trim());
+    const amount = amountKeys.reduce((max, key) => Math.max(max, Math.abs(Number(item?.[key] || 0) || 0)), 0);
+    return acc + ((amount > 0 || hasLabel) ? 1 : 0);
+  }, 0);
+  const countPositiveAmounts = (items, amountKeys) => (Array.isArray(items) ? items : []).reduce((acc, item) => {
+    const amount = amountKeys.reduce((max, key) => Math.max(max, Math.abs(Number(item?.[key] || 0) || 0)), 0);
+    return acc + (amount > 0 ? 1 : 0);
+  }, 0);
+  return countValuedItems(month.outflows, ['amount', 'value', 'valor'])
+    + countValuedItems(month.despesas, ['valor'])
+    + countValuedItems(month.gastosVar, ['valor'])
+    + countValuedItems(month.renda, ['valor'])
+    + countValuedItems(month.projetos, ['valor'])
+    + countValuedItems(month.financialGoals, ['valor'])
+    + countPositiveAmounts(month.cardBills, ['amount', 'forecastAmount'])
+    + Object.keys(month.dailyGoals || {}).length;
+}
+
+function resolveStartupMonthId(restoredMonthId) {
+  const fallbackId = getDefaultMonthId();
+  const selectedId = data.some(month => month?.id === restoredMonthId) ? restoredMonthId : fallbackId;
+  const currentRealId = typeof getCurrentRealMonthId === 'function' ? getCurrentRealMonthId(false) : '';
+  if (!selectedId || selectedId !== currentRealId) return selectedId;
+  const currentIndex = data.findIndex(month => month?.id === selectedId);
+  if (currentIndex <= 0) return selectedId;
+  const currentMonth = data[currentIndex];
+  const currentScore = getStartupMonthContentScore(currentMonth);
+  const previousMonth = data
+    .slice(0, currentIndex)
+    .reverse()
+    .find(month => getStartupMonthContentScore(month) > 0);
+  if (!previousMonth) return selectedId;
+  const previousScore = getStartupMonthContentScore(previousMonth);
+  if (currentScore <= 2 && previousScore >= currentScore + 5) {
+    return previousMonth.id || selectedId;
+  }
+  return selectedId;
 }
 
 function save(forceFlush = false) {
