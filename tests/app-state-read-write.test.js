@@ -64,6 +64,48 @@ test('app-state encrypted read/write roundtrip works in isolated storage', () =>
   assert.equal(out.firstMonthId, '2026-05');
 });
 
+test('app-state writer stores state as partitioned bundle', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-state-partition-'));
+  const script = `
+    const fs = require('fs');
+    const path = require('path');
+    const { writeUserAppState, readUserAppState, getUserDataPath } = require('./server/app-state-store.js');
+    const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
+    const state = {
+      finStateSchemaVersion: '3',
+      finData: Array.from({ length: 3 }, (_, idx) => ({ id: 'm' + idx, outflows: [{ id: 'o' + idx }] })),
+      finPatrimonioAccounts: [{ id: 'acc1', saldo: 100 }],
+      finEsoData: [{ id: 'eso1' }],
+      finCategoryEmojis: { MERCADO: '🛒' }
+    };
+    writeUserAppState('u_partition', state, key);
+    const statePath = getUserDataPath('u_partition');
+    const manifest = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    const partsDir = path.join(path.dirname(statePath), 'state-parts');
+    const partFiles = fs.readdirSync(partsDir).sort();
+    const loaded = readUserAppState('u_partition', key);
+    console.log(JSON.stringify({
+      partitioned: manifest.partitioned === true,
+      manifestHasEncryptedBlob: typeof manifest.state === 'string',
+      hasMonthsPart: partFiles.includes('months.json'),
+      hasPatrimonioPart: partFiles.includes('patrimonio.json'),
+      hasEsoPart: partFiles.includes('eso.json'),
+      monthCount: loaded.state.finData.length,
+      accountId: loaded.state.finPatrimonioAccounts[0].id,
+      emoji: loaded.state.finCategoryEmojis.MERCADO
+    }));
+  `;
+  const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
+  assert.equal(out.partitioned, true);
+  assert.equal(out.manifestHasEncryptedBlob, false);
+  assert.equal(out.hasMonthsPart, true);
+  assert.equal(out.hasPatrimonioPart, true);
+  assert.equal(out.hasEsoPart, true);
+  assert.equal(out.monthCount, 3);
+  assert.equal(out.accountId, 'acc1');
+  assert.equal(out.emoji, '🛒');
+});
+
 test('app-state writer sanitizes invalid root payload to safe schema defaults', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-state-sanitize-'));
   const script = `

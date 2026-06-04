@@ -10,6 +10,43 @@ const { DEFAULT_FIN_STATE_SCHEMA_VERSION, resolveSchemaVersion } = require('./st
 const USER_DATA_DIR = resolveStoragePath('data', 'users');
 const DELETED_USER_BACKUP_DIR = resolveStoragePath('data', 'deleted-users');
 const ORPHAN_USER_ARCHIVE_DIR = resolveStoragePath('migration-backups', 'orphan-user-state');
+const PARTITIONED_STATE_VERSION = 1;
+const STATE_PARTS_DIR_NAME = 'state-parts';
+const STATE_PARTITIONS = {
+  months: ['finData'],
+  patrimonio: ['finPatrimonioAccounts', 'finPatrimonioMovements'],
+  eso: ['finEsoData'],
+  rules: [
+    'finCategoryRenameMap',
+    'finExpenseCategoryRules',
+    'finExpenseNameRenameMap',
+    'finExpensePaymentDateRules',
+    'finIncomeNameRenameMap',
+    'finCategoryColors',
+    'finCategoryEmojis'
+  ],
+  ui: [
+    'finTitles',
+    'finUIState',
+    'finDashSeriesSelection',
+    'finDashSeriesSelection_simples',
+    'finDashSeriesSelection_fixo',
+    'finDashSeriesSelectionVersion',
+    'finDashSeriesColors',
+    'finMonthSectionColors',
+    'finMonthSectionCollapsed',
+    'finDashMetricOrder',
+    'finDashboardWidgetOrder',
+    'finDashboardWidgetLayout',
+    'finDashboardLayoutVersion',
+    'finMesMetricOrder',
+    'finMesSectionOrder',
+    'finMonthCopyPreferences',
+    'finDataMigrationVersion',
+    'finResultMode'
+  ]
+};
+const PARTITION_KEY_SET = new Set(Object.values(STATE_PARTITIONS).flat());
 const parsedDeletedUserRetentionDays = Number(process.env.FIN_DELETED_USER_RETENTION_DAYS || 0);
 const DELETED_USER_RETENTION_MS = Number.isFinite(parsedDeletedUserRetentionDays) && parsedDeletedUserRetentionDays > 0
   ? parsedDeletedUserRetentionDays * 24 * 60 * 60 * 1000
@@ -82,6 +119,137 @@ function safeReadJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   } catch {
     return null;
+  }
+}
+
+function getStatePartsDirFromStateFile(stateFilePath) {
+  return path.join(path.dirname(stateFilePath), STATE_PARTS_DIR_NAME);
+}
+
+function getPartitionFileName(partitionName) {
+  return `${String(partitionName || '').replace(/[^a-z0-9_-]/gi, '_')}.json`;
+}
+
+function splitStateIntoPartitions(state) {
+  const source = state && typeof state === 'object' && !Array.isArray(state) ? state : {};
+  const partitions = {};
+  Object.entries(STATE_PARTITIONS).forEach(([partitionName, keys]) => {
+    const part = {};
+    keys.forEach(key => {
+      if (Object.prototype.hasOwnProperty.call(source, key)) part[key] = source[key];
+    });
+    partitions[partitionName] = part;
+  });
+  const core = {};
+  Object.entries(source).forEach(([key, value]) => {
+    if (!PARTITION_KEY_SET.has(key)) core[key] = value;
+  });
+  partitions.core = core;
+  return partitions;
+}
+
+function mergeStatePartitions(parts) {
+  const merged = {};
+  const ordered = ['core', ...Object.keys(STATE_PARTITIONS)];
+  ordered.forEach(partitionName => {
+    const part = parts?.[partitionName];
+    if (!part || typeof part !== 'object' || Array.isArray(part)) return;
+    Object.assign(merged, part);
+  });
+  return sanitizeStateForStorage(merged);
+}
+
+function serializePartitionState(partState, encryptionKey = '') {
+  return encryptionKey ? encryptDataWithKey(partState, encryptionKey) : partState;
+}
+
+function deserializePartitionState(partPayload, encryptionKey = '') {
+  if (!partPayload || typeof partPayload !== 'object') return {};
+  if (partPayload.encrypted === true) {
+    if (!encryptionKey) {
+      throw new Error('A chave de criptografia da sessão não está disponível.');
+    }
+    if (typeof partPayload.state !== 'string') {
+      throw new Error('Partição criptografada inválida.');
+    }
+    return decryptDataWithKey(partPayload.state, encryptionKey);
+  }
+  return partPayload.state && typeof partPayload.state === 'object' && !Array.isArray(partPayload.state)
+    ? partPayload.state
+    : {};
+}
+
+function computePayloadBytes(payload) {
+  return Buffer.byteLength(
+    typeof payload === 'string' ? payload : JSON.stringify(payload),
+    'utf8'
+  );
+}
+
+function readPartitionedState(manifest, stateFilePath, encryptionKey = '') {
+  const partsDir = getStatePartsDirFromStateFile(stateFilePath);
+  const partEntries = manifest?.parts && typeof manifest.parts === 'object' ? manifest.parts : {};
+  const parts = {};
+  for (const [partitionName, meta] of Object.entries(partEntries)) {
+    const fileName = String(meta?.file || getPartitionFileName(partitionName));
+    const partPath = path.join(partsDir, path.basename(fileName));
+    const partPayload = safeReadJson(partPath);
+    if (!partPayload) {
+      throw new Error(`Partição de estado ausente ou inválida: ${partitionName}`);
+    }
+    parts[partitionName] = deserializePartitionState(partPayload, encryptionKey);
+  }
+  return mergeStatePartitions(parts);
+}
+
+function writePartitionedState(dir, manifestBase, sanitizedState, encryptionKey = '') {
+  const partsDir = path.join(dir, STATE_PARTS_DIR_NAME);
+  fs.mkdirSync(partsDir, { recursive: true });
+  const statePartitions = splitStateIntoPartitions(sanitizedState);
+  const partsMeta = {};
+  let totalBytes = 0;
+
+  Object.entries(statePartitions).forEach(([partitionName, partState]) => {
+    const serializedState = serializePartitionState(partState, encryptionKey);
+    const partPayload = {
+      userId: manifestBase.userId,
+      updatedAt: manifestBase.updatedAt,
+      partition: partitionName,
+      encrypted: !!encryptionKey,
+      state: serializedState
+    };
+    const fileName = getPartitionFileName(partitionName);
+    const partPath = path.join(partsDir, fileName);
+    const size = computePayloadBytes(partPayload);
+    totalBytes += size;
+    writeJsonFileAtomic(partPath, partPayload);
+    partsMeta[partitionName] = {
+      file: fileName,
+      size,
+      encrypted: !!encryptionKey
+    };
+  });
+
+  return { partsMeta, totalBytes };
+}
+
+function copyStateBundle(sourceStateFile, targetStateFile) {
+  fs.mkdirSync(path.dirname(targetStateFile), { recursive: true });
+  fs.copyFileSync(sourceStateFile, targetStateFile);
+  const sourcePartsDir = getStatePartsDirFromStateFile(sourceStateFile);
+  const targetPartsDir = getStatePartsDirFromStateFile(targetStateFile);
+  if (fs.existsSync(targetPartsDir)) {
+    fs.rmSync(targetPartsDir, { recursive: true, force: true });
+  }
+  if (fs.existsSync(sourcePartsDir)) {
+    fs.cpSync(sourcePartsDir, targetPartsDir, { recursive: true });
+  }
+}
+
+function removeStatePartsForFile(stateFilePath) {
+  const partsDir = getStatePartsDirFromStateFile(stateFilePath);
+  if (fs.existsSync(partsDir)) {
+    fs.rmSync(partsDir, { recursive: true, force: true });
   }
 }
 
@@ -182,7 +350,7 @@ function ensureUserDataLocation(userId) {
     const migrationCandidates = listMigrationCandidateStateFiles(userId, desiredFile);
     const preferredFile = getPreferredStateFile(migrationCandidates);
     if (preferredFile && fs.existsSync(preferredFile)) {
-      fs.copyFileSync(preferredFile, desiredFile);
+      copyStateBundle(preferredFile, desiredFile);
     }
   }
 
@@ -256,6 +424,17 @@ function readUserAppState(userId, encryptionKey = '') {
     throw new Error(`Estado do usuário corrompido (falha de leitura JSON): ${parseMessage}`);
   }
   ensureOwnedStatePayload(parsed, userId);
+  if (parsed?.partitioned === true) {
+    const payload = {
+      ...parsed,
+      encrypted: !!parsed.encrypted,
+      state: readPartitionedState(parsed, filePath, encryptionKey)
+    };
+    setUserStateReadCache(userId, encryptionKey, payload);
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs > 100) console.warn(`[perf] app-state read lento: ${elapsedMs}ms para userId=${userId}`);
+    return payload;
+  }
   if (parsed?.encrypted === true && typeof parsed.state === 'string') {
     if (!encryptionKey) {
       throw new Error('A chave de criptografia da sessão não está disponível.');
@@ -333,26 +512,23 @@ function writeUserAppState(userId, state, encryptionKey = '') {
   const sanitizedState = sanitizeStateForStorage(state);
   const monthCount = Array.isArray(sanitizedState?.finData) ? sanitizedState.finData.length : 0;
   const schemaVersion = resolveSchemaVersion(sanitizedState?.finStateSchemaVersion || sanitizedState?.schemaVersion);
-  const serializedState = encryptionKey
-    ? encryptDataWithKey(sanitizedState, encryptionKey)
-    : sanitizedState;
-  const stateBytes = Buffer.byteLength(
-    typeof serializedState === 'string'
-      ? serializedState
-      : JSON.stringify(serializedState),
-    'utf8'
-  );
-  if (stateBytes > MAX_STATE_BYTES) {
-    throw new Error('Estado excede o limite de armazenamento permitido.');
-  }
   const payload = {
     userId,
     updatedAt: new Date().toISOString(),
     monthCount,
     schemaVersion,
     encrypted: !!encryptionKey,
-    state: serializedState
+    partitioned: true,
+    partitionVersion: PARTITIONED_STATE_VERSION,
+    state: null,
+    parts: {}
   };
+  const { partsMeta, totalBytes } = writePartitionedState(dir, payload, sanitizedState, encryptionKey);
+  payload.parts = partsMeta;
+  payload.totalSize = totalBytes;
+  if (totalBytes > MAX_STATE_BYTES) {
+    throw new Error('Estado excede o limite de armazenamento permitido.');
+  }
   writeJsonFileAtomic(filePath, payload);
   clearUserStateReadCache(userId);
   setUserStateReadCache(userId, encryptionKey, {
@@ -648,6 +824,7 @@ module.exports = {
   readUserAppState,
   writeUserAppState,
   clearUserAppStateCache,
+  copyStateBundle,
   deleteUserAppState,
   archiveDeletedUserAppState,
   purgeExpiredDeletedUserBackups,

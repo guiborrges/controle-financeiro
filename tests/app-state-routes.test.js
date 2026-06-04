@@ -58,7 +58,7 @@ function registerWithDeps(overrides = {}) {
 
 test('bootstrap returns stateRevision from persisted state', () => {
   const { app } = registerWithDeps({
-    readUserAppState: () => ({ state: { finData: [] }, updatedAt: '2026-04-18T10:30:00.000Z', encrypted: true })
+    readUserAppState: () => ({ state: { finData: [] }, updatedAt: '2026-04-18T10:30:00.000Z', encrypted: true, partitioned: true })
   });
   const handler = app.routes.get('GET /api/app/bootstrap');
   const req = { session: { dataEncryptionKey: 'k' } };
@@ -136,6 +136,29 @@ test('bootstrap returns rewritten revision when bootstrap recovery rewrites stat
   assert.equal(res.statusCode, 200);
   assert.equal(res.payload.stateRevision, '2026-04-18T10:35:00.000Z');
   assert.equal(res.payload.appState.finData.length, 2);
+});
+
+test('bootstrap migrates legacy monolithic state to partitioned storage', () => {
+  let wroteState = null;
+  const { app } = registerWithDeps({
+    readUserAppState: () => ({
+      state: { finData: [{ id: 'abril_2026' }] },
+      updatedAt: '2026-04-18T10:30:00.000Z',
+      encrypted: true,
+      partitioned: false
+    }),
+    writeUserAppState: (_id, state) => {
+      wroteState = state;
+      return { updatedAt: '2026-04-18T10:36:00.000Z' };
+    }
+  });
+  const handler = app.routes.get('GET /api/app/bootstrap');
+  const req = { session: { dataEncryptionKey: 'k' } };
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.stateRevision, '2026-04-18T10:36:00.000Z');
+  assert.equal(wroteState?.finData?.[0]?.id, 'abril_2026');
 });
 
 test('put app-state blocks second rapid save with stale revision', () => {

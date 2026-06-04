@@ -66,7 +66,15 @@ function registerAppStateRoutes(app, deps) {
         const rewritten = writeUserAppState(refreshedUser.id, recovered.state || {}, req.session?.dataEncryptionKey || '');
         savedState = {
           ...savedState,
+          partitioned: true,
           state: recovered.state,
+          updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
+        };
+      } else if (!savedState.partitioned) {
+        const rewritten = writeUserAppState(refreshedUser.id, savedState.state || {}, req.session?.dataEncryptionKey || '');
+        savedState = {
+          ...savedState,
+          partitioned: true,
           updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
         };
       } else if (!savedState.encrypted && req.session?.dataEncryptionKey) {

@@ -309,3 +309,49 @@ test('backup restore performs full replacement (no merge residues)', () => {
   assert.equal(out.hasCarroMeta, false);
   assert.equal(out.hasGhostField, false);
 });
+
+test('backup create and restore preserve partitioned state bundles', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-partitioned-'));
+  const script = `
+    const fs = require('fs');
+    const path = require('path');
+    const { createUser } = require('./server/user-store.js');
+    const { writeUserAppState, readUserAppState } = require('./server/app-state-store.js');
+    const { createUserBackup, listUserBackups, restoreUserBackup } = require('./server/backup-store.js');
+    const user = createUser({
+      id: 'u_partition_backup',
+      username: 'upartitionbackup',
+      email: 'upartitionbackup@test.local',
+      fullName: 'User Partition Backup',
+      displayName: 'PartitionBackup',
+      passwordHash: 'hash'
+    });
+    const key = Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1)).toString('base64');
+    writeUserAppState(user.id, {
+      finStateSchemaVersion: '3',
+      finData: [{ id: '2026-04', nome: 'ABRIL 2026' }],
+      finPatrimonioAccounts: [{ id: 'acc-partitioned', saldo: 123 }],
+      finEsoData: [{ id: 'eso-partitioned' }]
+    }, key);
+    const backup = createUserBackup(user.id, { type: 'manual', note: 'partitioned' });
+    const listed = listUserBackups(user.id).find(item => item.id === backup.id);
+    const backupStatePath = listed.path;
+    const hasBackupParts = fs.existsSync(path.join(path.dirname(backupStatePath), 'state-parts', 'months.json'));
+    writeUserAppState(user.id, { finStateSchemaVersion: '3', finData: [{ id: '2026-05' }] }, key);
+    restoreUserBackup(user.id, backup.id);
+    const restored = readUserAppState(user.id, key);
+    console.log(JSON.stringify({
+      integrity: listed.integrityStatus,
+      hasBackupParts,
+      monthId: restored.state.finData[0].id,
+      accountId: restored.state.finPatrimonioAccounts[0].id,
+      esoId: restored.state.finEsoData[0].id
+    }));
+  `;
+  const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
+  assert.equal(out.integrity, 'ok');
+  assert.equal(out.hasBackupParts, true);
+  assert.equal(out.monthId, '2026-04');
+  assert.equal(out.accountId, 'acc-partitioned');
+  assert.equal(out.esoId, 'eso-partitioned');
+});

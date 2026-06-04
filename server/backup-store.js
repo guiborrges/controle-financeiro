@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { writeJsonFileAtomic } = require('./fs-atomic');
 
 const pkg = require('../package.json');
-const { getUserDataPath, getDesiredUserDataDir, clearUserAppStateCache } = require('./app-state-store');
+const { getUserDataPath, getDesiredUserDataDir, clearUserAppStateCache, copyStateBundle } = require('./app-state-store');
 const { readUsersStore, writeUsersStore, findUserById, updateUser } = require('./user-store');
 const { resolveStoragePath } = require('./paths');
 
@@ -118,9 +118,39 @@ function computeFileChecksum(filePath) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
+function getStatePartsDirFromStateFile(stateFilePath) {
+  return path.join(path.dirname(stateFilePath), 'state-parts');
+}
+
+function computeStateBundleChecksum(filePath) {
+  const hash = crypto.createHash('sha256');
+  hash.update(fs.readFileSync(filePath));
+  const parsed = readJsonSafe(filePath, null);
+  if (parsed?.partitioned === true && parsed.parts && typeof parsed.parts === 'object') {
+    const partsDir = getStatePartsDirFromStateFile(filePath);
+    Object.entries(parsed.parts)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([partitionName, meta]) => {
+        const partFile = path.join(partsDir, path.basename(String(meta?.file || `${partitionName}.json`)));
+        hash.update(partitionName);
+        if (fs.existsSync(partFile)) hash.update(fs.readFileSync(partFile));
+      });
+  }
+  return hash.digest('hex');
+}
+
 function getFileSize(filePath) {
   try {
-    return fs.statSync(filePath).size;
+    const parsed = readJsonSafe(filePath, null);
+    let size = fs.statSync(filePath).size;
+    if (parsed?.partitioned === true && parsed.parts && typeof parsed.parts === 'object') {
+      const partsDir = getStatePartsDirFromStateFile(filePath);
+      Object.entries(parsed.parts).forEach(([partitionName, meta]) => {
+        const partFile = path.join(partsDir, path.basename(String(meta?.file || `${partitionName}.json`)));
+        if (fs.existsSync(partFile)) size += fs.statSync(partFile).size;
+      });
+    }
+    return size;
   } catch {
     return 0;
   }
@@ -132,7 +162,7 @@ function validateBackupStateFile(filePath, expectedUserId = '') {
   }
 
   const size = getFileSize(filePath);
-  const checksum = computeFileChecksum(filePath);
+  const checksum = computeStateBundleChecksum(filePath);
   const parsed = readJsonSafe(filePath, null);
   if (!parsed || typeof parsed !== 'object') {
     return { status: 'corrupted', message: 'JSON invalido.', checksum, size };
@@ -141,7 +171,9 @@ function validateBackupStateFile(filePath, expectedUserId = '') {
     return { status: 'corrupted', message: 'Backup pertence a outro usuario.', checksum, size };
   }
   if (!parsed.userId || !parsed.updatedAt || !Object.prototype.hasOwnProperty.call(parsed, 'state')) {
-    return { status: 'corrupted', message: 'Estrutura minima ausente.', checksum, size };
+    if (!(parsed.partitioned === true && parsed.parts && typeof parsed.parts === 'object')) {
+      return { status: 'corrupted', message: 'Estrutura minima ausente.', checksum, size };
+    }
   }
   const updatedAtMs = Date.parse(String(parsed.updatedAt || ''));
   if (!Number.isFinite(updatedAtMs) || updatedAtMs <= 0) {
@@ -156,6 +188,20 @@ function validateBackupStateFile(filePath, expectedUserId = '') {
   }
   if (typeof parsed.encrypted !== 'boolean') {
     return { status: 'corrupted', message: 'Flag encrypted invalida.', checksum, size };
+  }
+  if (parsed.partitioned === true) {
+    if (!parsed.parts || typeof parsed.parts !== 'object') {
+      return { status: 'corrupted', message: 'Particoes ausentes.', checksum, size };
+    }
+    const partsDir = getStatePartsDirFromStateFile(filePath);
+    const missingPart = Object.entries(parsed.parts).find(([partitionName, meta]) => {
+      const partFile = path.join(partsDir, path.basename(String(meta?.file || `${partitionName}.json`)));
+      return !fs.existsSync(partFile);
+    });
+    if (missingPart) {
+      return { status: 'corrupted', message: `Particao ausente: ${missingPart[0]}.`, checksum, size };
+    }
+    return { status: 'ok', message: 'Backup particionado valido.', checksum, size };
   }
   if (parsed.encrypted === true) {
     if (typeof parsed.state !== 'string' || !parsed.state.startsWith('enc$')) {
@@ -327,7 +373,7 @@ function createUserBackup(userId, options = {}) {
   fs.mkdirSync(backupDir, { recursive: true });
 
   const targetStatePath = path.join(backupDir, 'state.json');
-  fs.copyFileSync(sourcePath, targetStatePath);
+  copyStateBundle(sourcePath, targetStatePath);
 
   const integrity = validateBackupStateFile(targetStatePath, user.id);
   const backup = normalizeBackupMeta({
@@ -521,7 +567,7 @@ function restoreUserBackup(userId, backupId) {
 
   const targetFile = getUserDataPath(user.id);
   fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-  fs.copyFileSync(sourceFile, targetFile);
+  copyStateBundle(sourceFile, targetFile);
   if (typeof clearUserAppStateCache === 'function') clearUserAppStateCache(user.id);
   const restoredIntegrity = validateBackupStateFile(targetFile, user.id);
   if (restoredIntegrity.status !== 'ok') {
