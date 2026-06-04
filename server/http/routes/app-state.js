@@ -174,11 +174,6 @@ function registerAppStateRoutes(app, deps) {
         }
       }
       
-      console.log('[app-state] ✅ Salvamento bem-sucedido', {
-        userId: user.id,
-        updatedAt: saved.updatedAt
-      });
-
       if (DEBUG_APP_STATE) {
         console.log('[app-state][put-ok]', {
           ...buildRequestContext(req, user.id),

@@ -378,15 +378,29 @@ app.use('/api/bill-import-ai', express.json({ limit: process.env.FIN_IMPORT_BODY
 app.use('/api/bill-import-ai', express.urlencoded({ extended: false, limit: process.env.FIN_IMPORT_BODY_LIMIT || '15mb' }));
 app.use(express.json({ limit: process.env.FIN_DEFAULT_BODY_LIMIT || '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: process.env.FIN_DEFAULT_BODY_LIMIT || '2mb' }));
+app.get('/api/health', noStore, (req, res) => {
+  res.json({
+    ok: true,
+    pid: process.pid,
+    uptimeSeconds: Math.round(process.uptime()),
+    checkedAt: new Date().toISOString()
+  });
+});
 app.use(session({
   name: SESSION_COOKIE_NAME,
   secret: ensureSessionSecret(SESSION_SECRET_PATH),
   store: new FileStore({
     path: SESSIONS_DATA_DIR,
     ttl: Math.floor(REMEMBER_ME_MAX_AGE_MS / 1000),
-    retries: 1,
-    reapInterval: 15 * 60,
-    reapAsync: true
+    retries: 0,
+    reapInterval: 12 * 60 * 60,
+    reapAsync: false,
+    logFn: (message) => {
+      const text = String(message || '');
+      if (!text || text.includes('Deleting expired sessions')) return;
+      if (text.includes('Starting reap worker thread')) return;
+      console.warn(text);
+    }
   }),
   resave: false,
   saveUninitialized: false,
