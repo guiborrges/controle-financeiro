@@ -54,7 +54,16 @@ let needsFlushAgain = false;
 let flushSequence = 0;
 let pendingFlushReason = 'unknown';
 let storageSyncEventsBound = false;
-const STORAGE_FLUSH_DEBOUNCE_MS = 1200;
+let storageDirtyKeys = new Set();
+const STORAGE_FLUSH_FAST_MS = 2000;
+const STORAGE_FLUSH_SLOW_MS = 8000;
+const FAST_FLUSH_KEYS = new Set([
+  STORAGE_KEYS.data,
+  STORAGE_KEYS.patrimonioAccounts,
+  STORAGE_KEYS.patrimonioMovements,
+  STORAGE_KEYS.metas,
+  STORAGE_KEYS.esoData
+]);
 const storageTabId = (() => {
   try {
     return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -72,6 +81,32 @@ function shouldLogStorageSync() {
   } catch {
     return false;
   }
+}
+
+function extractFlushKey(reason = '') {
+  const text = String(reason || '');
+  const separatorIndex = text.indexOf(':');
+  return separatorIndex >= 0 ? text.slice(separatorIndex + 1).trim() : '';
+}
+
+function markStorageDirtyKey(key) {
+  const safeKey = String(key || '').trim();
+  if (safeKey) storageDirtyKeys.add(safeKey);
+}
+
+function getStorageFlushDebounceMs(reason = '') {
+  const reasonKey = extractFlushKey(reason);
+  const keys = new Set(storageDirtyKeys);
+  if (reasonKey) keys.add(reasonKey);
+  if (!keys.size) {
+    return String(reason || '').toLowerCase().includes('color')
+      ? STORAGE_FLUSH_SLOW_MS
+      : STORAGE_FLUSH_FAST_MS;
+  }
+  for (const key of keys) {
+    if (FAST_FLUSH_KEYS.has(key)) return STORAGE_FLUSH_FAST_MS;
+  }
+  return STORAGE_FLUSH_SLOW_MS;
 }
 
 function getCrossTabRevisionStorageKey() {
@@ -257,6 +292,7 @@ async function flushServerStorage(force = false, reason = 'unknown') {
   const flushReason = String(reason || pendingFlushReason || 'unknown');
   pendingFlushReason = 'unknown';
   const flushId = ++flushSequence;
+  const dirtyKeysSnapshot = Array.from(storageDirtyKeys);
   const payload = {
     state: cloneStateValue(serverStorageCache),
     baseRevision: serverStateRevision || ''
@@ -266,7 +302,8 @@ async function flushServerStorage(force = false, reason = 'unknown') {
       flushId,
       force,
       reason: flushReason,
-      baseRevision: payload.baseRevision || '(empty)'
+      baseRevision: payload.baseRevision || '(empty)',
+      dirtyKeys: dirtyKeysSnapshot
     });
   }
 
@@ -281,13 +318,15 @@ async function flushServerStorage(force = false, reason = 'unknown') {
       
       if (response.ok) {
         serverStateRevision = String(body?.updatedAt || serverStateRevision || '');
+        dirtyKeysSnapshot.forEach(key => storageDirtyKeys.delete(key));
         emitRevisionToOtherTabs(serverStateRevision);
         if (shouldLogStorageSync()) {
           console.log('[storage][flush:ok]', {
             flushId,
             reason: flushReason,
             sentBaseRevision: payload.baseRevision || '(empty)',
-            updatedAt: serverStateRevision || '(empty)'
+            updatedAt: serverStateRevision || '(empty)',
+            dirtyKeys: dirtyKeysSnapshot
           });
         }
         return;
@@ -344,10 +383,11 @@ function scheduleServerStorageFlush(reason = 'unknown') {
   if (storageWriteConflictDetected) return;
   pendingFlushReason = String(reason || pendingFlushReason || 'scheduled');
   if (storageFlushTimer) window.clearTimeout(storageFlushTimer);
+  const debounceMs = getStorageFlushDebounceMs(pendingFlushReason);
   storageFlushTimer = window.setTimeout(async () => {
     storageFlushTimer = null;
     await flushServerStorage(true, pendingFlushReason || 'timer');
-  }, STORAGE_FLUSH_DEBOUNCE_MS);
+  }, debounceMs);
 }
 
 async function initializeServerStorage(options = {}) {
@@ -481,6 +521,7 @@ const Storage = {
   setText(key, value) {
     try {
       serverStorageCache[key] = String(value);
+      markStorageDirtyKey(key);
       if (!ENCRYPTED_STORAGE_KEYS.has(key)) {
         ScopedLocalStorage.setText(key, value);
       } else {
@@ -503,6 +544,7 @@ const Storage = {
   setJSON(key, value) {
     try {
       serverStorageCache[key] = cloneStateValue(value);
+      markStorageDirtyKey(key);
       if (!ENCRYPTED_STORAGE_KEYS.has(key)) {
         ScopedLocalStorage.setJSON(key, value);
       } else {
@@ -516,6 +558,7 @@ const Storage = {
   remove(key) {
     try {
       delete serverStorageCache[key];
+      markStorageDirtyKey(key);
       ScopedLocalStorage.remove(key);
       scheduleServerStorageFlush(`remove:${key}`);
     } catch {}
@@ -1061,7 +1104,6 @@ function setMonthSectionColor(key, color) {
   monthSectionColorOverrides[key] = color;
   saveMonthSectionColors();
   saveUIState();
-  flushServerStorage(true, 'saveMonthSectionColor');
   closeMonthSectionColorPicker();
   renderMes();
 }
