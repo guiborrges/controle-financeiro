@@ -785,7 +785,7 @@ function normalizeUnifiedCardBill(month, bill, idx = 0) {
     || Object.prototype.hasOwnProperty.call(bill || {}, 'valor');
   const amount = Math.max(0, Number(bill?.amount ?? bill?.valor ?? 0) || 0);
   const forecastAmount = Math.max(0, Number(bill?.forecastAmount || 0) || 0);
-  const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(true) });
+  const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(false) });
   const monthSort = getMonthSortValue(month || {});
   const explicitSource = String(bill?.source || '').trim().toLowerCase();
   const isAuthoritativeSource = ['manual', 'backup', 'historical', 'imported'].includes(explicitSource);
@@ -1540,7 +1540,7 @@ function syncUnifiedCardBillForecastAmounts(month) {
 }
 
 function diagnoseSuspiciousUnifiedCardBills(months = data) {
-  const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(true) });
+  const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(false) });
   const findings = [];
   (months || []).forEach(month => {
     const monthSort = getMonthSortValue(month || {});
@@ -3956,7 +3956,7 @@ function canPropagateRecurringFromMonth(month) {
   if (window.MesAtualRecurrence?.canPropagateRecurringFromMonth) {
     return window.MesAtualRecurrence.canPropagateRecurringFromMonth(month);
   }
-  const currentRealMonthId = getCurrentRealMonthId(true);
+  const currentRealMonthId = getCurrentRealMonthId(false);
   const currentRealMonth = (data || []).find(entry => entry.id === currentRealMonthId);
   if (!currentRealMonth) return true;
   return getMonthSortValue(month) >= getMonthSortValue(currentRealMonth);

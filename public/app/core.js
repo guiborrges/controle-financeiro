@@ -351,6 +351,8 @@ function getCurrentMonth() {
 }
 
 function normalizeMonthNameToken(value) {
+  if (value == null) return '';
+  if (typeof value === 'object' || typeof value === 'function') return '';
   const raw = String(value || '').trim().toUpperCase();
   const normalized = raw
     .replace(/MARÃ‡O/g, 'MARÇO')
@@ -364,10 +366,19 @@ function normalizeMonthNameToken(value) {
 
 function normalizeMonthIdentity(m) {
   if (!m || typeof m !== 'object') return;
-  const rawName = String(m.nome || '').trim();
+  const rawNome = m.nome;
+  const rawName = (rawNome == null || typeof rawNome === 'object' || typeof rawNome === 'function')
+    ? ''
+    : String(rawNome).trim();
+  const rawId = (m.id == null || typeof m.id === 'object' || typeof m.id === 'function')
+    ? ''
+    : String(m.id).trim();
   const parts = rawName.split(/\s+/);
-  const monthName = normalizeMonthNameToken(parts[0] || '');
-  const idYear = String(m.id || '').match(/(19|20)\d{2}$/)?.[0] || '';
+  let monthName = normalizeMonthNameToken(parts[0] || '');
+  if (!monthName && rawId) {
+    monthName = normalizeMonthNameToken(rawId.split(/[_\s-]+/)[0] || '');
+  }
+  const idYear = rawId.match(/(19|20)\d{2}$/)?.[0] || rawId.match(/(19|20)\d{2}/)?.[0] || '';
   const nameYear = rawName.match(/(19|20)\d{2}/)?.[0] || '';
   const year = nameYear || idYear;
   if (!monthName || !year) return;
