@@ -67,14 +67,16 @@ function registerAppStateRoutes(app, deps) {
         savedState = {
           ...savedState,
           partitioned: true,
+          partitionVersion: rewritten?.partitionVersion || savedState?.partitionVersion,
           state: recovered.state,
           updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
         };
-      } else if (!savedState.partitioned) {
+      } else if (!savedState.partitioned || Number(savedState.partitionVersion || 0) < 2) {
         const rewritten = writeUserAppState(refreshedUser.id, savedState.state || {}, req.session?.dataEncryptionKey || '');
         savedState = {
           ...savedState,
           partitioned: true,
+          partitionVersion: rewritten?.partitionVersion || savedState?.partitionVersion,
           updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
         };
       } else if (!savedState.encrypted && req.session?.dataEncryptionKey) {

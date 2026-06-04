@@ -122,18 +122,27 @@ function getStatePartsDirFromStateFile(stateFilePath) {
   return path.join(path.dirname(stateFilePath), 'state-parts');
 }
 
+function listFilesRecursive(dir) {
+  if (!fs.existsSync(dir)) return [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  return entries.flatMap(entry => {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) return listFilesRecursive(fullPath);
+    return entry.isFile() ? [fullPath] : [];
+  });
+}
+
 function computeStateBundleChecksum(filePath) {
   const hash = crypto.createHash('sha256');
   hash.update(fs.readFileSync(filePath));
   const parsed = readJsonSafe(filePath, null);
   if (parsed?.partitioned === true && parsed.parts && typeof parsed.parts === 'object') {
     const partsDir = getStatePartsDirFromStateFile(filePath);
-    Object.entries(parsed.parts)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([partitionName, meta]) => {
-        const partFile = path.join(partsDir, path.basename(String(meta?.file || `${partitionName}.json`)));
-        hash.update(partitionName);
-        if (fs.existsSync(partFile)) hash.update(fs.readFileSync(partFile));
+    listFilesRecursive(partsDir)
+      .sort((a, b) => a.localeCompare(b))
+      .forEach(partFile => {
+        hash.update(path.relative(partsDir, partFile));
+        hash.update(fs.readFileSync(partFile));
       });
   }
   return hash.digest('hex');
@@ -145,15 +154,27 @@ function getFileSize(filePath) {
     let size = fs.statSync(filePath).size;
     if (parsed?.partitioned === true && parsed.parts && typeof parsed.parts === 'object') {
       const partsDir = getStatePartsDirFromStateFile(filePath);
-      Object.entries(parsed.parts).forEach(([partitionName, meta]) => {
-        const partFile = path.join(partsDir, path.basename(String(meta?.file || `${partitionName}.json`)));
-        if (fs.existsSync(partFile)) size += fs.statSync(partFile).size;
+      listFilesRecursive(partsDir).forEach(partFile => {
+        size += fs.statSync(partFile).size;
       });
     }
     return size;
   } catch {
     return 0;
   }
+}
+
+function findMissingNestedPartitionFile(partsDir, partitionName, partFile) {
+  if (partitionName !== 'months') return '';
+  const partPayload = readJsonSafe(partFile, null);
+  if (partPayload?.format !== 'per-month-v1') return '';
+  const monthEntries = Array.isArray(partPayload.months) ? partPayload.months : [];
+  const monthsDir = path.join(partsDir, 'months');
+  const missing = monthEntries.find(entry => {
+    const monthFile = path.join(monthsDir, path.basename(String(entry?.file || '')));
+    return !fs.existsSync(monthFile);
+  });
+  return missing ? String(missing?.id || missing?.file || 'mes') : '';
 }
 
 function validateBackupStateFile(filePath, expectedUserId = '') {
@@ -200,6 +221,15 @@ function validateBackupStateFile(filePath, expectedUserId = '') {
     });
     if (missingPart) {
       return { status: 'corrupted', message: `Particao ausente: ${missingPart[0]}.`, checksum, size };
+    }
+    const missingNested = Object.entries(parsed.parts).find(([partitionName, meta]) => {
+      const partFile = path.join(partsDir, path.basename(String(meta?.file || `${partitionName}.json`)));
+      return !!findMissingNestedPartitionFile(partsDir, partitionName, partFile);
+    });
+    if (missingNested) {
+      const partFile = path.join(partsDir, path.basename(String(missingNested[1]?.file || `${missingNested[0]}.json`)));
+      const missingName = findMissingNestedPartitionFile(partsDir, missingNested[0], partFile);
+      return { status: 'corrupted', message: `Particao mensal ausente: ${missingName}.`, checksum, size };
     }
     return { status: 'ok', message: 'Backup particionado valido.', checksum, size };
   }

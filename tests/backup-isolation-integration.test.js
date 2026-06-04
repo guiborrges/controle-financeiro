@@ -337,12 +337,14 @@ test('backup create and restore preserve partitioned state bundles', () => {
     const listed = listUserBackups(user.id).find(item => item.id === backup.id);
     const backupStatePath = listed.path;
     const hasBackupParts = fs.existsSync(path.join(path.dirname(backupStatePath), 'state-parts', 'months.json'));
+    const hasBackupMonthFile = fs.existsSync(path.join(path.dirname(backupStatePath), 'state-parts', 'months', '2026-04.json'));
     writeUserAppState(user.id, { finStateSchemaVersion: '3', finData: [{ id: '2026-05' }] }, key);
     restoreUserBackup(user.id, backup.id);
     const restored = readUserAppState(user.id, key);
     console.log(JSON.stringify({
       integrity: listed.integrityStatus,
       hasBackupParts,
+      hasBackupMonthFile,
       monthId: restored.state.finData[0].id,
       accountId: restored.state.finPatrimonioAccounts[0].id,
       esoId: restored.state.finEsoData[0].id
@@ -351,6 +353,7 @@ test('backup create and restore preserve partitioned state bundles', () => {
   const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
   assert.equal(out.integrity, 'ok');
   assert.equal(out.hasBackupParts, true);
+  assert.equal(out.hasBackupMonthFile, true);
   assert.equal(out.monthId, '2026-04');
   assert.equal(out.accountId, 'acc-partitioned');
   assert.equal(out.esoId, 'eso-partitioned');

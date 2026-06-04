@@ -83,11 +83,17 @@ test('app-state writer stores state as partitioned bundle', () => {
     const manifest = JSON.parse(fs.readFileSync(statePath, 'utf8'));
     const partsDir = path.join(path.dirname(statePath), 'state-parts');
     const partFiles = fs.readdirSync(partsDir).sort();
+    const monthsManifest = JSON.parse(fs.readFileSync(path.join(partsDir, 'months.json'), 'utf8'));
+    const monthFiles = fs.readdirSync(path.join(partsDir, 'months')).sort();
     const loaded = readUserAppState('u_partition', key);
     console.log(JSON.stringify({
       partitioned: manifest.partitioned === true,
+      partitionVersion: manifest.partitionVersion,
       manifestHasEncryptedBlob: typeof manifest.state === 'string',
       hasMonthsPart: partFiles.includes('months.json'),
+      monthsFormat: monthsManifest.format,
+      monthFileCount: monthFiles.length,
+      firstMonthFileEncrypted: JSON.parse(fs.readFileSync(path.join(partsDir, 'months', monthFiles[0]), 'utf8')).encrypted === true,
       hasPatrimonioPart: partFiles.includes('patrimonio.json'),
       hasEsoPart: partFiles.includes('eso.json'),
       monthCount: loaded.state.finData.length,
@@ -97,8 +103,12 @@ test('app-state writer stores state as partitioned bundle', () => {
   `;
   const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
   assert.equal(out.partitioned, true);
+  assert.equal(out.partitionVersion, 2);
   assert.equal(out.manifestHasEncryptedBlob, false);
   assert.equal(out.hasMonthsPart, true);
+  assert.equal(out.monthsFormat, 'per-month-v1');
+  assert.equal(out.monthFileCount, 3);
+  assert.equal(out.firstMonthFileEncrypted, true);
   assert.equal(out.hasPatrimonioPart, true);
   assert.equal(out.hasEsoPart, true);
   assert.equal(out.monthCount, 3);

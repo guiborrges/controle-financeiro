@@ -10,8 +10,10 @@ const { DEFAULT_FIN_STATE_SCHEMA_VERSION, resolveSchemaVersion } = require('./st
 const USER_DATA_DIR = resolveStoragePath('data', 'users');
 const DELETED_USER_BACKUP_DIR = resolveStoragePath('data', 'deleted-users');
 const ORPHAN_USER_ARCHIVE_DIR = resolveStoragePath('migration-backups', 'orphan-user-state');
-const PARTITIONED_STATE_VERSION = 1;
+const PARTITIONED_STATE_VERSION = 2;
 const STATE_PARTS_DIR_NAME = 'state-parts';
+const MONTHS_PARTITION_DIR_NAME = 'months';
+const MONTHS_PARTITION_FORMAT = 'per-month-v1';
 const STATE_PARTITIONS = {
   months: ['finData'],
   patrimonio: ['finPatrimonioAccounts', 'finPatrimonioMovements'],
@@ -130,6 +132,31 @@ function getPartitionFileName(partitionName) {
   return `${String(partitionName || '').replace(/[^a-z0-9_-]/gi, '_')}.json`;
 }
 
+function getSafeMonthFileBase(month, index) {
+  const raw = String(month?.id || month?.nome || month?.name || `month_${index + 1}`)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80);
+  return raw || `month_${index + 1}`;
+}
+
+function buildMonthFileEntries(months) {
+  const seen = new Map();
+  return (Array.isArray(months) ? months : []).map((month, index) => {
+    const base = getSafeMonthFileBase(month, index);
+    const count = (seen.get(base) || 0) + 1;
+    seen.set(base, count);
+    const uniqueBase = count > 1 ? `${base}_${count}` : base;
+    return {
+      id: String(month?.id || uniqueBase),
+      index,
+      file: `${uniqueBase}.json`
+    };
+  });
+}
+
 function splitStateIntoPartitions(state) {
   const source = state && typeof state === 'object' && !Array.isArray(state) ? state : {};
   const partitions = {};
@@ -197,9 +224,91 @@ function readPartitionedState(manifest, stateFilePath, encryptionKey = '') {
     if (!partPayload) {
       throw new Error(`Partição de estado ausente ou inválida: ${partitionName}`);
     }
-    parts[partitionName] = deserializePartitionState(partPayload, encryptionKey);
+    parts[partitionName] = partitionName === 'months' && partPayload?.format === MONTHS_PARTITION_FORMAT
+      ? readMonthsPartition(partPayload, partsDir, encryptionKey)
+      : deserializePartitionState(partPayload, encryptionKey);
   }
   return mergeStatePartitions(parts);
+}
+
+function readMonthsPartition(partPayload, partsDir, encryptionKey = '') {
+  const monthsDir = path.join(partsDir, MONTHS_PARTITION_DIR_NAME);
+  const entries = Array.isArray(partPayload?.months) ? partPayload.months : [];
+  const finData = entries
+    .slice()
+    .sort((a, b) => Number(a?.index || 0) - Number(b?.index || 0))
+    .map(entry => {
+      const fileName = path.basename(String(entry?.file || ''));
+      const monthPath = path.join(monthsDir, fileName);
+      const monthPayload = safeReadJson(monthPath);
+      if (!monthPayload) {
+        throw new Error(`PartiÃ§Ã£o mensal ausente ou invÃ¡lida: ${entry?.id || fileName}`);
+      }
+      return deserializePartitionState(monthPayload, encryptionKey);
+    });
+  return { finData };
+}
+
+function writeMonthsPartition(partsDir, manifestBase, partState, encryptionKey = '') {
+  const months = Array.isArray(partState?.finData) ? partState.finData : [];
+  const monthsDir = path.join(partsDir, MONTHS_PARTITION_DIR_NAME);
+  if (fs.existsSync(monthsDir)) {
+    fs.rmSync(monthsDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(monthsDir, { recursive: true });
+
+  const entries = buildMonthFileEntries(months);
+  let totalBytes = 0;
+  const manifestMonths = entries.map((entry, index) => {
+    const monthState = months[index] && typeof months[index] === 'object' ? months[index] : {};
+    const serializedState = serializePartitionState(monthState, encryptionKey);
+    const monthPayload = {
+      userId: manifestBase.userId,
+      updatedAt: manifestBase.updatedAt,
+      partition: 'months',
+      monthId: entry.id,
+      monthIndex: entry.index,
+      encrypted: !!encryptionKey,
+      state: serializedState
+    };
+    const monthPath = path.join(monthsDir, entry.file);
+    const size = computePayloadBytes(monthPayload);
+    totalBytes += size;
+    writeJsonFileAtomic(monthPath, monthPayload);
+    return {
+      ...entry,
+      size,
+      encrypted: !!encryptionKey
+    };
+  });
+
+  const partPayload = {
+    userId: manifestBase.userId,
+    updatedAt: manifestBase.updatedAt,
+    partition: 'months',
+    format: MONTHS_PARTITION_FORMAT,
+    encrypted: false,
+    monthCount: manifestMonths.length,
+    months: manifestMonths,
+    state: null
+  };
+  const fileName = getPartitionFileName('months');
+  const partPath = path.join(partsDir, fileName);
+  const manifestSize = computePayloadBytes(partPayload);
+  totalBytes += manifestSize;
+  writeJsonFileAtomic(partPath, partPayload);
+
+  return {
+    meta: {
+      file: fileName,
+      size: manifestSize,
+      totalSize: totalBytes,
+      encrypted: false,
+      format: MONTHS_PARTITION_FORMAT,
+      monthCount: manifestMonths.length
+    },
+    totalBytes
+  };
 }
 
 function writePartitionedState(dir, manifestBase, sanitizedState, encryptionKey = '') {
@@ -210,6 +319,12 @@ function writePartitionedState(dir, manifestBase, sanitizedState, encryptionKey 
   let totalBytes = 0;
 
   Object.entries(statePartitions).forEach(([partitionName, partState]) => {
+    if (partitionName === 'months') {
+      const { meta, totalBytes: monthBytes } = writeMonthsPartition(partsDir, manifestBase, partState, encryptionKey);
+      totalBytes += monthBytes;
+      partsMeta[partitionName] = meta;
+      return;
+    }
     const serializedState = serializePartitionState(partState, encryptionKey);
     const partPayload = {
       userId: manifestBase.userId,
