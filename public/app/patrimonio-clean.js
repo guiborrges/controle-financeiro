@@ -1389,49 +1389,38 @@ function refreshPatrimonioUpdatePreview() {
   const valueEl = document.getElementById('patrimonioMovementValue');
   if (!preview || !valueLabel || !typeEl || !valueEl) return;
   const type = typeEl.value;
+  const saldoRef = document.getElementById('patrimonioMovementSaldoRef');
   if (type !== 'atualizacao') {
     preview.style.display = 'none';
     preview.textContent = '';
+    if (saldoRef) {
+      saldoRef.style.display = 'none';
+      saldoRef.textContent = '';
+    }
     valueLabel.textContent = 'Valor';
     return;
   }
   valueLabel.textContent = 'Saldo atual da conta';
-  const accountId = document.getElementById('patrimonioMovementAccount')?.value || '';
-  if (!accountId) {
-    preview.style.display = '';
-    preview.textContent = 'Selecione a conta para comparar com o saldo atual.';
-    return;
-  }
-  const target = parsePatrimonioAmountInput(valueEl.value);
-  if (!Number.isFinite(target) || target < 0) {
-    preview.style.display = '';
-    preview.textContent = 'Informe o saldo atual para calcular a diferenca automatica.';
-    return;
-  }
-  const current = getPatrimonioBalanceForAccount(accountId);
-  const saldoRef = document.getElementById('patrimonioMovementSaldoRef');
   if (saldoRef) {
-    saldoRef.textContent = `Saldo atual: ${fmt(current)}`;
-    saldoRef.style.display = '';
+    saldoRef.style.display = 'none';
+    saldoRef.textContent = '';
   }
-  const diff = Number((target - current).toFixed(2));
-  preview.style.display = '';
-  if (Math.abs(diff) < 0.005) {
-    preview.textContent = `Saldo atual ja esta em ${fmt(current)} (sem ajuste necessario).`;
-    return;
-  }
-  if (diff > 0) {
-    preview.textContent = `Sera lancado aporte automatico de ${fmt(diff)} (${fmt(current)} -> ${fmt(target)}).`;
-    return;
-  }
-  preview.textContent = `Sera lancada retirada automatica de ${fmt(Math.abs(diff))} (${fmt(current)} -> ${fmt(target)}).`;
+  preview.style.display = 'none';
+  preview.textContent = '';
 }
 function syncPatrimonioMovementModalVisibility() {
   const type = document.getElementById('patrimonioMovementType').value;
+  const typeWrap = document.getElementById('patrimonioMovementTypeWrap');
   const transferWrap = document.getElementById('patrimonioTransferAccounts');
   const accountWrap = document.getElementById('patrimonioSingleAccountWrap');
+  const extras = document.getElementById('patrimonioMovementExtras');
+  if (typeWrap) typeWrap.style.display = type === 'atualizacao' ? 'none' : '';
   if (transferWrap) transferWrap.style.display = type === 'transferencia' ? '' : 'none';
   if (accountWrap) accountWrap.style.display = type === 'transferencia' ? 'none' : '';
+  if (extras) {
+    extras.style.display = type === 'atualizacao' ? 'none' : '';
+    if (type === 'atualizacao') extras.open = false;
+  }
   refreshPatrimonioUpdatePreview();
 }
 function openPatrimonioMovementModal(options = {}) {
@@ -1458,16 +1447,15 @@ function openPatrimonioMovementModal(options = {}) {
   document.getElementById('patrimonioMovementDescription').value = movement?.description || '';
   document.getElementById('patrimonioMovementDate').value = getPatrimonioDateInputValue(movement?.date || options.date || todayIsoDate());
   const saldoRef = document.getElementById('patrimonioMovementSaldoRef');
-  if (saldoRef && isAtualizacao) {
-    const accountId = options.accountId || patrimonioSelectedAccountId || '';
-    saldoRef.textContent = `Saldo atual: ${fmt(getPatrimonioBalanceForAccount(accountId))}`;
-    saldoRef.style.display = '';
-  } else if (saldoRef) {
+  if (saldoRef) {
     saldoRef.style.display = 'none';
     saldoRef.textContent = '';
   }
   const extras = document.getElementById('patrimonioMovementExtras');
-  if (extras) extras.open = Boolean(movement?.description);
+  if (extras) {
+    extras.open = Boolean(movement?.description) && !isAtualizacao;
+    extras.style.display = isAtualizacao ? 'none' : '';
+  }
   const valueEl = document.getElementById('patrimonioMovementValue');
   const accountEl = document.getElementById('patrimonioMovementAccount');
   const typeEl = document.getElementById('patrimonioMovementType');
