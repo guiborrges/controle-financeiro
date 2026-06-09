@@ -1019,6 +1019,33 @@ body {
   opacity: .85;
   font-weight: 400;
 }
+
+.patrimonio-icon-btn,
+.patrimonio-move-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+
+.patrimonio-icon-btn svg,
+.patrimonio-move-btn svg,
+.patrimonio-movement-symbol svg{
+  display:block;
+  width:15px;
+  height:15px;
+}
+
+.patrimonio-update-btn{
+  min-width:98px;
+  padding-left:12px;
+  padding-right:12px;
+}
+
+.patrimonio-update-btn span{
+  font-size:12px;
+  font-weight:700;
+}
 .unified-card-group-head-row td{
   border-top: 1px solid rgba(93,111,143,.18);
   border-right: none !important;

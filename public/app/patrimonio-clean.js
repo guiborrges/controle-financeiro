@@ -417,7 +417,7 @@ function renderPatrimonioMovementRow(account, movement) {
       : 'income';
   const direction = movement.type === 'retirada' || isTransferOut ? -1 : 1;
   const symbol = movement.type === 'transferencia'
-    ? '&lt;&gt;'
+    ? renderPatrimonioActionIcon('transfer')
     : movement.type === 'retirada'
       ? '-'
       : '+';
@@ -444,8 +444,8 @@ function renderPatrimonioMovementRow(account, movement) {
       <td class="patrimonio-action-cell">
         ${movement.sourceType === 'financial-goal'
           ? '<span class="patrimonio-status-chip neutral">Meta</span>'
-          : `<button class="btn-icon" type="button" title="Editar" aria-label="Editar movimentacao" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">E</button>`}
-        <button class="btn-icon" type="button" title="Excluir" aria-label="Excluir movimentacao" onclick="deletePatrimonioMovement('${movement.id}')">x</button>
+          : `<button class="btn-icon patrimonio-icon-btn" type="button" title="Editar" aria-label="Editar movimentacao" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">${renderPatrimonioActionIcon('edit')}</button>`}
+        <button class="btn-icon patrimonio-icon-btn" type="button" title="Excluir" aria-label="Excluir movimentacao" onclick="deletePatrimonioMovement('${movement.id}')">${renderPatrimonioActionIcon('delete')}</button>
       </td>
     </tr>
   `;
@@ -474,7 +474,7 @@ function renderPatrimonioDetail() {
         <div class="patrimonio-detail-actions">
           <button class="btn btn-primary patrimonio-move-btn" type="button" title="Adicionar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'aporte' })">+</button>
           <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">-</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">&lt;&gt;</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" aria-label="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">${renderPatrimonioActionIcon('transfer')}</button>
           <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Atualizar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'atualizacao' })">A</button>
         </div>
       </div>
@@ -698,7 +698,7 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     type: 'aporte',
     accountId: account.id,
     value: goal.valor,
-    description: `Meta financeira Â· ${goal.nome}`,
+    description: `Meta financeira - ${goal.nome}`,
     date: todayIsoDate(),
     createdAt: new Date().toISOString(),
     sourceType: 'financial-goal',
@@ -766,7 +766,7 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     type: 'aporte',
     accountId: account.id,
     value: goal.valor,
-    description: `Meta financeira Â· ${goal.nome}`,
+    description: `Meta financeira - ${goal.nome}`,
     date: todayIsoDate(),
     createdAt: new Date().toISOString(),
     sourceType: 'financial-goal',
@@ -833,7 +833,7 @@ function transferFinancialGoalToPatrimonio(monthId, goalId, triggerEl = null) {
     type: 'aporte',
     accountId: account.id,
     value: goal.valor,
-    description: `Meta financeira Â· ${goal.nome}`,
+    description: `Meta financeira - ${goal.nome}`,
     date: todayIsoDate(),
     createdAt: new Date().toISOString(),
     sourceType: 'financial-goal',
@@ -1000,7 +1000,7 @@ function renderPatrimonioMovementRow(account, movement) {
       : 'income';
   const direction = movement.type === 'retirada' || isTransferOut ? -1 : 1;
   const symbol = movement.type === 'transferencia'
-    ? '&lt;&gt;'
+    ? renderPatrimonioActionIcon('transfer')
     : movement.type === 'retirada'
       ? '-'
       : '+';
@@ -1028,8 +1028,8 @@ function renderPatrimonioMovementRow(account, movement) {
       <td class="patrimonio-action-cell">
         ${movement.sourceType === 'financial-goal'
           ? '<span class="patrimonio-status-chip neutral">Meta</span>'
-          : `<button class="btn-icon" type="button" title="Editar" aria-label="Editar movimentacao" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">E</button>`}
-        <button class="btn-icon" type="button" title="Excluir" aria-label="Excluir movimentacao" onclick="deletePatrimonioMovement('${movement.id}')">x</button>
+          : `<button class="btn-icon patrimonio-icon-btn" type="button" title="Editar" aria-label="Editar movimentacao" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">${renderPatrimonioActionIcon('edit')}</button>`}
+        <button class="btn-icon patrimonio-icon-btn" type="button" title="Excluir" aria-label="Excluir movimentacao" onclick="deletePatrimonioMovement('${movement.id}')">${renderPatrimonioActionIcon('delete')}</button>
       </td>
     </tr>
   `;
@@ -1058,7 +1058,7 @@ function renderPatrimonioDetail() {
         <div class="patrimonio-detail-actions">
           <button class="btn btn-primary patrimonio-move-btn" type="button" title="Adicionar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'aporte' })">+</button>
           <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">-</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">&lt;&gt;</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" aria-label="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">${renderPatrimonioActionIcon('transfer')}</button>
           <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Atualizar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'atualizacao' })">A</button>
         </div>
       </div>
@@ -1612,7 +1612,7 @@ function transferFinancialGoalToPatrimonio(monthId, goalId) {
     type: 'aporte',
     accountId: account.id,
     value: goal.valor,
-    description: `Meta financeira Â· ${goal.nome}`,
+    description: `Meta financeira - ${goal.nome}`,
     date: todayIsoDate(),
     createdAt: new Date().toISOString(),
     sourceType: 'financial-goal',
@@ -1626,6 +1626,16 @@ function transferFinancialGoalToPatrimonio(monthId, goalId) {
   savePatrimonioData();
   renderMes();
   if (activePage === 'patrimonio') renderPatrimonio();
+}
+
+function renderPatrimonioActionIcon(name) {
+  const icons = {
+    edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
+    delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>',
+    transfer: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h13l-4-4"/><path d="M17 17H4l4 4"/></svg>',
+    refresh: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.3"/><path d="M3 12A9 9 0 0 1 18.5 5.7"/><path d="M18 2v4h4"/><path d="M6 22v-4H2"/></svg>'
+  };
+  return icons[name] || '';
 }
 
 // Override visual copy for the current Patrimonio experience.
@@ -1693,7 +1703,7 @@ function renderPatrimonioMovementRow(account, movement) {
       : 'income';
   const direction = movement.type === 'retirada' || isTransferOut ? -1 : 1;
   const symbol = movement.type === 'transferencia'
-    ? '&lt;&gt;'
+    ? renderPatrimonioActionIcon('transfer')
     : movement.type === 'retirada'
       ? '-'
       : '+';
@@ -1720,8 +1730,8 @@ function renderPatrimonioMovementRow(account, movement) {
       <td class="patrimonio-action-cell">
         ${movement.sourceType === 'financial-goal'
           ? '<span class="patrimonio-status-chip neutral">Meta</span>'
-          : `<button class="btn-icon" type="button" title="Editar" aria-label="Editar movimentacao" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">E</button>`}
-        <button class="btn-icon" type="button" title="Excluir" aria-label="Excluir movimentacao" onclick="deletePatrimonioMovement('${movement.id}')">x</button>
+          : `<button class="btn-icon patrimonio-icon-btn" type="button" title="Editar" aria-label="Editar movimentacao" onclick="openPatrimonioMovementModal({ movementId: '${movement.id}' })">${renderPatrimonioActionIcon('edit')}</button>`}
+        <button class="btn-icon patrimonio-icon-btn" type="button" title="Excluir" aria-label="Excluir movimentacao" onclick="deletePatrimonioMovement('${movement.id}')">${renderPatrimonioActionIcon('delete')}</button>
       </td>
     </tr>
   `;
@@ -1750,7 +1760,8 @@ function renderPatrimonioDetail() {
         <div class="patrimonio-detail-actions">
           <button class="btn btn-primary patrimonio-move-btn" type="button" title="Adicionar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'aporte' })">+</button>
           <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Retirar" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">-</button>
-          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">&lt;&gt;</button>
+          <button class="btn btn-ghost patrimonio-move-btn" type="button" title="Transferir" aria-label="Transferir" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">${renderPatrimonioActionIcon('transfer')}</button>
+          <button class="btn btn-ghost patrimonio-move-btn patrimonio-update-btn" type="button" title="Atualizar saldo" onclick="openPatrimonioMovementModal({ accountId: '${account.id}', type: 'atualizacao' })">${renderPatrimonioActionIcon('refresh')}<span>Atualizar</span></button>
         </div>
       </div>
       <div class="patrimonio-detail-balance">${fmt(saldo)}</div>
