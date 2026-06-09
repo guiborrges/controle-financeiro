@@ -776,7 +776,8 @@ function normalizeUnifiedCard(card, idx = 0) {
     closingDate,
     paymentDate,
     description: String(card?.description || card?.descricao || '').trim(),
-    visualId: normalizeUnifiedCardVisualId(card?.visualId || card?.institution || card?.associatedVisualId || '')
+    visualId: normalizeUnifiedCardVisualId(card?.visualId || card?.institution || card?.associatedVisualId || ''),
+    autoAmount: card?.autoAmount === true
   };
 }
 
@@ -1421,6 +1422,7 @@ function pruneDailyGoalsWithoutSpendValue(month) {
 
 function syncUnifiedOutflowLegacyData(month) {
   if (!month) return;
+  syncUnifiedCardAutoAmounts(month);
   const fixedItems = (month.outflows || []).filter(item => isUnifiedExpenseType(item));
   const spendItems = (month.outflows || []).filter(item => {
     if (typeof isUnifiedLaunchOfType === 'function') return isUnifiedLaunchOfType(item, 'spend');
@@ -1523,6 +1525,8 @@ function syncUnifiedCardBillForecastAmounts(month) {
   let changed = false;
   month.cardBills.forEach(bill => {
     if (!bill || bill.manualAmountSet === true) return;
+    const card = (month.outflowCards || []).find(entry => String(entry?.id || '') === String(bill.cardId || ''));
+    if (card?.autoAmount === true) return;
     const forecastAmount = Number(getUnifiedCardRecurringForecastAmount(month, bill.cardId) || 0);
     if (!Number.isFinite(forecastAmount)) return;
     const normalizedForecast = Number(forecastAmount.toFixed(2));
@@ -1537,6 +1541,44 @@ function syncUnifiedCardBillForecastAmounts(month) {
     changed = true;
   });
   return changed;
+}
+
+function syncUnifiedCardAutoAmounts(month = getCurrentMonth()) {
+  if (!month) return false;
+  ensureUnifiedOutflowPilotMonth(month);
+  let changed = false;
+  (month.outflowCards || []).forEach(card => {
+    if (card?.autoAmount !== true) return;
+    const bill = getUnifiedCardBill(month, card.id);
+    if (!bill) return;
+    const computed = Number(getUnifiedCardLaunchesAmount(month, card.id).toFixed(2));
+    const current = Number(Number(bill.amount || 0).toFixed(2));
+    if (current !== computed || bill.manualAmountSet !== true || bill.source !== 'auto') {
+      bill.amount = computed;
+      bill.forecastAmount = computed;
+      bill.manualAmountSet = true;
+      bill.source = 'auto';
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+function syncUnifiedCardAutoAmount() {
+  const month = getCurrentMonth();
+  if (!month) return;
+  ensureUnifiedOutflowPilotMonth(month);
+  const checkbox = document.getElementById('unifiedCardAutoAmount');
+  if (editingUnifiedCardId && checkbox) {
+    const card = (month.outflowCards || []).find(entry => entry.id === editingUnifiedCardId);
+    if (card) card.autoAmount = checkbox.checked === true;
+  }
+  const changed = syncUnifiedCardAutoAmounts(month);
+  if (changed) {
+    syncUnifiedOutflowLegacyData(month);
+    scheduleServerStorageFlush('syncUnifiedCardAutoAmount');
+    preserveCurrentScroll(() => renderMes());
+  }
 }
 
 function diagnoseSuspiciousUnifiedCardBills(months = data) {
@@ -1573,14 +1615,46 @@ function diagnoseSuspiciousUnifiedCardBills(months = data) {
 }
 
 function getUnifiedCardLaunchesAmount(month, cardId) {
-  if (window.MesAtualCards?.getUnifiedCardLaunchesAmount) {
-    return window.MesAtualCards.getUnifiedCardLaunchesAmount(month, cardId);
-  }
   ensureUnifiedOutflowPilotMonth(month);
   return (month.outflows || []).reduce((acc, item) => {
     if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
+    if (!isUnifiedCardLaunchDue(item)) return acc;
     return acc + getUnifiedEffectiveOutflowAmount(item);
   }, 0);
+}
+
+function isUnifiedCardLaunchDue(item) {
+  const raw = String(item?.date || item?.data || '').trim();
+  if (!raw) return true;
+  const parsed = parseData(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return true;
+  const date = new Date(parsed);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date <= today;
+}
+
+function getUnifiedCardLaunchesAmountGross(month, cardId) {
+  ensureUnifiedOutflowPilotMonth(month);
+  return (month.outflows || []).reduce((acc, item) => {
+    if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
+    if (!isUnifiedCardLaunchDue(item)) return acc;
+    const gross = Math.max(0, Number(
+      (item?.sharedExpense === true || item?.launchShared === true)
+        ? (item?.sharedOriginalAmount || item?.amount || item?.valor || 0)
+        : (item?.amount || item?.valor || 0)
+    ) || 0);
+    return acc + gross;
+  }, 0);
+}
+
+function getUnifiedCardLaunchesTooltip(month, cardId, cardLaunchesAmount) {
+  const gross = getUnifiedCardLaunchesAmountGross(month, cardId);
+  if (Math.abs(gross - Number(cardLaunchesAmount || 0)) >= 0.01) {
+    return `Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}\nInclui reembolsos: ${fmt(gross)} (valor total na fatura)`;
+  }
+  return `Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`;
 }
 
 function getUnifiedRecurringSpendPlannedTotal(month) {
@@ -2037,7 +2111,7 @@ function renderUnifiedFixedRows(month, rows) {
       const cardLaunchesAmount = getUnifiedCardLaunchesAmount(month, bill.cardId);
       const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
       const recurringCardRows = recurringCardRowsByCardId.get(String(bill?.cardId || '').trim()) || [];
-      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(billAmount)}</span>`;
+      const billAmountDisplay = `<span title="${escapeHtml(getUnifiedCardLaunchesTooltip(month, bill.cardId, cardLaunchesAmount))}">${fmt(billAmount)}</span>`;
       const selectionControl = selectionIdx === -1
         ? '<input type="checkbox" checked disabled>'
         : `<input type="checkbox" ${selected ? 'checked' : ''} onchange="toggleDespesaSelection(${selectionIdx})">`;
@@ -2064,7 +2138,7 @@ function renderUnifiedFixedRows(month, rows) {
                   </td>
                   <td><span class="unified-card-recurring-category">${recurringCategory}</span></td>
                   <td></td>
-                  <td class="amount amount-neg">${fmt(getUnifiedEffectiveOutflowAmount(recurringItem))}</td>
+                  <td class="amount amount-neg unified-card-recurring-amount">${fmt(getUnifiedEffectiveOutflowAmount(recurringItem))}</td>
                   <td></td>
                   <td></td>
                 </tr>`;
@@ -2216,7 +2290,7 @@ function renderUnifiedAllRows(month, rows) {
       const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
       const cardLaunchesAmount = getUnifiedCardLaunchesAmount(month, bill.cardId);
       const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
-      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(billAmount)}</span>`;
+      const billAmountDisplay = `<span title="${escapeHtml(getUnifiedCardLaunchesTooltip(month, bill.cardId, cardLaunchesAmount))}">${fmt(billAmount)}</span>`;
       return `
         <tr>
           <td style="padding-left:22px">${escapeHtml(getUnifiedCardBillingDateLabel(month, card))}</td>
@@ -2457,7 +2531,7 @@ function renderUnifiedMethodRows(month, rows, filterValue) {
       const card = (month.outflowCards || []).find(entry => entry.id === bill.cardId);
       const cardLaunchesAmount = getUnifiedCardLaunchesAmount(month, bill.cardId);
       const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
-      const billAmountDisplay = `<span title="${escapeHtml(`Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`)}">${fmt(billAmount)}</span>`;
+      const billAmountDisplay = `<span title="${escapeHtml(getUnifiedCardLaunchesTooltip(month, bill.cardId, cardLaunchesAmount))}">${fmt(billAmount)}</span>`;
       return `
         <tr>
           <td style="padding-left:22px">${escapeHtml(getUnifiedCardBillingDateLabel(month, card))}</td>
@@ -3276,6 +3350,8 @@ function openUnifiedCardModal(cardId = '') {
   document.getElementById('unifiedCardClosingDay').value = card?.closingDate || card?.closingDay || '';
   document.getElementById('unifiedCardPaymentDay').value = card?.paymentDate || card?.paymentDay || '';
   document.getElementById('unifiedCardDescription').value = card?.description || '';
+  const autoAmountCheckbox = document.getElementById('unifiedCardAutoAmount');
+  if (autoAmountCheckbox) autoAmountCheckbox.checked = card?.autoAmount === true;
   toggleUnifiedCardOtherBank();
   const menu = document.getElementById('unifiedCardBankMenu');
   if (menu) {
@@ -3454,6 +3530,7 @@ function saveUnifiedCard() {
   const closing = resolveUnifiedCardDateInput(document.getElementById('unifiedCardClosingDay').value || '', month);
   const payment = resolveUnifiedCardDateInput(document.getElementById('unifiedCardPaymentDay').value || '', month);
   const description = document.getElementById('unifiedCardDescription').value.trim();
+  const autoAmount = document.getElementById('unifiedCardAutoAmount')?.checked === true;
   const visualId = bankValue && bankValue !== 'outro' ? normalizeUnifiedCardVisualId(`institution:${bankValue}`) : '';
   if (!name || !closing || !payment) {
     alert('Preencha instituição, fechamento e pagamento como dia (1 a 31) ou data completa.');
@@ -3468,6 +3545,7 @@ function saveUnifiedCard() {
     closingDate: closing.date,
     paymentDate: payment.date,
     description,
+    autoAmount,
     visualId
   });
   const existingIndex = (month.outflowCards || []).findIndex(entry => entry.id === nextCard.id);
@@ -3494,6 +3572,7 @@ function saveUnifiedCard() {
     if (!otherBill) {
       otherMonth.cardBills.push(normalizeUnifiedCardBill(otherMonth, { cardId: nextCard.id }, otherMonth.cardBills.length));
     }
+    syncUnifiedCardAutoAmounts(otherMonth);
     syncUnifiedOutflowLegacyData(otherMonth);
   });
   ensureUnifiedOutflowPilotMonth(month);
@@ -3501,6 +3580,7 @@ function saveUnifiedCard() {
   if (!existingBill) {
     month.cardBills.push(normalizeUnifiedCardBill(month, { cardId: nextCard.id }, month.cardBills.length));
   }
+  syncUnifiedCardAutoAmounts(month);
   syncUnifiedOutflowLegacyData(month);
   save(true);
   closeModal('modalUnifiedCard');

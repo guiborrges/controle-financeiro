@@ -1405,10 +1405,15 @@ function refreshPatrimonioUpdatePreview() {
   const target = parsePatrimonioAmountInput(valueEl.value);
   if (!Number.isFinite(target) || target < 0) {
     preview.style.display = '';
-    preview.textContent = 'Informe o saldo atual para calcular a diferen?a autom?tica.';
+    preview.textContent = 'Informe o saldo atual para calcular a diferenca automatica.';
     return;
   }
   const current = getPatrimonioBalanceForAccount(accountId);
+  const saldoRef = document.getElementById('patrimonioMovementSaldoRef');
+  if (saldoRef) {
+    saldoRef.textContent = `Saldo atual: ${fmt(current)}`;
+    saldoRef.style.display = '';
+  }
   const diff = Number((target - current).toFixed(2));
   preview.style.display = '';
   if (Math.abs(diff) < 0.005) {
@@ -1433,14 +1438,15 @@ function openPatrimonioMovementModal(options = {}) {
   ensurePatrimonioData();
   const movement = options.movementId ? patrimonioMovements.find(item => item.id === options.movementId) : null;
   const presetType = options.type || movement?.type || 'aporte';
+  const isAtualizacao = presetType === 'atualizacao' && !movement;
   const title = movement
-    ? 'Editar movimenta??o'
+    ? 'Editar movimentacao'
+    : isAtualizacao
+      ? 'Atualizar saldo da conta'
     : presetType === 'retirada'
       ? 'Nova retirada'
       : presetType === 'transferencia'
-        ? 'Nova transfer?ncia'
-        : presetType === 'atualizacao'
-          ? 'Atualizar saldo'
+        ? 'Nova transferencia'
           : 'Novo aporte';
   document.getElementById('patrimonioMovementModalTitle').textContent = title;
   document.getElementById('patrimonioMovementId').value = movement?.id || '';
@@ -1448,9 +1454,18 @@ function openPatrimonioMovementModal(options = {}) {
   document.getElementById('patrimonioMovementAccount').innerHTML = getPatrimonioAccountOptions(options.accountId || movement?.accountId || patrimonioSelectedAccountId || '', false);
   document.getElementById('patrimonioMovementFrom').innerHTML = getPatrimonioAccountOptions(movement?.fromAccountId || options.accountId || patrimonioSelectedAccountId || '', false);
   document.getElementById('patrimonioMovementTo').innerHTML = getPatrimonioAccountOptions(movement?.toAccountId || '', false);
-  document.getElementById('patrimonioMovementValue').value = movement?.value || '';
+  document.getElementById('patrimonioMovementValue').value = movement?.value || options.value || '';
   document.getElementById('patrimonioMovementDescription').value = movement?.description || '';
-  document.getElementById('patrimonioMovementDate').value = getPatrimonioDateInputValue(movement?.date || todayIsoDate());
+  document.getElementById('patrimonioMovementDate').value = getPatrimonioDateInputValue(movement?.date || options.date || todayIsoDate());
+  const saldoRef = document.getElementById('patrimonioMovementSaldoRef');
+  if (saldoRef && isAtualizacao) {
+    const accountId = options.accountId || patrimonioSelectedAccountId || '';
+    saldoRef.textContent = `Saldo atual: ${fmt(getPatrimonioBalanceForAccount(accountId))}`;
+    saldoRef.style.display = '';
+  } else if (saldoRef) {
+    saldoRef.style.display = 'none';
+    saldoRef.textContent = '';
+  }
   const extras = document.getElementById('patrimonioMovementExtras');
   if (extras) extras.open = Boolean(movement?.description);
   const valueEl = document.getElementById('patrimonioMovementValue');
@@ -1465,19 +1480,19 @@ function openPatrimonioMovementModal(options = {}) {
 function savePatrimonioMovement() {
   ensurePatrimonioData();
   if (!patrimonioAccounts.length) {
-    alert('Crie pelo menos uma conta patrimonial antes de lan?ar movimenta??es.');
+    alert('Crie pelo menos uma conta patrimonial antes de lancar movimentacoes.');
     return;
   }
   const id = document.getElementById('patrimonioMovementId').value;
   const requestedType = document.getElementById('patrimonioMovementType').value;
-  const inputValue = Number(document.getElementById('patrimonioMovementValue').value || 0);
+  const inputValue = parsePatrimonioAmountInput(document.getElementById('patrimonioMovementValue').value);
   let description = document.getElementById('patrimonioMovementDescription').value.trim();
   const date = resolvePatrimonioMovementDateInput(document.getElementById('patrimonioMovementDate').value);
   const accountId = document.getElementById('patrimonioMovementAccount').value;
   const fromAccountId = document.getElementById('patrimonioMovementFrom').value;
   const toAccountId = document.getElementById('patrimonioMovementTo').value;
   if (!Number.isFinite(inputValue) || inputValue < 0) {
-    alert('Informe um valor v?lido para a movimenta??o.');
+    alert('Informe um valor valido para a movimentacao.');
     return;
   }
   if (!date) {
@@ -1488,27 +1503,27 @@ function savePatrimonioMovement() {
   let value = inputValue;
   if (requestedType === 'transferencia') {
     if (!fromAccountId || !toAccountId || fromAccountId === toAccountId) {
-      alert('Escolha contas de origem e destino diferentes para a transfer?ncia.');
+      alert('Escolha contas de origem e destino diferentes para a transferencia.');
       return;
     }
   } else if (!accountId) {
-    alert('Escolha a conta/ativo da movimenta??o.');
+    alert('Escolha a conta/ativo da movimentacao.');
     return;
   }
   if (requestedType === 'atualizacao') {
     const current = getPatrimonioBalanceForAccount(accountId);
     const diff = Number((value - current).toFixed(2));
     if (Math.abs(diff) < 0.005) {
-      alert('O saldo informado ? igual ao saldo atual da conta. Nenhuma movimenta??o foi criada.');
+      alert('O saldo informado e igual ao saldo atual da conta. Nenhuma movimentacao foi criada.');
       return;
     }
     type = diff > 0 ? 'aporte' : 'retirada';
     value = Math.abs(diff);
     if (!description) {
-      description = 'Atualiza??o de saldo';
+      description = 'Atualizacao de saldo';
     }
   } else if (value <= 0) {
-    alert('Informe um valor v?lido para a movimenta??o.');
+    alert('Informe um valor valido para a movimentacao.');
     return;
   }
   recordHistoryState();

@@ -1012,6 +1012,13 @@ body {
   text-transform: uppercase;
   color: #7b889f;
 }
+.unified-card-recurring-amount{
+  font-size: .88em;
+  color: #6b7280;
+  padding-left: 8px;
+  opacity: .85;
+  font-weight: 400;
+}
 .unified-card-group-head-row td{
   border-top: 1px solid rgba(93,111,143,.18);
   border-right: none !important;

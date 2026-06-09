@@ -89,14 +89,15 @@
     const modal = document.createElement('div');
     modal.className = 'modal-bg';
     modal.id = 'modalInternetBankingPreview';
+    modal.dataset.noBackdropClose = 'true';
     modal.innerHTML = `
       <div class="modal internet-banking-preview-modal" onclick="event.stopPropagation()">
         <div class="modal-header">
-          <h3>Internet banking (pré-visualização)</h3>
-          <button class="btn-icon" type="button" onclick="BillImport.closeInternetBankingPreview()">✕</button>
+          <h3>Internet banking (pre-visualizacao)</h3>
+          <button class="btn-icon" type="button" onclick="BillImport.closeInternetBankingPreview()">x</button>
         </div>
         <p class="modal-subcopy">
-          Esses dados vieram do Pluggy e ainda não foram inseridos automaticamente no seu sistema financeiro.
+          Esses dados vieram do Pluggy e ainda nao foram inseridos automaticamente no seu sistema financeiro.
         </p>
         <div id="internetBankingPreviewStatus" class="internet-banking-preview-status text-muted"></div>
         <div id="internetBankingPreviewWorkspace" class="internet-banking-preview-workspace"></div>
@@ -106,11 +107,6 @@
         </div>
       </div>
     `;
-    modal.addEventListener('click', event => {
-      if (event.target && event.target.id === 'modalInternetBankingPreview') {
-        closeInternetBankingPreview();
-      }
-    });
     document.body.appendChild(modal);
   }
 

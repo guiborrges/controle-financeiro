@@ -124,6 +124,7 @@ function closeModal(id) {
 
 function closeModalBg(event, id) {
   if (!event || event.target !== event.currentTarget) return;
+  if (event.currentTarget?.dataset?.noBackdropClose === 'true') return;
   closeModal(id);
 }
 

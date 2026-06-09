@@ -1259,7 +1259,7 @@
       <div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
         <div class="modal-header">
           <h3>Recarregar historico</h3>
-          <button class="btn-icon" type="button" onclick="PluggyBanking.closeRestoreDialog()">âœ•</button>
+          <button class="btn-icon" type="button" onclick="PluggyBanking.closeRestoreDialog()">x</button>
         </div>
         <p class="text-muted" style="margin:0 0 10px">Selecione os cartoes/contas que deseja restaurar para o estado original.</p>
         <div id="pluggyRestoreList" class="pluggy-restore-list"></div>
@@ -1797,6 +1797,7 @@
 
   async function getMobileSnapshot(forceReload = false) {
     loadUserState();
+    STATE.pendingByAccount = {};
     if (forceReload || !STATE.rawData) {
       await loadData();
     }
@@ -1811,6 +1812,7 @@
   async function renderPage(forceReload = false, mountId = 'internetBankingWorkspace') {
     STATE.mountId = String(mountId || 'internetBankingWorkspace');
     loadUserState();
+    STATE.pendingByAccount = {};
     if (forceReload || !STATE.rawData) await loadData();
     else {
       resetCollapsedGroupsToClosed();
@@ -1856,6 +1858,7 @@
     extractImportedKeysFromSavedData
   };
 })(typeof window !== 'undefined' ? window : globalThis);
+
 
 
 

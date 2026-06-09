@@ -36,8 +36,19 @@
 
   function getUnifiedCardLaunchesAmount(month, cardId) {
     ensureMonth(month);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return (month?.outflows || []).reduce((acc, item) => {
       if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
+      const rawDate = String(item?.date || item?.data || '').trim();
+      const parsed = rawDate
+        ? (typeof global.parseData === 'function' ? global.parseData(rawDate) : Date.parse(rawDate))
+        : 0;
+      if (parsed) {
+        const itemDate = new Date(parsed);
+        itemDate.setHours(0, 0, 0, 0);
+        if (itemDate > today) return acc;
+      }
       return acc + Number(item?.amount || 0);
     }, 0);
   }
