@@ -1635,26 +1635,8 @@ function isUnifiedCardLaunchDue(item) {
   return date <= today;
 }
 
-function getUnifiedCardLaunchesAmountGross(month, cardId) {
-  ensureUnifiedOutflowPilotMonth(month);
-  return (month.outflows || []).reduce((acc, item) => {
-    if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
-    if (!isUnifiedCardLaunchDue(item)) return acc;
-    const gross = Math.max(0, Number(
-      (item?.sharedExpense === true || item?.launchShared === true)
-        ? (item?.sharedOriginalAmount || item?.amount || item?.valor || 0)
-        : (item?.amount || item?.valor || 0)
-    ) || 0);
-    return acc + gross;
-  }, 0);
-}
-
 function getUnifiedCardLaunchesTooltip(month, cardId, cardLaunchesAmount) {
-  const gross = getUnifiedCardLaunchesAmountGross(month, cardId);
-  if (Math.abs(gross - Number(cardLaunchesAmount || 0)) >= 0.01) {
-    return `Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}\nInclui reembolsos: ${fmt(gross)} (valor total na fatura)`;
-  }
-  return `Valor pelos lançamentos desse cartão: ${fmt(cardLaunchesAmount)}`;
+  return `Valor da fatura pela somatória dos lançamentos: ${fmt(cardLaunchesAmount)}`;
 }
 
 function getUnifiedRecurringSpendPlannedTotal(month) {
