@@ -1375,6 +1375,151 @@ html.mobile-v2 #mobileV2Splash {
     color: var(--text1);
   }
 
+  html.mobile-v2 .gm-summary-card {
+    overflow: visible;
+  }
+
+  html.mobile-v2 .gm-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  html.mobile-v2 .gm-pie-canvas {
+    width: 112px;
+    height: 112px;
+    flex: 0 0 112px;
+  }
+
+  html.mobile-v2 .gm-summary-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  html.mobile-v2 .gm-summary-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  html.mobile-v2 .gm-summary-copy strong {
+    font-size: 24px;
+    line-height: 1.05;
+    color: var(--text1);
+  }
+
+  html.mobile-v2 .gm-summary-copy span:last-child {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  html.mobile-v2 .gm-list-card {
+    overflow: hidden;
+  }
+
+  html.mobile-v2 .gm-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-strong);
+  }
+
+  html.mobile-v2 .gm-row:first-of-type {
+    border-top: 0;
+  }
+
+  html.mobile-v2 .gm-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--surface2) 86%, var(--accent) 14%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 34px;
+    overflow: hidden;
+  }
+
+  html.mobile-v2 .gm-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  html.mobile-v2 .gm-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  html.mobile-v2 .gm-name {
+    min-width: 0;
+    color: var(--text1);
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  html.mobile-v2 .gm-spent {
+    color: var(--text1);
+    font-size: 13px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  html.mobile-v2 .gm-spent.over {
+    color: var(--red);
+  }
+
+  html.mobile-v2 .gm-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--border) 82%, transparent);
+    overflow: hidden;
+    margin-top: 7px;
+  }
+
+  html.mobile-v2 .gm-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    transition: width .25s ease;
+  }
+
+  html.mobile-v2 .gm-bar-fill.with-goal {
+    background: linear-gradient(90deg, #2f9d6a, #d4a62a);
+  }
+
+  html.mobile-v2 .gm-bar-fill.without-goal {
+    background: var(--accent);
+    opacity: .72;
+  }
+
+  html.mobile-v2 .gm-bar-fill.over {
+    background: var(--red);
+  }
+
+  html.mobile-v2 .gm-sub {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  html.mobile-v2 .gm-edit {
+    margin-top: 2px;
+    flex: 0 0 auto;
+  }
+
   html.mobile-v2 .m2-list-total,
   html.mobile-v2 .m2-list-actions {
     padding: 10px 16px 12px;

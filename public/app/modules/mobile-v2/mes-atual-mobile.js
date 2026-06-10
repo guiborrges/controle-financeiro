@@ -312,65 +312,190 @@
     return getCachedMonthView(month).categoryRows;
   }
 
-  function renderGastosMetas(month) {
-    const categoryRows = getCachedMonthView(month).categoryRows;
-    const max = categoryRows[0]?.total || 1;
+  function getEffectiveOutflowAmount(item) {
+    const resolver = global.OutflowAmounts?.getEffectiveOutflowAmount || global.getUnifiedEffectiveOutflowAmount;
+    const raw = typeof resolver === 'function'
+      ? resolver(item)
+      : (item?.amount ?? item?.valor ?? 0);
+    return Math.max(0, Number(raw || 0) || 0);
+  }
+
+  function isSpendLaunch(item) {
+    if (typeof global.isUnifiedLaunchOfType === 'function') {
+      return global.isUnifiedLaunchOfType(item, 'spend') === true;
+    }
+    return String(item?.type || '').toLowerCase() === 'spend';
+  }
+
+  function isRecurringLaunch(item) {
+    if (typeof global.isUnifiedLaunchRecurring === 'function') {
+      return global.isUnifiedLaunchRecurring(item) === true;
+    }
+    return item?.recurringSpend === true || item?.expenseRecurring === true || item?.launchRecurring === true;
+  }
+
+  function getGoalCategories(month) {
+    if (typeof global.getUnifiedOutflowCategories === 'function') {
+      return global.getUnifiedOutflowCategories(month) || [];
+    }
+    const presets = Array.isArray(global.SYSTEM_DEFAULT_CATEGORY_PRESETS)
+      ? global.SYSTEM_DEFAULT_CATEGORY_PRESETS.map((item) => item?.name || '')
+      : ['MORADIA', 'SERVIÇOS', 'ALIMENTAÇÃO', 'TRANSPORTE', 'COMPRAS', 'SAÚDE', 'LAZER', 'EDUCAÇÃO', 'FINANCEIRO', 'ASSINATURAS', 'TRABALHO', 'OUTROS'];
+    return presets
+      .map((category) => String(global.resolveCategoryName ? global.resolveCategoryName(category) : category).trim())
+      .filter(Boolean);
+  }
+
+  function getGoalSpendItems(month) {
+    if (typeof global.getUnifiedFilterRows === 'function') {
+      return (global.getUnifiedFilterRows(month, 'spend', '', '') || [])
+        .filter((row) => row?.kind === 'outflow')
+        .map((row) => row.item)
+        .filter(Boolean);
+    }
+    return Array.isArray(month?.outflows) ? month.outflows : [];
+  }
+
+  function buildGoalRows(month) {
     const goals = month?.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
-    const spentByCategory = typeof global.getVariableCategoryTotals === 'function'
-      ? (global.getVariableCategoryTotals(month) || {})
-      : (month?.categorias && typeof month.categorias === 'object' ? month.categorias : {});
+    const categoryMap = new Map();
+    const addCategory = (rawCategory) => {
+      const category = String(global.resolveCategoryName ? global.resolveCategoryName(rawCategory || 'OUTROS') : (rawCategory || 'OUTROS')).trim() || 'OUTROS';
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, {
+          category,
+          icon: getCategorySymbol(category),
+          spent: 0,
+          goal: 0,
+          pct: 0,
+          items: []
+        });
+      }
+      return categoryMap.get(category);
+    };
 
-    const categoryNames = new Set([
-      ...categoryRows.map((row) => row.name),
-      ...Object.keys(goals || {}),
-      ...Object.keys(spentByCategory || {})
-    ]);
+    getGoalCategories(month).forEach(addCategory);
+    Object.keys(goals || {}).forEach(addCategory);
 
-    const goalRows = Array.from(categoryNames)
-      .map((category) => {
-        const goalValue = goals[category];
-        const goal = Math.max(0, Number(goalValue || 0));
-        const resolved = String(global.resolveCategoryName ? global.resolveCategoryName(category) : category).trim() || 'OUTROS';
-        const spent = Math.max(0, Number(spentByCategory[resolved] || spentByCategory[category] || 0));
-        const percent = goal > 0 ? Math.max(0, Math.round((spent / goal) * 100)) : 0;
-        return { category: resolved, goal, spent, percent };
-      })
-      .filter(Boolean)
-      .sort((a, b) => (b.goal > 0 ? 1 : 0) - (a.goal > 0 ? 1 : 0) || b.percent - a.percent || b.spent - a.spent);
+    getGoalSpendItems(month).forEach((item) => {
+      if (!item || item.countsInPrimaryTotals === false) return;
+      if (!isSpendLaunch(item)) return;
+      if (isRecurringLaunch(item)) return;
+      const amount = getEffectiveOutflowAmount(item);
+      if (!(amount > 0)) return;
+      const row = addCategory(resolveCategory(item));
+      row.spent += amount;
+      row.items.push(item);
+    });
+
+    Object.entries(goals || {}).forEach(([rawCategory, rawGoal]) => {
+      const row = addCategory(rawCategory);
+      row.goal = Math.max(0, Number(rawGoal || 0) || 0);
+    });
+
+    return Array.from(categoryMap.values())
+      .map((row) => ({
+        ...row,
+        spent: Number(row.spent.toFixed(2)),
+        pct: row.goal > 0 ? Math.round((row.spent / row.goal) * 100) : 0
+      }))
+      .filter((row) => row.spent > 0 || row.goal > 0)
+      .sort((a, b) => (b.spent - a.spent) || (b.goal - a.goal) || a.category.localeCompare(b.category, 'pt-BR'));
+  }
+
+  function renderGastosMetas(month) {
+    const goalRows = buildGoalRows(month);
+    const totalSpent = goalRows.reduce((sum, row) => sum + Number(row.spent || 0), 0);
+    const totalGoal = goalRows.reduce((sum, row) => sum + Number(row.goal || 0), 0);
+    const maxSpent = Math.max(1, ...goalRows.map((row) => Number(row.spent || 0)));
 
     return `
       <div class="m2-tab-panel ${activeSubtab === 'gastos-metas' ? 'active' : ''}" data-tab-panel="gastos-metas">
-        <section class="m-list-card">
-          <h3 class="m-list-title">Gastos por categoria</h3>
-          ${categoryRows.length ? categoryRows.map((row) => {
-            const width = Math.max(5, Math.round((row.total / max) * 100));
-            return `
-              <div class="cat-bar-row">
-                <span class="cat-bar-name">${row.icon} <span>${escapeHtml(row.name)}</span></span>
-                <span class="cat-bar-track"><span class="cat-bar-fill" style="width:${width}%"></span></span>
-                <span class="cat-bar-value">${formatMoney(row.total)}</span>
-              </div>
-            `;
-          }).join('') : '<div class="m2-empty">Sem gastos categorizados no mês.</div>'}
+        <section class="m-list-card gm-summary-card">
+          <div class="gm-summary">
+            <canvas class="gm-pie-canvas" width="152" height="152" aria-label="Distribuição dos gastos por categoria"></canvas>
+            <div class="gm-summary-copy">
+              <span class="gm-summary-label">Gastos e metas</span>
+              <strong>${formatMoney(totalSpent)}</strong>
+              <span>${totalGoal > 0 ? `Meta total: ${formatMoney(totalGoal)}` : 'Sem metas definidas'}</span>
+            </div>
+          </div>
         </section>
 
-        <section class="m-list-card">
-          <h3 class="m-list-title">Metas de gasto</h3>
+        <section class="m-list-card gm-list-card">
+          <h3 class="m-list-title">Categorias</h3>
           ${goalRows.length ? goalRows.map((row) => {
-            const over = row.percent > 100;
-            const clamped = Math.min(row.percent, 100);
+            const hasGoal = row.goal > 0;
+            const over = hasGoal && row.pct > 100;
+            const goalWidth = hasGoal ? Math.min(row.pct, 100) : Math.round((Number(row.spent || 0) / maxSpent) * 100);
+            const width = Math.max(row.spent > 0 ? 4 : 0, goalWidth);
+            const subtitle = hasGoal
+              ? `Meta: ${formatMoney(row.goal)} · ${row.pct}%`
+              : 'Sem meta definida';
             return `
-              <div class="cat-bar-row goal-row">
-                <span class="cat-bar-name">${escapeHtml(row.category)}</span>
-                <span class="cat-bar-track"><span class="cat-bar-fill ${over ? 'over-budget' : ''}" style="width:${clamped}%"></span></span>
-                <span class="cat-bar-value">${row.goal > 0 ? `${row.percent}%` : 'Sem meta'}</span>
-                <button class="m2-icon-mini" type="button" data-action="edit-goal" data-category="${escapeHtml(row.category)}" aria-label="${row.goal > 0 ? 'Editar meta' : 'Definir meta de gasto'}">✎</button>
+              <div class="gm-row">
+                <div class="gm-icon">${row.icon}</div>
+                <div class="gm-info">
+                  <div class="gm-head">
+                    <span class="gm-name">${escapeHtml(row.category)}</span>
+                    <span class="gm-spent ${over ? 'over' : ''}">${formatMoney(row.spent)}</span>
+                  </div>
+                  <div class="gm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(hasGoal ? row.pct : width, 100)}">
+                    <span class="gm-bar-fill ${over ? 'over' : ''} ${hasGoal ? 'with-goal' : 'without-goal'}" style="width:${Math.min(width, 100)}%"></span>
+                  </div>
+                  <span class="gm-sub">${escapeHtml(subtitle)}</span>
+                </div>
+                <button class="m2-icon-mini gm-edit" type="button" data-action="edit-goal" data-category="${escapeHtml(row.category)}" aria-label="${hasGoal ? 'Editar meta' : 'Definir meta de gasto'}">✎</button>
               </div>
             `;
           }).join('') : emptyState('Nenhuma categoria encontrada', 'Adicionar lançamento')}
         </section>
       </div>
     `;
+  }
+
+  function drawGmPieChart(target) {
+    const canvas = target?.querySelector?.('.gm-pie-canvas');
+    if (!canvas) return;
+    const month = getCurrentMonthSafe();
+    const rows = buildGoalRows(month).filter((row) => Number(row.spent || 0) > 0);
+    const ctx = canvas.getContext('2d');
+    const size = Math.min(canvas.width || 152, canvas.height || 152);
+    const center = size / 2;
+    const radius = Math.max(36, center - 10);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const total = rows.reduce((sum, row) => sum + Number(row.spent || 0), 0);
+    const styles = getComputedStyle(document.documentElement);
+    const surface = styles.getPropertyValue('--surface-strong').trim() || '#fff';
+    const muted = styles.getPropertyValue('--border').trim() || '#e5e7eb';
+    const colors = ['#2471A3', '#27AE60', '#F39C12', '#8E44AD', '#17A589', '#D35400', '#BB4F43', '#2C3E50'];
+
+    if (!(total > 0)) {
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = muted;
+      ctx.lineWidth = 16;
+      ctx.stroke();
+      return;
+    }
+
+    let angle = -Math.PI / 2;
+    rows.slice(0, 8).forEach((row, index) => {
+      const slice = (Number(row.spent || 0) / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(center, center);
+      ctx.arc(center, center, radius, angle, angle + slice);
+      ctx.closePath();
+      ctx.fillStyle = colors[index % colors.length];
+      ctx.fill();
+      angle += slice;
+    });
+
+    ctx.beginPath();
+    ctx.arc(center, center, radius * 0.58, 0, Math.PI * 2);
+    ctx.fillStyle = surface;
+    ctx.fill();
   }
 
   function renderTodos(month) {
@@ -709,6 +834,12 @@
     `;
 
     attachListeners(target, month);
+    if (activeSubtab === 'gastos-metas') {
+      requestAnimationFrame(() => {
+        const panel = target.querySelector('[data-tab-panel="gastos-metas"]');
+        drawGmPieChart(panel);
+      });
+    }
   }
 
   global.MobileV2MesAtual = {
