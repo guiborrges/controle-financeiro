@@ -1564,6 +1564,21 @@ function syncUnifiedCardAutoAmounts(month = getCurrentMonth()) {
   return changed;
 }
 
+function resetUnifiedCardAutoBillIfDisabled(month, cardId) {
+  if (!month || !cardId) return false;
+  ensureUnifiedOutflowPilotMonth(month);
+  const card = (month.outflowCards || []).find(entry => String(entry?.id || '') === String(cardId));
+  if (card?.autoAmount === true) return false;
+  const bill = getUnifiedCardBill(month, cardId);
+  if (!bill || bill.source !== 'auto') return false;
+  const forecastAmount = Number(Number(getUnifiedCardRecurringForecastAmount(month, cardId) || 0).toFixed(2));
+  bill.amount = 0;
+  bill.forecastAmount = Number.isFinite(forecastAmount) ? forecastAmount : 0;
+  bill.manualAmountSet = false;
+  bill.source = 'forecast';
+  return true;
+}
+
 function syncUnifiedCardAutoAmount() {
   const month = getCurrentMonth();
   if (!month) return;
@@ -1573,7 +1588,7 @@ function syncUnifiedCardAutoAmount() {
     const card = (month.outflowCards || []).find(entry => entry.id === editingUnifiedCardId);
     if (card) card.autoAmount = checkbox.checked === true;
   }
-  const changed = syncUnifiedCardAutoAmounts(month);
+  const changed = resetUnifiedCardAutoBillIfDisabled(month, editingUnifiedCardId) || syncUnifiedCardAutoAmounts(month);
   if (changed) {
     syncUnifiedOutflowLegacyData(month);
     scheduleServerStorageFlush('syncUnifiedCardAutoAmount');
@@ -3333,7 +3348,7 @@ function openUnifiedCardModal(cardId = '') {
   document.getElementById('unifiedCardPaymentDay').value = card?.paymentDate || card?.paymentDay || '';
   document.getElementById('unifiedCardDescription').value = card?.description || '';
   const autoAmountCheckbox = document.getElementById('unifiedCardAutoAmount');
-  if (autoAmountCheckbox) autoAmountCheckbox.checked = card?.autoAmount === true;
+  if (autoAmountCheckbox) autoAmountCheckbox.checked = card ? card.autoAmount === true : true;
   toggleUnifiedCardOtherBank();
   const menu = document.getElementById('unifiedCardBankMenu');
   if (menu) {
@@ -3554,6 +3569,7 @@ function saveUnifiedCard() {
     if (!otherBill) {
       otherMonth.cardBills.push(normalizeUnifiedCardBill(otherMonth, { cardId: nextCard.id }, otherMonth.cardBills.length));
     }
+    resetUnifiedCardAutoBillIfDisabled(otherMonth, nextCard.id);
     syncUnifiedCardAutoAmounts(otherMonth);
     syncUnifiedOutflowLegacyData(otherMonth);
   });
@@ -3562,6 +3578,7 @@ function saveUnifiedCard() {
   if (!existingBill) {
     month.cardBills.push(normalizeUnifiedCardBill(month, { cardId: nextCard.id }, month.cardBills.length));
   }
+  resetUnifiedCardAutoBillIfDisabled(month, nextCard.id);
   syncUnifiedCardAutoAmounts(month);
   syncUnifiedOutflowLegacyData(month);
   save(true);
