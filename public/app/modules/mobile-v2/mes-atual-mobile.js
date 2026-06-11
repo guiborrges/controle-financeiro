@@ -116,6 +116,13 @@
     return String(global.resolveCategoryName ? global.resolveCategoryName(raw) : raw).trim() || 'OUTROS';
   }
 
+  function getUnifiedCategoryName(item) {
+    if (typeof global.getUnifiedOutflowCategoryName === 'function') {
+      return String(global.getUnifiedOutflowCategoryName(item, 'OUTROS') || 'OUTROS').trim() || 'OUTROS';
+    }
+    return resolveCategory(item);
+  }
+
   function getOutflowRows(month) {
     if (typeof global.getUnifiedFilterRows === 'function') {
       const unifiedRows = global.getUnifiedFilterRows(month, 'all', '', '') || [];
@@ -327,23 +334,9 @@
     return String(item?.type || '').toLowerCase() === 'spend';
   }
 
-  function isRecurringLaunch(item) {
-    if (typeof global.isUnifiedLaunchRecurring === 'function') {
-      return global.isUnifiedLaunchRecurring(item) === true;
-    }
-    return item?.recurringSpend === true || item?.expenseRecurring === true || item?.launchRecurring === true;
-  }
-
-  function getGoalCategories(month) {
-    if (typeof global.getUnifiedOutflowCategories === 'function') {
-      return global.getUnifiedOutflowCategories(month) || [];
-    }
-    const presets = Array.isArray(global.SYSTEM_DEFAULT_CATEGORY_PRESETS)
-      ? global.SYSTEM_DEFAULT_CATEGORY_PRESETS.map((item) => item?.name || '')
-      : ['MORADIA', 'SERVIÇOS', 'ALIMENTAÇÃO', 'TRANSPORTE', 'COMPRAS', 'SAÚDE', 'LAZER', 'EDUCAÇÃO', 'FINANCEIRO', 'ASSINATURAS', 'TRABALHO', 'OUTROS'];
-    return presets
-      .map((category) => String(global.resolveCategoryName ? global.resolveCategoryName(category) : category).trim())
-      .filter(Boolean);
+  function isDirectMethodCategory(category) {
+    const normalized = String(global.resolveCategoryName ? global.resolveCategoryName(category || '') : (category || '')).trim().toUpperCase();
+    return new Set(['PIX', 'DÉBITO', 'DEBITO', 'DINHEIRO']).has(normalized);
   }
 
   function getGoalSpendItems(month) {
@@ -374,16 +367,16 @@
       return categoryMap.get(category);
     };
 
-    getGoalCategories(month).forEach(addCategory);
     Object.keys(goals || {}).forEach(addCategory);
 
     getGoalSpendItems(month).forEach((item) => {
       if (!item || item.countsInPrimaryTotals === false) return;
       if (!isSpendLaunch(item)) return;
-      if (isRecurringLaunch(item)) return;
+      const category = getUnifiedCategoryName(item);
+      if (isDirectMethodCategory(category)) return;
       const amount = getEffectiveOutflowAmount(item);
       if (!(amount > 0)) return;
-      const row = addCategory(resolveCategory(item));
+      const row = addCategory(category);
       row.spent += amount;
       row.items.push(item);
     });
