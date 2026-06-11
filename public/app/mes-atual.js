@@ -2324,16 +2324,13 @@ function renderUnifiedAllRows(month, rows) {
   return `<table class="fin-table unified-outflow-table"><thead><tr><th style="padding-left:22px" class="sortable" onclick="setUnifiedOutflowSort('data')">${renderUnifiedSortLabel(month, 'data', 'Data')}</th><th class="sortable" onclick="setUnifiedOutflowSort('descricao')">${renderUnifiedSortLabel(month, 'descricao', 'Descrição')}</th><th class="sortable" onclick="setUnifiedOutflowSort('categoria')">${renderUnifiedSortLabel(month, 'categoria', 'Categoria')}</th><th class="sortable" onclick="setUnifiedOutflowSort('tipo')">${renderUnifiedSortLabel(month, 'tipo', 'Tipo')}</th><th class="sortable" onclick="setUnifiedOutflowSort('saida')">${renderUnifiedSortLabel(month, 'saida', 'Saída')}</th><th class="sortable" onclick="setUnifiedOutflowSort('valor')">${renderUnifiedSortLabel(month, 'valor', 'Valor')}</th><th></th></tr></thead><tbody>${body}</tbody><tfoot><tr class="totals-row"><td colspan="5" style="padding-left:22px;padding-top:12px;padding-bottom:12px">Total</td><td class="amount amount-neg">${fmt(totalWithoutCardDuplication)}</td><td></td></tr></tfoot></table>`;
 }
 
-function renderUnifiedCategoryGroups(month, items, options = {}) {
+function buildUnifiedSpendCategoryRows(month, items, options = {}) {
   const {
-    emptyText = 'Nenhum gasto registrado ainda.',
-    includePaymentLabel = true,
-    totalLabel = 'Total dos gastos',
     forcedCategories = null,
-    showCategoryRemove = false,
+    ensureSelection = false,
   } = options;
   const totals = new Map();
-  items.forEach(item => {
+  (items || []).forEach(item => {
     const category = resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS'));
     if (!totals.has(category)) totals.set(category, []);
     totals.get(category).push(item);
@@ -2341,12 +2338,11 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
   const categories = Array.isArray(forcedCategories) && forcedCategories.length
     ? Array.from(new Set(forcedCategories.map(cat => resolveCategoryName(cat || 'OUTROS'))))
     : Array.from(totals.keys());
-  if (!categories.length) return `<div class="unified-empty-state">${emptyText}</div>`;
-  ensureUnifiedSpendCategorySelectionState(month, categories);
+  if (ensureSelection) ensureUnifiedSpendCategorySelectionState(month, categories);
   const isSpendType = (item) => typeof isUnifiedLaunchOfType === 'function'
     ? isUnifiedLaunchOfType(item, 'spend')
     : String(item?.type || '').toLowerCase() === 'spend';
-  const categoryRows = categories.map(category => {
+  return categories.map(category => {
     const categoryItems = totals.get(category) || [];
     const spendItemsInCategory = categoryItems.filter(item => isSpendType(item));
     const nonRecurringSpendItemsInCategory = spendItemsInCategory.filter(item => isComparableDailyGoalSpend(item));
@@ -2360,7 +2356,63 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
     const selected = isUnifiedSpendCategorySelected(month, category);
     return { category, categoryItems, hasSpendInCategory, hasItems, total, meta, percentual, nonRecurringSpendTotalInCategory, selected };
   });
+}
 
+function getUnifiedSpendCategorySummary(month, rows = null) {
+  const directMethodCategoryKeys = new Set(['PIX', 'DÉBITO', 'DEBITO', 'DINHEIRO']);
+  const isDirectMethodCategory = (value) => directMethodCategoryKeys.has(resolveCategoryName(value || ''));
+  const isSpendType = (item) => typeof isUnifiedLaunchOfType === 'function'
+    ? isUnifiedLaunchOfType(item, 'spend')
+    : String(item?.type || '').toLowerCase() === 'spend';
+  const isExpenseType = (item) => typeof isUnifiedLaunchOfType === 'function'
+    ? isUnifiedLaunchOfType(item, 'expense')
+    : isUnifiedExpenseType(item);
+  const sourceRows = Array.isArray(rows)
+    ? rows
+    : (typeof getUnifiedFilterRows === 'function'
+      ? getUnifiedFilterRows(month, 'all', '', '')
+      : ((month?.outflows || []).map(item => ({ kind: 'outflow', item }))));
+  const items = (sourceRows || [])
+    .filter(row => row?.kind === 'outflow')
+    .map(row => row.item)
+    .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
+    .filter(item => {
+      if (isExpenseType(item)) return true;
+      if (!isSpendType(item)) return false;
+      return !isDirectMethodCategory(getUnifiedOutflowCategoryName(item, ''));
+    });
+  const prevMonth = getPreviousMonthFor(month);
+  const inheritedPrevCategories = prevMonth
+    ? (prevMonth.outflows || [])
+      .filter(item => isSpendType(item))
+      .filter(item => !isDirectMethodCategory(getUnifiedOutflowCategoryName(item, '')))
+      .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
+      .map(item => resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS')))
+    : [];
+  const spendCategories = items.map(item => resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS')));
+  const categories = Array.from(new Set([
+    ...inheritedPrevCategories,
+    ...spendCategories
+  ]));
+  const categoryRows = buildUnifiedSpendCategoryRows(month, items, { forcedCategories: categories });
+  return { items, categories, rows: categoryRows };
+}
+
+if (typeof window !== 'undefined') {
+  window.buildUnifiedSpendCategoryRows = buildUnifiedSpendCategoryRows;
+  window.getUnifiedSpendCategorySummary = getUnifiedSpendCategorySummary;
+}
+
+function renderUnifiedCategoryGroups(month, items, options = {}) {
+  const {
+    emptyText = 'Nenhum gasto registrado ainda.',
+    includePaymentLabel = true,
+    totalLabel = 'Total dos gastos',
+    forcedCategories = null,
+    showCategoryRemove = false,
+  } = options;
+  const categoryRows = buildUnifiedSpendCategoryRows(month, items, { forcedCategories, ensureSelection: true });
+  if (!categoryRows.length) return `<div class="unified-empty-state">${emptyText}</div>`;
   const sort = getUnifiedOutflowSort(month);
   const sortField = sort.field || 'categoria';
   const sortDir = sort.direction === 'asc' ? 'asc' : 'desc';
@@ -2423,7 +2475,7 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
       ${list}`;
   }).join('');
   const selectedCategorySet = new Set(categoryRows.filter(row => row.selected).map(row => row.category));
-  const selectedItems = items.filter(item => selectedCategorySet.has(getUnifiedOutflowCategoryName(item, 'OUTROS')));
+  const selectedItems = (items || []).filter(item => selectedCategorySet.has(resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS'))));
   const totalSpent = selectedItems.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
   const totalSpendOnly = selectedItems.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0);
   const totalMeta = Number(getDailyGoalTarget(month) || 0);
@@ -2432,41 +2484,12 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
 }
 
 function renderUnifiedSpendGroups(month, rows) {
-  const directMethodCategoryKeys = new Set(['PIX', 'DÉBITO', 'DEBITO', 'DINHEIRO']);
-  const isDirectMethodCategory = (value) => directMethodCategoryKeys.has(resolveCategoryName(value || ''));
-  const isSpendType = (item) => typeof isUnifiedLaunchOfType === 'function'
-    ? isUnifiedLaunchOfType(item, 'spend')
-    : String(item?.type || '').toLowerCase() === 'spend';
-  const isExpenseType = (item) => typeof isUnifiedLaunchOfType === 'function'
-    ? isUnifiedLaunchOfType(item, 'expense')
-    : isUnifiedExpenseType(item);
-  const monthCategoryItems = (rows || [])
-    .filter(row => row?.kind === 'outflow')
-    .map(row => row.item)
-    .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
-    .filter(item => {
-      if (isExpenseType(item)) return true;
-      if (!isSpendType(item)) return false;
-      return !isDirectMethodCategory(getUnifiedOutflowCategoryName(item, ''));
-    });
-  const prevMonth = getPreviousMonthFor(month);
-  const inheritedPrevCategories = prevMonth
-    ? (prevMonth.outflows || [])
-      .filter(item => isSpendType(item))
-      .filter(item => !isDirectMethodCategory(getUnifiedOutflowCategoryName(item, '')))
-      .filter(item => getUnifiedEffectiveOutflowAmount(item) > 0)
-      .map(item => resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS')))
-    : [];
-  const spendCategories = monthCategoryItems.map(item => resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS')));
-  const categories = Array.from(new Set([
-    ...inheritedPrevCategories,
-    ...spendCategories
-  ]));
-  return renderUnifiedCategoryGroups(month, monthCategoryItems, {
+  const summary = getUnifiedSpendCategorySummary(month, rows);
+  return renderUnifiedCategoryGroups(month, summary.items, {
     emptyText: 'Nenhum gasto registrado ainda.',
     includePaymentLabel: true,
     totalLabel: 'Total dos gastos',
-    forcedCategories: categories,
+    forcedCategories: summary.categories,
     showCategoryRemove: true,
   });
 }

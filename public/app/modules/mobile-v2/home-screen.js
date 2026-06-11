@@ -91,6 +91,15 @@
     const totals = new Map();
     months.forEach((month) => {
       const rawMonth = (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []).find((m) => m?.id === month.id);
+      if (rawMonth && typeof global.getUnifiedSpendCategorySummary === 'function') {
+        const summary = global.getUnifiedSpendCategorySummary(rawMonth);
+        (summary?.rows || []).forEach((row) => {
+          const safeCategory = String(row?.category || 'OUTROS').trim() || 'OUTROS';
+          const value = Math.max(0, Number(row?.total || 0));
+          if (value > 0) totals.set(safeCategory, Number(totals.get(safeCategory) || 0) + value);
+        });
+        return;
+      }
       const monthCategoryTotals = typeof global.getVariableCategoryTotals === 'function'
         ? global.getVariableCategoryTotals(rawMonth || {}) || {}
         : {};
@@ -257,12 +266,18 @@
     allMonths.forEach((month) => {
       if (!allowed.has(String(month?.id || ''))) return;
       (month?.outflows || []).forEach((item) => {
-        const cat = String(global.resolveCategoryName ? global.resolveCategoryName(item?.category || item?.categoria || 'OUTROS') : (item?.category || item?.categoria || 'OUTROS'));
+        const cat = typeof global.getUnifiedOutflowCategoryName === 'function'
+          ? String(global.getUnifiedOutflowCategoryName(item, 'OUTROS') || 'OUTROS')
+          : String(global.resolveCategoryName ? global.resolveCategoryName(item?.category || item?.categoria || 'OUTROS') : (item?.category || item?.categoria || 'OUTROS'));
         if (cat !== categoryName) return;
+        const amount = typeof global.getUnifiedEffectiveOutflowAmount === 'function'
+          ? global.getUnifiedEffectiveOutflowAmount(item)
+          : Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0);
+        if (!(amount > 0)) return;
         rows.push({
           date: String(item?.date || ''),
           description: String(item?.description || 'Lançamento'),
-          amount: Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0),
+          amount,
           output: String(item?.outputKind === 'card' ? 'Cartão' : (item?.outputMethod || 'Saída')),
           tag: String(item?.tag || '')
         });

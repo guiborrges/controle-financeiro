@@ -105,7 +105,7 @@
     if (cached?.cacheKey === cacheKey) return cached;
     const outflowRows = getOutflowRows(month);
     const metrics = getMonthMetrics(month);
-    const categoryRows = buildCategoryRowsFromRows(outflowRows);
+    const categoryRows = buildCategoryRowsFromRows(month, outflowRows);
     const next = { cacheKey, outflowRows, metrics, categoryRows };
     monthCache.set(monthId, next);
     return next;
@@ -127,7 +127,7 @@
     if (typeof global.getUnifiedFilterRows === 'function') {
       const unifiedRows = global.getUnifiedFilterRows(month, 'all', '', '') || [];
       const outflowRows = unifiedRows
-        .filter((row) => row?.kind === 'outflow' && Math.abs(Number(row?.item?.amount || 0)) > 0)
+        .filter((row) => row?.kind === 'outflow' && getEffectiveOutflowAmount(row?.item) > 0)
         .map((row) => row.item);
       if (typeof global.getSortedUnifiedRows === 'function') {
         return global.getSortedUnifiedRows(month, outflowRows.map((item) => ({ kind: 'outflow', item })), 'data', 'desc')
@@ -136,7 +136,7 @@
       return outflowRows.sort((a, b) => parseDateScore(b?.date) - parseDateScore(a?.date));
     }
     return [...(Array.isArray(month?.outflows) ? month.outflows : [])]
-      .filter((item) => Math.abs(Number(item?.amount || item?.valor || 0)) > 0)
+      .filter((item) => getEffectiveOutflowAmount(item) > 0)
       .sort((a, b) => parseDateScore(b?.date) - parseDateScore(a?.date));
   }
 
@@ -197,8 +197,8 @@
   }
 
   function toItemView(item) {
-    const category = resolveCategory(item);
-    const amount = Math.abs(Number(item?.amount || item?.valor || 0));
+    const category = getUnifiedCategoryName(item);
+    const amount = getEffectiveOutflowAmount(item);
     const safeId = String(item?.id || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
     return {
       id: safeId,
@@ -295,15 +295,25 @@
     return `<div class="m2-tab-panel ${activeSubtab === 'planejamento' ? 'active' : ''}" data-tab-panel="planejamento">${renderListCard('Compromissos do mês', normalRows)}${cardSections}</div>`;
   }
 
-  function buildCategoryRowsFromRows(rows) {
+  function buildCategoryRowsFromRows(month, rows) {
+    if (month && typeof global.getUnifiedSpendCategorySummary === 'function') {
+      const summary = global.getUnifiedSpendCategorySummary(month);
+      return (summary?.rows || []).map((row) => ({
+        name: row.category,
+        total: Number(row.total || 0),
+        icon: getCategorySymbol(row.category),
+        raw: row
+      }));
+    }
+
     const byCategory = new Map();
     rows.forEach((item) => {
-      if (item?.countsInPrimaryTotals === false) return;
       const type = String(item?.type || '').toLowerCase();
       if (type !== 'spend' && type !== 'launch') return;
-      const category = resolveCategory(item);
+      const category = getUnifiedCategoryName(item);
+      if (isDirectMethodCategory(category)) return;
       if (!byCategory.has(category)) byCategory.set(category, 0);
-      byCategory.set(category, byCategory.get(category) + Math.abs(Number(item?.amount || 0)));
+      byCategory.set(category, byCategory.get(category) + getEffectiveOutflowAmount(item));
     });
 
     return Array.from(byCategory.entries())
@@ -350,6 +360,27 @@
   }
 
   function buildGoalRows(month) {
+    if (typeof global.getUnifiedSpendCategorySummary === 'function') {
+      const summary = global.getUnifiedSpendCategorySummary(month);
+      const rows = Array.isArray(summary?.rows) ? summary.rows : [];
+      return rows
+        .map((row) => {
+          const spent = Number(row.total || 0);
+          const goal = row.meta !== null && row.meta !== undefined
+            ? Math.max(0, Number(row.meta || 0) || 0)
+            : 0;
+          return {
+            category: row.category,
+            icon: getCategorySymbol(row.category),
+            spent: Number(spent.toFixed(2)),
+            goal,
+            pct: goal > 0 ? Math.round((spent / goal) * 100) : 0,
+            items: Array.isArray(row.categoryItems) ? row.categoryItems : []
+          };
+        })
+        .sort((a, b) => (b.spent - a.spent) || (b.goal - a.goal) || a.category.localeCompare(b.category, 'pt-BR'));
+    }
+
     const goals = month?.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
     const categoryMap = new Map();
     const addCategory = (rawCategory) => {

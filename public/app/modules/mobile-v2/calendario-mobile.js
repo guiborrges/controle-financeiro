@@ -88,7 +88,9 @@
     const rows = (items || []).map((item) => {
       const category = String(item?.category || item?.categoria || 'OUTROS');
       const icon = getCategorySymbol(category);
-      const amount = Math.abs(Number(item?.amount || item?.valor || 0));
+      const amount = typeof global.getUnifiedEffectiveOutflowAmount === 'function'
+        ? global.getUnifiedEffectiveOutflowAmount(item)
+        : Math.abs(Number(item?.amount || item?.valor || 0));
       return `
         <article class="m-item m-item-income">
           <div class="m-item-surface static" data-action="edit" data-id="${escapeHtml(String(item?.id || ''))}">
