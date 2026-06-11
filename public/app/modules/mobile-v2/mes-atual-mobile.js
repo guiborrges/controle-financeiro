@@ -398,19 +398,21 @@
 
   function renderGastosMetas(month) {
     const goalRows = buildGoalRows(month);
-    const totalSpent = goalRows.reduce((sum, row) => sum + Number(row.spent || 0), 0);
-    const totalGoal = goalRows.reduce((sum, row) => sum + Number(row.goal || 0), 0);
-    const maxSpent = Math.max(1, ...goalRows.map((row) => Number(row.spent || 0)));
+    const pieSlices = getGmPieSlices(goalRows);
 
     return `
       <div class="m2-tab-panel ${activeSubtab === 'gastos-metas' ? 'active' : ''}" data-tab-panel="gastos-metas">
         <section class="m-list-card gm-summary-card">
           <div class="gm-summary">
             <canvas class="gm-pie-canvas" width="152" height="152" aria-label="Distribuição dos gastos por categoria"></canvas>
-            <div class="gm-summary-copy">
-              <span class="gm-summary-label">Gastos e metas</span>
-              <strong>${formatMoney(totalSpent)}</strong>
-              <span>${totalGoal > 0 ? `Meta total: ${formatMoney(totalGoal)}` : 'Sem metas definidas'}</span>
+            <div class="gm-legend" aria-label="Legenda do gráfico de gastos por categoria">
+              ${pieSlices.length ? pieSlices.map((slice) => `
+                <div class="gm-legend-item">
+                  <span class="gm-legend-dot" style="background:${slice.color}"></span>
+                  <span class="gm-legend-name">${escapeHtml(slice.category)}</span>
+                  <strong>${slice.percent}%</strong>
+                </div>
+              `).join('') : '<span class="gm-empty-legend">Sem gastos para comparar</span>'}
             </div>
           </div>
         </section>
@@ -420,8 +422,7 @@
           ${goalRows.length ? goalRows.map((row) => {
             const hasGoal = row.goal > 0;
             const over = hasGoal && row.pct > 100;
-            const goalWidth = hasGoal ? Math.min(row.pct, 100) : Math.round((Number(row.spent || 0) / maxSpent) * 100);
-            const width = Math.max(row.spent > 0 ? 4 : 0, goalWidth);
+            const width = hasGoal ? Math.min(Math.max(row.pct, row.spent > 0 ? 4 : 0), 100) : 0;
             const subtitle = hasGoal
               ? `Meta: ${formatMoney(row.goal)} · ${row.pct}%`
               : 'Sem meta definida';
@@ -447,11 +448,39 @@
     `;
   }
 
+  const GM_PIE_COLORS = ['#2471A3', '#27AE60', '#F39C12', '#8E44AD', '#17A589', '#D35400', '#BB4F43', '#2C3E50'];
+
+  function getGmPieSlices(sourceRows) {
+    const rows = (Array.isArray(sourceRows) ? sourceRows : [])
+      .filter((row) => Number(row?.spent || 0) > 0);
+    const total = rows.reduce((sum, row) => sum + Number(row.spent || 0), 0);
+    if (!(total > 0)) return [];
+
+    const visibleRows = rows.slice(0, 7);
+    const extraTotal = rows.slice(7).reduce((sum, row) => sum + Number(row.spent || 0), 0);
+    const slices = visibleRows.map((row, index) => ({
+      category: row.category,
+      spent: Number(row.spent || 0),
+      color: GM_PIE_COLORS[index % GM_PIE_COLORS.length]
+    }));
+    if (extraTotal > 0) {
+      slices.push({
+        category: 'Outras',
+        spent: Number(extraTotal.toFixed(2)),
+        color: GM_PIE_COLORS[slices.length % GM_PIE_COLORS.length]
+      });
+    }
+    return slices.map((slice) => ({
+      ...slice,
+      percent: Math.round((slice.spent / total) * 100)
+    }));
+  }
+
   function drawGmPieChart(target) {
     const canvas = target?.querySelector?.('.gm-pie-canvas');
     if (!canvas) return;
     const month = getCurrentMonthSafe();
-    const rows = buildGoalRows(month).filter((row) => Number(row.spent || 0) > 0);
+    const rows = getGmPieSlices(buildGoalRows(month));
     const ctx = canvas.getContext('2d');
     const size = Math.min(canvas.width || 152, canvas.height || 152);
     const center = size / 2;
@@ -462,7 +491,6 @@
     const styles = getComputedStyle(document.documentElement);
     const surface = styles.getPropertyValue('--surface-strong').trim() || '#fff';
     const muted = styles.getPropertyValue('--border').trim() || '#e5e7eb';
-    const colors = ['#2471A3', '#27AE60', '#F39C12', '#8E44AD', '#17A589', '#D35400', '#BB4F43', '#2C3E50'];
 
     if (!(total > 0)) {
       ctx.beginPath();
@@ -474,13 +502,13 @@
     }
 
     let angle = -Math.PI / 2;
-    rows.slice(0, 8).forEach((row, index) => {
+    rows.forEach((row) => {
       const slice = (Number(row.spent || 0) / total) * Math.PI * 2;
       ctx.beginPath();
       ctx.moveTo(center, center);
       ctx.arc(center, center, radius, angle, angle + slice);
       ctx.closePath();
-      ctx.fillStyle = colors[index % colors.length];
+      ctx.fillStyle = row.color;
       ctx.fill();
       angle += slice;
     });

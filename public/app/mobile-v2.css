@@ -1418,6 +1418,48 @@ html.mobile-v2 #mobileV2Splash {
     color: var(--text3);
   }
 
+  html.mobile-v2 .gm-legend {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  html.mobile-v2 .gm-legend-item {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    color: var(--text2);
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  html.mobile-v2 .gm-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+  }
+
+  html.mobile-v2 .gm-legend-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+  }
+
+  html.mobile-v2 .gm-legend-item strong {
+    color: var(--text1);
+    font-size: 11px;
+  }
+
+  html.mobile-v2 .gm-empty-legend {
+    color: var(--text3);
+    font-size: 12px;
+  }
+
   html.mobile-v2 .gm-list-card {
     overflow: hidden;
   }
@@ -1500,8 +1542,7 @@ html.mobile-v2 #mobileV2Splash {
   }
 
   html.mobile-v2 .gm-bar-fill.without-goal {
-    background: var(--accent);
-    opacity: .72;
+    background: transparent;
   }
 
   html.mobile-v2 .gm-bar-fill.over {
@@ -1527,6 +1568,76 @@ html.mobile-v2 #mobileV2Splash {
     font-size: 12px;
     color: var(--text2);
     font-weight: 600;
+  }
+
+  html.mobile-v2 .m2-patr-account {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  html.mobile-v2 .m2-patr-account .m-item-surface.static {
+    gap: 10px;
+  }
+
+  html.mobile-v2 .m2-patr-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface-strong));
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 900;
+    flex: 0 0 32px;
+  }
+
+  html.mobile-v2 .m2-patr-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+    padding: 0 12px 12px;
+  }
+
+  html.mobile-v2 .m2-patr-actions button {
+    min-height: 34px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-strong);
+    color: var(--text2);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  html.mobile-v2 .m2-patr-actions button:first-child {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  html.mobile-v2 .m2-patr-movement-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(47, 157, 106, .12);
+    color: var(--green);
+    flex: 0 0 30px;
+    font-size: 14px;
+    font-weight: 900;
+  }
+
+  html.mobile-v2 .m2-patr-movement-icon.expense {
+    background: rgba(187, 79, 67, .12);
+    color: var(--red);
+  }
+
+  html.mobile-v2 .m2-patr-movement-icon svg {
+    width: 14px;
+    height: 14px;
   }
 
   html.mobile-v2 .m2-sheet-title {

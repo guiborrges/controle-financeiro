@@ -17,9 +17,33 @@
   }
 
   function resolveData() {
+    if (typeof global.getPatrimonioFilteredAccounts === 'function') {
+      try {
+        const accounts = global.getPatrimonioFilteredAccounts();
+        const movements = typeof global.getPatrimonioFilteredMovements === 'function'
+          ? global.getPatrimonioFilteredMovements()
+          : (Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements : []);
+        const metrics = typeof global.getPatrimonioMetrics === 'function'
+          ? global.getPatrimonioMetrics()
+          : null;
+        return {
+          accounts: Array.isArray(accounts) ? accounts : [],
+          movements: Array.isArray(movements) ? movements : [],
+          metrics
+        };
+      } catch (error) {
+        return {
+          accounts: [],
+          movements: [],
+          metrics: null,
+          error: error?.message || 'Dados de patrimônio indisponíveis no momento.'
+        };
+      }
+    }
+
     const accounts = Array.isArray(global.patrimonioAccounts) ? global.patrimonioAccounts : [];
     const movements = Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements : [];
-    if (accounts.length || movements.length) return { accounts, movements };
+    if (accounts.length || movements.length) return { accounts, movements, metrics: null };
 
     if (typeof global.getPatrimonioData === 'function') {
       try {
@@ -27,6 +51,7 @@
         return {
           accounts: Array.isArray(data?.accounts) ? data.accounts : [],
           movements: Array.isArray(data?.movements) ? data.movements : [],
+          metrics: data?.metrics || null,
           error: String(data?.error || '')
         };
       } catch {}
@@ -36,15 +61,51 @@
   }
 
   function getAccountBalance(account) {
+    if (Number.isFinite(Number(account?.saldo))) return Number(account.saldo);
+    if (typeof global.getPatrimonioBalanceForAccount === 'function' && account?.id) {
+      return Number(global.getPatrimonioBalanceForAccount(account.id) || 0);
+    }
     return Number(account?.balance || account?.saldoAtual || account?.initialBalance || 0);
+  }
+
+  function renderAccountBadge(account) {
+    if (typeof global.renderPatrimonioAccountBadge === 'function') {
+      try {
+        const visual = typeof global.inferPatrimonioVisual === 'function'
+          ? global.inferPatrimonioVisual(account?.nome || account?.name, account?.tipo)
+          : null;
+        return global.renderPatrimonioAccountBadge(account, visual);
+      } catch {}
+    }
+    const label = String(account?.institution || account?.icon || account?.symbol || account?.nome || account?.name || 'P').trim();
+    return `<span class="m2-patr-badge">${escapeHtml(label.slice(0, 2).toUpperCase())}</span>`;
+  }
+
+  function formatDate(value) {
+    if (typeof global.formatPatrimonioDate === 'function') return global.formatPatrimonioDate(value);
+    return String(value || 'Sem data');
+  }
+
+  function movementAmount(movement) {
+    const value = Math.abs(Number(movement?.value ?? movement?.valor ?? 0) || 0);
+    const type = String(movement?.type || 'aporte');
+    return type === 'retirada' ? -value : value;
+  }
+
+  function actionIcon(name, fallback) {
+    if (typeof global.renderPatrimonioActionIcon === 'function') {
+      const icon = global.renderPatrimonioActionIcon(name);
+      if (icon) return icon;
+    }
+    return fallback;
   }
 
   function render(target) {
     if (!target) return;
 
-    const { accounts, movements, error } = resolveData();
-    const total = accounts.reduce((sum, account) => sum + getAccountBalance(account), 0);
-    const recent = [...movements].slice(-5).reverse();
+    const { accounts, movements, metrics, error } = resolveData();
+    const total = Number(metrics?.patrimonioTotal ?? accounts.reduce((sum, account) => sum + getAccountBalance(account), 0));
+    const recent = [...movements].slice(0, 8);
 
     target.innerHTML = `
       <header class="m2-header m2-page-header">
@@ -62,28 +123,36 @@
       <section class="hero-card hero-card-wealth">
         <div class="hero-result-label">TOTAL PATRIMONIAL</div>
         <div class="hero-result">${formatMoney(total)}</div>
-        <div class="hero-sub"><span>${error ? escapeHtml(error) : `${accounts.length} conta(s) acompanhada(s)`}</span></div>
+        <div class="hero-sub"><span>${error ? escapeHtml(error) : `${accounts.length} conta(s) acompanhada(s) pelo mesmo cálculo do PC`}</span></div>
       </section>
 
       <section class="m-list-card">
         <h3 class="m-list-title">Contas</h3>
         ${accounts.length ? accounts.map((account) => {
-          const name = String(account?.name || account?.nome || 'Conta');
-          const icon = String(account?.icon || account?.symbol || '🏦');
+          const name = String(account?.nome || account?.name || 'Conta');
+          const type = String(account?.tipo || account?.type || '');
           const balance = getAccountBalance(account);
           return `
-            <article class="m-item m-item-income">
+            <article class="m-item m-item-income m2-patr-account">
               <div class="m-item-surface static">
+                ${renderAccountBadge(account)}
                 <div class="m-item-info">
-                  <span class="m-item-name">${escapeHtml(icon)} ${escapeHtml(name)}</span>
+                  <span class="m-item-name">${escapeHtml(name)}</span>
+                  ${type ? `<span class="m-item-meta">${escapeHtml(type)}</span>` : ''}
                 </div>
                 <span class="m-item-value ${balance >= 0 ? 'income' : ''}">${formatMoney(balance)}</span>
+              </div>
+              <div class="m2-patr-actions">
+                <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'aporte' })">+</button>
+                <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">-</button>
+                <button type="button" aria-label="Transferir" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">${actionIcon('transfer', '&lt;&gt;')}</button>
+                <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'atualizacao' })">Atualizar</button>
               </div>
             </article>
           `;
         }).join('') : '<div class="m2-empty">Nenhuma conta patrimonial cadastrada.</div>'}
         <div class="m2-list-actions">
-          <button class="m2-chip-btn" type="button" onclick="openPatrimonioAccountModal?.()">+ Nova conta</button>
+          <button class="m2-chip-btn" type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal()">+ Nova conta</button>
         </div>
       </section>
 
@@ -93,16 +162,19 @@
           const type = String(movement?.type || 'aporte');
           const description = String(movement?.description || movement?.descricao || type);
           const date = String(movement?.date || movement?.data || 'Sem data');
-          const value = Math.abs(Number(movement?.value || movement?.valor || 0));
-          const icon = type === 'retirada' ? '↗' : (type === 'transferencia' ? '⇄' : '↘');
+          const signedValue = movementAmount(movement);
+          const icon = type === 'retirada'
+            ? '-'
+            : (type === 'transferencia' ? actionIcon('transfer', '&lt;&gt;') : '+');
           return `
             <article class="m-item m-item-income">
               <div class="m-item-surface static">
+                <span class="m2-patr-movement-icon ${type === 'retirada' ? 'expense' : 'income'}">${icon}</span>
                 <div class="m-item-info">
-                  <span class="m-item-name">${escapeHtml(icon)} ${escapeHtml(description)}</span>
-                  <span class="m-item-meta">${escapeHtml(date)}</span>
+                  <span class="m-item-name">${escapeHtml(description)}</span>
+                  <span class="m-item-meta">${escapeHtml(formatDate(date))}</span>
                 </div>
-                <span class="m-item-value ${type === 'retirada' ? '' : 'income'}">${formatMoney(value)}</span>
+                <span class="m-item-value ${signedValue >= 0 ? 'income' : ''}">${formatMoney(signedValue)}</span>
               </div>
             </article>
           `;
