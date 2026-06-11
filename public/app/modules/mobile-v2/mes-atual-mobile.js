@@ -370,7 +370,7 @@
     Object.keys(goals || {}).forEach(addCategory);
 
     getGoalSpendItems(month).forEach((item) => {
-      if (!item || item.countsInPrimaryTotals === false) return;
+      if (!item) return;
       if (!isSpendLaunch(item)) return;
       const category = getUnifiedCategoryName(item);
       if (isDirectMethodCategory(category)) return;
