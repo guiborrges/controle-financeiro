@@ -4,7 +4,7 @@
   const FUSE_OPTIONS = {
     includeScore: true,
     includeMatches: true,
-    threshold: 0.35,
+    threshold: 0.28,
     ignoreLocation: true,
     minMatchCharLength: 2,
     keys: [
@@ -12,7 +12,8 @@
       { name: 'category', weight: 0.22 },
       { name: 'amountStr', weight: 0.18 },
       { name: 'tag', weight: 0.06 },
-      { name: 'monthLabel', weight: 0.04 }
+      { name: 'monthLabel', weight: 0.04 },
+      { name: 'methodLabel', weight: 0.04 }
     ]
   };
 
@@ -20,7 +21,7 @@
     janeiro: 1,
     fevereiro: 2,
     marco: 3,
-    março: 3,
+    'mar\u00e7o': 3,
     abril: 4,
     maio: 5,
     junho: 6,
@@ -37,9 +38,10 @@
     items: [],
     isOpen: false,
     filters: {
-      type: 'all',
+      types: new Set(),
       category: new Set(),
       card: new Set(),
+      tag: new Set(),
       method: new Set(),
       dateFrom: '',
       dateTo: ''
@@ -100,7 +102,7 @@
       const emoji = global.getCategoryEmoji(safeCategory);
       if (emoji) return escapeHtml(emoji);
     }
-    return '<span aria-hidden="true">•</span>';
+    return '<span aria-hidden="true">&bull;</span>';
   }
 
   function getMonths() {
@@ -115,16 +117,16 @@
     const id = String(month?.id || '').trim().toLowerCase();
     let match = id.match(/^(\d{4})[-_](\d{1,2})$/);
     if (match) return `${match[1]}-${String(Number(match[2])).padStart(2, '0')}`;
-    match = id.match(/^([a-zçã]+)[-_](\d{4})$/i);
+    match = id.match(/^([a-z\u00e0-\u00ff]+)[-_](\d{4})$/i);
     if (match && MONTH_INDEX[match[1]]) return `${match[2]}-${String(MONTH_INDEX[match[1]]).padStart(2, '0')}`;
     const nome = String(month?.nome || month?.mes || month?.name || '').trim().toLowerCase();
-    match = nome.match(/^([a-zçã]+)\s+(\d{4})$/i);
+    match = nome.match(/^([a-z\u00e0-\u00ff]+)\s+(\d{4})$/i);
     if (match && MONTH_INDEX[match[1]]) return `${match[2]}-${String(MONTH_INDEX[match[1]]).padStart(2, '0')}`;
     return '';
   }
 
   function monthLabel(month) {
-    return String(month?.nome || month?.mes || month?.name || month?.id || '').trim() || 'Mês';
+    return String(month?.nome || month?.mes || month?.name || month?.id || '').trim() || 'M\u00eas';
   }
 
   function dateToYearMonth(dateValue, fallbackYearMonth) {
@@ -147,7 +149,7 @@
       income_extra: 'Renda extra',
       project_income: 'Renda extra'
     };
-    return map[type] || 'Lançamento';
+    return map[type] || 'Lan\u00e7amento';
   }
 
   function getCardName(month, cardId) {
@@ -178,7 +180,7 @@
       monthLabel: monthLabel(month),
       yearMonth: dateToYearMonth(date, monthYM),
       date,
-      description: String(item?.description || item?.descricao || 'Lançamento').trim(),
+      description: String(item?.description || item?.descricao || 'Lan\u00e7amento').trim(),
       category,
       tag: String(item?.tag || '').trim(),
       type,
@@ -189,12 +191,56 @@
       visualSign: -1,
       amountStr: amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       method: outputKind === 'card' ? 'card' : outputMethod,
-      methodLabel: outputKind === 'card' ? (getCardName(month, cardId) || 'Cartão') : (outputMethod || 'Saída'),
+      methodLabel: outputKind === 'card' ? (getCardName(month, cardId) || 'Cart\u00e3o') : (outputMethod || 'Sa\u00edda'),
       cardId,
       paid: item?.paid === true || item?.status === 'done',
       recurring: item?.recurringSpend === true || item?.expenseRecurring === true,
       shared: item?.sharedExpense === true || item?.launchShared === true,
       raw: item
+    };
+  }
+
+  function getCardBillAmount(month, bill) {
+    if (typeof global.getUnifiedCardBillEffectiveAmount === 'function') {
+      return Math.max(0, Number(global.getUnifiedCardBillEffectiveAmount(month, bill) || 0) || 0);
+    }
+    const amount = Math.max(0, Number(bill?.amount || 0) || 0);
+    const forecast = Math.max(0, Number(bill?.forecastAmount || 0) || 0);
+    return bill?.manualAmountSet === false ? forecast : amount;
+  }
+
+  function buildCardBillSearchItem(month, bill) {
+    const amount = getCardBillAmount(month, bill);
+    if (!(amount > 0)) return null;
+    const monthId = String(month?.id || '');
+    const monthYM = monthYearMonth(month);
+    const cardId = String(bill?.cardId || '');
+    const cardName = getCardName(month, cardId) || String(bill?.cardName || bill?.name || 'Cartao').trim();
+    const date = String(bill?.dueDate || bill?.date || bill?.data || bill?.vencimento || '');
+    return {
+      id: String(bill?.id || `bill-${monthId}-${cardId}`),
+      source: 'card_bill',
+      monthId,
+      monthLabel: monthLabel(month),
+      yearMonth: dateToYearMonth(date, monthYM),
+      date,
+      description: `Fatura ${cardName}`,
+      category: 'CARTAO DE CREDITO',
+      tag: '',
+      type: 'expense',
+      typeLabel: typeLabel('expense'),
+      amount,
+      signedAmount: -amount,
+      countInTotals: true,
+      visualSign: -1,
+      amountStr: amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      method: 'card',
+      methodLabel: cardName,
+      cardId,
+      paid: bill?.paid === true,
+      recurring: false,
+      shared: false,
+      raw: bill
     };
   }
 
@@ -240,6 +286,10 @@
         const normalized = buildOutflowSearchItem(month, item);
         if (normalized) items.push(normalized);
       });
+      (Array.isArray(month?.cardBills) ? month.cardBills : []).forEach((bill) => {
+        const normalized = buildCardBillSearchItem(month, bill);
+        if (normalized) items.push(normalized);
+      });
       (Array.isArray(month?.renda) ? month.renda : []).forEach((item) => {
         const normalized = buildIncomeSearchItem(month, item, 'income');
         if (normalized) items.push(normalized);
@@ -256,9 +306,10 @@
   }
 
   function passesFilters(item) {
-    if (state.filters.type !== 'all' && item.type !== state.filters.type) return false;
+    if (state.filters.types.size && !state.filters.types.has(item.type)) return false;
     if (state.filters.category.size && !state.filters.category.has(item.category)) return false;
     if (state.filters.card.size && !state.filters.card.has(item.cardId)) return false;
+    if (state.filters.tag.size && !state.filters.tag.has(item.tag)) return false;
     if (state.filters.method.size && !state.filters.method.has(item.method)) return false;
     if (state.filters.dateFrom && String(item.yearMonth || '') < state.filters.dateFrom) return false;
     if (state.filters.dateTo && String(item.yearMonth || '') > state.filters.dateTo) return false;
@@ -282,6 +333,24 @@
     return Infinity;
   }
 
+  function isRelevantMatch(item, query, score) {
+    const needle = normalizeText(query);
+    if (!needle) return true;
+    const haystack = normalizeText([
+      item.description,
+      item.category,
+      item.amountStr,
+      item.tag,
+      item.monthLabel,
+      item.methodLabel
+    ].join(' '));
+    const terms = needle.split(/\s+/).filter(Boolean);
+    if (terms.length && terms.every((term) => haystack.includes(term))) return true;
+    const numericScore = Number(score);
+    if (!Number.isFinite(numericScore)) return false;
+    return numericScore <= (needle.length <= 3 ? 0.12 : 0.22);
+  }
+
   function search(query) {
     if (!state.items.length || !state.fuse) buildIndex();
     const safeQuery = String(query || '').trim();
@@ -294,6 +363,7 @@
     if (state.fuse) {
       return state.fuse.search(safeQuery)
         .filter((entry) => passesFilters(entry.item))
+        .filter((entry) => isRelevantMatch(entry.item, safeQuery, entry.score))
         .sort((a, b) => Number(a.score || 0) - Number(b.score || 0));
     }
     return state.items
@@ -335,7 +405,7 @@
     if (!results.length) {
       list.innerHTML = '';
       empty.style.display = '';
-      document.getElementById('usEmptyMsg').textContent = query ? 'Nenhum resultado encontrado' : 'Nenhum lançamento encontrado';
+      document.getElementById('usEmptyMsg').textContent = query ? 'Nenhum resultado encontrado' : 'Nenhum lan\u00e7amento encontrado';
       footer.style.display = 'none';
       return;
     }
@@ -343,7 +413,7 @@
     empty.style.display = 'none';
     const groups = new Map();
     results.forEach((entry) => {
-      const label = entry.item.monthLabel || 'Sem mês';
+      const label = entry.item.monthLabel || 'Sem m\u00eas';
       if (!groups.has(label)) groups.set(label, []);
       groups.get(label).push(entry);
     });
@@ -359,18 +429,12 @@
       button.addEventListener('click', () => openResult(button.getAttribute('data-us-open'), button.getAttribute('data-us-month'), button.getAttribute('data-us-source')));
     });
 
-    updateFooter(results);
+    updateFooter(results, query);
   }
 
   function renderResultRow(entry, query) {
     const item = entry.item;
     const positive = Number(item.visualSign || item.signedAmount || 0) >= 0;
-    const badges = [
-      item.recurring ? '<span class="us-badge us-badge-rec">recorrente</span>' : '',
-      item.shared ? '<span class="us-badge us-badge-shared">compartilhado</span>' : '',
-      item.method === 'card' ? '<span class="us-badge us-badge-card">cartão</span>' : '',
-      item.paid ? '<span class="us-badge us-badge-paid">pago</span>' : ''
-    ].filter(Boolean).join('');
 
     return `
       <button type="button" class="us-result-row" data-us-open="${escapeHtml(item.id)}" data-us-month="${escapeHtml(item.monthId)}" data-us-source="${escapeHtml(item.source)}">
@@ -384,15 +448,13 @@
             <span class="us-result-cat">${escapeHtml(item.category)}</span>
             <span class="us-result-date">${escapeHtml(item.date || item.yearMonth || item.monthLabel)}</span>
             <span class="us-result-date">${escapeHtml(item.methodLabel || item.typeLabel)}</span>
-            ${item.tag ? `<span class="us-result-tag">${escapeHtml(item.tag)}</span>` : ''}
-            ${badges}
           </span>
         </span>
       </button>
     `;
   }
 
-  function updateFooter(results) {
+  function updateFooter(results, query = '') {
     const footer = document.getElementById('usFooter');
     const count = document.getElementById('usResultCount');
     const expenseWrap = document.getElementById('usTotalExpense');
@@ -402,8 +464,9 @@
     const balanceVal = document.getElementById('usTotalBalanceVal');
     if (!footer || !count || !expenseWrap || !incomeWrap || !expenseVal || !incomeVal || !balanceVal) return;
 
+    const isSearchMode = !!String(query || '').trim();
     const totals = results.reduce((acc, entry) => {
-      if (entry.item.countInTotals === false) return acc;
+      if (!isSearchMode && entry.item.countInTotals === false) return acc;
       if (entry.item.signedAmount >= 0) acc.income += Number(entry.item.amount || 0);
       else acc.expense += Number(entry.item.amount || 0);
       return acc;
@@ -431,8 +494,17 @@
     const filter = button.getAttribute('data-filter');
     const value = button.getAttribute('data-val') || '';
     if (filter === 'type') {
-      state.filters.type = value || 'all';
-      document.querySelectorAll('#usFilterType .us-chip').forEach((chip) => chip.classList.toggle('active', chip === button));
+      if (value === 'all') {
+        state.filters.types.clear();
+      } else if (state.filters.types.has(value)) {
+        state.filters.types.delete(value);
+      } else {
+        state.filters.types.add(value);
+      }
+      document.querySelectorAll('#usFilterType .us-chip').forEach((chip) => {
+        const chipValue = chip.getAttribute('data-val') || '';
+        chip.classList.toggle('active', chipValue === 'all' ? state.filters.types.size === 0 : state.filters.types.has(chipValue));
+      });
       run();
       return;
     }
@@ -449,9 +521,10 @@
   }
 
   function clearFilters() {
-    state.filters.type = 'all';
+    state.filters.types.clear();
     state.filters.category.clear();
     state.filters.card.clear();
+    state.filters.tag.clear();
     state.filters.method.clear();
     state.filters.dateFrom = '';
     state.filters.dateTo = '';
@@ -463,19 +536,57 @@
       const isAll = chip.getAttribute('data-filter') === 'type' && chip.getAttribute('data-val') === 'all';
       chip.classList.toggle('active', isAll);
     });
+    document.querySelectorAll('.us-check-input').forEach((input) => { input.checked = false; });
+    updateDropdownSummary('category');
+    updateDropdownSummary('tag');
     run();
   }
 
   function updateClearButton() {
     const btn = document.getElementById('usClearBtn');
     if (!btn) return;
-    const hasFilters = state.filters.type !== 'all'
+    const hasFilters = state.filters.types.size > 0
       || state.filters.category.size > 0
       || state.filters.card.size > 0
+      || state.filters.tag.size > 0
       || state.filters.method.size > 0
       || !!state.filters.dateFrom
       || !!state.filters.dateTo;
     btn.style.display = hasFilters ? '' : 'none';
+  }
+
+  function updateDropdownSummary(filter) {
+    const id = filter === 'tag' ? 'usTagSummary' : 'usCategorySummary';
+    const label = filter === 'tag' ? 'tags' : 'categorias';
+    const summary = document.getElementById(id);
+    const set = state.filters[filter];
+    if (!summary || !(set instanceof Set)) return;
+    summary.textContent = set.size ? `${set.size} ${label}` : `Escolher ${label}`;
+  }
+
+  function buildCheckList(containerId, values, filter, renderLabel) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = values.map((value) => {
+      const checked = state.filters[filter]?.has(value) ? ' checked' : '';
+      return `
+        <label class="us-check-row">
+          <input class="us-check-input" type="checkbox" data-filter="${escapeHtml(filter)}" value="${escapeHtml(value)}"${checked}>
+          <span class="us-check-label">${renderLabel(value)}</span>
+        </label>
+      `;
+    }).join('');
+    container.querySelectorAll('.us-check-input').forEach((input) => {
+      input.addEventListener('change', () => {
+        const set = state.filters[filter];
+        if (!(set instanceof Set)) return;
+        if (input.checked) set.add(input.value);
+        else set.delete(input.value);
+        updateDropdownSummary(filter);
+        run();
+      });
+    });
+    updateDropdownSummary(filter);
   }
 
   function buildCategoryChips() {
@@ -486,10 +597,35 @@
       if (!item.category || item.type.startsWith('income')) return;
       categories.add(item.category);
     });
-    container.innerHTML = Array.from(categories).sort((a, b) => a.localeCompare(b, 'pt-BR')).map((category) => `
-      <button type="button" class="us-chip" data-filter="category" data-val="${escapeHtml(category)}">${getCategoryIcon(category)} ${escapeHtml(category)}</button>
-    `).join('');
-    container.querySelectorAll('.us-chip').forEach((chip) => chip.addEventListener('click', () => toggleChip(chip)));
+    buildCheckList(
+      'usFilterCategory',
+      Array.from(categories).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      'category',
+      (category) => `${getCategoryIcon(category)} <span>${escapeHtml(category)}</span>`
+    );
+  }
+
+  function buildTagChips() {
+    const group = document.getElementById('usFilterTagGroup');
+    const container = document.getElementById('usFilterTag');
+    if (!container) return;
+    const tags = new Set();
+    state.items.forEach((item) => {
+      const tag = String(item.tag || '').trim();
+      if (tag) tags.add(tag);
+    });
+    if (!tags.size) {
+      if (group) group.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+    if (group) group.style.display = '';
+    buildCheckList(
+      'usFilterTag',
+      Array.from(tags).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      'tag',
+      (tag) => `<span>${escapeHtml(tag)}</span>`
+    );
   }
 
   function buildCardChips() {
@@ -556,6 +692,7 @@
     buildIndex();
     bindStaticEvents();
     buildCategoryChips();
+    buildTagChips();
     buildCardChips();
     modal.style.display = '';
     document.body.classList.add('us-open');
@@ -596,6 +733,7 @@
     clearFilters,
     buildIndex,
     buildCategoryChips,
+    buildTagChips,
     buildCardChips
   };
 })(window);
