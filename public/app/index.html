@@ -31,6 +31,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap"></noscript>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js" crossorigin="anonymous"></script>
 <script>
   (() => {
     try {
@@ -49,6 +50,7 @@
   <link rel="stylesheet" href="/app-assets/mobile-layout.css">
   <link rel="stylesheet" href="/app-assets/mobile-v2.css">
   <link rel="stylesheet" href="/app-assets/dark-mode.css">
+  <link rel="stylesheet" href="/app-assets/modules/universal-search.css">
 </head>
 <body>
 <div id="mobileV2Splash"><div class="mobile-v2-splash-logo">Controle Financeiro</div></div>
@@ -142,6 +144,13 @@
           <div id="dashFilters" class="inline-form" style="gap:8px"></div>
         </div>
       </details>
+      <button class="btn btn-ghost" id="btnUniversalSearch" type="button" onclick="UniversalSearch.open()" title="Buscar em todos os meses e lançamentos">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="margin-right:5px;vertical-align:-2px">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        Buscador universal
+      </button>
       <button class="btn btn-ghost" onclick="openPreferences()">Preferências</button>
     </div>
   </div>
@@ -1720,6 +1729,97 @@
 <div id="formHelpTooltip" class="form-help-popover" aria-hidden="true"></div>
 <button id="unifiedOutflowFloatingButton" class="unified-outflow-floating-btn" type="button" onclick="restoreUnifiedOutflowModal()" title="Reabrir lançamento">+</button>
 
+<div id="modalUniversalSearch" class="modal-bg us-modal-bg" style="display:none" role="dialog" aria-modal="true" aria-label="Buscador universal">
+  <div class="modal us-modal" id="usModalPanel">
+    <div class="us-header">
+      <div class="us-search-row">
+        <div class="us-search-input-wrap">
+          <svg class="us-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input id="usSearchInput" class="us-input" type="search" placeholder="Buscar gastos, receitas, valores, categorias..." autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Campo de busca universal">
+          <kbd class="us-esc-hint" id="usEscHint">ESC</kbd>
+        </div>
+        <button class="btn btn-ghost us-close-btn" type="button" onclick="UniversalSearch.close()" aria-label="Fechar buscador">✕</button>
+      </div>
+
+      <div class="us-filters-row" id="usFiltersRow">
+        <div class="us-filter-group">
+          <span class="us-filter-label">Tipo</span>
+          <div class="us-chip-group" id="usFilterType">
+            <button class="us-chip active" type="button" data-filter="type" data-val="all">Tudo</button>
+            <button class="us-chip" type="button" data-filter="type" data-val="spend">Gasto</button>
+            <button class="us-chip" type="button" data-filter="type" data-val="expense">Despesa</button>
+            <button class="us-chip" type="button" data-filter="type" data-val="income_fixed">Renda fixa</button>
+            <button class="us-chip" type="button" data-filter="type" data-val="income_extra">Renda extra</button>
+          </div>
+        </div>
+
+        <div class="us-filter-group">
+          <span class="us-filter-label">Categoria</span>
+          <div class="us-chip-group us-chip-scroll" id="usFilterCategory"></div>
+        </div>
+
+        <div class="us-filter-group" id="usFilterCardGroup">
+          <span class="us-filter-label">Cartão</span>
+          <div class="us-chip-group us-chip-scroll" id="usFilterCard"></div>
+        </div>
+
+        <div class="us-filter-group">
+          <span class="us-filter-label">Meio</span>
+          <div class="us-chip-group" id="usFilterMethod">
+            <button class="us-chip" type="button" data-filter="method" data-val="pix">Pix</button>
+            <button class="us-chip" type="button" data-filter="method" data-val="dinheiro">Dinheiro</button>
+            <button class="us-chip" type="button" data-filter="method" data-val="debito">Débito</button>
+            <button class="us-chip" type="button" data-filter="method" data-val="boleto">Boleto</button>
+            <button class="us-chip" type="button" data-filter="method" data-val="card">Cartão</button>
+          </div>
+        </div>
+
+        <div class="us-filter-group">
+          <span class="us-filter-label">Período</span>
+          <div class="us-date-row">
+            <input type="month" id="usDateFrom" class="us-date-input" onchange="UniversalSearch.run()" aria-label="Mês inicial">
+            <span class="us-date-sep">→</span>
+            <input type="month" id="usDateTo" class="us-date-input" onchange="UniversalSearch.run()" aria-label="Mês final">
+          </div>
+        </div>
+
+        <button class="btn btn-ghost us-clear-btn" type="button" onclick="UniversalSearch.clearFilters()" id="usClearBtn" style="display:none">Limpar filtros</button>
+      </div>
+    </div>
+
+    <div class="us-results-wrap" id="usResultsWrap">
+      <div class="us-results-empty" id="usResultsEmpty" style="display:none">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <p id="usEmptyMsg">Digite algo para buscar</p>
+      </div>
+      <div id="usResultsList" class="us-results-list" role="list"></div>
+    </div>
+
+    <div class="us-footer" id="usFooter" style="display:none">
+      <span id="usResultCount" class="us-result-count"></span>
+      <div class="us-totals">
+        <span class="us-total-item us-total-expense" id="usTotalExpense" style="display:none">
+          <span class="us-total-dot" style="background:var(--red,#E74C3C)"></span>
+          Gastos: <strong id="usTotalExpenseVal"></strong>
+        </span>
+        <span class="us-total-item us-total-income" id="usTotalIncome" style="display:none">
+          <span class="us-total-dot" style="background:var(--green,#27AE60)"></span>
+          Receitas: <strong id="usTotalIncomeVal"></strong>
+        </span>
+        <span class="us-total-item us-total-balance" id="usTotalBalance">
+          Total: <strong id="usTotalBalanceVal"></strong>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
   <script defer src="/shared-assets/crypto-client.js"></script>
   <script defer src="/app-assets/storage.js"></script>
   <script defer src="/app-assets/preferences.js"></script>
@@ -1807,6 +1907,7 @@
   <script defer src="/app-assets/core.js"></script>
   <script defer src="/app-assets/dashboard.js"></script>
   <script defer src="/app-assets/mes-atual.js"></script>
+  <script defer src="/app-assets/modules/universal-search.js"></script>
   <script defer src="/app-assets/patrimonio-clean.js"></script>
   <script defer src="/app-assets/historico-eso.js"></script>
   <script defer src="/app-assets/interactions.js"></script>
