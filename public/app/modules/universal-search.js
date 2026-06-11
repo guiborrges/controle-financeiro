@@ -346,6 +346,7 @@
     ].join(' '));
     const terms = needle.split(/\s+/).filter(Boolean);
     if (terms.length && terms.every((term) => haystack.includes(term))) return true;
+    if (terms.some((term) => /[a-z]/.test(term) && term.length >= 3)) return false;
     const numericScore = Number(score);
     if (!Number.isFinite(numericScore)) return false;
     return numericScore <= (needle.length <= 3 ? 0.12 : 0.22);
@@ -465,9 +466,18 @@
     if (!footer || !count || !expenseWrap || !incomeWrap || !expenseVal || !incomeVal || !balanceVal) return;
 
     const isSearchMode = !!String(query || '').trim();
+    const hasDetailFilter = state.filters.types.size > 0
+      || state.filters.category.size > 0
+      || state.filters.card.size > 0
+      || state.filters.tag.size > 0
+      || state.filters.method.size > 0;
+    const shouldSumVisibleRows = isSearchMode || hasDetailFilter;
     const totals = results.reduce((acc, entry) => {
-      if (!isSearchMode && entry.item.countInTotals === false) return acc;
-      if (entry.item.signedAmount >= 0) acc.income += Number(entry.item.amount || 0);
+      if (!shouldSumVisibleRows && entry.item.countInTotals === false) return acc;
+      const direction = shouldSumVisibleRows
+        ? Number(entry.item.visualSign || entry.item.signedAmount || 0)
+        : Number(entry.item.signedAmount || 0);
+      if (direction >= 0) acc.income += Number(entry.item.amount || 0);
       else acc.expense += Number(entry.item.amount || 0);
       return acc;
     }, { income: 0, expense: 0 });
