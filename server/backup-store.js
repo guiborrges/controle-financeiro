@@ -503,6 +503,30 @@ function registerUserLogin(userId) {
   return nextUser;
 }
 
+function flushPendingActivityUpdates() {
+  if (activityFlushTimer) {
+    clearTimeout(activityFlushTimer);
+    activityFlushTimer = null;
+  }
+  if (!pendingActivityUpdates.size) return false;
+  try {
+    const currentStore = readUsersStore();
+    let changed = false;
+    for (const [uid, timestamp] of pendingActivityUpdates) {
+      const currentUser = currentStore.users.find(entry => entry.id === uid);
+      if (!currentUser) continue;
+      currentUser.lastUsedAt = timestamp;
+      changed = true;
+    }
+    pendingActivityUpdates.clear();
+    if (changed) writeUsersStore(currentStore);
+    return changed;
+  } catch (error) {
+    console.error('[backup-store] Falha ao persistir atividade do usuario:', error?.message || String(error));
+    return false;
+  }
+}
+
 function touchUserActivity(userId) {
   const store = readUsersStore();
   const user = store.users.find(entry => entry.id === userId) || null;
@@ -512,22 +536,7 @@ function touchUserActivity(userId) {
   pendingActivityUpdates.set(userId, now);
   if (!activityFlushTimer) {
     activityFlushTimer = setTimeout(() => {
-      activityFlushTimer = null;
-      if (!pendingActivityUpdates.size) return;
-      try {
-        const currentStore = readUsersStore();
-        let changed = false;
-        for (const [uid, timestamp] of pendingActivityUpdates) {
-          const currentUser = currentStore.users.find(entry => entry.id === uid);
-          if (!currentUser) continue;
-          currentUser.lastUsedAt = timestamp;
-          changed = true;
-        }
-        pendingActivityUpdates.clear();
-        if (changed) writeUsersStore(currentStore);
-      } catch (error) {
-        console.error('[backup-store] Falha ao persistir atividade do usuario:', error?.message || String(error));
-      }
+      flushPendingActivityUpdates();
     }, 3000);
     if (typeof activityFlushTimer.unref === 'function') activityFlushTimer.unref();
   }
@@ -669,6 +678,7 @@ module.exports = {
   pruneUserBackups,
   registerUserLogin,
   touchUserActivity,
+  flushPendingActivityUpdates,
   getUserDataIntegrity,
   revalidateBackup,
   restoreUserBackup,

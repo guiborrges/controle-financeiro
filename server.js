@@ -109,6 +109,7 @@ const {
   createUserBackup,
   registerUserLogin,
   touchUserActivity,
+  flushPendingActivityUpdates,
   listUserBackups,
   getUserBackupLogs,
   getUserDataIntegrity,
@@ -605,9 +606,25 @@ app.use((error, req, res, next) => {
   return res.status(500).send(`Erro interno no servidor. Ref: ${requestId}`);
 });
 
-app.listen(PORT, () => {
+const httpServer = app.listen(PORT, () => {
   console.log(`Controle Financeiro protegido rodando em http://localhost:${PORT} (state-backend=${stateStore.backend || 'json'})`);
 });
+
+function shutdown(signal) {
+  console.log(`[shutdown] Recebido ${signal}. Finalizando servidor com flush de atividade.`);
+  try {
+    flushPendingActivityUpdates();
+  } catch (error) {
+    console.error('[shutdown] Falha ao persistir atividade pendente:', error?.message || String(error));
+  }
+  httpServer.close(() => {
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
 
 
 
