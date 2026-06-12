@@ -1745,7 +1745,8 @@
       </div>
 
       <div class="us-filters-row" id="usFiltersRow">
-        <div class="us-filter-group">
+        <div class="us-filter-line">
+        <div class="us-filter-group us-filter-group-type">
           <span class="us-filter-label">Tipo</span>
           <div class="us-chip-group" id="usFilterType">
             <button class="us-chip active" type="button" data-filter="type" data-val="all">Tudo</button>
@@ -1753,8 +1754,10 @@
             <button class="us-chip" type="button" data-filter="type" data-val="income">Rendas</button>
           </div>
         </div>
+        </div>
 
-        <div class="us-filter-group">
+        <div class="us-filter-line us-filter-line-compact">
+        <div class="us-filter-group us-filter-cell us-filter-cell-category">
           <span class="us-filter-label">Categoria</span>
           <details class="us-dropdown">
             <summary class="us-dropdown-summary"><span id="usCategorySummary">Escolher categorias</span></summary>
@@ -1762,20 +1765,12 @@
           </details>
         </div>
 
-        <div class="us-filter-group" id="usFilterTagGroup">
-          <span class="us-filter-label">Tags</span>
-          <details class="us-dropdown">
-            <summary class="us-dropdown-summary"><span id="usTagSummary">Escolher tags</span></summary>
-            <div class="us-check-list" id="usFilterTag"></div>
-          </details>
-        </div>
-
-        <div class="us-filter-group" id="usFilterCardGroup">
+        <div class="us-filter-group us-filter-cell us-filter-cell-card" id="usFilterCardGroup">
           <span class="us-filter-label">Cartão</span>
           <div class="us-chip-group us-chip-scroll" id="usFilterCard"></div>
         </div>
 
-        <div class="us-filter-group">
+        <div class="us-filter-group us-filter-cell us-filter-cell-method">
           <span class="us-filter-label">Meio</span>
           <div class="us-chip-group" id="usFilterMethod">
             <button class="us-chip" type="button" data-filter="method" data-val="pix">Pix</button>
@@ -1785,8 +1780,18 @@
             <button class="us-chip" type="button" data-filter="method" data-val="card">Cartão</button>
           </div>
         </div>
+        </div>
 
-        <div class="us-filter-group">
+        <div class="us-filter-line us-filter-line-compact us-filter-line-secondary">
+        <div class="us-filter-group us-filter-cell us-filter-cell-tag" id="usFilterTagGroup">
+          <span class="us-filter-label">Tags</span>
+          <details class="us-dropdown">
+            <summary class="us-dropdown-summary"><span id="usTagSummary">Escolher tags</span></summary>
+            <div class="us-check-list" id="usFilterTag"></div>
+          </details>
+        </div>
+
+        <div class="us-filter-group us-filter-cell us-filter-cell-period">
           <span class="us-filter-label">Período</span>
           <div class="us-date-row">
             <label class="us-date-compact" title="Mês inicial">
@@ -1801,6 +1806,7 @@
         </div>
 
         <button class="btn btn-ghost us-clear-btn" type="button" onclick="UniversalSearch.clearFilters()" id="usClearBtn" style="display:none">Limpar filtros</button>
+        </div>
       </div>
     </div>
 

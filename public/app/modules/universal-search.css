@@ -90,21 +90,51 @@
 .us-filters-row {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-top: 14px;
+  gap: 8px;
+  padding-top: 12px;
   overflow: visible;
+}
+
+.us-filter-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.us-filter-line-compact {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.15fr) minmax(160px, 0.75fr) minmax(240px, 1.1fr);
+  gap: 10px;
+}
+
+.us-filter-line-secondary {
+  grid-template-columns: minmax(190px, 1.15fr) auto auto;
+  align-items: end;
 }
 
 .us-filter-group {
   display: flex;
-  align-items: flex-start;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.us-filter-group-type {
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
 }
 
+.us-filter-cell {
+  min-width: 0;
+}
+
 .us-filter-label {
-  width: 116px;
-  flex: 0 0 116px;
-  padding-top: 6px;
+  width: auto;
+  flex: 0 0 auto;
+  padding-top: 0;
   color: var(--text3, #8b98aa);
   font-size: 10px;
   font-weight: 800;
@@ -154,7 +184,6 @@
 }
 
 .us-dropdown {
-  flex: 1;
   min-width: 0;
   position: relative;
   z-index: 3;
@@ -166,7 +195,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-width: 190px;
+  width: 100%;
+  min-width: 0;
   padding: 0 11px;
   border: 1px solid var(--border, #dbe3ee);
   border-radius: 12px;
@@ -254,24 +284,35 @@
 }
 
 .us-date-compact {
+  position: relative;
+  width: 36px;
+  min-width: 36px;
   min-height: 32px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 0 8px;
   border: 1px solid var(--border, #dbe3ee);
   border-radius: 10px;
   background: var(--surface-strong, #fff);
   color: var(--text3, #8b98aa);
+  cursor: pointer;
+  overflow: hidden;
 }
 
 .us-date-input {
-  min-height: 32px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text, #182235);
-  font-size: 12px;
+  color: transparent;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px;
 }
 
 .us-date-input:focus {
@@ -279,7 +320,7 @@
 }
 
 .us-clear-btn {
-  align-self: flex-start;
+  align-self: end;
   min-height: 32px;
   color: var(--red, #c75045);
 }
@@ -514,9 +555,22 @@
     border-radius: 0;
   }
 
+  .us-filter-line,
+  .us-filter-line-compact,
+  .us-filter-line-secondary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .us-filter-group {
     flex-direction: column;
     gap: 6px;
+  }
+
+  .us-filter-group-type {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .us-filter-label {
