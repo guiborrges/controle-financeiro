@@ -53,7 +53,7 @@ body {
   position: relative;
   z-index: 1;
   width: min(100%, 440px);
-  padding: 40px 36px 32px;
+  padding: 34px 36px 32px;
   border-radius: 30px;
   border: 1px solid var(--glass-border);
   background:
@@ -63,6 +63,15 @@ body {
   backdrop-filter: blur(24px);
   display: grid;
   gap: 24px;
+}
+
+.login-brand-logo {
+  width: 72px;
+  height: 72px;
+  display: block;
+  margin: 0 auto -4px;
+  border-radius: 50%;
+  filter: drop-shadow(0 18px 26px rgba(7,18,37,.22));
 }
 
 .login-copy {
