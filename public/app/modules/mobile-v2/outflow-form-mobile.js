@@ -2,11 +2,11 @@
   'use strict';
 
   const MODE_LABEL = {
-    launch: 'Gasto',
+    launch: 'Lançamento',
     renda: 'Renda',
-    recurring: 'Gasto Recorrente',
-    installment: 'Gasto Parcelado',
-    shared: 'Gasto Compartilhado'
+    recurring: 'Lançamento recorrente',
+    installment: 'Lançamento parcelado',
+    shared: 'Lançamento compartilhado'
   };
 
   function formatDateDefault() {

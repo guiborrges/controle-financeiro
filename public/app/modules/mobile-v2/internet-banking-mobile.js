@@ -197,6 +197,7 @@
   }
 
   function money(value) {
+    if (global.MobileV2Data?.formatMoney) return global.MobileV2Data.formatMoney(value);
     if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
@@ -250,11 +251,11 @@
   function renderRows(group) {
     const isCredit = group.accountType === 'CREDIT';
     return (group.rows || []).map((row) => {
-      const catIcon = (typeof global.getCategoryIcon === 'function')
-        ? global.getCategoryIcon(row.category || '')
-        : '';
+      const catIcon = global.MobileV2Data?.categoryIcon
+        ? global.MobileV2Data.categoryIcon(row.category || '')
+        : (typeof global.getCategoryIcon === 'function' ? escapeHtml(global.getCategoryIcon(row.category || '')) : '');
       const iconHtml = catIcon
-        ? `<div class="mib-item-icon" aria-hidden="true">${escapeHtml(catIcon)}</div>`
+        ? `<div class="mib-item-icon" aria-hidden="true">${catIcon}</div>`
         : `<div class="mib-item-icon mib-item-icon--placeholder" aria-hidden="true">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
@@ -287,20 +288,20 @@
           <div class="mib-item-main">
             ${iconHtml}
             <div class="mib-item-body">
-              <span class="mib-item-name">${escapeHtml(row.description || 'Lancamento')}</span>
+              <span class="mib-item-name">${escapeHtml(row.description || 'Lan\u00e7amento')}</span>
               <span class="mib-item-meta">
-                ${escapeHtml(row.date || '--')}${row.time ? ` · ${escapeHtml(row.time)}` : ''}${catLabel ? ` · <span class="mib-item-cat">${escapeHtml(catLabel)}</span>` : ''}
+                ${escapeHtml(row.date || '--')}${row.time ? ` \u00b7 ${escapeHtml(row.time)}` : ''}${catLabel ? ` \u00b7 <span class="mib-item-cat">${escapeHtml(catLabel)}</span>` : ''}
               </span>
             </div>
             <div class="mib-item-right">
               <span class="mib-item-amount">${escapeHtml(money(row.amount || 0))}</span>
               <div class="mib-item-actions">
-                <button type="button" class="mib-btn-ok" data-action="ok" title="Adicionar" aria-label="Adicionar lancamento">
+                <button type="button" class="mib-btn-ok" data-action="ok" title="Adicionar" aria-label="Adicionar lan\u00e7amento">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 </button>
-                <button type="button" class="mib-btn-dismiss" data-action="x" title="Ignorar" aria-label="Ignorar lancamento">
+                <button type="button" class="mib-btn-dismiss" data-action="x" title="Ignorar" aria-label="Ignorar lan\u00e7amento">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -317,7 +318,7 @@
 
   function renderGroup(group) {
     const isCollapsed = MOBILE_STATE.collapsed[group.accountId] !== false;
-    const originLabel = group.linkedLabel && group.linkedLabel !== 'Sem vinculo'
+    const originLabel = group.linkedLabel && group.linkedLabel !== 'Sem v\u00ednculo'
       ? group.linkedLabel
       : (group.originName || group.accountName || '');
 
@@ -362,10 +363,10 @@
     mount.innerHTML = `
       <div class="period-selector" style="padding:0 0 10px">
         <button type="button" class="period-btn ${MOBILE_STATE.view === 'bank' ? 'active' : ''}" data-action="view-bank">Conta corrente</button>
-        <button type="button" class="period-btn ${MOBILE_STATE.view === 'credit' ? 'active' : ''}" data-action="view-credit">Cartao</button>
+        <button type="button" class="period-btn ${MOBILE_STATE.view === 'credit' ? 'active' : ''}" data-action="view-credit">Cart\u00e3o</button>
       </div>
-      <p class="m2-subtitle" style="padding:0 4px 8px">Ultima atualizacao: ${escapeHtml(loadedAt)}</p>
-      ${groups.length ? groups.map(renderGroup).join('') : '<div class="m2-empty">Sem pendencias para revisao.</div>'}
+      <p class="m2-subtitle" style="padding:0 4px 8px">\u00daltima atualiza\u00e7\u00e3o: ${escapeHtml(loadedAt)}</p>
+      ${groups.length ? groups.map(renderGroup).join('') : '<div class="m2-empty">Sem pend\u00eancias para revis\u00e3o.</div>'}
     `;
     bindEvents(snapshot);
   }
@@ -425,14 +426,14 @@
     if (!global.PluggyBanking?.getMobileSnapshot) {
       global.MobileV2OutflowForm?.openInlineSheet?.({
         title: 'Internet Banking',
-        subtitle: 'Pre-visualizacao indisponivel',
-        body: '<div class="m2-empty">Nao foi possivel abrir os dados do Internet Banking agora.</div>'
+        subtitle: 'Pr\u00e9-visualiza\u00e7\u00e3o indispon\u00edvel',
+        body: '<div class="m2-empty">N\u00e3o foi poss\u00edvel abrir os dados do Internet Banking agora.</div>'
       });
       return;
     }
     global.MobileV2OutflowForm?.openInlineSheet?.({
       title: 'Internet Banking',
-      subtitle: 'Mostrando somente lancamentos pendentes',
+      subtitle: 'Mostrando somente lan\u00e7amentos pendentes',
       body: '<div id="mobileV2InternetBankingMount" class="mobile-v2-banking-mount"><div class="m2-empty">Carregando dados...</div></div>'
     });
     try {

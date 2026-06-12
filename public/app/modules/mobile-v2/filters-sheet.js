@@ -14,9 +14,9 @@
         <div class="bottom-sheet-grip"></div>
         <h3 style="margin:0 0 10px">Filtros</h3>
         <div class="m2-card" style="margin-bottom:0">
-          <button class="row-link" type="button" data-filter="expense">Planejamento do mês</button>
-          <button class="row-link" type="button" data-filter="spend">Gastos</button>
-          <button class="row-link" type="button" data-filter="all">Todos</button>
+          <button class="row-link" type="button" data-filter="all">Todos os lançamentos</button>
+          <button class="row-link" type="button" data-filter="expense">Lançamentos do mês</button>
+          <button class="row-link" type="button" data-filter="spend">Lançamentos variáveis</button>
         </div>
       </div>
     `;

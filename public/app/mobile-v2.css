@@ -1893,6 +1893,40 @@ html.mobile-v2 #mobileV2Splash {
     font-size: 13px;
     padding: 0 10px;
   }
+
+  html.mobile-v2 .m2-field-label {
+    display: block;
+    margin: 12px 0 6px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  html.mobile-v2 .m2-field-input {
+    width: 100%;
+    min-height: 46px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface-strong);
+    color: var(--text1);
+    font-size: 16px;
+    padding: 0 13px;
+    outline: none;
+  }
+
+  html.mobile-v2 .m2-field-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(49, 111, 202, .12);
+  }
+
+  html.mobile-v2 .m2-sheet-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
 }
 
 

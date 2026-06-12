@@ -12,11 +12,11 @@
 
   const TYPE_OPTIONS = [
     { key: 'internet-banking', iconKey: 'internetBanking', title: 'Internet Banking', desc: 'Importar do banco conectado' },
-    { key: 'launch', iconKey: 'launch', title: 'Gasto', desc: 'Saída simples' },
+    { key: 'launch', iconKey: 'launch', title: 'Lançamento', desc: 'Saída simples' },
     { key: 'renda', iconKey: 'renda', title: 'Renda', desc: 'Renda fixa ou renda extra' },
-    { key: 'recurring', iconKey: 'recurring', title: 'Gasto Recorrente', desc: 'Repete automaticamente todo mês' },
-    { key: 'installment', iconKey: 'installment', title: 'Gasto Parcelado', desc: 'Divide em parcelas futuras' },
-    { key: 'shared', iconKey: 'shared', title: 'Gasto Compartilhado', desc: 'Divide com outras pessoas' }
+    { key: 'recurring', iconKey: 'recurring', title: 'Lançamento recorrente', desc: 'Repete automaticamente todo mês' },
+    { key: 'installment', iconKey: 'installment', title: 'Lançamento parcelado', desc: 'Divide em parcelas futuras' },
+    { key: 'shared', iconKey: 'shared', title: 'Lançamento compartilhado', desc: 'Divide com outras pessoas' }
   ];
 
   function ensureSheet() {

@@ -2,6 +2,7 @@
   'use strict';
 
   function formatMoney(value) {
+    if (global.MobileV2Data?.formatMoney) return global.MobileV2Data.formatMoney(value);
     if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
@@ -17,6 +18,10 @@
   }
 
   function resolveData() {
+    if (global.MobileV2Data?.getPatrimonioData) {
+      return global.MobileV2Data.getPatrimonioData();
+    }
+
     if (typeof global.getPatrimonioFilteredAccounts === 'function') {
       try {
         const accounts = global.getPatrimonioFilteredAccounts();
@@ -39,22 +44,6 @@
           error: error?.message || 'Dados de patrimônio indisponíveis no momento.'
         };
       }
-    }
-
-    const accounts = Array.isArray(global.patrimonioAccounts) ? global.patrimonioAccounts : [];
-    const movements = Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements : [];
-    if (accounts.length || movements.length) return { accounts, movements, metrics: null };
-
-    if (typeof global.getPatrimonioData === 'function') {
-      try {
-        const data = global.getPatrimonioData();
-        return {
-          accounts: Array.isArray(data?.accounts) ? data.accounts : [],
-          movements: Array.isArray(data?.movements) ? data.movements : [],
-          metrics: data?.metrics || null,
-          error: String(data?.error || '')
-        };
-      } catch {}
     }
 
     return { accounts: [], movements: [], error: 'Dados de patrimônio indisponíveis no momento.' };

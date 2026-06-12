@@ -26,11 +26,13 @@
   }
 
   function formatMoney(value) {
+    if (global.MobileV2Data?.formatMoney) return global.MobileV2Data.formatMoney(value);
     if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
   function getCategorySymbol(categoryName) {
+    if (global.MobileV2Data?.categoryIcon) return global.MobileV2Data.categoryIcon(categoryName);
     const safeCategory = String(categoryName || 'OUTROS');
     if (typeof global.renderSmartIconBadge === 'function' && typeof global.inferCategoryVisual === 'function') {
       const visual = global.inferCategoryVisual(safeCategory);
@@ -41,6 +43,7 @@
   }
 
   function monthExpenses(month) {
+    if (global.MobileV2Data?.getPlanningTotal) return global.MobileV2Data.getPlanningTotal(month);
     if (typeof global.calculateUnifiedPlanningTotal === 'function') {
       return Number(global.calculateUnifiedPlanningTotal(month) || 0);
     }
@@ -49,6 +52,7 @@
   }
 
   function monthIncome(month) {
+    if (global.MobileV2Data?.getIncomeTotal) return global.MobileV2Data.getIncomeTotal(month);
     const totals = typeof global.getEffectiveTotalsForMes === 'function' ? global.getEffectiveTotalsForMes(month) : null;
     return Number(totals?.rendaTotal || 0);
   }
@@ -69,7 +73,7 @@
   }
 
   function getMonthsForPeriod(value) {
-    const liveMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
+    const liveMonths = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []);
     const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
     if (!allMonths.length) return [];
     if (value === 'custom') {
@@ -90,9 +94,11 @@
   function buildCategoryTotals(months) {
     const totals = new Map();
     months.forEach((month) => {
-      const rawMonth = (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []).find((m) => m?.id === month.id);
-      if (rawMonth && typeof global.getUnifiedSpendCategorySummary === 'function') {
-        const summary = global.getUnifiedSpendCategorySummary(rawMonth);
+      const rawMonth = (global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [])).find((m) => m?.id === month.id);
+      const summary = rawMonth && global.MobileV2Data?.getSpendCategorySummary
+        ? global.MobileV2Data.getSpendCategorySummary(rawMonth)
+        : (rawMonth && typeof global.getUnifiedSpendCategorySummary === 'function' ? global.getUnifiedSpendCategorySummary(rawMonth) : null);
+      if (summary) {
         (summary?.rows || []).forEach((row) => {
           const safeCategory = String(row?.category || 'OUTROS').trim() || 'OUTROS';
           const value = Math.max(0, Number(row?.total || 0));
@@ -240,17 +246,7 @@
       btn.addEventListener('click', () => {
         const raw = btn.getAttribute('data-m2-period');
         if (raw === 'custom') {
-          const months = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
-          if (!months.length) return;
-          const startRaw = global.prompt?.(`Mês inicial (1-${months.length})`, '1');
-          if (startRaw === null) return;
-          const endRaw = global.prompt?.(`Mês final (1-${months.length})`, String(months.length));
-          if (endRaw === null) return;
-          const start = Math.max(1, Math.min(months.length, Number(startRaw || 1)));
-          const end = Math.max(start, Math.min(months.length, Number(endRaw || months.length)));
-          customRange = { startIdx: start - 1, endIdx: end - 1 };
-          activePeriod = 'custom';
-          render(target);
+          openCustomPeriodSheet(target);
           return;
         }
         activePeriod = raw === 'year' ? 'year' : Number(raw || 6);
@@ -259,20 +255,65 @@
     });
   }
 
+  function openCustomPeriodSheet(target) {
+    const months = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []);
+    const sheet = global.MobileV2OutflowForm?.openInlineSheet;
+    if (!months.length || typeof sheet !== 'function') return;
+    const startId = `dashPeriodStart_${Date.now()}`;
+    const endId = `${startId}_end`;
+    const saveId = `${startId}_save`;
+    const options = months.map((month, index) => `<option value="${index}">${escapeHtml(month?.nome || month?.id || `Mês ${index + 1}`)}</option>`).join('');
+    sheet({
+      title: 'Escolher período',
+      subtitle: 'O Dashboard usará os mesmos meses do sistema principal.',
+      body: `
+        <label class="m2-field-label" for="${startId}">Mês inicial</label>
+        <select id="${startId}" class="m2-field-input">${options}</select>
+        <label class="m2-field-label" for="${endId}">Mês final</label>
+        <select id="${endId}" class="m2-field-input">${options}</select>
+        <div class="m2-sheet-actions">
+          <button class="m2-chip-btn" type="button" onclick="MobileV2OutflowForm.closeInlineSheet()">Cancelar</button>
+          <button id="${saveId}" class="m2-chip-btn positive" type="button">Aplicar período</button>
+        </div>
+      `
+    });
+    requestAnimationFrame(() => {
+      const start = document.getElementById(startId);
+      const end = document.getElementById(endId);
+      if (start) start.value = String(customRange?.startIdx ?? Math.max(0, months.length - 6));
+      if (end) end.value = String(customRange?.endIdx ?? (months.length - 1));
+      document.getElementById(saveId)?.addEventListener('click', () => {
+        const startIdx = Math.max(0, Math.min(months.length - 1, Number(start?.value || 0)));
+        const endIdx = Math.max(startIdx, Math.min(months.length - 1, Number(end?.value || months.length - 1)));
+        customRange = { startIdx, endIdx };
+        activePeriod = 'custom';
+        global.MobileV2OutflowForm?.closeInlineSheet?.();
+        render(target);
+      });
+    });
+  }
+
   function openCategoryDetails(categoryName, months) {
-    const allMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
+    const allMonths = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []);
     const allowed = new Set((months || []).map((entry) => String(entry.id || '')));
     const rows = [];
     allMonths.forEach((month) => {
       if (!allowed.has(String(month?.id || ''))) return;
-      (month?.outflows || []).forEach((item) => {
-        const cat = typeof global.getUnifiedOutflowCategoryName === 'function'
-          ? String(global.getUnifiedOutflowCategoryName(item, 'OUTROS') || 'OUTROS')
-          : String(global.resolveCategoryName ? global.resolveCategoryName(item?.category || item?.categoria || 'OUTROS') : (item?.category || item?.categoria || 'OUTROS'));
+      const outflows = global.MobileV2Data?.getOutflowRows
+        ? global.MobileV2Data.getOutflowRows(month)
+        : (month?.outflows || []);
+      outflows.forEach((item) => {
+        const cat = global.MobileV2Data?.getCategoryName
+          ? global.MobileV2Data.getCategoryName(item, 'OUTROS')
+          : (typeof global.getUnifiedOutflowCategoryName === 'function'
+            ? String(global.getUnifiedOutflowCategoryName(item, 'OUTROS') || 'OUTROS')
+            : String(global.resolveCategoryName ? global.resolveCategoryName(item?.category || item?.categoria || 'OUTROS') : (item?.category || item?.categoria || 'OUTROS')));
         if (cat !== categoryName) return;
-        const amount = typeof global.getUnifiedEffectiveOutflowAmount === 'function'
-          ? global.getUnifiedEffectiveOutflowAmount(item)
-          : Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0);
+        const amount = global.MobileV2Data?.getOutflowAmount
+          ? global.MobileV2Data.getOutflowAmount(item)
+          : (typeof global.getUnifiedEffectiveOutflowAmount === 'function'
+            ? global.getUnifiedEffectiveOutflowAmount(item)
+            : Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0));
         if (!(amount > 0)) return;
         rows.push({
           date: String(item?.date || ''),
@@ -291,7 +332,7 @@
         </span>
         <span class="m2-row-amount negative">${formatMoney(Math.abs(row.amount || 0))}</span>
       </article>
-    `).join('') : '<div class="m2-empty">Sem gastos nessa categoria no período.</div>';
+    `).join('') : '<div class="m2-empty">Sem lançamentos nessa categoria no período.</div>';
     global.MobileV2OutflowForm?.openInlineSheet?.({
       title: `Categoria: ${categoryName}`,
       subtitle: `${rows.length} lançamento(s)`,
@@ -323,7 +364,7 @@
     ctx.fillStyle = '#152033';
     ctx.font = '700 44px Inter, Arial';
     ctx.fillText('Renda', 72, 438);
-    ctx.fillText('Gastos', 72, 568);
+    ctx.fillText('Lançamentos', 72, 568);
     ctx.fillText('Resultado', 72, 698);
     ctx.textAlign = 'right';
     ctx.fillStyle = '#2471A3';
@@ -405,7 +446,7 @@
         <div class="hero-result">${formatMoney(totalResult)}</div>
         <div class="hero-sub">
           <span>Renda ${formatMoney(totalIncome)}</span>
-          <span>Gastos ${formatMoney(totalExpenses)}</span>
+          <span>Lançamentos ${formatMoney(totalExpenses)}</span>
         </div>
       </section>
 
@@ -415,7 +456,7 @@
       </section>
 
       <section class="dash-section">
-        <div class="dash-section-header"><span>Gastos por categoria</span></div>
+        <div class="dash-section-header"><span>Lançamentos por categoria</span></div>
         <div class="dash-pie-row">
           <canvas id="mobileV2PieChart" class="pie-canvas"></canvas>
           <div class="pie-legend">

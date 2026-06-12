@@ -2,16 +2,22 @@
   'use strict';
 
   function formatMoney(value) {
+    if (global.MobileV2Data?.formatMoney) return global.MobileV2Data.formatMoney(value);
     if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
   function summarizeMonth(month) {
-    const totals = typeof global.getEffectiveTotalsForMes === 'function' ? global.getEffectiveTotalsForMes(month) : null;
-    const income = Number(totals?.rendaTotal || 0);
-    const expenses = typeof global.calculateUnifiedPlanningTotal === 'function'
-      ? Number(global.calculateUnifiedPlanningTotal(month) || 0)
-      : Number(totals?.totalGastos || 0);
+    const metrics = global.MobileV2Data?.getMonthMetrics
+      ? global.MobileV2Data.getMonthMetrics(month)
+      : null;
+    const totals = metrics ? null : (typeof global.getEffectiveTotalsForMes === 'function' ? global.getEffectiveTotalsForMes(month) : null);
+    const income = metrics ? Number(metrics.renda || 0) : Number(totals?.rendaTotal || 0);
+    const expenses = metrics
+      ? Number(metrics.lancamentos || metrics.despesas || 0)
+      : (typeof global.calculateUnifiedPlanningTotal === 'function'
+        ? Number(global.calculateUnifiedPlanningTotal(month) || 0)
+        : Number(totals?.totalGastos || 0));
     return {
       name: String(month?.nome || month?.id || 'Mês'),
       income,
@@ -22,7 +28,7 @@
 
   function render(target) {
     if (!target) return;
-    const months = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []);
+    const months = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []));
     const rows = [...months].map(summarizeMonth).reverse();
     target.innerHTML = `
       <div class="m2-header">
@@ -43,7 +49,7 @@
             <span class="m2-icon-pill">📊</span>
             <span>
               <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(row.name) : row.name}</p>
-              <span class="m2-row-meta">Gastos ${formatMoney(row.expenses)} · Renda ${formatMoney(row.income)}</span>
+              <span class="m2-row-meta">Lançamentos ${formatMoney(row.expenses)} · Renda ${formatMoney(row.income)}</span>
             </span>
             <span class="m2-row-amount ${row.result >= 0 ? 'positive' : 'negative'}">${formatMoney(row.result)}</span>
           </article>

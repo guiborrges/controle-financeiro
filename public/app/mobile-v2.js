@@ -83,21 +83,7 @@
   }
 
   function getPatrimonioData() {
-    const accounts = Array.isArray(global.patrimonioAccounts) ? global.patrimonioAccounts : [];
-    const movements = Array.isArray(global.patrimonioMovements) ? global.patrimonioMovements : [];
-    if (accounts.length || movements.length) return { accounts, movements, error: '' };
-    const storage = global.Storage?.getJSON;
-    if (typeof storage === 'function' && global.STORAGE_KEYS) {
-      const storedAccounts = storage(global.STORAGE_KEYS.patrimonioAccounts, []);
-      const storedMovements = storage(global.STORAGE_KEYS.patrimonioMovements, []);
-      if (Array.isArray(storedAccounts) || Array.isArray(storedMovements)) {
-        return {
-          accounts: Array.isArray(storedAccounts) ? storedAccounts : [],
-          movements: Array.isArray(storedMovements) ? storedMovements : [],
-          error: ''
-        };
-      }
-    }
+    if (global.MobileV2Data?.getPatrimonioData) return global.MobileV2Data.getPatrimonioData();
     return { accounts: [], movements: [], error: 'Dados de patrimônio indisponíveis no momento.' };
   }
 
@@ -270,6 +256,7 @@
     isEnabled: () => state.enabled
   };
   if (typeof global.getPatrimonioData !== 'function') {
+    getPatrimonioData.__mobileV2Fallback = true;
     global.getPatrimonioData = getPatrimonioData;
   }
 

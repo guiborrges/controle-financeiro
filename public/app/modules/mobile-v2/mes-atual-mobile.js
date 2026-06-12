@@ -2,13 +2,14 @@
   'use strict';
 
   const SUBTABS = [
-    { key: 'planejamento', label: 'Planejamento' },
-    { key: 'gastos-metas', label: 'Gastos e Metas' },
+    { key: 'planejamento', label: 'Lançamentos' },
+    { key: 'gastos-metas', label: 'Categorias e metas' },
     { key: 'todos', label: 'Todos' },
     { key: 'renda', label: 'Renda' }
   ];
 
   let activeSubtab = 'planejamento';
+  const uiStateByMonth = new Map();
   const activeFilters = {
     search: ''
   };
@@ -30,18 +31,60 @@
   }
 
   function formatMoney(value) {
-    if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
-    return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return global.MobileV2Data?.formatMoney
+      ? global.MobileV2Data.formatMoney(value)
+      : (typeof global.fmt === 'function' ? global.fmt(Number(value || 0)) : Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+  }
+
+  function parseMoneyInput(value) {
+    const normalized = String(value || '')
+      .replace(/[^\d,.-]/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function openMoneyEditor({ title, subtitle, currentValue, placeholder, submitLabel, onSave }) {
+    const sheet = global.MobileV2OutflowForm?.openInlineSheet;
+    if (typeof sheet !== 'function') {
+      if (typeof global.showToast === 'function') global.showToast('Editor indisponível no momento.');
+      return;
+    }
+    const inputId = `mobileMoneyEditor_${Date.now()}`;
+    const saveId = `${inputId}_save`;
+    const cancelId = `${inputId}_cancel`;
+    sheet({
+      title,
+      subtitle,
+      body: `
+        <label class="m2-field-label" for="${inputId}">Valor</label>
+        <input id="${inputId}" class="m2-field-input" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(currentValue ? String(currentValue).replace('.', ',') : '')}" placeholder="${escapeHtml(placeholder || '0,00')}">
+        <div class="m2-sheet-actions">
+          <button id="${cancelId}" class="m2-chip-btn" type="button">Cancelar</button>
+          <button id="${saveId}" class="m2-chip-btn positive" type="button">${escapeHtml(submitLabel || 'Salvar')}</button>
+        </div>
+      `
+    });
+    requestAnimationFrame(() => {
+      const input = document.getElementById(inputId);
+      const close = () => global.MobileV2OutflowForm?.closeInlineSheet?.();
+      input?.focus?.();
+      input?.addEventListener('input', () => {
+        input.value = String(input.value || '').replace(/[^\d,.-]/g, '');
+      });
+      document.getElementById(cancelId)?.addEventListener('click', close);
+      document.getElementById(saveId)?.addEventListener('click', () => {
+        onSave?.(parseMoneyInput(input?.value));
+        close();
+      });
+    });
   }
 
   function getCategorySymbol(categoryName) {
-    const safeCategory = String(categoryName || 'OUTROS');
-    if (typeof global.renderSmartIconBadge === 'function' && typeof global.inferCategoryVisual === 'function') {
-      const visual = global.inferCategoryVisual(safeCategory);
-      return global.renderSmartIconBadge(visual.icon, visual.tone);
-    }
-    const emoji = typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(safeCategory) : '';
-    return escapeHtml(String(emoji || '•'));
+    return global.MobileV2Data?.categoryIcon
+      ? global.MobileV2Data.categoryIcon(categoryName)
+      : escapeHtml('•');
   }
 
   function parseDateScore(raw) {
@@ -57,15 +100,21 @@
 
   function ensureUiState(month) {
     if (!month) return;
-    month.mobileV2 = month.mobileV2 || {};
-    if (!SUBTABS.some((tab) => tab.key === month.mobileV2.subtab)) month.mobileV2.subtab = activeSubtab;
-    if (typeof month.mobileV2.allSearch !== 'string') month.mobileV2.allSearch = '';
-    activeSubtab = month.mobileV2.subtab;
+    const monthId = String(month?.id || 'current');
+    const state = uiStateByMonth.get(monthId) || { subtab: activeSubtab, allSearch: '' };
+    if (!SUBTABS.some((tab) => tab.key === state.subtab)) state.subtab = activeSubtab;
+    if (typeof state.allSearch !== 'string') state.allSearch = '';
+    uiStateByMonth.set(monthId, state);
+    activeSubtab = state.subtab;
   }
 
   function getCurrentMonthSafe() {
     if (typeof global.getCurrentMonth === 'function') {
       const current = global.getCurrentMonth();
+      if (current) return current;
+    }
+    if (global.MobileV2Data?.getCurrentMonth) {
+      const current = global.MobileV2Data.getCurrentMonth();
       if (current) return current;
     }
     const cached = global.MobileV2Enhancements?.getCachedFinanceMonths?.() || [];
@@ -117,42 +166,22 @@
   }
 
   function getUnifiedCategoryName(item) {
-    if (typeof global.getUnifiedOutflowCategoryName === 'function') {
-      return String(global.getUnifiedOutflowCategoryName(item, 'OUTROS') || 'OUTROS').trim() || 'OUTROS';
-    }
+    if (global.MobileV2Data?.getCategoryName) return global.MobileV2Data.getCategoryName(item, 'OUTROS');
     return resolveCategory(item);
   }
 
   function getOutflowRows(month) {
-    if (typeof global.getUnifiedFilterRows === 'function') {
-      const unifiedRows = global.getUnifiedFilterRows(month, 'all', '', '') || [];
-      const outflowRows = unifiedRows
-        .filter((row) => row?.kind === 'outflow' && getEffectiveOutflowAmount(row?.item) > 0)
-        .map((row) => row.item);
-      if (typeof global.getSortedUnifiedRows === 'function') {
-        return global.getSortedUnifiedRows(month, outflowRows.map((item) => ({ kind: 'outflow', item })), 'data', 'desc')
-          .map((row) => row.item);
-      }
-      return outflowRows.sort((a, b) => parseDateScore(b?.date) - parseDateScore(a?.date));
-    }
+    if (global.MobileV2Data?.getOutflowRows) return global.MobileV2Data.getOutflowRows(month);
     return [...(Array.isArray(month?.outflows) ? month.outflows : [])]
       .filter((item) => getEffectiveOutflowAmount(item) > 0)
       .sort((a, b) => parseDateScore(b?.date) - parseDateScore(a?.date));
   }
 
   function getMonthMetrics(month) {
-    const totals = typeof global.getEffectiveTotalsForMes === 'function'
-      ? global.getEffectiveTotalsForMes(month)
-      : null;
-    const renda = Number(totals?.rendaTotal || 0);
-    const despesas = typeof global.calculateUnifiedPlanningTotal === 'function'
-      ? Number(global.calculateUnifiedPlanningTotal(month) || 0)
-      : Number(totals?.totalGastos || 0);
-    return {
-      renda,
-      despesas,
-      resultado: renda - despesas
-    };
+    if (global.MobileV2Data?.getMonthMetrics) return global.MobileV2Data.getMonthMetrics(month);
+    const renda = 0;
+    const lancamentos = 0;
+    return { renda, despesas: lancamentos, lancamentos, resultado: renda - lancamentos };
   }
 
   function renderPageHeader() {
@@ -179,7 +208,7 @@
         </div>
         <div class="m2-month-metrics">
           <div class="m2-mini-metric"><div class="m2-mini-label">Renda</div><div class="m2-mini-value">${formatMoney(metrics.renda)}</div></div>
-          <div class="m2-mini-metric"><div class="m2-mini-label">Despesas</div><div class="m2-mini-value">${formatMoney(metrics.despesas)}</div></div>
+          <div class="m2-mini-metric"><div class="m2-mini-label">Lançamentos</div><div class="m2-mini-value">${formatMoney(metrics.lancamentos ?? metrics.despesas)}</div></div>
           <div class="m2-mini-metric"><div class="m2-mini-label">Resultado</div><div class="m2-mini-value ${metrics.resultado >= 0 ? 'positive' : 'negative'}">${formatMoney(metrics.resultado)}</div></div>
         </div>
       </div>
@@ -292,7 +321,7 @@
         </section>
       `;
     }).join('');
-    return `<div class="m2-tab-panel ${activeSubtab === 'planejamento' ? 'active' : ''}" data-tab-panel="planejamento">${renderListCard('Compromissos do mês', normalRows)}${cardSections}</div>`;
+    return `<div class="m2-tab-panel ${activeSubtab === 'planejamento' ? 'active' : ''}" data-tab-panel="planejamento">${renderListCard('Lançamentos do mês', normalRows)}${cardSections}</div>`;
   }
 
   function buildCategoryRowsFromRows(month, rows) {
@@ -552,7 +581,8 @@
 
   function renderTodos(month) {
     const allRows = getCachedMonthView(month).outflowRows.map(toItemView);
-    const searchValue = String(activeFilters.search || month?.mobileV2?.allSearch || '');
+    const uiState = uiStateByMonth.get(String(month?.id || 'current')) || {};
+    const searchValue = String(activeFilters.search || uiState.allSearch || '');
     const badgeCount = searchValue.trim() ? 1 : 0;
 
     return `
@@ -668,7 +698,10 @@
     target.querySelectorAll('[data-m2-subtab]').forEach((btn) => {
       btn.addEventListener('click', () => {
         activeSubtab = btn.getAttribute('data-m2-subtab') || 'planejamento';
-        month.mobileV2.subtab = activeSubtab;
+        const monthId = String(month?.id || 'current');
+        const state = uiStateByMonth.get(monthId) || { allSearch: '' };
+        state.subtab = activeSubtab;
+        uiStateByMonth.set(monthId, state);
         render(target);
       });
     });
@@ -678,7 +711,10 @@
       const list = target.querySelector('#mobileV2AllList');
       const apply = () => {
         const term = String(searchInput.value || '').trim().toLowerCase();
-        month.mobileV2.allSearch = searchInput.value || '';
+        const monthId = String(month?.id || 'current');
+        const state = uiStateByMonth.get(monthId) || { subtab: activeSubtab, allSearch: '' };
+        state.allSearch = searchInput.value || '';
+        uiStateByMonth.set(monthId, state);
         activeFilters.search = searchInput.value || '';
         list?.querySelectorAll('.m-item[data-outflow-id]').forEach((row) => {
           row.style.display = !term || row.textContent.toLowerCase().includes(term) ? '' : 'none';
@@ -754,16 +790,24 @@
         if (!category) return;
         const current = Number(month?.dailyGoals?.[category] || 0) || '';
         const label = current ? 'Editar meta de gasto' : 'Definir meta de gasto';
-        const raw = global.prompt?.(`${label} para ${category}`, current ? String(current) : '');
-        if (raw === null || raw === undefined) return;
-        const value = Number(String(raw).replace(',', '.'));
-        if (!(value > 0)) return;
-        month.dailyGoals = month.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
-        month.dailyGoals[category] = value;
-        if (typeof global.save === 'function') global.save(true);
-        invalidateCache();
-        global.MobileV2Enhancements?.notifyDataChanged?.('goal-save');
-        global.MobileV2?.refresh?.();
+        openMoneyEditor({
+          title: label,
+          subtitle: category,
+          currentValue: current,
+          submitLabel: 'Salvar meta',
+          onSave(value) {
+            month.dailyGoals = month.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
+            if (value > 0) {
+              month.dailyGoals[category] = value;
+            } else {
+              delete month.dailyGoals[category];
+            }
+            if (typeof global.save === 'function') global.save(true);
+            invalidateCache();
+            global.MobileV2Enhancements?.notifyDataChanged?.('goal-save');
+            global.MobileV2?.refresh?.();
+          }
+        });
       });
     });
 
@@ -780,17 +824,22 @@
             ? global.getUnifiedCardBillEffectiveAmount(month, bill)
             : bill.amount
         ) || 0;
-        const raw = global.prompt?.('Editar valor da fatura', String(currentAmount.toFixed(2)));
-        if (raw === null || raw === undefined) return;
-        const nextAmount = Number(String(raw).replace(',', '.'));
-        if (!(nextAmount >= 0)) return;
-        bill.amount = nextAmount;
-        bill.manualAmountSet = true;
-        if (typeof global.syncUnifiedOutflowLegacyData === 'function') global.syncUnifiedOutflowLegacyData(month);
-        if (typeof global.save === 'function') global.save(true);
-        invalidateCache();
-        global.MobileV2Enhancements?.notifyDataChanged?.('card-bill-edit');
-        global.MobileV2?.refresh?.();
+        openMoneyEditor({
+          title: 'Editar valor da fatura',
+          subtitle: 'Altera apenas a fatura deste cartão no mês selecionado.',
+          currentValue: currentAmount.toFixed(2),
+          submitLabel: 'Salvar fatura',
+          onSave(nextAmount) {
+            if (!(nextAmount >= 0)) return;
+            bill.amount = nextAmount;
+            bill.manualAmountSet = true;
+            if (typeof global.syncUnifiedOutflowLegacyData === 'function') global.syncUnifiedOutflowLegacyData(month);
+            if (typeof global.save === 'function') global.save(true);
+            invalidateCache();
+            global.MobileV2Enhancements?.notifyDataChanged?.('card-bill-edit');
+            global.MobileV2?.refresh?.();
+          }
+        });
       });
     });
 
@@ -842,7 +891,7 @@
   }
 
   function prevMonth() {
-    const liveMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []);
+    const liveMonths = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []));
     const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
     const current = getCurrentMonthSafe();
     if (!allMonths.length || !current) return;
@@ -854,7 +903,7 @@
   }
 
   function nextMonth() {
-    const liveMonths = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []);
+    const liveMonths = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []));
     const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
     const current = getCurrentMonthSafe();
     if (!allMonths.length || !current) return;
@@ -869,7 +918,7 @@
     if (!target) return;
     const month = getCurrentMonthSafe();
     if (!month) {
-      target.innerHTML = '<div class="m2-empty">Sem mês selecionado.</div>';
+      target.innerHTML = '<div class="m2-empty">Carregando dados do mês...</div>';
       return;
     }
 
