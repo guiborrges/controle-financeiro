@@ -73,6 +73,7 @@
   }
 
   function isMobileV2Mode() {
+    if (typeof global.__isMobileV2Candidate === 'function') return global.__isMobileV2Candidate();
     const width = Number(global.innerWidth || document.documentElement?.clientWidth || 0);
     if (isDesktopLikeUserAgent()) return false;
     return width > 0 && width <= MOBILE_BREAKPOINT && supportsTouch();
