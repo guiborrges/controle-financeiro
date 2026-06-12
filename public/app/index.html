@@ -12,6 +12,20 @@
 <title>Controle Financeiro</title>
 <script>
   (() => {
+    try {
+      const ua = String(navigator.userAgent || '');
+      const isDesktopLike = ua && !/(Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile)/i.test(ua);
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)')?.matches === true;
+      const width = Number(window.innerWidth || document.documentElement?.clientWidth || 0);
+      if (!isDesktopLike && hasTouch && width > 0 && width <= 900) {
+        document.documentElement.classList.add('mobile-v2');
+        window.__MOBILE_V2_EARLY__ = true;
+      }
+    } catch (_) {}
+  })();
+</script>
+<script>
+  (() => {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations()
       .then((registrations) => Promise.all(
