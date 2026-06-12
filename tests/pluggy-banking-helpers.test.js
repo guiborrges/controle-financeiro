@@ -148,3 +148,93 @@ test('extractImportedKeysFromSavedData reads persisted internet banking markers'
   const keys = Array.from(h.extractImportedKeysFromSavedData());
   assert.deepEqual(keys.sort(), ['key-mov-1', 'key-mov-2', 'key-outflow-1', 'key-outflow-2']);
 });
+
+test('internet banking state merges canonical app-state with legacy local browser state', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'app', 'pluggy-banking.js'),
+    'utf8'
+  );
+  const localState = {
+    importedTxIds: { localImported: true },
+    ignoredTxKeys: { localIgnoredKey: true },
+    links: { accountA: 'card-local', sharedAccount: 'card-local-stale' }
+  };
+  const canonicalState = {
+    importedTxIds: { canonicalImported: true },
+    ignoredTxIds: { canonicalIgnored: true },
+    links: { accountB: 'card-server', sharedAccount: 'card-server-current' }
+  };
+  const sandbox = {
+    window: {},
+    STORAGE_KEYS: { pluggyBankingState: 'finPluggyBankingState' },
+    Storage: {
+      getJSON(key) {
+        assert.equal(key, 'finPluggyBankingState');
+        return canonicalState;
+      },
+      setJSON(key, value) {
+        assert.equal(key, 'finPluggyBankingState');
+        sandbox.persistedCanonical = value;
+      }
+    },
+    currentSession: { user: { id: 'user-merge-1' } },
+    localStorage: {
+      getItem(key) {
+        assert.equal(key, 'pluggy_banking_state_v2:user-merge-1');
+        return JSON.stringify(localState);
+      },
+      setItem(key, value) {
+        sandbox.persistedLocal = { key, value: JSON.parse(value) };
+      }
+    }
+  };
+  sandbox.window = sandbox;
+  vm.runInNewContext(source, sandbox);
+  const state = sandbox.__pluggyBankingTest.loadUserStateForTest();
+
+  assert.equal(state.importedTxIds.canonicalImported, true);
+  assert.equal(state.importedTxIds.localImported, true);
+  assert.equal(state.ignoredTxIds.canonicalIgnored, true);
+  assert.equal(state.ignoredTxKeys.localIgnoredKey, true);
+  assert.equal(state.links.accountA, 'card-local');
+  assert.equal(state.links.accountB, 'card-server');
+  assert.equal(state.links.sharedAccount, 'card-server-current');
+  assert.equal(sandbox.persistedCanonical.importedTxIds.localImported, true);
+  assert.equal(sandbox.persistedLocal.key, 'pluggy_banking_state_v2:user-merge-1');
+});
+
+test('internet banking state persists to canonical app-state and compatibility local cache', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'app', 'pluggy-banking.js'),
+    'utf8'
+  );
+  const sandbox = {
+    window: {},
+    STORAGE_KEYS: { pluggyBankingState: 'finPluggyBankingState' },
+    Storage: {
+      getJSON() { return {}; },
+      setJSON(key, value) {
+        sandbox.persistedCanonical = { key, value };
+      }
+    },
+    currentSession: { user: { id: 'user-persist-1' } },
+    localStorage: {
+      getItem() { return null; },
+      setItem(key, value) {
+        sandbox.persistedLocal = { key, value: JSON.parse(value) };
+      }
+    }
+  };
+  sandbox.window = sandbox;
+  vm.runInNewContext(source, sandbox);
+  sandbox.__pluggyBankingTest.persistUserStateForTest({
+    importedTxIds: { tx123: true },
+    ignoredTxKeys: { keyABC: true }
+  });
+
+  assert.equal(sandbox.persistedCanonical.key, 'finPluggyBankingState');
+  assert.equal(sandbox.persistedCanonical.value.importedTxIds.tx123, true);
+  assert.equal(sandbox.persistedCanonical.value.ignoredTxKeys.keyABC, true);
+  assert.equal(sandbox.persistedLocal.key, 'pluggy_banking_state_v2:user-persist-1');
+  assert.equal(sandbox.persistedLocal.value.importedTxIds.tx123, true);
+});

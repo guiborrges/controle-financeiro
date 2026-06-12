@@ -25,6 +25,7 @@ const STORAGE_KEYS = {
   patrimonioAccounts: 'finPatrimonioAccounts',
   patrimonioMovements: 'finPatrimonioMovements',
   metas: 'finMetas',
+  pluggyBankingState: 'finPluggyBankingState',
   schemaVersion: 'finStateSchemaVersion',
   migrationVersion: 'finDataMigrationVersion',
   titles: 'finTitles',
@@ -36,7 +37,8 @@ const ENCRYPTED_STORAGE_KEYS = new Set([
   STORAGE_KEYS.patrimonioAccounts,
   STORAGE_KEYS.patrimonioMovements,
   STORAGE_KEYS.metas,
-  STORAGE_KEYS.esoData
+  STORAGE_KEYS.esoData,
+  STORAGE_KEYS.pluggyBankingState
 ]);
 
 const LEGACY_STORAGE_KEYS = Object.values(STORAGE_KEYS);
@@ -62,7 +64,8 @@ const FAST_FLUSH_KEYS = new Set([
   STORAGE_KEYS.patrimonioAccounts,
   STORAGE_KEYS.patrimonioMovements,
   STORAGE_KEYS.metas,
-  STORAGE_KEYS.esoData
+  STORAGE_KEYS.esoData,
+  STORAGE_KEYS.pluggyBankingState
 ]);
 const storageTabId = (() => {
   try {

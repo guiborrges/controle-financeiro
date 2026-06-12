@@ -197,28 +197,92 @@
     STATE.userState.txState = {};
   }
 
+  function getDefaultUserState() {
+    return {
+      links: {},
+      linkHints: {},
+      hiddenGroups: {},
+      clearedAtByGroup: {},
+      aliases: {},
+      categoryMemory: {},
+      tagMemory: {},
+      importedTxIds: {},
+      importedTxKeys: {},
+      ignoredTxIds: {},
+      ignoredTxKeys: {},
+      txState: {}
+    };
+  }
+
+  const USER_STATE_MAP_KEYS = Object.keys(getDefaultUserState());
+
+  function sanitizeUserState(value) {
+    const safe = getDefaultUserState();
+    if (!value || typeof value !== 'object') return safe;
+    USER_STATE_MAP_KEYS.forEach((key) => {
+      safe[key] = value[key] && typeof value[key] === 'object' && !Array.isArray(value[key])
+        ? { ...value[key] }
+        : {};
+    });
+    return safe;
+  }
+
+  function mergeUserStates(primary, secondary) {
+    const base = sanitizeUserState(primary);
+    const extra = sanitizeUserState(secondary);
+    const merged = getDefaultUserState();
+    USER_STATE_MAP_KEYS.forEach((key) => {
+      // The app-state version is canonical. Legacy localStorage only fills gaps
+      // during migration so an old phone/browser cannot overwrite another device.
+      merged[key] = { ...extra[key], ...base[key] };
+    });
+    return merged;
+  }
+
+  function getCanonicalStorageKey() {
+    return (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS?.pluggyBankingState)
+      ? STORAGE_KEYS.pluggyBankingState
+      : 'finPluggyBankingState';
+  }
+
+  function readCanonicalUserState() {
+    if (typeof Storage === 'undefined' || typeof Storage.getJSON !== 'function') return null;
+    return sanitizeUserState(Storage.getJSON(getCanonicalStorageKey(), null));
+  }
+
+  function readLegacyUserState() {
+    try {
+      return sanitizeUserState(JSON.parse(localStorage.getItem(storageKey()) || '{}'));
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function serializedUserState(value) {
+    return JSON.stringify(sanitizeUserState(value));
+  }
+
   function loadUserState() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(storageKey()) || '{}');
-      STATE.userState.links = parsed.links && typeof parsed.links === 'object' ? parsed.links : {};
-      STATE.userState.linkHints = parsed.linkHints && typeof parsed.linkHints === 'object' ? parsed.linkHints : {};
-      STATE.userState.hiddenGroups = parsed.hiddenGroups && typeof parsed.hiddenGroups === 'object' ? parsed.hiddenGroups : {};
-      STATE.userState.clearedAtByGroup = parsed.clearedAtByGroup && typeof parsed.clearedAtByGroup === 'object' ? parsed.clearedAtByGroup : {};
-      STATE.userState.aliases = parsed.aliases && typeof parsed.aliases === 'object' ? parsed.aliases : {};
-      STATE.userState.categoryMemory = parsed.categoryMemory && typeof parsed.categoryMemory === 'object' ? parsed.categoryMemory : {};
-      STATE.userState.tagMemory = parsed.tagMemory && typeof parsed.tagMemory === 'object' ? parsed.tagMemory : {};
-      STATE.userState.importedTxIds = parsed.importedTxIds && typeof parsed.importedTxIds === 'object' ? parsed.importedTxIds : {};
-      STATE.userState.importedTxKeys = parsed.importedTxKeys && typeof parsed.importedTxKeys === 'object' ? parsed.importedTxKeys : {};
-      STATE.userState.ignoredTxIds = parsed.ignoredTxIds && typeof parsed.ignoredTxIds === 'object' ? parsed.ignoredTxIds : {};
-      STATE.userState.ignoredTxKeys = parsed.ignoredTxKeys && typeof parsed.ignoredTxKeys === 'object' ? parsed.ignoredTxKeys : {};
-      STATE.userState.txState = parsed.txState && typeof parsed.txState === 'object' ? parsed.txState : {};
+      const canonical = readCanonicalUserState();
+      const legacy = readLegacyUserState();
+      const merged = mergeUserStates(canonical, legacy);
+      STATE.userState = merged;
+      if (serializedUserState(merged) !== serializedUserState(canonical)) {
+        persistUserState();
+      }
     } catch (_err) {
       resetUserState();
     }
   }
 
   function persistUserState() {
-    localStorage.setItem(storageKey(), JSON.stringify(STATE.userState));
+    const state = sanitizeUserState(STATE.userState);
+    STATE.userState = state;
+    localStorage.setItem(storageKey(), JSON.stringify(state));
+    if (typeof Storage !== 'undefined' && typeof Storage.setJSON === 'function') {
+      Storage.setJSON(getCanonicalStorageKey(), state);
+    }
   }
 
   function showStatus(message, tone = 'ok') {
@@ -1855,7 +1919,18 @@
     stripLegacyCategoryIconPrefix,
     toVisualCategorySymbol,
     buildImportedCompositeKey,
-    extractImportedKeysFromSavedData
+    extractImportedKeysFromSavedData,
+    mergeUserStates,
+    sanitizeUserState,
+    loadUserStateForTest: () => {
+      loadUserState();
+      return sanitizeUserState(STATE.userState);
+    },
+    persistUserStateForTest: (state) => {
+      STATE.userState = sanitizeUserState(state);
+      persistUserState();
+      return sanitizeUserState(STATE.userState);
+    }
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
