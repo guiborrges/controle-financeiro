@@ -1738,7 +1738,7 @@
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input id="usSearchInput" class="us-input" type="search" placeholder="Buscar gastos, receitas, valores, categorias..." autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Campo de busca universal">
+          <input id="usSearchInput" class="us-input" type="search" placeholder="Buscar lançamentos, rendas, valores, categorias..." autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Campo de busca universal">
           <kbd class="us-esc-hint" id="usEscHint">ESC</kbd>
         </div>
         <button class="btn btn-ghost us-close-btn" type="button" onclick="UniversalSearch.close()" aria-label="Fechar buscador">✕</button>
@@ -1749,10 +1749,8 @@
           <span class="us-filter-label">Tipo</span>
           <div class="us-chip-group" id="usFilterType">
             <button class="us-chip active" type="button" data-filter="type" data-val="all">Tudo</button>
-            <button class="us-chip" type="button" data-filter="type" data-val="spend">Gasto</button>
-            <button class="us-chip" type="button" data-filter="type" data-val="expense">Despesa</button>
-            <button class="us-chip" type="button" data-filter="type" data-val="income_fixed">Renda fixa</button>
-            <button class="us-chip" type="button" data-filter="type" data-val="income_extra">Renda extra</button>
+            <button class="us-chip" type="button" data-filter="type" data-val="launch">Lançamentos</button>
+            <button class="us-chip" type="button" data-filter="type" data-val="income">Rendas</button>
           </div>
         </div>
 
@@ -1822,11 +1820,11 @@
       <div class="us-totals">
         <span class="us-total-item us-total-expense" id="usTotalExpense" style="display:none">
           <span class="us-total-dot" style="background:var(--red,#E74C3C)"></span>
-          Gastos: <strong id="usTotalExpenseVal"></strong>
+          Lançamentos: <strong id="usTotalExpenseVal"></strong>
         </span>
         <span class="us-total-item us-total-income" id="usTotalIncome" style="display:none">
           <span class="us-total-dot" style="background:var(--green,#27AE60)"></span>
-          Receitas: <strong id="usTotalIncomeVal"></strong>
+          Rendas: <strong id="usTotalIncomeVal"></strong>
         </span>
         <span class="us-total-item us-total-balance" id="usTotalBalance">
           Total: <strong id="usTotalBalanceVal"></strong>

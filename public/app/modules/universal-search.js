@@ -143,8 +143,8 @@
 
   function typeLabel(type) {
     const map = {
-      spend: 'Gasto',
-      expense: 'Despesa',
+      spend: 'Lan\u00e7amento',
+      expense: 'Lan\u00e7amento',
       income_fixed: 'Renda fixa',
       income_extra: 'Renda extra',
       project_income: 'Renda extra'
@@ -184,6 +184,7 @@
       category,
       tag: String(item?.tag || '').trim(),
       type,
+      searchGroup: 'launch',
       typeLabel: typeLabel(type),
       amount,
       signedAmount: outputKind === 'card' ? 0 : -amount,
@@ -228,6 +229,7 @@
       category: 'CARTAO DE CREDITO',
       tag: '',
       type: 'expense',
+      searchGroup: 'launch',
       typeLabel: typeLabel('expense'),
       amount,
       signedAmount: -amount,
@@ -259,10 +261,11 @@
       monthLabel: monthLabel(month),
       yearMonth: dateToYearMonth(date, monthYM),
       date,
-      description: description || 'Receita',
+      description: description || 'Renda',
       category: type === 'income_fixed' ? 'RENDA FIXA' : 'RENDA EXTRA',
       tag: '',
       type,
+      searchGroup: 'income',
       typeLabel: typeLabel(type),
       amount,
       signedAmount: amount,
@@ -306,7 +309,7 @@
   }
 
   function passesFilters(item) {
-    if (state.filters.types.size && !state.filters.types.has(item.type)) return false;
+    if (state.filters.types.size && !state.filters.types.has(item.searchGroup || item.type)) return false;
     if (state.filters.category.size && !state.filters.category.has(item.category)) return false;
     if (state.filters.card.size && !state.filters.card.has(item.cardId)) return false;
     if (state.filters.tag.size && !state.filters.tag.has(item.tag)) return false;
@@ -352,6 +355,12 @@
     return numericScore <= (needle.length <= 3 ? 0.12 : 0.22);
   }
 
+  function applyDefaultQueryScope(entries, query) {
+    if (!String(query || '').trim() || state.filters.types.size) return entries;
+    const hasLaunches = entries.some((entry) => String(entry.item?.searchGroup || '') === 'launch');
+    return hasLaunches ? entries.filter((entry) => String(entry.item?.searchGroup || '') !== 'income') : entries;
+  }
+
   function search(query) {
     if (!state.items.length || !state.fuse) buildIndex();
     const safeQuery = String(query || '').trim();
@@ -362,15 +371,17 @@
         .sort(sortResults);
     }
     if (state.fuse) {
-      return state.fuse.search(safeQuery)
+      const entries = state.fuse.search(safeQuery)
         .filter((entry) => passesFilters(entry.item))
         .filter((entry) => isRelevantMatch(entry.item, safeQuery, entry.score))
         .sort((a, b) => Number(a.score || 0) - Number(b.score || 0));
+      return applyDefaultQueryScope(entries, safeQuery);
     }
-    return state.items
+    const entries = state.items
       .map((item) => ({ item, score: localScore(item, safeQuery), matches: [] }))
       .filter((entry) => entry.score !== Infinity && passesFilters(entry.item))
       .sort((a, b) => Number(a.score || 0) - Number(b.score || 0));
+    return applyDefaultQueryScope(entries, safeQuery);
   }
 
   function sortResults(a, b) {
