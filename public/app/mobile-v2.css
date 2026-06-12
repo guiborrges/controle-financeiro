@@ -111,11 +111,11 @@ html.mobile-v2 #mobileV2Splash {
 .mobile-v2-splash-logo::before {
   content: "";
   display: block;
-  width: 48px;
-  height: 48px;
+  width: 58px;
+  height: 58px;
   margin: 0 auto 14px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #2471A3, #27AE60);
+  border-radius: 50%;
+  background: url("/app-assets/pwa-icon.svg") center/contain no-repeat;
   animation: mobile-v2-pulse 1s ease-in-out infinite;
 }
 

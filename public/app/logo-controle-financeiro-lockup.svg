@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 260" role="img" aria-labelledby="title desc">
+  <title id="title">Controle Financeiro - assinatura horizontal</title>
+  <desc id="desc">Assinatura horizontal com simbolo circular e texto Controle Financeiro.</desc>
+  <defs>
+    <linearGradient id="bg" x1="32" y1="20" x2="228" y2="238" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1F5D8F"/>
+      <stop offset="0.55" stop-color="#2471A3"/>
+      <stop offset="1" stop-color="#2FAE85"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="84" y1="156" x2="175" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2FAE85"/>
+      <stop offset="1" stop-color="#7EE2BF"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="130" cy="130" r="108" fill="url(#bg)"/>
+  <circle cx="130" cy="130" r="86" fill="#FAFAF8" opacity="0.12"/>
+  <path d="M176 82a66 66 0 1 0 0 96" fill="none" stroke="#FAFAF8" stroke-width="23" stroke-linecap="round"/>
+  <path d="M94 150l23-23 21 18 34-40" fill="none" stroke="url(#accent)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="172" cy="105" r="10" fill="#FAFAF8"/>
+  <circle cx="172" cy="105" r="5.5" fill="#2FAE85"/>
+
+  <text x="282" y="116" fill="#162434" font-family="Outfit, Inter, Arial, sans-serif" font-size="54" font-weight="700" letter-spacing="-1.6">Controle</text>
+  <text x="282" y="172" fill="#2471A3" font-family="Outfit, Inter, Arial, sans-serif" font-size="54" font-weight="700" letter-spacing="-1.6">Financeiro</text>
+  <text x="286" y="206" fill="#6B7B8C" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="600" letter-spacing="3.2">GESTAO PESSOAL EM NUVEM</text>
+</svg>
