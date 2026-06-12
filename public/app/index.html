@@ -1745,67 +1745,65 @@
       </div>
 
       <div class="us-filters-row" id="usFiltersRow">
-        <div class="us-filter-line">
-        <div class="us-filter-group us-filter-group-type">
-          <span class="us-filter-label">Tipo</span>
-          <div class="us-chip-group" id="usFilterType">
-            <button class="us-chip active" type="button" data-filter="type" data-val="all">Tudo</button>
-            <button class="us-chip" type="button" data-filter="type" data-val="launch">Lançamentos</button>
-            <button class="us-chip" type="button" data-filter="type" data-val="income">Rendas</button>
+        <div class="us-filter-line us-filter-line-primary">
+          <div class="us-filter-group us-filter-group-type">
+            <span class="us-filter-label">Tipo</span>
+            <div class="us-chip-group" id="usFilterType">
+              <button class="us-chip active" type="button" data-filter="type" data-val="all">Tudo</button>
+              <button class="us-chip" type="button" data-filter="type" data-val="launch">Lançamentos</button>
+              <button class="us-chip" type="button" data-filter="type" data-val="income">Rendas</button>
+            </div>
           </div>
-        </div>
-        </div>
 
-        <div class="us-filter-line us-filter-line-compact">
-        <div class="us-filter-group us-filter-cell us-filter-cell-category">
-          <span class="us-filter-label">Categoria</span>
-          <details class="us-dropdown">
-            <summary class="us-dropdown-summary"><span id="usCategorySummary">Escolher categorias</span></summary>
-            <div class="us-check-list" id="usFilterCategory"></div>
-          </details>
-        </div>
-
-        <div class="us-filter-group us-filter-cell us-filter-cell-card" id="usFilterCardGroup">
-          <span class="us-filter-label">Cartão</span>
-          <div class="us-chip-group us-chip-scroll" id="usFilterCard"></div>
-        </div>
-
-        <div class="us-filter-group us-filter-cell us-filter-cell-method">
-          <span class="us-filter-label">Meio</span>
-          <div class="us-chip-group" id="usFilterMethod">
-            <button class="us-chip" type="button" data-filter="method" data-val="pix">Pix</button>
-            <button class="us-chip" type="button" data-filter="method" data-val="dinheiro">Dinheiro</button>
-            <button class="us-chip" type="button" data-filter="method" data-val="debito">Débito</button>
-            <button class="us-chip" type="button" data-filter="method" data-val="boleto">Boleto</button>
-            <button class="us-chip" type="button" data-filter="method" data-val="card">Cartão</button>
+          <div class="us-filter-group us-filter-cell us-filter-cell-category">
+            <span class="us-filter-label">Categoria</span>
+            <details class="us-dropdown">
+              <summary class="us-dropdown-summary"><span id="usCategorySummary">Escolher categorias</span></summary>
+              <div class="us-check-list" id="usFilterCategory"></div>
+            </details>
           </div>
-        </div>
-        </div>
 
-        <div class="us-filter-line us-filter-line-compact us-filter-line-secondary">
-        <div class="us-filter-group us-filter-cell us-filter-cell-tag" id="usFilterTagGroup">
-          <span class="us-filter-label">Tags</span>
-          <details class="us-dropdown">
-            <summary class="us-dropdown-summary"><span id="usTagSummary">Escolher tags</span></summary>
-            <div class="us-check-list" id="usFilterTag"></div>
-          </details>
-        </div>
-
-        <div class="us-filter-group us-filter-cell us-filter-cell-period">
-          <span class="us-filter-label">Período</span>
-          <div class="us-date-row">
-            <label class="us-date-compact" title="Mês inicial">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-              <input type="month" id="usDateFrom" class="us-date-input" onchange="UniversalSearch.run()" aria-label="Mês inicial">
-            </label>
-            <label class="us-date-compact" title="Mês final">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-              <input type="month" id="usDateTo" class="us-date-input" onchange="UniversalSearch.run()" aria-label="Mês final">
-            </label>
+          <div class="us-filter-group us-filter-cell us-filter-cell-tag" id="usFilterTagGroup">
+            <span class="us-filter-label">Tags</span>
+            <details class="us-dropdown">
+              <summary class="us-dropdown-summary"><span id="usTagSummary">Escolher tags</span></summary>
+              <div class="us-check-list" id="usFilterTag"></div>
+            </details>
           </div>
         </div>
 
-        <button class="btn btn-ghost us-clear-btn" type="button" onclick="UniversalSearch.clearFilters()" id="usClearBtn" style="display:none">Limpar filtros</button>
+        <div class="us-filter-line us-filter-line-secondary">
+          <div class="us-filter-group us-filter-cell us-filter-cell-card" id="usFilterCardGroup">
+            <span class="us-filter-label">Cartão</span>
+            <div class="us-chip-group us-chip-scroll" id="usFilterCard"></div>
+          </div>
+
+          <div class="us-filter-group us-filter-cell us-filter-cell-method">
+            <span class="us-filter-label">Meio</span>
+            <div class="us-chip-group" id="usFilterMethod">
+              <button class="us-chip" type="button" data-filter="method" data-val="pix">Pix</button>
+              <button class="us-chip" type="button" data-filter="method" data-val="dinheiro">Dinheiro</button>
+              <button class="us-chip" type="button" data-filter="method" data-val="debito">Débito</button>
+              <button class="us-chip" type="button" data-filter="method" data-val="boleto">Boleto</button>
+              <button class="us-chip" type="button" data-filter="method" data-val="card">Cartão</button>
+            </div>
+          </div>
+
+          <div class="us-filter-group us-filter-cell us-filter-cell-period">
+            <span class="us-filter-label">Período</span>
+            <div class="us-date-row">
+              <label class="us-date-compact" title="Mês inicial">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <input type="month" id="usDateFrom" class="us-date-input" onchange="UniversalSearch.run()" aria-label="Mês inicial">
+              </label>
+              <label class="us-date-compact" title="Mês final">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <input type="month" id="usDateTo" class="us-date-input" onchange="UniversalSearch.run()" aria-label="Mês final">
+              </label>
+            </div>
+          </div>
+
+          <button class="btn btn-ghost us-clear-btn" type="button" onclick="UniversalSearch.clearFilters()" id="usClearBtn" style="display:none">Limpar filtros</button>
         </div>
       </div>
     </div>

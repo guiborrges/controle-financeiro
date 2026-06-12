@@ -102,15 +102,13 @@
   min-width: 0;
 }
 
-.us-filter-line-compact {
-  display: grid;
-  grid-template-columns: minmax(190px, 1.15fr) minmax(160px, 0.75fr) minmax(240px, 1.1fr);
-  gap: 10px;
+.us-filter-line-primary,
+.us-filter-line-secondary {
+  align-items: end;
 }
 
 .us-filter-line-secondary {
-  grid-template-columns: minmax(190px, 1.15fr) auto auto;
-  align-items: end;
+  padding-top: 2px;
 }
 
 .us-filter-group {
@@ -122,9 +120,25 @@
 }
 
 .us-filter-group-type {
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.us-filter-cell-category,
+.us-filter-cell-tag {
+  flex: 1 1 240px;
+}
+
+.us-filter-cell-card {
+  flex: 0.7 1 150px;
+}
+
+.us-filter-cell-method {
+  flex: 1.35 1 260px;
+}
+
+.us-filter-cell-period {
+  flex: 0 0 auto;
 }
 
 .us-filter-cell {
