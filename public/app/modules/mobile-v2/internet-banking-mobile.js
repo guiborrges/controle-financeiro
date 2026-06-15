@@ -215,27 +215,16 @@
   }
 
   function categoryOptions(current) {
-    const options = (typeof global.getMonthCategoryOptions === 'function'
-      ? (global.getMonthCategoryOptions(global.getCurrentMonth?.()?.id, global) || [])
-      : []);
-    const parsed = options.map((entry) => {
-      if (entry && typeof entry === 'object') {
-        return {
-          value: String(entry.value || entry.id || entry.name || ''),
-          label: String(entry.label || entry.name || entry.value || '')
-        };
-      }
-      return { value: String(entry || ''), label: String(entry || '') };
-    }).filter((entry) => entry.value);
-    const fallback = parsed.length ? parsed : [{ value: '', label: 'Categoria' }];
-    const head = '<option value="">Categoria</option>';
-    const body = fallback
-      .map((entry) => `<option value="${escapeHtml(entry.value)}" ${entry.value === current ? 'selected' : ''}>${escapeHtml(entry.label)}</option>`)
-      .join('');
-    return `${head}${body}`;
+    if (typeof global.PluggyBanking?.getCategoryOptionsHtml === 'function') {
+      return global.PluggyBanking.getCategoryOptionsHtml(current);
+    }
+    return `<option value="">Categoria</option>${current ? `<option value="${escapeHtml(current)}" selected>${escapeHtml(current)}</option>` : ''}`;
   }
 
   function tagOptions(current) {
+    if (typeof global.PluggyBanking?.getTagOptionsHtml === 'function') {
+      return global.PluggyBanking.getTagOptionsHtml(current);
+    }
     const tags = typeof global.getAllTags === 'function'
       ? global.getAllTags()
       : (global.BillImportUtils?.getAllTagsFromUserData?.(global.data || []) || []);

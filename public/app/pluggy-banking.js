@@ -1906,7 +1906,9 @@
     openLinkDialog,
     closeLinkDialog,
     saveLinkDialog,
-    getMobileSnapshot
+    getMobileSnapshot,
+    getCategoryOptionsHtml: categoryOptions,
+    getTagOptionsHtml: tagOptions
   };
 
   global.renderInternetBankingPage = renderPage;
