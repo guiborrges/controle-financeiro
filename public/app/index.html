@@ -1764,6 +1764,14 @@
         <button class="btn btn-ghost us-close-btn" type="button" onclick="UniversalSearch.close()" aria-label="Fechar buscador">✕</button>
       </div>
 
+      <div class="us-mobile-tools">
+        <button class="btn btn-ghost us-mobile-filters-btn" type="button" id="usMobileFiltersToggle" aria-expanded="false">
+          Filtros
+          <span class="us-mobile-filters-count" id="usMobileFiltersCount" style="display:none">0</span>
+        </button>
+        <div class="us-active-filters" id="usActiveFilters" style="display:none"></div>
+      </div>
+
       <div class="us-filters-row" id="usFiltersRow">
         <div class="us-filter-line us-filter-line-primary">
           <div class="us-filter-group us-filter-group-type">

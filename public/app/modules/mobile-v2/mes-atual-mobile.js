@@ -2,7 +2,7 @@
   'use strict';
 
   const SUBTABS = [
-    { key: 'planejamento', label: 'Lançamentos' },
+    { key: 'planejamento', label: 'Resumo' },
     { key: 'gastos-metas', label: 'Categorias e metas' },
     { key: 'todos', label: 'Todos' },
     { key: 'renda', label: 'Renda' },
@@ -35,6 +35,10 @@
     return global.MobileV2Data?.formatMoney
       ? global.MobileV2Data.formatMoney(value)
       : (typeof global.fmt === 'function' ? global.fmt(Number(value || 0)) : Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+  }
+
+  function renderHeaderIcon(name, fallback) {
+    return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
   }
 
   function parseMoneyInput(value) {
@@ -103,7 +107,8 @@
     if (!month) return;
     const monthId = String(month?.id || 'current');
     const state = uiStateByMonth.get(monthId) || { subtab: activeSubtab, allSearch: '' };
-    if (!SUBTABS.some((tab) => tab.key === state.subtab)) state.subtab = activeSubtab;
+    const isKnownTab = SUBTABS.some((tab) => tab.key === state.subtab) || String(state.subtab || '').startsWith('card:');
+    if (!isKnownTab) state.subtab = activeSubtab;
     if (typeof state.allSearch !== 'string') state.allSearch = '';
     uiStateByMonth.set(monthId, state);
     activeSubtab = state.subtab;
@@ -189,12 +194,12 @@
     return `
       <header class="m2-header m2-page-header">
         <div>
-          <h2 class="m2-title">Mês Atual</h2>
+          <h2 class="m2-title">Controle dos meses</h2>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${global.SystemIcons?.render ? global.SystemIcons.render('search') : '⌕'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Gerenciar cartões" onclick="window.openUnifiedCardModal && window.openUnifiedCardModal()">${global.SystemIcons?.render ? global.SystemIcons.render('card') : ''}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${renderHeaderIcon('search', '⌕')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Gerenciar cartões" onclick="window.openUnifiedCardModal && window.openUnifiedCardModal()">${renderHeaderIcon('card', '💳')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '☰')}</button>
         </div>
       </header>
     `;
@@ -219,11 +224,27 @@
   }
 
   function renderSubtabs() {
+    const month = getCurrentMonthSafe();
+    const cardTabs = (Array.isArray(month?.outflowCards) ? month.outflowCards : [])
+      .filter((card) => String(card?.name || '').trim())
+      .map((card) => ({
+        key: `card:${String(card.id || '')}`,
+        label: String(card.name || '').trim(),
+        shortLabel: String(card.name || '').trim().slice(0, 14)
+      }));
     return `
+      <div class="tab-scroll-shell">
       <div class="tab-scroll" role="tablist" aria-label="Visões do mês">
         ${SUBTABS.map((tab) => `
           <button type="button" class="tab-pill ${activeSubtab === tab.key ? 'active' : ''}" data-m2-subtab="${tab.key}">${escapeHtml(tab.label)}</button>
         `).join('')}
+        ${cardTabs.map((tab) => `
+          <button type="button" class="tab-pill tab-pill-card ${activeSubtab === tab.key ? 'active' : ''}" data-m2-subtab="${escapeHtml(tab.key)}" title="${escapeHtml(tab.label)}">
+            <span class="tab-pill-card-icon">${global.SystemIcons?.render ? global.SystemIcons.render('card') : '💳'}</span>
+            <span>${escapeHtml(tab.shortLabel)}</span>
+          </button>
+        `).join('')}
+      </div>
       </div>
     `;
   }
@@ -324,7 +345,31 @@
         </section>
       `;
     }).join('');
-    return `<div class="m2-tab-panel ${activeSubtab === 'planejamento' ? 'active' : ''}" data-tab-panel="planejamento">${renderListCard('Lançamentos do mês', normalRows)}${cardSections}</div>`;
+    return `<div class="m2-tab-panel ${activeSubtab === 'planejamento' ? 'active' : ''}" data-tab-panel="planejamento">${renderListCard('Resumo do mês', normalRows)}${cardSections}</div>`;
+  }
+
+  function renderCardTab(month, cardId) {
+    const safeCardId = String(cardId || '');
+    if (!safeCardId) return '';
+    const card = (Array.isArray(month?.outflowCards) ? month.outflowCards : []).find((entry) => String(entry?.id || '') === safeCardId);
+    const rows = getCachedMonthView(month).outflowRows
+      .filter((item) => String(item?.outputKind || '').toLowerCase() === 'card' && String(item?.outputRef || '') === safeCardId)
+      .map(toItemView);
+    const bill = (Array.isArray(month?.cardBills) ? month.cardBills : []).find((entry) => String(entry?.cardId || '') === safeCardId);
+    const effectiveAmount = typeof global.getUnifiedCardBillEffectiveAmount === 'function'
+      ? Number(global.getUnifiedCardBillEffectiveAmount(month, bill) || 0)
+      : rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    return `
+      <div class="m2-tab-panel ${activeSubtab === `card:${safeCardId}` ? 'active' : ''}" data-tab-panel="card:${escapeHtml(safeCardId)}">
+        <section class="m-list-card m2-card-focus">
+          <h3 class="m-list-title">
+            ${escapeHtml(String(card?.name || 'Cartão'))}
+            <span class="m2-card-focus-total">${formatMoney(effectiveAmount)}</span>
+          </h3>
+          ${renderListCard('', rows, { readonly: false })}
+        </section>
+      </div>
+    `;
   }
 
   function buildCategoryRowsFromRows(month, rows) {
@@ -490,7 +535,7 @@
               ? `Meta: ${formatMoney(row.goal)} · ${row.pct}%`
               : 'Sem meta definida';
             return `
-              <div class="gm-row">
+              <div class="gm-row" data-action="open-category" data-category="${escapeHtml(row.category)}">
                 <div class="gm-icon">${row.icon}</div>
                 <div class="gm-info">
                   <div class="gm-head">
@@ -537,6 +582,50 @@
       ...slice,
       percent: Math.round((slice.spent / total) * 100)
     }));
+  }
+
+  function openMonthCategoryDetails(month, categoryName) {
+    if (!month || !categoryName || !global.MobileV2OutflowForm?.openInlineSheet) return;
+    const rows = getCachedMonthView(month).outflowRows
+      .filter((item) => getUnifiedCategoryName(item) === categoryName && getEffectiveOutflowAmount(item) > 0)
+      .map((item) => ({
+        id: String(item?.id || ''),
+        date: String(item?.date || ''),
+        description: String(item?.description || 'Lançamento'),
+        amount: getEffectiveOutflowAmount(item),
+        output: String(item?.outputKind === 'card' ? 'Cartão' : (item?.outputMethod || 'Saída')),
+        tag: String(item?.tag || '')
+      }));
+    const body = rows.length ? rows.map((row) => `
+      <article class="m2-recent-item" data-m2-edit-outflow="${escapeHtml(row.id)}">
+        <span>
+          <p class="m2-row-title">${escapeHtml(row.description)}</p>
+          <span class="m2-row-meta">${escapeHtml(row.date)} · ${escapeHtml(row.output)}${row.tag ? ` · ${escapeHtml(row.tag)}` : ''}</span>
+        </span>
+        <span class="m2-row-amount negative">${formatMoney(Math.abs(row.amount || 0))}</span>
+      </article>
+    `).join('') : '<div class="m2-empty">Sem lançamentos nessa categoria neste mês.</div>';
+    global.MobileV2OutflowForm.openInlineSheet({
+      title: `Categoria: ${categoryName}`,
+      subtitle: `${rows.length} lançamento(s)`,
+      body
+    });
+    requestAnimationFrame(() => {
+      const sheet = document.getElementById('mobileV2OutflowSheet');
+      sheet?.querySelectorAll('[data-m2-edit-outflow]').forEach((node) => {
+        node.addEventListener('click', () => {
+          const id = String(node.getAttribute('data-m2-edit-outflow') || '');
+          if (!id) return;
+          const item = (month?.outflows || []).find((entry) => String(entry?.id || '') === id);
+          if (item && global.MobileV2OutflowForm?.openEdit) {
+            global.MobileV2OutflowForm.openEdit(item);
+          } else if (typeof global.openUnifiedOutflowModal === 'function') {
+            global.MobileV2OutflowForm?.closeInlineSheet?.();
+            global.openUnifiedOutflowModal(id);
+          }
+        });
+      });
+    });
   }
 
   function drawGmPieChart(target) {
@@ -888,6 +977,15 @@
       });
     });
 
+    target.querySelectorAll('[data-action="open-category"]').forEach((row) => {
+      row.addEventListener('click', (event) => {
+        if (event.target?.closest?.('[data-action="edit-goal"]')) return;
+        const category = String(row.getAttribute('data-category') || '');
+        if (!category) return;
+        openMonthCategoryDetails(month, category);
+      });
+    });
+
     target.querySelectorAll('[data-action="edit-card-bill"]').forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
@@ -1043,6 +1141,7 @@
       ${renderMonthNav(month)}
       ${renderSubtabs()}
       ${renderPlanejamento(month)}
+      ${Array.isArray(month?.outflowCards) ? month.outflowCards.map((card) => renderCardTab(month, card?.id)).join('') : ''}
       ${renderGastosMetas(month)}
       ${renderTodos(month)}
       ${renderRenda(month)}
@@ -1063,7 +1162,7 @@
     prevMonth,
     nextMonth,
     setSubtab(tab) {
-      if (SUBTABS.some((entry) => entry.key === tab)) activeSubtab = tab;
+      if (SUBTABS.some((entry) => entry.key === tab) || String(tab || '').startsWith('card:')) activeSubtab = tab;
     },
     getActiveFilters: () => ({ ...activeFilters }),
     invalidateCache

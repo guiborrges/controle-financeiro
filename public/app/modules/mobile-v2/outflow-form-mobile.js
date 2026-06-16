@@ -373,21 +373,30 @@
     }
   }
 
-  function openInlineSheet({ title, subtitle, body }) {
+  function openInlineSheet({ title, subtitle, body, showBack = false, backLabel = 'Voltar', onBack = null, closeLabel = 'Fechar' }) {
     const sheet = ensureSheet();
     const mount = document.getElementById('mobileV2OutflowFormBody');
     if (!mount) return;
+    const headerAction = showBack
+      ? `<button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">&lt; ${escapeHtml(String(backLabel || 'Voltar'))}</button>`
+      : `<button type="button" class="m2-icon-btn m2-inline-close-btn" id="mobileV2OutflowClose" aria-label="${escapeHtml(String(closeLabel || 'Fechar'))}">✕</button>`;
     mount.innerHTML = `
       <div class="m2-sheet-head-inline">
-        <button type="button" class="m2-chip-btn" id="mobileV2OutflowBack">&lt; Voltar</button>
+        ${headerAction}
         <h3 class="form-title">${escapeHtml(String(title || 'Detalhes'))}</h3>
       </div>
       ${subtitle ? `<p class="m2-sheet-subtitle">${escapeHtml(String(subtitle))}</p>` : ''}
       <div class="mobile-v2-inline-sheet-body">${String(body || '')}</div>
     `;
     mount.querySelector('#mobileV2OutflowBack')?.addEventListener('click', () => {
+      if (typeof onBack === 'function') {
+        onBack();
+        return;
+      }
       close();
-      global.MobileV2AddSheet?.open?.();
+    });
+    mount.querySelector('#mobileV2OutflowClose')?.addEventListener('click', () => {
+      close();
     });
     sheet.classList.add('open');
     sheet.style.display = '';

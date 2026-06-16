@@ -1,178 +1,218 @@
-# Mapa do Produto
+# Mapa do Produto — Controle Financeiro
 
-## Propósito
-Organizar a evolução do Controle Financeiro com clareza sobre:
-- o que define o produto
-- o que apoia o produto
-- o que protege o produto
+Atualizado em 2026-06-16.
 
-Este mapa existe para reduzir expansão desnecessária de funcionalidades e aumentar consistência de produto.
+Este mapa organiza o produto pelo que ele é hoje, pelo que ele está tentando se tornar e pelos limites que não devem ser rompidos.
 
-## Posicionamento
-O produto não deve competir como "super app financeiro" com foco em integração bancária.
+## 1. Essência do produto
 
-O posicionamento ideal hoje é:
-- controle manual inteligente
-- planejamento mensal conectado ao patrimônio
-- clareza patrimonial pessoal
+Controle Financeiro é um sistema de finanças pessoais com dois eixos principais:
 
-## Os 4 pilares do produto
+- operação mensal
+- visão patrimonial
 
-### 1. Visão geral
-Página: `Dashboard`
+Ele não depende de automação bancária total para ser útil. O valor principal está em:
 
-Pergunta principal:
+- organizar a vida financeira com clareza
+- transformar lançamentos em leitura prática do mês
+- conectar rotina, planejamento e patrimônio
+
+## 2. Posicionamento atual
+
+O produto hoje se posiciona melhor como:
+
+- controle financeiro pessoal guiado por planejamento
+- sistema de patrimônio com operação mensal integrada
+- ferramenta de uso recorrente para poucas pessoas por conta
+
+O produto não deve derivar para:
+
+- ERP genérico
+- super app bancário
+- agregador 100% automático onde o usuário perde controle da revisão
+
+## 3. Pilares do produto
+
+## 3.1 Dashboard
+
+Pergunta que responde:
+
 - como estou no geral?
 
 Função:
+
 - resumir o período
-- mostrar indicadores principais
-- aprofundar em gráficos e widgets
+- apresentar leitura rápida de renda, despesas, resultado e composição
+- apoiar exploração visual
 
 Não deve virar:
-- tela de operação mensal
-- tela de lançamentos
 
-### 2. Operação do mês
-Página: `Mês Atual`
+- tela operacional de lançamentos
+- substituto de Mês Atual
 
-Pergunta principal:
-- como está este mês?
+## 3.2 Mês Atual / Controle dos Meses
+
+Pergunta que responde:
+
+- como está este mês e o que ainda preciso ajustar?
 
 Função:
-- registrar
-- editar
-- acompanhar renda, despesas, metas e gastos diários
+
+- registrar lançamentos
+- editar renda e saídas
+- acompanhar planejamento
+- acompanhar gastos por categoria
+- acompanhar metas
+- revisar Internet Banking
+
+É o centro operacional do sistema.
+
+## 3.3 Patrimônio
+
+Pergunta que responde:
+
+- onde meu dinheiro está e como ele evolui?
+
+Função:
+
+- contas patrimoniais
+- saldo total
+- movimentações
+- aporte, retirada, transferência
+- atualização direta de saldo com cálculo automático da diferença
 
 Não deve virar:
-- dashboard secundário
-- área de análise histórica longa
 
-### 3. Patrimônio acumulado
-Página: `Patrimônio`
+- segunda tela de lançamentos do mês
+- tabela crua sem leitura patrimonial
 
-Pergunta principal:
-- onde está meu dinheiro guardado?
+## 3.4 Histórico
 
-Função:
-- mostrar contas patrimoniais
-- acompanhar saldo por movimentações
-- registrar aporte, retirada e transferência
+Pergunta que responde:
 
-Não deve virar:
-- segunda área de lançamentos mensais
-- mistura com operação do mês
-
-### 4. Evolução no tempo
-Página: `Histórico`
-
-Pergunta principal:
-- como eu evoluí?
+- como eu evoluí ao longo do tempo?
 
 Função:
+
 - comparar meses
-- identificar tendência
-- apoiar análise longitudinal
+- ver tendência
+- analisar períodos longos
 
 Não deve virar:
-- dashboard concorrente
-- página principal de operação
 
-## Classificação das funcionalidades
+- dashboard duplicado
+- tela operacional do mês corrente
 
-### Núcleo
-Funcionalidades que definem o produto:
-- Dashboard
-- Mês Atual
-- Despesas
-- Gastos diários
-- Metas financeiras
-- Patrimônio
-- Histórico
+## 3.5 Internet Banking
 
-Regra:
-- devem ficar mais visíveis
-- devem ser mais simples
-- devem receber prioridade de acabamento
+Pergunta que responde:
 
-### Avançadas
-Funcionalidades que apoiam o uso, mas não definem o produto sozinhas:
-- filtros detalhados
-- ordenações
-- personalização de títulos
-- mudança de ordem de blocos
-- preferências visuais
-- gráficos secundários
-- atalhos de repetição
+- o que chegou do banco/cartão e ainda precisa da minha decisão?
 
-Regra:
-- continuam existindo
-- mas aparecem em segunda camada
-- não devem disputar atenção com o núcleo
+Função:
 
-### Administrativas e de proteção
-Funcionalidades que protegem o produto e aumentam confiança:
-- backup
-- restauração
-- integridade
-- exportação
-- importação
-- área do desenvolvedor
+- staging/revisão manual
+- vincular conta/cartão
+- sugerir categoria/tag
+- importar só o que o usuário aprovar
 
-Regra:
-- não devem parecer parte do uso cotidiano principal
-- devem ficar disponíveis, mas em camada mais reservada
+Não deve virar:
 
-## O que deve aparecer primeiro
+- importação automática sem revisão
+- segunda base financeira paralela ao sistema principal
 
-### Dashboard
-- indicadores principais
-- widgets
-- filtros recolhidos
+## 4. Fluxos principais do usuário
 
-### Mês Atual
-- leitura rápida do mês
-- blocos operacionais
-- ações principais por bloco
+## 4.1 Fluxo mensal
 
-### Patrimônio
-- patrimônio total
-- variação do mês
-- contas
-- movimentações da conta escolhida
+Fluxo dominante:
 
-### Histórico
-- período selecionado
-- tabela e gráfico
-- comparações do período
+1. abrir o mês
+2. revisar renda
+3. revisar planejamento
+4. revisar gastos
+5. revisar Internet Banking
+6. ajustar patrimônio quando necessário
 
-## O que não deve disputar atenção na primeira camada
-- filtros avançados
-- preferências visuais
-- exportação e importação
-- ações raras
-- detalhes administrativos
+## 4.2 Fluxo patrimonial
 
-## Critério para aceitar novas funcionalidades
-Uma nova funcionalidade só deve entrar se fizer pelo menos um destes papéis:
-- acelerar o uso
-- esclarecer a leitura financeira
-- reforçar o diferencial entre metas e patrimônio
-- proteger o usuário e os dados
+Fluxo dominante:
 
-Se não fizer isso, não deve ter prioridade.
+1. abrir patrimônio
+2. ver saldo consolidado
+3. movimentar conta
+4. atualizar saldo quando o valor real mudar
+5. deixar o sistema transformar a diferença em aporte/retirada
 
-## Direção atual recomendada
-O produto deve entrar numa fase de refino:
-- menos expansão por feature
-- mais clareza
-- mais consistência
-- mais previsibilidade
-- mais qualidade percebida
+## 4.3 Fluxo mobile
 
-## Próximas prioridades
-1. Simplificar ainda mais o Patrimônio
-2. Refinar o Mês Atual
-3. Consolidar design system e consistência
-4. Melhorar fluidez no uso rápido
-5. Fortalecer compatibilidade e regressão
+No mobile, a experiência deve preservar o mesmo domínio do desktop, com shell mais rápida e adaptada.
+
+Meta:
+
+- mesma verdade financeira
+- menos densidade visual
+- zero divergência de totais
+
+## 5. Fontes de verdade do produto
+
+Fontes que precisam ser únicas:
+
+- lançamentos do mês
+- totais do dashboard
+- totais de patrimônio
+- itens pendentes do Internet Banking
+- categorias visíveis no mês
+
+PC e mobile não devem manter regras paralelas para essas fontes.
+
+## 6. O que é estrutural e não pode regredir
+
+- multiusuário real
+- backups restauráveis
+- revisão manual do Internet Banking
+- não duplicação de lançamentos
+- não duplicação entre cartão e fatura
+- categoria não pode virar meio de pagamento
+- mobile e desktop precisam bater nos mesmos totais
+
+## 7. Áreas complementares
+
+Áreas que apoiam o produto principal:
+
+- widget iPhone
+- busca universal
+- preferências
+- backups
+- Fechamentos ESO
+- trilha PDF/Oracle AI
+
+Essas áreas são importantes, mas não podem quebrar os quatro pilares centrais.
+
+## 8. Prioridades atuais de evolução
+
+Direção que mais faz sentido hoje:
+
+1. consolidar a mesma base de dados entre PC e mobile
+2. tornar o Internet Banking previsível e confiável
+3. reduzir lentidão de bootstrap e leitura de estado
+4. fortalecer patrimônio
+5. deixar o mobile-v2 com paridade real de uso
+
+## 9. Coisas que parecem boas, mas precisam de cuidado
+
+- automação bancária total
+- filtros muito sofisticados sem fonte unificada
+- novas visualizações que recalculam diferente do desktop
+- reintrodução da separação antiga de gasto/despesa como domínio paralelo
+- múltiplos sistemas de categoria concorrentes
+
+## 10. Norte de produto
+
+Se uma nova funcionalidade não melhorar pelo menos um desses pontos, ela provavelmente é secundária:
+
+- clareza do mês
+- controle do patrimônio
+- confiabilidade do dado
+- velocidade para operar
+- confiança de que PC e mobile mostram a mesma verdade

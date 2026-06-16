@@ -37,6 +37,7 @@
     fuse: null,
     items: [],
     isOpen: false,
+    mobileFiltersOpen: false,
     filters: {
       types: new Set(),
       category: new Set(),
@@ -111,6 +112,14 @@
       if (Array.isArray(months) && months.length) return months;
     }
     return Array.isArray(global.data) ? global.data : [];
+  }
+
+  function isMobileLayout() {
+    try {
+      return global.matchMedia?.('(max-width: 900px)')?.matches === true;
+    } catch {
+      return false;
+    }
   }
 
   function monthYearMonth(month) {
@@ -508,6 +517,7 @@
     const query = getActiveQuery();
     render(search(query), query);
     updateClearButton();
+    updateMobileFiltersUi();
   }
 
   function toggleChip(button) {
@@ -563,16 +573,75 @@
     run();
   }
 
+  function getActiveFilterCount() {
+    return state.filters.types.size
+      + state.filters.category.size
+      + state.filters.card.size
+      + state.filters.tag.size
+      + state.filters.method.size
+      + (state.filters.dateFrom ? 1 : 0)
+      + (state.filters.dateTo ? 1 : 0);
+  }
+
+  function collectActiveFilterLabels() {
+    const labels = [];
+    state.filters.types.forEach((value) => {
+      if (value === 'launch') labels.push('Lançamentos');
+      if (value === 'income') labels.push('Rendas');
+    });
+    state.filters.category.forEach((value) => labels.push(value));
+    state.filters.tag.forEach((value) => labels.push(`#${value}`));
+    state.filters.card.forEach((value) => {
+      const card = state.items.find((item) => item.cardId === value);
+      labels.push(card?.methodLabel || value);
+    });
+    state.filters.method.forEach((value) => {
+      const labelMap = { pix: 'Pix', dinheiro: 'Dinheiro', debito: 'Débito', boleto: 'Boleto', card: 'Cartão' };
+      labels.push(labelMap[value] || value);
+    });
+    if (state.filters.dateFrom) labels.push(`De ${state.filters.dateFrom}`);
+    if (state.filters.dateTo) labels.push(`Até ${state.filters.dateTo}`);
+    return labels;
+  }
+
+  function setMobileFiltersOpen(nextOpen) {
+    state.mobileFiltersOpen = nextOpen === true;
+    updateMobileFiltersUi();
+  }
+
+  function updateMobileFiltersUi() {
+    const filtersRow = document.getElementById('usFiltersRow');
+    const toggle = document.getElementById('usMobileFiltersToggle');
+    const countNode = document.getElementById('usMobileFiltersCount');
+    const activeFilters = document.getElementById('usActiveFilters');
+    const activeLabels = collectActiveFilterLabels();
+    const count = activeLabels.length;
+
+    if (countNode) {
+      countNode.textContent = String(count);
+      countNode.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+
+    if (activeFilters) {
+      activeFilters.innerHTML = activeLabels.map((label) => `<span class="us-active-filter-chip">${escapeHtml(label)}</span>`).join('');
+      activeFilters.style.display = count > 0 ? 'flex' : 'none';
+    }
+
+    if (!isMobileLayout()) {
+      filtersRow?.classList.remove('is-collapsed');
+      toggle?.setAttribute('aria-expanded', 'true');
+      return;
+    }
+
+    filtersRow?.classList.toggle('is-collapsed', !state.mobileFiltersOpen);
+    toggle?.setAttribute('aria-expanded', state.mobileFiltersOpen ? 'true' : 'false');
+    if (toggle) toggle.classList.toggle('active', state.mobileFiltersOpen || count > 0);
+  }
+
   function updateClearButton() {
     const btn = document.getElementById('usClearBtn');
     if (!btn) return;
-    const hasFilters = state.filters.types.size > 0
-      || state.filters.category.size > 0
-      || state.filters.card.size > 0
-      || state.filters.tag.size > 0
-      || state.filters.method.size > 0
-      || !!state.filters.dateFrom
-      || !!state.filters.dateTo;
+    const hasFilters = getActiveFilterCount() > 0;
     btn.style.display = hasFilters ? '' : 'none';
   }
 
@@ -684,6 +753,13 @@
       chip.dataset.usBound = '1';
       chip.addEventListener('click', () => toggleChip(chip));
     });
+    const mobileToggle = document.getElementById('usMobileFiltersToggle');
+    if (mobileToggle && !mobileToggle.dataset.usBound) {
+      mobileToggle.dataset.usBound = '1';
+      mobileToggle.addEventListener('click', () => {
+        setMobileFiltersOpen(!state.mobileFiltersOpen);
+      });
+    }
     const modal = document.getElementById('modalUniversalSearch');
     if (modal && !modal.dataset.usBackdropBound) {
       modal.dataset.usBackdropBound = '1';
@@ -715,12 +791,14 @@
     buildCategoryChips();
     buildTagChips();
     buildCardChips();
+    state.mobileFiltersOpen = false;
     modal.style.display = '';
     document.body.classList.add('us-open');
     requestAnimationFrame(() => {
       const input = document.getElementById('usSearchInput');
       input?.focus();
       input?.select();
+      updateMobileFiltersUi();
       run();
     });
   }
@@ -745,6 +823,7 @@
   });
 
   document.addEventListener('DOMContentLoaded', bindStaticEvents);
+  global.addEventListener?.('resize', updateMobileFiltersUi);
 
   global.UniversalSearch = {
     open,

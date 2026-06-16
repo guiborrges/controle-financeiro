@@ -236,14 +236,15 @@ html.mobile-v2 #mobileV2Splash {
     position: absolute;
     inset: 0;
     border: 0;
-    background: transparent;
+    background: rgba(12, 24, 46, .26);
+    backdrop-filter: blur(7px);
   }
 
   html.mobile-v2 .m2-fab-text-action {
     position: fixed;
     border: 0;
     background: transparent;
-    color: var(--text);
+    color: #fff;
     font-size: 14px;
     font-weight: 700;
     letter-spacing: -.01em;
@@ -252,7 +253,7 @@ html.mobile-v2 #mobileV2Splash {
     transition: opacity .2s ease, transform .24s cubic-bezier(.32,.72,0,1);
     pointer-events: none;
     white-space: nowrap;
-    text-shadow: 0 1px 0 rgba(255,255,255,.35);
+    text-shadow: 0 8px 24px rgba(9, 17, 28, .38);
   }
 
   html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action {
@@ -1061,9 +1062,14 @@ html.mobile-v2 #mobileV2Splash {
     display: none;
     align-items: center;
     justify-content: center;
+    transition: transform .2s ease, box-shadow .2s ease;
   }
 
   html.mobile-v2 #mobileV2Fab.show { display: inline-flex; }
+  html.mobile-v2 #mobileV2Fab.open {
+    transform: translateX(-50%) scale(1.08);
+    box-shadow: 0 16px 34px rgba(214, 69, 69, .42);
+  }
 
   html.mobile-v2 .bottom-sheet {
     position: fixed;
@@ -1341,8 +1347,17 @@ html.mobile-v2 #mobileV2Splash {
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    padding: 10px 0;
+    padding: 6px;
     scrollbar-width: none;
+  }
+
+  html.mobile-v2 .tab-scroll-shell {
+    margin: 0 0 12px;
+    padding: 4px;
+    border-radius: 22px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 92%, transparent), color-mix(in srgb, var(--surface2) 74%, transparent));
+    border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
   }
 
   html.mobile-v2 .tab-scroll::-webkit-scrollbar {
@@ -1351,12 +1366,12 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .tab-pill {
     white-space: nowrap;
-    padding: 7px 16px;
+    padding: 9px 16px;
     border-radius: 20px;
     border: 1px solid var(--border);
-    background: transparent;
+    background: color-mix(in srgb, var(--surface-strong) 88%, transparent);
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text2);
     flex-shrink: 0;
   }
@@ -1365,6 +1380,26 @@ html.mobile-v2 #mobileV2Splash {
     background: var(--accent);
     border-color: var(--accent);
     color: #fff;
+    box-shadow: 0 10px 22px rgba(47, 105, 191, .18);
+  }
+
+  html.mobile-v2 .tab-pill-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  html.mobile-v2 .tab-pill-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+  }
+
+  html.mobile-v2 .tab-pill-card-icon svg {
+    width: 14px;
+    height: 14px;
   }
 
   html.mobile-v2 .m2-tab-panel {
@@ -1513,6 +1548,36 @@ html.mobile-v2 #mobileV2Splash {
     overflow: visible;
   }
 
+  html.mobile-v2 .m2-line-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    padding: 0 4px 2px;
+    color: var(--text2);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  html.mobile-v2 .m2-line-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  html.mobile-v2 .m2-line-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+  }
+
+  html.mobile-v2 .m2-line-legend-dot.is-income {
+    background: #2471A3;
+  }
+
+  html.mobile-v2 .m2-line-legend-dot.is-expense {
+    background: #E74C3C;
+  }
+
   html.mobile-v2 .gm-summary {
     display: flex;
     align-items: center;
@@ -1605,6 +1670,7 @@ html.mobile-v2 #mobileV2Splash {
     padding: 12px 14px;
     border-top: 1px solid var(--border);
     background: var(--surface-strong);
+    cursor: pointer;
   }
 
   html.mobile-v2 .gm-row:first-of-type {
@@ -1791,6 +1857,26 @@ html.mobile-v2 #mobileV2Splash {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+  }
+
+  html.mobile-v2 .m2-inline-close-btn {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 12px;
+  }
+
+  html.mobile-v2 .m2-card-focus-total {
+    margin-left: auto;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  html.mobile-v2 .m2-card-focus {
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+    box-shadow: 0 10px 24px rgba(47, 105, 191, .06);
   }
 
   html.mobile-v2 .m2-type-list {

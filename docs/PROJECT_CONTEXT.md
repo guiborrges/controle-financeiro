@@ -1,280 +1,491 @@
-﻿# PROJECT_CONTEXT — Controle Financeiro (Atualizado em 2026-05-20)
+# PROJECT_CONTEXT — Controle Financeiro
 
-Este documento descreve o estado real do sistema para handoff técnico entre IAs e devs.
+Atualizado em 2026-06-16.
 
-## 1) Objetivo do produto
-Sistema de gestão financeira pessoal multiusuário, com:
-- autenticação por sessão
-- isolamento estrito por usuário (dados, backups, integrações, staging)
-- gestão mensal de lançamentos (planejamento, gastos, renda, metas)
-- patrimônio (contas e movimentações)
-- histórico
-- internet banking via Pluggy em modo revisão (staging)
-- trilha separada para PDF/Oracle AI
-- widget iPhone (Scriptable) por token + snapshot seguro
+Este documento descreve o estado real do produto e do código para handoff entre IAs e devs. Ele deve refletir o sistema online, não planos antigos.
 
-Regra central: nada do Internet Banking entra no financeiro sem ação explícita do usuário.
+## 1. O que é o produto
 
----
+Controle Financeiro é um sistema web multiusuário de gestão financeira pessoal, com foco em:
 
-## 2) Workspace canônico
+- controle mensal de lançamentos
+- leitura rápida de renda, despesas, resultado e planejamento
+- patrimônio por conta/ativo
+- histórico longitudinal
+- importação revisada de Internet Banking via Pluggy
+- experiência desktop completa
+- experiência mobile-v2 dedicada
+
+O posicionamento atual não é de "super app bancário". O núcleo do produto continua sendo:
+
+- planejamento manual inteligente
+- patrimônio conectado ao mês
+- clareza visual e operacional
+
+Regra central:
+
+- nada do Internet Banking entra no financeiro sem ação explícita do usuário
+
+## 2. Princípios de produto e regras de negócio
+
+### 2.1 Multiusuário
+
+O isolamento por usuário é regra estrutural:
+
+- estado financeiro separado por `userId`
+- backups separados por `userId`
+- memória do Internet Banking separada por `userId`
+- staging Pluggy separado por `tenant_user_id`
+- widget iPhone separado por token individual
+
+Nunca é aceitável vazar:
+
+- lançamentos
+- tags
+- categorias
+- vínculos bancários
+- backups
+- tokens
+
+### 2.2 Modelo financeiro atual
+
+O sistema caminha para um modelo unificado de `lançamentos`.
+
+Na prática hoje:
+
+- saídas mensais são tratadas como `outflows`
+- renda continua separada em fluxos próprios
+- recorrência, parcelamento, compartilhamento e planejamento são flags/comportamentos sobre lançamentos
+- cartão exige tratamento especial para não duplicar fatura e subitens
+
+Não reintroduzir a separação antiga como regra paralela de domínio se já existir helper unificado.
+
+### 2.3 Cartão de crédito
+
+Cartão é uma entidade própria do sistema e não uma categoria.
+
+Regras importantes:
+
+- valor de fatura pode ser manual/autoritativo
+- valor de fatura também pode ser derivado pelos lançamentos vencidos do cartão
+- a configuração de "fatura automática por lançamentos" passou a respeitar corte temporal por mês
+- mudanças futuras não devem reescrever meses passados automaticamente
+
+### 2.4 Internet Banking / Pluggy
+
+O PC é a referência funcional principal do Internet Banking.
+
+Regras obrigatórias:
+
+- itens já importados não podem reaparecer como pendentes
+- itens ignorados não podem reaparecer como pendentes
+- mobile deve usar a mesma fonte de dados e o mesmo filtro do desktop
+- descrição original Pluggy é a base da memória de categoria/tag
+- o usuário sempre revisa antes de importar
+
+## 3. Estrutura canônica do workspace
+
+Workspace oficial:
+
 - `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online`
 
-Estrutura principal:
-- `server/` backend
-- `public/app/` frontend autenticado
-- `public/login/` login/cadastro
-- `workers/` workers Pluggy/Oracle
-- `tests/` suíte automatizada
-- `docs/` documentação
+Fontes principais:
 
-Entrypoint:
-- `server.js`
+- backend: `server/`
+- frontend autenticado: `public/app/`
+- login/cadastro: `public/login/`
+- testes: `tests/`
+- documentação: `docs/`
 
----
+Entrypoint do servidor:
 
-## 3) Backend e segurança
-### 3.1 Segurança HTTP
-- Sessão e CSRF em mutações
-- Rotas protegidas por auth (exceto endpoints públicos específicos, como widget por token)
-- Headers de segurança e validações de payload em rotas críticas
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server.js`
 
-### 3.2 Persistência
-- `server/user-store.js`: usuários
-- `server/app-state-store.js`: estado financeiro por usuário
-- `server/backup-store.js`: backup/restore por usuário
-- Dados em `auth/users.json` + `data/users/*`
+## 4. Backend
 
-Características:
-- isolamento por `userId`
-- controle de revisão/conflito no app-state (409)
-- restore com ownership
+## 4.1 Servidor HTTP
 
-### 3.3 Mudanças recentes importantes (produção)
-1. Isolamento desktop/mobile reforçado
-- evitado crossover de assets e shell mobile no desktop.
+O backend é Express e a composição principal acontece em `server.js`.
 
-2. `/app-assets` servido corretamente
-- alterado para evitar retorno HTML em CSS/JS (erro MIME `text/html` em stylesheet/script).
+Responsabilidades:
 
-3. Service worker/cache legado mobile desativado/limpo
-- removida contaminação de cache mobile no desktop.
+- middlewares globais
+- sessão
+- CSRF
+- autenticação
+- montagem das rotas
+- assets do app
+- integração com stores e helpers
 
-4. Pluggy connection/preview resilientes
-- rotas Pluggy retornam degradado controlado em indisponibilidade de storage ao invés de 500 bruto em alguns cenários transitórios.
+### 4.2 Segurança
 
----
+Camada principal:
 
-## 4) Modelo financeiro (frontend)
-Tela base: `public/app/index.html` + módulos em `public/app/*.js`.
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\http\security.js`
 
-### 4.1 Mês Atual
-- modelo principal com lançamentos unificados (`outflows`)
-- suporte a recorrência, parcelamento, compartilhamento e planejamento
-- compatibilidade com legado via normalização/migração
+Responsabilidades:
 
-### 4.2 Categorias, metas e filtros
-- categorias normalizadas por helpers centrais
-- metas por categoria (`dailyGoals`)
-- filtros por tag/categoria em contextos suportados
+- sessão
+- cookies
+- remember-me
+- CSRF
+- validações comuns
+- políticas HTTP
+- rate limiting
 
-### 4.3 Totais
-- helpers de cálculo para evitar divergência entre:
-  - despesas do mês
-  - total de planejamento
-  - resultado
-- cuidado anti-duplicação em cenários de cartão (fatura vs itens)
+### 4.3 Rotas principais
 
-### 4.4 Patrimônio
-- contas (`patrimonioAccounts`)
-- movimentos (`patrimonioMovements`)
-- tipos: aporte/retirada/transferência
+Em `server/http/routes/` ficam as rotas centrais do sistema, incluindo:
 
----
+- `auth.js`
+- `pages.js`
+- `app-state.js`
+- `profile.js`
+- `developer.js`
+- `widget.js`
+- `pluggy-preview.js`
+- `pluggy-webhook.js`
+- `bill-import-ai.js`
 
-## 5) Pluggy (Internet Banking)
-### 5.1 Arquitetura funcional
-- Pluggy e Oracle AI são trilhas independentes
-- Pluggy alimenta staging/revisão antes de entrar no financeiro
-
-### 5.2 Regras atuais
-- dedupe por `pluggyTransactionId` + fallback composto
-- memória de categoria/tag por descrição original normalizada
-- separação crédito x conta corrente
-- ocultação de itens já importados na revisão
-- isolamento multiusuário em endpoints, staging e vínculos
-
-### 5.3 Endpoint de webhook
-- `https://meufin.duckdns.org/api/pluggy/webhook`
-
-Observação:
-- como o dashboard atual da Pluggy não fornece secret no webhook do plano atual, o sistema opera em modo de compatibilidade (sem validação por secret header).
-
----
-
-## 6) Oracle AI (PDF)
-Pipeline separado de Pluggy:
-- worker e rotas de processamento assíncrono de documentos/faturas
-- sem conciliação obrigatória com transações Pluggy
+### 4.4 Persistência e stores
 
 Arquivos principais:
-- `workers/worker_oracle_ai.js`
 
----
+- `server/user-store.js`
+- `server/app-state-store.js`
+- `server/backup-store.js`
+- `server/developer-store.js`
+- `server/data-crypto.js`
+- `server/password.js`
 
-## 7) Mobile — funcionamento completo (estado atual)
+Responsabilidades:
 
-### 7.1 Camadas existentes
-Há duas camadas históricas:
-1. Legado mobile (`mobile-ui`):
-- `public/app/modules/mobile/*`
-- `public/app/mobile-layout.css`
+- usuários
+- estado financeiro
+- backups
+- credenciais e criptografia
+- chaves de sessão e recuperação
 
-2. Atual (`mobile-v2`):
+## 5. Estado financeiro
+
+### 5.1 Fonte oficial
+
+A fonte oficial do financeiro é o app-state persistido por usuário.
+
+Hoje o sistema já passou por trabalho de performance para sair de um único arquivo grande para bundles/partições de estado.
+
+Consequências práticas:
+
+- o sistema não deve depender de uma única leitura monolítica sempre que possível
+- leitura e escrita precisam continuar compatíveis com o estado já salvo dos usuários
+- qualquer otimização nova deve preservar integridade e restore
+
+### 5.2 Regras de persistência
+
+- app-state pertence ao usuário autenticado
+- mudanças críticas precisam continuar restauráveis por backup
+- bootstrap do app precisa montar exatamente o mesmo estado no PC e no mobile
+
+## 6. Backups
+
+O sistema mantém backup restaurável por usuário.
+
+Direção atual:
+
+- reduzir backup automático excessivo
+- preservar no máximo 50 backups recentes por usuário
+- preservar retenção mensal de fechamento com no máximo 12 âncoras mensais
+- não criar tempestade de backup a cada pequena atualização
+
+Fluxos relevantes:
+
+- backup manual
+- backup em saída/fechamento conforme regras atuais
+- restore com ownership
+
+## 7. Frontend desktop
+
+Shell principal:
+
+- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\index.html`
+
+Núcleo:
+
+- `public/app/core.js`
+- `public/app/state.js`
+- `public/app/storage.js`
+- `public/app/styles.css`
+- `public/app/dark-mode.css`
+
+Páginas/módulos importantes:
+
+- `public/app/dashboard.js`
+- `public/app/mes-atual.js`
+- `public/app/patrimonio-clean.js`
+- `public/app/historico-eso.js`
+- `public/app/pluggy-banking.js`
+- `public/app/preferences.js`
+
+## 8. Mobile-v2
+
+### 8.1 Situação atual
+
+O mobile atual não é mais o mobile legado baseado só em CSS comprimido. A experiência ativa é `mobile-v2`, com runtime e módulos próprios.
+
+Arquivos base:
+
 - `public/app/mobile-v2.js`
 - `public/app/mobile-v2.css`
-- `public/app/modules/mobile-v2/*`
+- `public/app/mobile-v2-enhancements.js`
+- `public/app/modules/mobile-v2/data-bridge.js`
 
-Meta atual: `mobile-v2` como experiência principal, sem invadir desktop.
+Módulos atuais:
 
-### 7.2 Ativação mobile
-`mobile-v2.js` ativa mobile quando:
-- viewport <= 900
-- dispositivo touch/pointer coarse
-- user-agent não desktop-like
+- `bottom-nav.js`
+- `home-screen.js`
+- `mes-atual-mobile.js`
+- `patrimonio-mobile.js`
+- `historico-mobile.js`
+- `perfil-mobile.js`
+- `add-sheet.js`
+- `outflow-form-mobile.js`
+- `filters-sheet.js`
+- `calendario-mobile.js`
+- `internet-banking-mobile.js`
+- `date-picker-mobile.js`
 
-Classes de ativação:
+### 8.2 Regra de ouro do mobile
+
+O mobile não pode ter cálculo financeiro próprio divergente do desktop.
+
+Objetivo arquitetural atual:
+
+- mesma fonte de dados
+- mesmos helpers centrais
+- render diferente
+- lógica de negócio igual
+
+### 8.3 Ativação
+
+`mobile-v2.js` ativa a camada mobile quando o ambiente é touch/mobile e não está em modo desktop solicitado.
+
+Ele controla classes como:
+
 - `html.mobile-v2`
 - `body.mobile-v2`
 
-Em desktop:
-- classes mobile removidas
-- shell legado não deve montar header/FAB
+Também existe cuidado específico para evitar que layout desktop e mobile apareçam juntos ou "pisquem" um sobre o outro.
 
-### 7.3 Estrutura de navegação mobile
-`mobile-v2` monta root com abas/telas:
+### 8.4 Navegação mobile
+
+A shell mobile atual usa bottom nav com:
+
 - Dashboard
 - Mês
 - Patrimônio
 - Histórico
-- Calendário (em evolução conforme branch/versão de mobile ativa)
+- Calendário
 
-FAB:
-- aparece na aba de Mês para adicionar lançamento
+O botão vermelho `+` no mês usa FAB expandido para ações:
 
-### 7.4 Fontes de dados no mobile
-- mobile usa a mesma fonte do desktop (`window.data` + helpers globais)
-- sem engine financeira paralela
-- persistência passa pelo pipeline canônico
+- `Lançamentos`
+- `Cartão de Crédito`
+- `Renda`
 
-### 7.5 Internet Banking no mobile
-- abertura por módulo mobile específico (`internet-banking-mobile.js`)
-- deve usar pendências reais (mesma base lógica do desktop)
-- não reimportar itens marcados/importados
-- manter dedupe e isolamento por usuário
+### 8.5 Adição no mobile
 
-### 7.6 Compatibilidade “versão para computador”
-- se navegador mobile solicita desktop site, sistema não deve forçar layout mobile
-- decisão controlada por heurística de UA desktop-like
+Dentro de `Adicionar lançamento`, o fluxo atual foi refinado para:
 
-### 7.7 Problemas já tratados recentemente
-- espaço no topo do desktop causado por shell mobile legado
-- crossover desktop/mobile por cache/service worker
-- erros MIME por asset servido como HTML
+- Gasto
+- Gasto Recorrente
+- Gasto Parcelado
+- Gasto Compartilhado
 
-### 7.8 Contrato funcional esperado
-1. Mobile e desktop não se sobrepõem visualmente.
-2. Dados financeiros são únicos (mesma base).
-3. Ações no mobile persistem como no desktop.
-4. Internet Banking mobile respeita pendência/importado.
-5. Solicitar versão desktop em navegador mobile deve abrir desktop normal.
+O Internet Banking deixou de ser item de lista e passou para um botão pequeno ao lado do título do modal.
 
----
+### 8.6 Estado de paridade
 
-## 8) Widget iPhone (Scriptable)
-- token por usuário (`widgetToken`)
-- geração/revogação autenticadas
-- endpoint público read-only por token
-- snapshot por usuário em `data/widget-snapshots/{userId}.json`
-- script dinâmico via endpoint `latest`
+O mobile ainda está em evolução, mas a meta atual é:
 
-Rotas:
-- `POST /api/widget/generate-token`
-- `POST /api/widget/revoke-token`
-- `GET /api/widget/token-status`
-- `GET /api/widget/finance-summary?token=...`
-- `GET /api/widget/script/latest?token=...`
+- puxar tudo da mesma base do PC
+- reduzir diferenças de totalização
+- reduzir telas simplificadas com dado incompleto
 
----
+## 9. Internet Banking / Pluggy
 
-## 9) Testes
-Comando padrão:
-- `npm test`
+### 9.1 Visão geral
 
-Cobertura relevante existente inclui:
-- auth/sessão
-- app-state (roundtrip, conflito, recovery)
-- backup/restore
-- Pluggy (helpers/rotas/dedupe/multiusuário)
-- widget (token/snapshot/endpoint)
-- partes críticas de calendário/totais/utilitários
+Há duas trilhas independentes no sistema:
 
----
+- Pluggy / Internet Banking
+- PDF / Oracle AI
 
-## 10) Operação em produção (Oracle VM)
-Processos PM2 usuais:
-- `financeiro` (web)
-- `sync-pluggy`
-- `process-pdf-ai`
+Pluggy serve para revisão de lançamentos bancários/cartão antes da entrada manual no financeiro.
 
-Fluxo operacional padrão:
-- `git pull`
-- restart com `pm2 restart ... --update-env`
-- `pm2 save`
+### 9.2 Backend Pluggy
 
----
+Rotas principais:
 
-## 11) Convenções obrigatórias para novas mudanças
-1. Nunca quebrar isolamento multiusuário.
-2. Não introduzir duplicação de lançamento.
-3. Não mudar regra financeira sem alinhar helper central de cálculo.
-4. Reaproveitar helpers de normalização/dedupe/categoria.
-5. Validar testes antes de subir alterações sensíveis.
-6. Em mudanças mobile, validar desktop junto (isolamento bidirecional).
+- `server/http/routes/pluggy-preview.js`
+- `server/http/routes/pluggy-webhook.js`
 
----
+O sistema já trabalha com:
 
-## 12) Arquivos-chave para onboarding
-Backend:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\http\security.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\http\routes\pluggy-preview.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\http\routes\pluggy-webhook.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\http\routes\widget.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\server\widget-snapshot.js`
+- preview
+- connection status
+- transactions
+- webhook
+- persistência em staging
+- resiliência para indisponibilidade transitória
 
-Frontend:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\index.html`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\mes-atual.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\pluggy-banking.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\mobile-v2.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\mobile-v2.css`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\mobile-v2-enhancements.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\modules\mobile\mobile-shell.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\public\app\modules\mobile-v2\*.js`
+### 9.3 Frontend Pluggy desktop
 
-Workers:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\workers\worker_pluggy.js`
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\workers\worker_oracle_ai.js`
+Módulo principal:
 
-Tests:
-- `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online\tests\*.test.js`
+- `public/app/pluggy-banking.js`
 
----
+Responsabilidades:
 
-## 13) Estado atual resumido
-- Core financeiro: estável, com proteção de conflito e isolamento por usuário.
-- Pluggy: funcional com revisão manual, dedupe e memória por usuário.
-- Mobile: camada `mobile-v2` ativa e em evolução; isolamento com desktop reforçado.
-- Widget iPhone: funcional por token/snapshot.
-- Segurança: base sólida, com atenção contínua em segredos/env e políticas de webhook.
+- carregar grupos por conta/cartão
+- deduplicar
+- ocultar itens importados/ignorados
+- persistir memória por usuário
+- renderizar revisão do desktop
+
+### 9.4 Frontend Pluggy mobile
+
+Módulo principal:
+
+- `public/app/modules/mobile-v2/internet-banking-mobile.js`
+
+Regra arquitetural:
+
+- o mobile não inventa uma segunda lista
+- ele precisa derivar o snapshot móvel a partir da mesma base canônica do desktop
+
+### 9.5 Dedupe e memória
+
+O sistema já possui estrutura para marcar:
+
+- `importedTxIds`
+- `importedTxKeys`
+- `ignoredTxIds`
+- `ignoredTxKeys`
+
+Além disso:
+
+- descrição original Pluggy normalizada é usada para memória de categoria/tag
+- estado canônico é combinado com cache local de compatibilidade quando necessário
+
+Objetivo:
+
+- importado uma vez = não reaparece
+- ignorado uma vez = não reaparece
+- PC e mobile mostram o mesmo conjunto pendente
+
+## 10. Widget para iPhone
+
+O projeto possui widget para Scriptable/iPhone com snapshot seguro por usuário.
+
+Arquivos principais:
+
+- `server/http/routes/widget.js`
+- `server/widget-snapshot.js`
+- `server/widget-script-template.js`
+- `public/app/preferences.js`
+
+Fluxo:
+
+- token individual por usuário
+- snapshot seguro em `data/widget-snapshots/`
+- endpoint público só por token
+- preferência no frontend para gerar/copiar/revogar
+
+## 11. Busca universal
+
+O sistema possui buscador universal e há esforço recente para deixá-lo utilizável também no mobile.
+
+Arquivos relevantes:
+
+- `public/app/modules/universal-search.js`
+- `public/app/modules/universal-search.css`
+
+Direção atual:
+
+- indexação unificada
+- filtros consistentes
+- somatórias coerentes com o restante do sistema
+- experiência mobile inspirada em Spotlight
+
+## 12. Fechamentos ESO
+
+Existe um módulo de Fechamentos ESO disponível apenas no contexto permitido pelo sistema.
+
+Ele deve continuar:
+
+- isolado
+- sem impactar usuários comuns
+- funcional sem vazar regras para outros módulos
+
+## 13. Branding e UI
+
+O produto hoje já possui uma identidade visual própria com:
+
+- logo circular minimalista
+- favicon/app icon atualizados
+- aplicação progressiva em login, topo do sistema e símbolos do app
+- biblioteca crescente de ícones SVG
+
+Objetivo de interface:
+
+- elegante
+- clara
+- sem aparência genérica
+- consistente entre desktop e mobile-v2
+
+## 14. Testes
+
+A suíte `tests/` cobre parte importante do sistema, incluindo:
+
+- Pluggy helpers
+- preview/webhook Pluggy
+- importação de faturas
+- reconciliação de cartão
+- widget
+- rotas e stores críticas
+
+Sempre que mexer em:
+
+- auth
+- app-state
+- Pluggy
+- cálculos financeiros
+- patrimônio
+- mobile que dependa de helper do desktop
+
+devem ser executados testes relevantes e, quando a área for ampla, `npm test`.
+
+## 15. Riscos e sensibilidades atuais
+
+Áreas mais sensíveis do sistema hoje:
+
+- bootstrap e leitura do app-state
+- compatibilidade entre estado legado e estado particionado
+- não duplicação entre cartão e lançamentos
+- paridade PC/mobile
+- memória e dedupe do Internet Banking
+- retenção e limpeza correta de backups
+- telas híbridas onde desktop e mobile-v2 ainda coexistem
+
+## 16. Regra para qualquer mudança futura
+
+Antes de introduzir lógica nova, validar:
+
+1. já existe helper central?
+2. PC e mobile vão usar a mesma fonte?
+3. isso altera mês passado sem querer?
+4. isso pode duplicar cartão/fatura/lançamento?
+5. isso quebra multiusuário?
+6. isso reapresenta item Pluggy já importado ou ignorado?
+
+Se a resposta for "sim" para qualquer risco acima, a mudança precisa ser redesenhada antes de entrar.

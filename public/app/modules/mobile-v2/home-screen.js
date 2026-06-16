@@ -25,6 +25,10 @@
       .replace(/'/g, '&#39;');
   }
 
+  function renderHeaderIcon(name, fallback) {
+    return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
+  }
+
   function formatMoney(value) {
     if (global.MobileV2Data?.formatMoney) return global.MobileV2Data.formatMoney(value);
     if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
@@ -311,6 +315,7 @@
             : Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0));
         if (!(amount > 0)) return;
         rows.push({
+          id: String(item?.id || ''),
           date: String(item?.date || ''),
           description: String(item?.description || 'Lançamento'),
           amount,
@@ -320,7 +325,7 @@
       });
     });
     const body = rows.length ? rows.map((row) => `
-      <article class="m2-recent-item">
+      <article class="m2-recent-item" data-m2-edit-outflow="${escapeHtml(row.id)}">
         <span>
           <p class="m2-row-title">${escapeHtml(row.description)}</p>
           <span class="m2-row-meta">${escapeHtml(row.date)} · ${escapeHtml(row.output)}${row.tag ? ` · ${escapeHtml(row.tag)}` : ''}</span>
@@ -332,6 +337,22 @@
       title: `Categoria: ${categoryName}`,
       subtitle: `${rows.length} lançamento(s)`,
       body
+    });
+    requestAnimationFrame(() => {
+      const sheet = document.getElementById('mobileV2OutflowSheet');
+      sheet?.querySelectorAll('[data-m2-edit-outflow]').forEach((node) => {
+        node.addEventListener('click', () => {
+          const id = String(node.getAttribute('data-m2-edit-outflow') || '');
+          if (!id) return;
+          const item = allMonths.flatMap((month) => Array.isArray(month?.outflows) ? month.outflows : []).find((entry) => String(entry?.id || '') === id);
+          if (item && global.MobileV2OutflowForm?.openEdit) {
+            global.MobileV2OutflowForm.openEdit(item);
+          } else if (typeof global.openUnifiedOutflowModal === 'function') {
+            global.MobileV2OutflowForm?.closeInlineSheet?.();
+            global.openUnifiedOutflowModal(id);
+          }
+        });
+      });
     });
   }
 
@@ -425,9 +446,9 @@
           <p class="m2-subtitle">Visão de médio e longo prazo</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${global.SystemIcons?.render ? global.SystemIcons.render('search') : '⌕'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Compartilhar dashboard" data-m2-share-dashboard>${global.SystemIcons?.render ? global.SystemIcons.render('share') : '↗'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${renderHeaderIcon('search', '⌕')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Compartilhar dashboard" data-m2-share-dashboard>${renderHeaderIcon('share', '↗')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '☰')}</button>
         </div>
       </header>
 
@@ -449,6 +470,16 @@
       <section class="dash-section">
         <div class="dash-section-header"><span>Evolução mensal</span></div>
         <canvas id="mobileV2LineChart" class="mobile-v2-chart-canvas"></canvas>
+        <div class="m2-line-legend" aria-label="Legenda do gráfico de evolução mensal">
+          <span class="m2-line-legend-item">
+            <span class="m2-line-legend-dot is-income"></span>
+            <span>Renda</span>
+          </span>
+          <span class="m2-line-legend-item">
+            <span class="m2-line-legend-dot is-expense"></span>
+            <span>Lançamentos</span>
+          </span>
+        </div>
       </section>
 
       <section class="dash-section">
