@@ -1313,9 +1313,10 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .hero-sub {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     font-size: 12px;
     opacity: 0.82;
+    flex-wrap: wrap;
   }
 
   html.mobile-v2 .dash-pair {
@@ -1386,8 +1387,8 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .dash-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 9px 16px;
+    gap: 11px;
+    padding: 12px 16px;
     border-top: 1px solid var(--border);
   }
 
@@ -1396,10 +1397,17 @@ html.mobile-v2 #mobileV2Splash {
   }
 
   html.mobile-v2 .dash-row-icon {
-    width: 22px;
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     font-size: 14px;
     flex-shrink: 0;
+    background: color-mix(in srgb, var(--surface2) 84%, var(--surface-strong));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.62);
   }
 
   html.mobile-v2 .dash-row-info {
@@ -1410,23 +1418,28 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .dash-row-name {
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 700;
     color: var(--text1) !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    letter-spacing: -0.01em;
   }
 
   html.mobile-v2 .dash-row-date {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text3);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
   }
 
   html.mobile-v2 .dash-row-value {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 800;
     margin-left: auto;
     flex-shrink: 0;
+    letter-spacing: -0.02em;
   }
 
   html.mobile-v2 .dash-row-value.expense { color: var(--red); }
@@ -1560,8 +1573,8 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .m-item-surface {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 13px 16px;
+    gap: 11px;
+    padding: 14px 16px;
     background: var(--surface-strong);
     position: relative;
     z-index: 2;
@@ -1581,25 +1594,27 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .m-item-name {
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 750;
     color: var(--text1) !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     letter-spacing: -0.01em;
+    line-height: 1.18;
   }
 
   html.mobile-v2 .m-item-meta {
     font-size: 10px;
     color: var(--text3);
-    margin-top: 2px;
+    margin-top: 3px;
     text-transform: uppercase;
-    letter-spacing: .045em;
+    letter-spacing: .055em;
+    line-height: 1.2;
   }
 
   html.mobile-v2 .m-item-value {
     margin-left: auto;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 800;
     color: var(--red);
     flex-shrink: 0;
@@ -1616,13 +1631,14 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .m2-search {
     width: calc(100% - 32px);
-    min-height: 42px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--surface-strong);
-    padding: 0 12px;
+    min-height: 44px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+    background: color-mix(in srgb, var(--surface-strong) 96%, transparent);
+    padding: 0 13px;
     font-size: 16px;
     margin-bottom: 10px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
   }
 
   html.mobile-v2 .cat-bar-row {
@@ -2330,7 +2346,7 @@ html.mobile-v2 #mobileV2Splash {
     gap: 8px;
     font-size: 13px;
     font-weight: 700;
-    padding: 2px 0;
+    padding: 3px 0;
     text-align: left;
   }
 
@@ -2346,13 +2362,14 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .mobile-banking-controls {
     display: grid;
     gap: 6px;
-    margin-top: 6px;
+    margin-top: 8px;
   }
 
   html.mobile-v2 .mobile-banking-select {
-    min-height: 36px;
+    min-height: 38px;
     font-size: 13px;
-    padding: 0 10px;
+    padding: 0 11px;
+    border-radius: 12px;
   }
 
   html.mobile-v2 .m2-field-label {

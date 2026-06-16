@@ -199,7 +199,7 @@
         <div class="m2-header-actions">
           <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${renderHeaderIcon('search', '⌕')}</button>
           <button class="m2-icon-btn" type="button" aria-label="Gerenciar cartões" onclick="window.openUnifiedCardModal && window.openUnifiedCardModal()">${renderHeaderIcon('card', '💳')}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '☰')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '◯')}</button>
         </div>
       </header>
     `;
