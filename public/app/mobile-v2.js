@@ -5,7 +5,8 @@
   const state = {
     enabled: false,
     currentTab: 'dashboard',
-    fabMenuOpen: false
+    fabMenuOpen: false,
+    fabMenuHideTimer: null
   };
   const modulePromises = {};
   const MOBILE_MODULE_VERSION = '2026-06-16-mobile-parity-banking-categories';
@@ -69,11 +70,19 @@
     state.fabMenuOpen = false;
     const menu = document.getElementById('mobileV2FabMenu');
     const fab = document.getElementById('mobileV2Fab');
+    if (state.fabMenuHideTimer) {
+      global.clearTimeout(state.fabMenuHideTimer);
+      state.fabMenuHideTimer = null;
+    }
     if (menu) {
       menu.classList.remove('open');
-      menu.setAttribute('hidden', 'hidden');
+      state.fabMenuHideTimer = global.setTimeout(() => {
+        if (!state.fabMenuOpen) menu.setAttribute('hidden', 'hidden');
+        state.fabMenuHideTimer = null;
+      }, 220);
     }
     if (fab) fab.classList.remove('open');
+    global.MobileV2Enhancements?.haptic?.('light');
   }
 
   function openFabMenu() {
@@ -81,10 +90,15 @@
     const menu = document.getElementById('mobileV2FabMenu');
     const fab = document.getElementById('mobileV2Fab');
     if (!menu || !fab) return;
+    if (state.fabMenuHideTimer) {
+      global.clearTimeout(state.fabMenuHideTimer);
+      state.fabMenuHideTimer = null;
+    }
     state.fabMenuOpen = true;
     menu.removeAttribute('hidden');
     menu.classList.add('open');
     fab.classList.add('open');
+    global.MobileV2Enhancements?.haptic?.('light');
   }
 
   function toggleFabMenu() {
@@ -154,7 +168,7 @@
         <button type="button" class="m2-fab-text-action is-top" data-m2-fab-action="card">Cartão de Crédito</button>
         <button type="button" class="m2-fab-text-action is-right" data-m2-fab-action="income">Renda</button>
       </div>
-      <button id="mobileV2Fab" type="button" aria-label="Adicionar lançamento">${icon('plus') || '+'}</button>
+      <button id="mobileV2Fab" type="button" aria-label="Adicionar lançamento"><span class="m2-fab-glyph">${icon('plus') || '+'}</span></button>
     `;
     main.appendChild(root);
 
