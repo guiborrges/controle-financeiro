@@ -220,6 +220,10 @@ html.mobile-v2 #mobileV2Splash {
     flex-shrink: 0;
   }
 
+  html.mobile-v2 .m2-icon-mini.danger {
+    color: var(--red);
+  }
+
   html.mobile-v2 .m-item.pending-delete {
     opacity: .54;
   }
@@ -398,6 +402,14 @@ html.mobile-v2 #mobileV2Splash {
     padding: 14px 16px;
   }
   html.mobile-v2 .cal-month-title { font-size: 16px; font-weight: 700; color: var(--text); }
+  html.mobile-v2 .m2-calendar-actions {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 0 16px 12px;
+    scrollbar-width: none;
+  }
+  html.mobile-v2 .m2-calendar-actions::-webkit-scrollbar { display: none; }
   html.mobile-v2 .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -1595,7 +1607,7 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .m2-patr-actions {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 7px;
     padding: 0 12px 12px;
   }

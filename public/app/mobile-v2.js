@@ -53,6 +53,16 @@
       });
   }
 
+  function openUniversalSearch() {
+    if (global.UniversalSearch?.open) {
+      global.UniversalSearch.open();
+      return;
+    }
+    if (typeof global.showToast === 'function') {
+      global.showToast('Buscador universal indisponível no momento.');
+    }
+  }
+
   function supportsTouch() {
     try {
       return 'ontouchstart' in global || navigator.maxTouchPoints > 0 || global.matchMedia?.('(pointer: coarse)')?.matches === true;
@@ -253,6 +263,7 @@
     refresh,
     loadMobileModule,
     openInternetBanking,
+    openUniversalSearch,
     setTab,
     isEnabled: () => state.enabled
   };

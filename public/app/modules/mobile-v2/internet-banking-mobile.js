@@ -202,6 +202,91 @@
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  function getCurrentMonth() {
+    if (typeof global.getCurrentMonthData === 'function') return global.getCurrentMonthData();
+    if (typeof global.getCurrentMonth === 'function') return global.getCurrentMonth();
+    return null;
+  }
+
+  function stripCategoryName(value) {
+    if (typeof global.PluggyBanking?.stripLegacyCategoryIconPrefix === 'function') {
+      return global.PluggyBanking.stripLegacyCategoryIconPrefix(value);
+    }
+    return String(value || '')
+      .replace(/^(food|phone|shopping|education|card|fun|market|home|tag|health|transport|car|service)\s+/i, '')
+      .trim();
+  }
+
+  function categorySymbol(rawSymbol, categoryName) {
+    if (typeof global.PluggyBanking?.toVisualCategorySymbol === 'function') {
+      return global.PluggyBanking.toVisualCategorySymbol(rawSymbol || '', categoryName || '');
+    }
+    if (typeof global.getCategoryEmoji === 'function') return global.getCategoryEmoji(categoryName || '') || '';
+    return rawSymbol || '';
+  }
+
+  function normalizeCategoryEntry(entry) {
+    if (!entry) return null;
+    if (typeof entry === 'string') {
+      const name = stripCategoryName(entry);
+      return name ? { name, symbol: categorySymbol('', name) } : null;
+    }
+    const name = stripCategoryName(entry.name || entry.label || entry.value || entry.id || '');
+    if (!name) return null;
+    return {
+      name,
+      symbol: categorySymbol(entry.symbol || entry.emoji || entry.icon || '', name)
+    };
+  }
+
+  function getMobileCategoryEntries() {
+    const month = getCurrentMonth();
+    const entries = [];
+    const seen = new Set();
+    const pushEntry = (entry) => {
+      const normalized = normalizeCategoryEntry(entry);
+      if (!normalized?.name) return;
+      const key = normalized.name.toLocaleLowerCase('pt-BR');
+      if (seen.has(key)) return;
+      seen.add(key);
+      entries.push(normalized);
+    };
+
+    if (typeof global.getMonthCategoryOptions === 'function') {
+      try {
+        (global.getMonthCategoryOptions(month?.id, global) || []).forEach(pushEntry);
+      } catch {}
+    }
+
+    if (!entries.length && typeof global.getSelectableCategoryEntriesForMonth === 'function') {
+      try {
+        (global.getSelectableCategoryEntriesForMonth(month, { includeFallbackBase: false }) || []).forEach(pushEntry);
+      } catch {}
+    }
+
+    if (!entries.length && global.BillImportUtils?.getAllCategoriesFromUserData) {
+      try {
+        (global.BillImportUtils.getAllCategoriesFromUserData(global.data || [])?.list || []).forEach(pushEntry);
+      } catch {}
+    }
+
+    if (!entries.length && month?.categorias && typeof month.categorias === 'object') {
+      Object.keys(month.categorias).forEach(pushEntry);
+    }
+
+    if (!entries.length) {
+      ['ALIMENTAÇÃO', 'MERCADO', 'MORADIA', 'TRANSPORTE', 'SAÚDE', 'LAZER', 'OUTROS'].forEach(pushEntry);
+    }
+
+    return entries;
+  }
+
+  function hasUsableCategoryOptions(html) {
+    const wrap = document.createElement('select');
+    wrap.innerHTML = String(html || '');
+    return Array.from(wrap.options || []).some((option) => String(option.value || '').trim());
+  }
+
   function ensureWorkspace() {
     let mount = document.getElementById('mobileV2InternetBankingMount');
     if (mount) return mount;
@@ -216,9 +301,21 @@
 
   function categoryOptions(current) {
     if (typeof global.PluggyBanking?.getCategoryOptionsHtml === 'function') {
-      return global.PluggyBanking.getCategoryOptionsHtml(current);
+      const html = global.PluggyBanking.getCategoryOptionsHtml(current);
+      if (hasUsableCategoryOptions(html)) return html;
     }
-    return `<option value="">Categoria</option>${current ? `<option value="${escapeHtml(current)}" selected>${escapeHtml(current)}</option>` : ''}`;
+    const selected = stripCategoryName(current || '');
+    const options = getMobileCategoryEntries();
+    const selectedKey = selected.toLocaleLowerCase('pt-BR');
+    const hasSelected = selected && options.some((entry) => entry.name.toLocaleLowerCase('pt-BR') === selectedKey);
+    const rows = options.map((entry) => {
+      const label = entry.symbol ? `${entry.symbol} ${entry.name}` : entry.name;
+      return `<option value="${escapeHtml(entry.name)}" ${entry.name.toLocaleLowerCase('pt-BR') === selectedKey ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    });
+    if (selected && !hasSelected) {
+      rows.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+    }
+    return `<option value="" ${selected ? '' : 'selected'}>Categoria</option>${rows.join('')}`;
   }
 
   function tagOptions(current) {

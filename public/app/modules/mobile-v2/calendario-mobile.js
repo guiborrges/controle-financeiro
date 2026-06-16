@@ -81,10 +81,34 @@
     return safe || 'Calendário';
   }
 
-  function openDaySheet(day, items, title) {
+  function getEventsForDay(month, day) {
+    if (!month || !day) return [];
+    const baseDate = resolveMonthDate(month);
+    const yyyyMmDd = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return (Array.isArray(month?.calendarEvents) ? month.calendarEvents : []).filter((event) => {
+      const start = String(event?.startDate || '');
+      const end = String(event?.endDate || start);
+      return start <= yyyyMmDd && yyyyMmDd <= end;
+    });
+  }
+
+  function openDaySheet(day, items, title, month) {
     if (!global.MobileV2OutflowForm?.openInlineSheet) {
       return;
     }
+    const events = getEventsForDay(month || getCurrentMonth(), day);
+    const eventRows = events.map((event) => `
+      <article class="m-item m-item-income">
+        <div class="m-item-surface static" data-action="edit-event" data-id="${escapeHtml(String(event?.id || ''))}">
+          <div class="m-item-cat-icon" style="background:${escapeHtml(String(event?.color || '#9b88f7'))};color:#fff">●</div>
+          <div class="m-item-info">
+            <span class="m-item-name">${escapeHtml(String(event?.name || 'Evento financeiro'))}</span>
+            <span class="m-item-meta">Evento · ${escapeHtml(String(event?.startDate || ''))}${event?.endDate ? ` até ${escapeHtml(String(event.endDate))}` : ''}</span>
+          </div>
+          <span class="m-item-value">${Number(event?.budget || 0) > 0 ? formatMoney(event.budget) : 'Editar'}</span>
+        </div>
+      </article>
+    `).join('');
     const rows = (items || []).map((item) => {
       const category = String(item?.category || item?.categoria || 'OUTROS');
       const icon = getCategorySymbol(category);
@@ -106,8 +130,8 @@
 
     global.MobileV2OutflowForm.openInlineSheet({
       title: `${title} · dia ${day}`,
-      subtitle: items.length ? `${items.length} lançamento(s)` : 'Sem lançamentos neste dia',
-      body: rows || '<div class="m2-empty">Sem lançamentos neste dia.</div>'
+      subtitle: `${items.length} lançamento(s) · ${events.length} evento(s)`,
+      body: eventRows + rows || '<div class="m2-empty">Sem lançamentos ou eventos neste dia.</div>'
     });
 
     setTimeout(() => {
@@ -121,6 +145,15 @@
           } else if (id && typeof global.openUnifiedOutflowModal === 'function') {
             global.MobileV2OutflowForm?.close?.();
             global.openUnifiedOutflowModal(id);
+          }
+        });
+      });
+      sheet?.querySelectorAll('[data-action="edit-event"]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const id = el.getAttribute('data-id');
+          if (id && typeof global.openFinanceCalendarEditEventModal === 'function') {
+            global.MobileV2OutflowForm?.closeInlineSheet?.();
+            global.openFinanceCalendarEditEventModal(id);
           }
         });
       });
@@ -173,6 +206,7 @@
           <p class="m2-subtitle">Visão diária dos lançamentos</p>
         </div>
         <div class="m2-header-actions">
+          <button class="m2-icon-btn" type="button" aria-label="Novo evento" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${global.SystemIcons?.render ? global.SystemIcons.render('plus') : '+'}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
       </header>
@@ -182,6 +216,11 @@
           <button class="m2-icon-btn" type="button" aria-label="Mês anterior" onclick="MobileV2Calendario.prevMonth()">&lt;</button>
           <span class="cal-month-title">${escapeHtml(monthTitle(month))}</span>
           <button class="m2-icon-btn" type="button" aria-label="Próximo mês" onclick="MobileV2Calendario.nextMonth()">&gt;</button>
+        </div>
+        <div class="m2-calendar-actions">
+          <button class="m2-chip-btn" type="button" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">+ Evento</button>
+          <button class="m2-chip-btn" type="button" onclick="window.openFinanceCalendarModal && window.openFinanceCalendarModal(); setTimeout(function(){ window.toggleFinanceCalendarChart && window.toggleFinanceCalendarChart(); }, 0)">Gráfico diário</button>
+          <button class="m2-chip-btn" type="button" onclick="MobileV2Calendario.openSharedExpenses()">Despesas compartilhadas</button>
         </div>
         <div class="cal-grid">
           ${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d) => `<div class="cal-weekday">${d}</div>`).join('')}
@@ -211,7 +250,7 @@
         const day = Number(btn.getAttribute('data-cal-day') || 0);
         if (!day) return;
         const launches = (dayMap.get(day) || { launches: [] }).launches || [];
-        openDaySheet(day, launches, monthTitle(month));
+        openDaySheet(day, launches, monthTitle(month), month);
       });
     });
   }
@@ -219,7 +258,26 @@
   global.MobileV2Calendario = {
     render,
     prevMonth,
-    nextMonth
+    nextMonth,
+    openSharedExpenses() {
+      const month = getCurrentMonth();
+      const events = Array.isArray(month?.calendarEvents) ? month.calendarEvents : [];
+      const eventWithShared = events.find((event) => {
+        try {
+          const data = typeof global.FinanceCalendarEvents?.getEventSharedExpensesByPerson === 'function'
+            ? global.FinanceCalendarEvents.getEventSharedExpensesByPerson(month, event)
+            : null;
+          return Number(data?.launchesCount || 0) > 0 || Number(data?.totalShared || 0) > 0;
+        } catch {
+          return false;
+        }
+      });
+      if (eventWithShared?.id && typeof global.openFinanceCalendarSharedExpenses === 'function') {
+        global.openFinanceCalendarSharedExpenses(eventWithShared.id);
+        return;
+      }
+      if (typeof global.showToast === 'function') global.showToast('Nenhum evento com despesas compartilhadas neste mês.');
+    }
   };
 })(window);
 

@@ -430,6 +430,7 @@
           <p class="m2-subtitle">Visão de médio e longo prazo</p>
         </div>
         <div class="m2-header-actions">
+          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${global.SystemIcons?.render ? global.SystemIcons.render('search') : '⌕'}</button>
           <button class="m2-icon-btn" type="button" aria-label="Compartilhar dashboard" data-m2-share-dashboard>${global.SystemIcons?.render ? global.SystemIcons.render('share') : '↗'}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>

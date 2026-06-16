@@ -7,13 +7,15 @@
     renda: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>',
     recurring: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>',
     installment: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line><line x1="12" y1="10" x2="12" y2="20"></line></svg>',
-    shared: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>'
+    shared: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+    card: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line><path d="M6 15h4"></path></svg>'
   };
 
   const TYPE_OPTIONS = [
     { key: 'internet-banking', iconKey: 'internetBanking', title: 'Internet Banking', desc: 'Importar do banco conectado' },
     { key: 'launch', iconKey: 'launch', title: 'Lançamento', desc: 'Saída simples' },
     { key: 'renda', iconKey: 'renda', title: 'Renda', desc: 'Renda fixa ou renda extra' },
+    { key: 'card', iconKey: 'card', title: 'Cartão', desc: 'Adicionar ou gerenciar cartões' },
     { key: 'recurring', iconKey: 'recurring', title: 'Lançamento recorrente', desc: 'Repete automaticamente todo mês' },
     { key: 'installment', iconKey: 'installment', title: 'Lançamento parcelado', desc: 'Divide em parcelas futuras' },
     { key: 'shared', iconKey: 'shared', title: 'Lançamento compartilhado', desc: 'Divide com outras pessoas' }
@@ -74,6 +76,11 @@
         }
         if (mode === 'renda') {
           global.MobileV2OutflowForm?.openIncomePicker?.();
+          return;
+        }
+        if (mode === 'card') {
+          if (typeof global.openUnifiedCardModal === 'function') global.openUnifiedCardModal();
+          else if (typeof global.showToast === 'function') global.showToast('Cadastro de cartão indisponível no momento.');
           return;
         }
         global.MobileV2OutflowForm?.open?.(mode);

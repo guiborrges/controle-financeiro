@@ -5,7 +5,8 @@
     { key: 'planejamento', label: 'Lançamentos' },
     { key: 'gastos-metas', label: 'Categorias e metas' },
     { key: 'todos', label: 'Todos' },
-    { key: 'renda', label: 'Renda' }
+    { key: 'renda', label: 'Renda' },
+    { key: 'reembolsos', label: 'Reembolsos' }
   ];
 
   let activeSubtab = 'planejamento';
@@ -191,6 +192,8 @@
           <h2 class="m2-title">Mês Atual</h2>
         </div>
         <div class="m2-header-actions">
+          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${global.SystemIcons?.render ? global.SystemIcons.render('search') : '⌕'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Gerenciar cartões" onclick="window.openUnifiedCardModal && window.openUnifiedCardModal()">${global.MobileV2BottomNav?.ICONS?.mes || ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
       </header>
@@ -617,8 +620,8 @@
       <div class="m2-tab-panel ${activeSubtab === 'renda' ? 'active' : ''}" data-tab-panel="renda">
         <section class="m-list-card">
           <h3 class="m-list-title">Renda do mês</h3>
-          ${rendaFixa.length ? rendaFixa.map((row) => `
-            <article class="m-item m-item-income">
+          ${rendaFixa.length ? rendaFixa.map((row, index) => `
+            <article class="m-item m-item-income" data-income-type="renda" data-income-index="${index}">
               <div class="m-item-surface static">
                 <div class="m-item-cat-icon">${getCategorySymbol('SALÁRIO')}</div>
                 <div class="m-item-info">
@@ -626,12 +629,14 @@
                   <span class="m-item-meta">${escapeHtml(String(row?.dataRecebimento || 'Sem data'))} · ${row?.paid ? 'Recebido' : 'Pendente'}</span>
                 </div>
                 <span class="m-item-value income">${formatMoney(row?.valor || 0)}</span>
+                <button class="m2-icon-mini" type="button" data-action="edit-income" data-income-type="renda" data-income-index="${index}" aria-label="Editar renda">✎</button>
+                <button class="m2-icon-mini danger" type="button" data-action="delete-income" data-income-type="renda" data-income-index="${index}" aria-label="Excluir renda">×</button>
               </div>
             </article>
           `).join('') : emptyState('Nenhuma renda fixa cadastrada')}
           <h3 class="m-list-title" style="margin-top:10px">Renda extra</h3>
-          ${rendaExtra.length ? rendaExtra.map((row) => `
-            <article class="m-item m-item-income">
+          ${rendaExtra.length ? rendaExtra.map((row, index) => `
+            <article class="m-item m-item-income" data-income-type="projeto" data-income-index="${index}">
               <div class="m-item-surface static">
                 <div class="m-item-cat-icon">${getCategorySymbol('OUTROS')}</div>
                 <div class="m-item-info">
@@ -639,10 +644,82 @@
                   <span class="m-item-meta">${escapeHtml(String(row?.dataRecebimento || 'Sem data'))} · ${row?.paid ? 'Recebido' : 'Pendente'}</span>
                 </div>
                 <span class="m-item-value income">${formatMoney(row?.valor || 0)}</span>
+                <button class="m2-icon-mini" type="button" data-action="edit-income" data-income-type="projeto" data-income-index="${index}" aria-label="Editar renda extra">✎</button>
+                <button class="m2-icon-mini danger" type="button" data-action="delete-income" data-income-type="projeto" data-income-index="${index}" aria-label="Excluir renda extra">×</button>
               </div>
             </article>
           `).join('') : emptyState('Nenhuma renda extra cadastrada')}
+          <div class="m2-list-actions">
+            <button class="m2-chip-btn positive" type="button" onclick="openAddItem && openAddItem('renda')">+ Renda fixa</button>
+            <button class="m2-chip-btn positive" type="button" onclick="openAddItem && openAddItem('projeto')">+ Renda extra</button>
+          </div>
           <div class="m2-list-total">Total esperado: ${formatMoney(total)}</div>
+        </section>
+      </div>
+    `;
+  }
+
+  function getMobileReimbursementGroups(month) {
+    if (typeof global.getMonthReimbursementGroups === 'function') {
+      return global.getMonthReimbursementGroups(month) || [];
+    }
+    const groups = new Map();
+    (month?.outflows || []).forEach((item) => {
+      if (item?.sharedExpense !== true || !Array.isArray(item?.sharedParticipants)) return;
+      item.sharedParticipants.forEach((participant, index) => {
+        if (participant?.isOwner === true) return;
+        const amount = Math.max(0, Number(participant?.amount || 0) || 0);
+        if (!(amount > 0)) return;
+        const rawName = String(participant?.name || '').trim();
+        const key = rawName ? rawName.toLocaleLowerCase('pt-BR') : 'sem_nome';
+        if (!groups.has(key)) {
+          groups.set(key, { key, name: rawName || 'Pessoa sem nome', total: 0, paid: true, rows: [] });
+        }
+        const group = groups.get(key);
+        group.total += amount;
+        group.paid = group.paid && participant?.paid === true;
+        group.rows.push({
+          outflowId: item.id,
+          participantIndex: index,
+          description: String(item?.description || 'Compra dividida'),
+          amount,
+          paid: participant?.paid === true
+        });
+      });
+    });
+    return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }
+
+  function renderReembolsos(month) {
+    const groups = getMobileReimbursementGroups(month);
+    const total = groups.reduce((sum, group) => sum + Number(group.total || 0), 0);
+    return `
+      <div class="m2-tab-panel ${activeSubtab === 'reembolsos' ? 'active' : ''}" data-tab-panel="reembolsos">
+        <section class="m-list-card">
+          <h3 class="m-list-title">Reembolsos</h3>
+          ${groups.length ? groups.map((group) => `
+            <details class="m2-category-accordion" data-reimbursement-key="${escapeHtml(group.key)}">
+              <summary>
+                <span>${escapeHtml(group.name)}</span>
+                <strong>${formatMoney(group.total)}</strong>
+              </summary>
+              ${group.rows.map((row) => `
+                <article class="m-item">
+                  <div class="m-item-surface static">
+                    <div class="m-item-info">
+                      <span class="m-item-name">${escapeHtml(row.description)}</span>
+                      <span class="m-item-meta">${row.paid ? 'Pago' : 'Pendente'}</span>
+                    </div>
+                    <span class="m-item-value income">${formatMoney(row.amount)}</span>
+                  </div>
+                </article>
+              `).join('')}
+              <div class="m2-list-actions">
+                <button class="m2-chip-btn ${group.paid ? '' : 'positive'}" type="button" data-action="toggle-reimbursement" data-reimbursement-key="${escapeHtml(group.key)}" data-paid="${group.paid ? '0' : '1'}">${group.paid ? 'Marcar pendente' : 'Marcar pago'}</button>
+              </div>
+            </details>
+          `).join('') : '<div class="m2-empty">Nenhum reembolso pendente neste mês.</div>'}
+          <div class="m2-list-total">Total a receber: ${formatMoney(total)}</div>
         </section>
       </div>
     `;
@@ -843,6 +920,43 @@
       });
     });
 
+    target.querySelectorAll('[data-action="edit-income"]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const type = btn.getAttribute('data-income-type') || 'renda';
+        const index = Number(btn.getAttribute('data-income-index') || -1);
+        if (index < 0 || typeof global.editItem !== 'function') return;
+        global.editItem(type, index);
+      });
+    });
+
+    target.querySelectorAll('[data-action="delete-income"]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const type = btn.getAttribute('data-income-type') || 'renda';
+        const index = Number(btn.getAttribute('data-income-index') || -1);
+        if (index < 0 || typeof global.deleteItem !== 'function') return;
+        global.deleteItem(type, index);
+        invalidateCache();
+        global.MobileV2?.refresh?.();
+      });
+    });
+
+    target.querySelectorAll('[data-action="toggle-reimbursement"]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const key = btn.getAttribute('data-reimbursement-key') || '';
+        const paid = btn.getAttribute('data-paid') === '1';
+        if (!key || typeof global.toggleReimbursementPersonPaid !== 'function') return;
+        global.toggleReimbursementPersonPaid(key, paid);
+        invalidateCache();
+        global.MobileV2?.refresh?.();
+      });
+    });
+
     setupVirtualLists(target);
   }
 
@@ -932,6 +1046,7 @@
       ${renderGastosMetas(month)}
       ${renderTodos(month)}
       ${renderRenda(month)}
+      ${renderReembolsos(month)}
     `;
 
     attachListeners(target, month);

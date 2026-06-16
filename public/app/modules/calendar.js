@@ -608,6 +608,7 @@
   global.openFinanceCalendarSharedExpenses = openSharedExpensesPanel;
   global.closeFinanceCalendarSharedExpenses = closeSharedExpensesPanel;
   global.openFinanceCalendarEventModal = openEventModal;
+  global.openFinanceCalendarEditEventModal = openEditEventModal;
   global.closeFinanceCalendarEventModal = closeEventModal;
   global.saveFinanceCalendarEvent = saveEvent;
   global.editFinanceCalendarEvent = openEditEventModal;

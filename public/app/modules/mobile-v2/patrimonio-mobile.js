@@ -103,6 +103,7 @@
           <p class="m2-subtitle">Visão consolidada das contas</p>
         </div>
         <div class="m2-header-actions">
+          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${global.SystemIcons?.render ? global.SystemIcons.render('search') : '⌕'}</button>
           <button class="m2-icon-btn" type="button" aria-label="Internet Banking" onclick="MobileV2.openInternetBanking()">${global.MobileV2BottomNav?.ICONS?.calendario || ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
@@ -136,6 +137,8 @@
                 <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">-</button>
                 <button type="button" aria-label="Transferir" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">${actionIcon('transfer', '&lt;&gt;')}</button>
                 <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'atualizacao' })">Atualizar</button>
+                <button type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal('${account.id}')">Editar</button>
+                <button type="button" onclick="window.deletePatrimonioAccount && window.deletePatrimonioAccount('${account.id}')">Excluir</button>
               </div>
             </article>
           `;
@@ -164,6 +167,7 @@
                   <span class="m-item-meta">${escapeHtml(formatDate(date))}</span>
                 </div>
                 <span class="m-item-value ${signedValue >= 0 ? 'income' : ''}">${formatMoney(signedValue)}</span>
+                ${movement?.id ? `<button class="m2-icon-mini" type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ movementId: '${movement.id}' })" aria-label="Editar movimentação">✎</button>` : ''}
               </div>
             </article>
           `;
