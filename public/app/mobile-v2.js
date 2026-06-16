@@ -4,7 +4,8 @@
   const MOBILE_BREAKPOINT = 900;
   const state = {
     enabled: false,
-    currentTab: 'dashboard'
+    currentTab: 'dashboard',
+    fabMenuOpen: false
   };
   const modulePromises = {};
   const MOBILE_MODULE_VERSION = '2026-06-16-mobile-parity-banking-categories';
@@ -64,6 +65,36 @@
     }
   }
 
+  function closeFabMenu() {
+    state.fabMenuOpen = false;
+    const menu = document.getElementById('mobileV2FabMenu');
+    const fab = document.getElementById('mobileV2Fab');
+    if (menu) {
+      menu.classList.remove('open');
+      menu.setAttribute('hidden', 'hidden');
+    }
+    if (fab) fab.classList.remove('open');
+  }
+
+  function openFabMenu() {
+    if (!state.enabled || state.currentTab !== 'mes') return;
+    const menu = document.getElementById('mobileV2FabMenu');
+    const fab = document.getElementById('mobileV2Fab');
+    if (!menu || !fab) return;
+    state.fabMenuOpen = true;
+    menu.removeAttribute('hidden');
+    menu.classList.add('open');
+    fab.classList.add('open');
+  }
+
+  function toggleFabMenu() {
+    if (state.fabMenuOpen) {
+      closeFabMenu();
+      return;
+    }
+    openFabMenu();
+  }
+
   function supportsTouch() {
     try {
       return 'ontouchstart' in global || navigator.maxTouchPoints > 0 || global.matchMedia?.('(pointer: coarse)')?.matches === true;
@@ -117,13 +148,35 @@
         <section id="mobileV2Screen-calendario" class="mobile-v2-screen" data-mobile-v2-screen="calendario"></section>
       </div>
       <div id="mobileV2BottomNavMount"></div>
+      <div id="mobileV2FabMenu" class="m2-fab-menu" hidden>
+        <button type="button" class="m2-fab-scrim" aria-label="Fechar ações rápidas"></button>
+        <button type="button" class="m2-fab-text-action is-left" data-m2-fab-action="launch">Lançamentos</button>
+        <button type="button" class="m2-fab-text-action is-top" data-m2-fab-action="card">Cartão de Crédito</button>
+        <button type="button" class="m2-fab-text-action is-right" data-m2-fab-action="income">Renda</button>
+      </div>
       <button id="mobileV2Fab" type="button" aria-label="Adicionar lançamento">${icon('plus') || '+'}</button>
     `;
     main.appendChild(root);
 
     root.querySelector('#mobileV2Fab')?.addEventListener('click', () => {
       if (!state.enabled || state.currentTab !== 'mes') return;
-      global.MobileV2AddSheet?.open?.();
+      toggleFabMenu();
+    });
+    root.querySelector('.m2-fab-scrim')?.addEventListener('click', closeFabMenu);
+    root.querySelectorAll('[data-m2-fab-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = String(button.getAttribute('data-m2-fab-action') || '');
+        closeFabMenu();
+        if (action === 'launch') {
+          global.MobileV2AddSheet?.open?.();
+          return;
+        }
+        if (action === 'card') {
+          global.openUnifiedCardModal?.();
+          return;
+        }
+        if (action === 'income') global.MobileV2OutflowForm?.openIncomePicker?.();
+      });
     });
 
     global.MobileV2AddSheet?.ensureSheet?.();
@@ -137,6 +190,7 @@
   function setTab(tabKey) {
     if (!tabKey) return;
     state.currentTab = tabKey;
+    closeFabMenu();
     loadMobileModule(tabKey).catch(() => {});
     render();
   }
@@ -188,6 +242,7 @@
 
     const fab = root.querySelector('#mobileV2Fab');
     if (fab) fab.classList.toggle('show', state.currentTab === 'mes');
+    if (state.currentTab !== 'mes') closeFabMenu();
   }
 
   function renderBottomNav(root) {
@@ -228,6 +283,7 @@
       root.setAttribute('hidden', 'hidden');
       root.style.display = 'none';
     }
+    closeFabMenu();
     closeLeakingMobileSheets();
   }
 
@@ -265,6 +321,7 @@
     loadMobileModule,
     openInternetBanking,
     openUniversalSearch,
+    closeFabMenu,
     setTab,
     isEnabled: () => state.enabled
   };

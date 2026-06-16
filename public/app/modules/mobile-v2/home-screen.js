@@ -2,10 +2,10 @@
   'use strict';
 
   const PERIODS = [
+    { label: '1M', value: 1 },
     { label: '3M', value: 3 },
     { label: '6M', value: 6 },
     { label: '12M', value: 12 },
-    { label: 'Ano', value: 'year' },
     { label: 'Período', value: 'custom' }
   ];
 
@@ -81,11 +81,6 @@
       const startIdx = Math.max(0, Number(customRange.startIdx || 0));
       const endIdx = Math.min(allMonths.length - 1, Number(customRange.endIdx || (allMonths.length - 1)));
       return allMonths.slice(startIdx, endIdx + 1).map(toChartMonth);
-    }
-    if (value === 'year') {
-      const curr = allMonths[allMonths.length - 1];
-      const year = String(curr?.nome || '').split(' ').pop();
-      return allMonths.filter((month) => String(month?.nome || '').endsWith(String(year || ''))).map(toChartMonth);
     }
     const size = Number(value || 6);
     return allMonths.slice(-size).map(toChartMonth);
@@ -249,7 +244,7 @@
           openCustomPeriodSheet(target);
           return;
         }
-        activePeriod = raw === 'year' ? 'year' : Number(raw || 6);
+        activePeriod = Number(raw || 6);
         render(target);
       });
     });

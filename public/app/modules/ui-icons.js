@@ -28,6 +28,11 @@
     cash: '<path d="M4 7h16v10H4z"/><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M7 10v4M17 10v4"/>',
     tag: '<path d="M4 12V5h7l9 9-6 6-10-8Z"/><path d="M8 8h.01"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    search: '<path d="M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"/><path d="m21 21-4.35-4.35"/>',
+    notification: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M10 19a2 2 0 0 0 4 0"/>',
+    share: '<path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
+    close: '<path d="M6 6l12 12M18 6 6 18"/>',
+    internetBanking: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
     dots: '<path d="M5 12h.01M12 12h.01M19 12h.01"/>',
     list: '<path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
     card: '<path d="M4 6h16v12H4z"/><path d="M4 10h16M8 15h4"/>'

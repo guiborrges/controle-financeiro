@@ -12,14 +12,20 @@
   };
 
   const TYPE_OPTIONS = [
-    { key: 'internet-banking', iconKey: 'internetBanking', title: 'Internet Banking', desc: 'Importar do banco conectado' },
-    { key: 'launch', iconKey: 'launch', title: 'Lançamento', desc: 'Saída simples' },
-    { key: 'renda', iconKey: 'renda', title: 'Renda', desc: 'Renda fixa ou renda extra' },
-    { key: 'card', iconKey: 'card', title: 'Cartão', desc: 'Adicionar ou gerenciar cartões' },
-    { key: 'recurring', iconKey: 'recurring', title: 'Lançamento recorrente', desc: 'Repete automaticamente todo mês' },
-    { key: 'installment', iconKey: 'installment', title: 'Lançamento parcelado', desc: 'Divide em parcelas futuras' },
-    { key: 'shared', iconKey: 'shared', title: 'Lançamento compartilhado', desc: 'Divide com outras pessoas' }
+    { key: 'launch', iconKey: 'launch', title: 'Gasto', desc: 'Saída simples' },
+    { key: 'recurring', iconKey: 'recurring', title: 'Gasto Recorrente', desc: 'Repete automaticamente todo mês' },
+    { key: 'installment', iconKey: 'installment', title: 'Gasto Parcelado', desc: 'Divide em parcelas futuras' },
+    { key: 'shared', iconKey: 'shared', title: 'Gasto Compartilhado', desc: 'Divide com outras pessoas' }
   ];
+
+  function bankingConnectedClass() {
+    try {
+      const hasGroups = typeof global.PluggyBanking?.getMobileSnapshot === 'function';
+      return hasGroups ? 'is-connected' : 'is-disconnected';
+    } catch {
+      return 'is-disconnected';
+    }
+  }
 
   function ensureSheet() {
     if (global.MobileV2?.isEnabled?.() !== true) return null;
@@ -33,7 +39,12 @@
       <button class="bottom-sheet-scrim" type="button" aria-label="Fechar"></button>
       <div class="bottom-sheet-panel" role="dialog" aria-modal="true" aria-label="Adicionar lançamento">
         <div class="bottom-sheet-grip"></div>
-        <h3 class="m2-sheet-title">Adicionar</h3>
+        <div class="m2-sheet-title-row">
+          <h3 class="m2-sheet-title">Adicionar lançamento</h3>
+          <button class="m2-banking-mini ${bankingConnectedClass()}" type="button" data-m2-open-banking aria-label="Abrir Internet Banking">
+            ${TYPE_ICONS.internetBanking}
+          </button>
+        </div>
         <p class="m2-sheet-subtitle">Escolha o tipo para continuar.</p>
         <div class="m2-type-list">
           ${TYPE_OPTIONS.map((option) => `
@@ -53,6 +64,10 @@
     document.body.appendChild(root);
 
     root.querySelector('.bottom-sheet-scrim')?.addEventListener('click', close);
+    root.querySelector('[data-m2-open-banking]')?.addEventListener('click', () => {
+      close();
+      global.MobileV2?.openInternetBanking?.();
+    });
     const panel = root.querySelector('.bottom-sheet-panel');
     let dragStartY = 0;
     let dragCurrentY = 0;
@@ -70,19 +85,6 @@
       btn.addEventListener('click', () => {
         const mode = String(btn.getAttribute('data-m2-add-type') || 'launch');
         close();
-        if (mode === 'internet-banking') {
-          global.MobileV2?.openInternetBanking?.();
-          return;
-        }
-        if (mode === 'renda') {
-          global.MobileV2OutflowForm?.openIncomePicker?.();
-          return;
-        }
-        if (mode === 'card') {
-          if (typeof global.openUnifiedCardModal === 'function') global.openUnifiedCardModal();
-          else if (typeof global.showToast === 'function') global.showToast('Cadastro de cartão indisponível no momento.');
-          return;
-        }
         global.MobileV2OutflowForm?.open?.(mode);
       });
     });
@@ -96,6 +98,11 @@
     if (global.MobileV2?.isEnabled?.() !== true) return;
     const sheet = ensureSheet();
     if (!sheet) return;
+    const bankingButton = sheet.querySelector('[data-m2-open-banking]');
+    if (bankingButton) {
+      bankingButton.classList.remove('is-connected', 'is-disconnected');
+      bankingButton.classList.add(bankingConnectedClass());
+    }
     sheet.style.display = '';
     sheet.removeAttribute('hidden');
     sheet.classList.add('open');

@@ -193,7 +193,7 @@
         </div>
         <div class="m2-header-actions">
           <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${global.SystemIcons?.render ? global.SystemIcons.render('search') : '⌕'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Gerenciar cartões" onclick="window.openUnifiedCardModal && window.openUnifiedCardModal()">${global.MobileV2BottomNav?.ICONS?.mes || ''}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Gerenciar cartões" onclick="window.openUnifiedCardModal && window.openUnifiedCardModal()">${global.SystemIcons?.render ? global.SystemIcons.render('card') : ''}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
         </div>
       </header>
