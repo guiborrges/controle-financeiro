@@ -328,7 +328,16 @@
         : cardRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
       return `
         <section class="m-list-card card-section">
-          <h3 class="m-list-title">${escapeHtml(title)} · ${formatMoney(total)} <button class="m2-icon-mini" type="button" data-action="edit-card-bill" data-card-id="${escapeHtml(cardId)}" aria-label="Editar fatura">✎</button></h3>
+          <h3 class="m-list-title">
+            <span class="m2-card-focus-head">
+              <span class="m2-card-focus-icon">${global.SystemIcons?.render ? global.SystemIcons.render('card') : '💳'}</span>
+              <span class="m2-card-focus-copy">
+                <span>${escapeHtml(title)}</span>
+                <span class="m2-card-focus-total">${formatMoney(total)}</span>
+              </span>
+              <button class="m2-icon-mini m2-card-focus-edit" type="button" data-action="edit-card-bill" data-card-id="${escapeHtml(cardId)}" aria-label="Editar fatura">✎</button>
+            </span>
+          </h3>
           <div class="card-items-note">Itens atrelados ao cartão — editar no cartão.</div>
           ${cardRows.map((row) => `
             <article class="m-item" data-outflow-id="${row.id}">
@@ -363,8 +372,13 @@
       <div class="m2-tab-panel ${activeSubtab === `card:${safeCardId}` ? 'active' : ''}" data-tab-panel="card:${escapeHtml(safeCardId)}">
         <section class="m-list-card m2-card-focus">
           <h3 class="m-list-title">
-            ${escapeHtml(String(card?.name || 'Cartão'))}
-            <span class="m2-card-focus-total">${formatMoney(effectiveAmount)}</span>
+            <span class="m2-card-focus-head">
+              <span class="m2-card-focus-icon">${global.SystemIcons?.render ? global.SystemIcons.render('card') : '💳'}</span>
+              <span class="m2-card-focus-copy">
+                <span>${escapeHtml(String(card?.name || 'Cartão'))}</span>
+                <span class="m2-card-focus-total">${formatMoney(effectiveAmount)}</span>
+              </span>
+            </span>
           </h3>
           ${renderListCard('', rows, { readonly: false })}
         </section>
@@ -517,7 +531,7 @@
               ${pieSlices.length ? pieSlices.map((slice) => `
                 <div class="gm-legend-item">
                   <span class="gm-legend-dot" style="background:${slice.color}"></span>
-                  <span class="gm-legend-name">${escapeHtml(slice.category)}</span>
+                  <span class="gm-legend-name">${getCategorySymbol(slice.category)} ${escapeHtml(slice.category)}</span>
                   <strong>${slice.percent}%</strong>
                 </div>
               `).join('') : '<span class="gm-empty-legend">Sem gastos para comparar</span>'}

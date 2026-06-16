@@ -218,9 +218,9 @@
           <button class="m2-icon-btn" type="button" aria-label="Próximo mês" onclick="MobileV2Calendario.nextMonth()">&gt;</button>
         </div>
         <div class="m2-calendar-actions">
-          <button class="m2-chip-btn" type="button" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">+ Evento</button>
-          <button class="m2-chip-btn" type="button" onclick="window.openFinanceCalendarModal && window.openFinanceCalendarModal(); setTimeout(function(){ window.toggleFinanceCalendarChart && window.toggleFinanceCalendarChart(); }, 0)">Gráfico diário</button>
-          <button class="m2-chip-btn" type="button" onclick="MobileV2Calendario.openSharedExpenses()">Despesas compartilhadas</button>
+          <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${global.SystemIcons?.render ? global.SystemIcons.render('plus') : '+'} Evento</button>
+          <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarModal && window.openFinanceCalendarModal(); setTimeout(function(){ window.toggleFinanceCalendarChart && window.toggleFinanceCalendarChart(); }, 0)">${global.SystemIcons?.render ? global.SystemIcons.render('chart') : '◔'} Gráfico diário</button>
+          <button class="m2-chip-btn subtle" type="button" onclick="MobileV2Calendario.openSharedExpenses()">${global.SystemIcons?.render ? global.SystemIcons.render('share') : '↗'} Despesas compartilhadas</button>
         </div>
         <div class="cal-grid">
           ${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d) => `<div class="cal-weekday">${d}</div>`).join('')}

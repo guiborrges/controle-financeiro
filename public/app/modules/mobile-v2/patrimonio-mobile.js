@@ -118,12 +118,13 @@
 
       <section class="m-list-card">
         <h3 class="m-list-title">Contas</h3>
-        ${accounts.length ? accounts.map((account) => {
+        ${accounts.length ? `<div class="m2-patr-grid">${accounts.map((account) => {
           const name = String(account?.nome || account?.name || 'Conta');
           const type = String(account?.tipo || account?.type || '');
           const balance = getAccountBalance(account);
+          const accountId = String(account?.id || '');
           return `
-            <article class="m-item m-item-income m2-patr-account">
+            <article class="m2-patr-account">
               <div class="m-item-surface static">
                 ${renderAccountBadge(account)}
                 <div class="m-item-info">
@@ -133,16 +134,20 @@
                 <span class="m-item-value ${balance >= 0 ? 'income' : ''}">${formatMoney(balance)}</span>
               </div>
               <div class="m2-patr-actions">
-                <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'aporte' })">+</button>
-                <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'retirada' })">-</button>
-                <button type="button" aria-label="Transferir" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'transferencia' })">${actionIcon('transfer', '&lt;&gt;')}</button>
-                <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${account.id}', type: 'atualizacao' })">Atualizar</button>
-                <button type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal('${account.id}')">Editar</button>
-                <button type="button" onclick="window.deletePatrimonioAccount && window.deletePatrimonioAccount('${account.id}')">Excluir</button>
+                <div class="m2-patr-action-row primary">
+                  <button class="m2-patr-primary is-main" type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${accountId}', type: 'aporte' })">+</button>
+                  <button class="m2-patr-primary" type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${accountId}', type: 'retirada' })">-</button>
+                  <button class="m2-patr-primary" type="button" aria-label="Transferir" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${accountId}', type: 'transferencia' })">${actionIcon('transfer', '&lt;&gt;')}</button>
+                </div>
+                <div class="m2-patr-action-row secondary">
+                  <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${accountId}', type: 'atualizacao' })">Atualizar</button>
+                  <button type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal('${accountId}')">Editar</button>
+                  <button class="m2-patr-danger" type="button" onclick="window.deletePatrimonioAccount && window.deletePatrimonioAccount('${accountId}')">Excluir</button>
+                </div>
               </div>
             </article>
           `;
-        }).join('') : '<div class="m2-empty">Nenhuma conta patrimonial cadastrada.</div>'}
+        }).join('')}</div>` : '<div class="m2-empty">Nenhuma conta patrimonial cadastrada.</div>'}
         <div class="m2-list-actions">
           <button class="m2-chip-btn" type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal()">+ Nova conta</button>
         </div>
@@ -154,6 +159,7 @@
           const type = String(movement?.type || 'aporte');
           const description = String(movement?.description || movement?.descricao || type);
           const date = String(movement?.date || movement?.data || 'Sem data');
+          const accountName = String(movement?.accountName || movement?.conta || movement?.originAccountName || '').trim();
           const signedValue = movementAmount(movement);
           const icon = type === 'retirada'
             ? '-'
@@ -164,7 +170,7 @@
                 <span class="m2-patr-movement-icon ${type === 'retirada' ? 'expense' : 'income'}">${icon}</span>
                 <div class="m-item-info">
                   <span class="m-item-name">${escapeHtml(description)}</span>
-                  <span class="m-item-meta">${escapeHtml(formatDate(date))}</span>
+                  <span class="m-item-meta m2-patr-movement-meta">${escapeHtml(formatDate(date))}${accountName ? ` · ${escapeHtml(accountName)}` : ''}</span>
                 </div>
                 <span class="m-item-value ${signedValue >= 0 ? 'income' : ''}">${formatMoney(signedValue)}</span>
                 ${movement?.id ? `<button class="m2-icon-mini" type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ movementId: '${movement.id}' })" aria-label="Editar movimentação">✎</button>` : ''}
