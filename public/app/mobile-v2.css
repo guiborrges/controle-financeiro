@@ -1060,7 +1060,7 @@ html.mobile-v2 #mobileV2Splash {
     background: radial-gradient(circle at 30% 30%, #f26161 0%, #d64545 55%, #be3838 100%);
     color: #fff;
     box-shadow: 0 10px 24px rgba(214, 69, 69, .32);
-    z-index: 670;
+    z-index: 520;
     display: none;
     align-items: center;
     justify-content: center;
@@ -1088,6 +1088,7 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 #mobileV2Fab.show { display: inline-flex; }
   html.mobile-v2 #mobileV2Fab.open {
+    z-index: 670;
     transform: translateX(-50%) scale(1.18);
     box-shadow: 0 18px 38px rgba(214, 69, 69, .44), 0 0 0 1px rgba(255,255,255,.12);
     filter: saturate(1.04) brightness(1.02);
