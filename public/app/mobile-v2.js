@@ -7,6 +7,7 @@
     currentTab: 'dashboard'
   };
   const modulePromises = {};
+  const MOBILE_MODULE_VERSION = '2026-06-16-mobile-parity-banking-categories';
 
   function closeLeakingMobileSheets() {
     [
@@ -26,11 +27,11 @@
 
   function loadMobileModule(key) {
     if (key === 'calendario' && !global.MobileV2Calendario) {
-      modulePromises.calendario = modulePromises.calendario || import('/app-assets/modules/mobile-v2/calendario-mobile.js').then(() => render());
+      modulePromises.calendario = modulePromises.calendario || import(`/app-assets/modules/mobile-v2/calendario-mobile.js?v=${MOBILE_MODULE_VERSION}`).then(() => render());
       return modulePromises.calendario;
     }
     if (key === 'internet-banking' && !global.MobileV2InternetBanking) {
-      modulePromises.internetBanking = modulePromises.internetBanking || import('/app-assets/modules/mobile-v2/internet-banking-mobile.js');
+      modulePromises.internetBanking = modulePromises.internetBanking || import(`/app-assets/modules/mobile-v2/internet-banking-mobile.js?v=${MOBILE_MODULE_VERSION}`);
       return modulePromises.internetBanking;
     }
     return Promise.resolve();
