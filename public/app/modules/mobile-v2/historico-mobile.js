@@ -7,6 +7,17 @@
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  function renderHeaderIcon(name, fallback) {
+    return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
+  }
+
+  function renderRowIcon() {
+    if (global.SystemIcons?.render) {
+      return global.SystemIcons.render('chart') || global.SystemIcons.render('history') || '▥';
+    }
+    return '▥';
+  }
+
   function summarizeMonth(month) {
     const metrics = global.MobileV2Data?.getMonthMetrics
       ? global.MobileV2Data.getMonthMetrics(month)
@@ -31,14 +42,14 @@
     const months = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []));
     const rows = [...months].map(summarizeMonth).reverse();
     target.innerHTML = `
-      <div class="m2-header">
+      <div class="m2-header m2-page-header">
         <div>
           <h2 class="m2-title">Histórico</h2>
           <p class="m2-subtitle">Comparativo dos últimos meses</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : '🔔'}</button>
-          <button class="m2-icon-btn" type="button" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : '👤'}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${renderHeaderIcon('notification', '◌')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '◯')}</button>
         </div>
       </div>
 
@@ -46,7 +57,7 @@
         <h3 class="m2-card-title">Resumo mensal</h3>
         ${rows.length ? rows.map((row) => `
           <article class="m2-recent-item">
-            <span class="m2-icon-pill">📊</span>
+            <span class="m2-icon-pill">${renderRowIcon()}</span>
             <span>
               <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(row.name) : row.name}</p>
               <span class="m2-row-meta">Lançamentos ${formatMoney(row.expenses)} · Renda ${formatMoney(row.income)}</span>

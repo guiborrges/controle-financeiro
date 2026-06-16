@@ -481,6 +481,7 @@
     sheet.setAttribute('hidden', 'hidden');
     sheet.style.display = 'none';
     document.body.classList.remove('mobile-v2-sheet-open');
+    global.requestAnimationFrame?.(() => global.MobileV2?.refresh?.());
   }
 
   global.MobileV2OutflowForm = {

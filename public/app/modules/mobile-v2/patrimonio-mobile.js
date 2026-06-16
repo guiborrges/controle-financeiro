@@ -89,6 +89,10 @@
     return fallback;
   }
 
+  function renderHeaderIcon(name, fallback) {
+    return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
+  }
+
   function render(target) {
     if (!target) return;
 
@@ -103,10 +107,10 @@
           <p class="m2-subtitle">Visão consolidada das contas</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${global.SystemIcons?.render ? global.SystemIcons.render('search') : '⌕'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Internet Banking" onclick="MobileV2.openInternetBanking()">${global.SystemIcons?.render ? global.SystemIcons.render('internetBanking') : ''}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${global.SystemIcons?.render ? global.SystemIcons.render('notification') : ''}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${renderHeaderIcon('search', '⌕')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Internet Banking" onclick="MobileV2.openInternetBanking()">${renderHeaderIcon('internetBanking', '⌂')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${renderHeaderIcon('notification', '◌')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '◯')}</button>
         </div>
       </header>
 

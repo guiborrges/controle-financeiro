@@ -16,6 +16,10 @@
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  function renderHeaderIcon(name, fallback) {
+    return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
+  }
+
   function getCurrentMonth() {
     return typeof global.getCurrentMonth === 'function' ? global.getCurrentMonth() : null;
   }
@@ -206,8 +210,8 @@
           <p class="m2-subtitle">Visão diária dos lançamentos</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Novo evento" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${global.SystemIcons?.render ? global.SystemIcons.render('plus') : '+'}</button>
-          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${global.SystemIcons?.render ? global.SystemIcons.render('user') : ''}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Novo evento" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${renderHeaderIcon('plus', '+')}</button>
+          <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '◯')}</button>
         </div>
       </header>
 
@@ -218,9 +222,9 @@
           <button class="m2-icon-btn" type="button" aria-label="Próximo mês" onclick="MobileV2Calendario.nextMonth()">&gt;</button>
         </div>
         <div class="m2-calendar-actions">
-          <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${global.SystemIcons?.render ? global.SystemIcons.render('plus') : '+'} Evento</button>
-          <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarModal && window.openFinanceCalendarModal(); setTimeout(function(){ window.toggleFinanceCalendarChart && window.toggleFinanceCalendarChart(); }, 0)">${global.SystemIcons?.render ? global.SystemIcons.render('chart') : '◔'} Gráfico diário</button>
-          <button class="m2-chip-btn subtle" type="button" onclick="MobileV2Calendario.openSharedExpenses()">${global.SystemIcons?.render ? global.SystemIcons.render('share') : '↗'} Despesas compartilhadas</button>
+          <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${renderHeaderIcon('plus', '+')} Evento</button>
+          <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarModal && window.openFinanceCalendarModal(); setTimeout(function(){ window.toggleFinanceCalendarChart && window.toggleFinanceCalendarChart(); }, 0)">${renderHeaderIcon('chart', '◔')} Gráfico diário</button>
+          <button class="m2-chip-btn subtle" type="button" onclick="MobileV2Calendario.openSharedExpenses()">${renderHeaderIcon('share', '↗')} Despesas compartilhadas</button>
         </div>
         <div class="cal-grid">
           ${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d) => `<div class="cal-weekday">${d}</div>`).join('')}

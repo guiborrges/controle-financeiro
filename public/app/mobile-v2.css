@@ -232,15 +232,15 @@ html.mobile-v2 #mobileV2Splash {
     position: absolute;
     inset: 0;
     border: 0;
-    background: rgba(17, 24, 39, .12);
+    background: rgba(17, 24, 39, .10);
     backdrop-filter: blur(0px);
     opacity: 0;
     transition: opacity .22s ease-out, backdrop-filter .22s ease-out, background-color .22s ease-out;
   }
 
   html.mobile-v2 .m2-fab-menu.open .m2-fab-scrim {
-    background: rgba(17, 24, 39, .18);
-    backdrop-filter: blur(9px);
+    background: rgba(17, 24, 39, .14);
+    backdrop-filter: blur(11px);
     opacity: 1;
   }
 
@@ -248,25 +248,27 @@ html.mobile-v2 #mobileV2Splash {
     position: fixed;
     border: 0;
     background: transparent;
-    color: rgba(18, 25, 39, .96);
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: -.01em;
+    color: rgba(18, 25, 39, .98);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -.015em;
     opacity: 0;
     left: 50%;
     bottom: calc(92px + env(safe-area-inset-bottom, 0px));
-    transform: translate(-50%, 0) scale(.72);
+    transform: translate(-50%, 0) scale(.70);
     transform-origin: center;
-    transition: opacity .18s ease-out, transform .22s cubic-bezier(.2,.86,.22,1);
+    transition: opacity .18s ease-out, transform .22s cubic-bezier(.2,.86,.22,1), filter .18s ease-out;
     pointer-events: none;
     white-space: nowrap;
-    text-shadow: 0 12px 24px rgba(255, 255, 255, .22);
+    text-shadow: 0 10px 28px rgba(255, 255, 255, .32);
+    filter: saturate(.96);
     z-index: 658;
   }
 
   html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action {
     opacity: 1;
     pointer-events: auto;
+    filter: saturate(1);
   }
 
   html.mobile-v2 .m2-fab-text-action.is-left {
@@ -295,6 +297,13 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .mobile-v2-screen {
     padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  html.mobile-v2 body.mobile-v2-sheet-open #mobileV2Fab {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) scale(.84);
+    box-shadow: 0 8px 20px rgba(214, 69, 69, .18);
   }
 
   html.mobile-v2 .m2-empty-rich {
@@ -660,7 +669,7 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .m2-header-actions {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
 
   html.mobile-v2 .hero-result-card {
@@ -1408,11 +1417,11 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .tab-scroll-shell {
     margin: 0 0 14px;
-    padding: 4px;
+    padding: 5px;
     border-radius: 24px;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 96%, transparent), color-mix(in srgb, var(--surface2) 76%, transparent));
-    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 12px 24px rgba(15, 23, 42, .055);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 97%, transparent), color-mix(in srgb, var(--surface2) 72%, transparent));
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.58), 0 10px 24px rgba(15, 23, 42, .05);
   }
 
   html.mobile-v2 .tab-scroll::-webkit-scrollbar {
@@ -1421,7 +1430,7 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .tab-pill {
     white-space: nowrap;
-    padding: 10px 16px;
+    padding: 10px 15px;
     border-radius: 18px;
     border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
     background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
@@ -1498,8 +1507,8 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .m-item-surface {
     display: flex;
     align-items: center;
-    gap: 9px;
-    padding: 12px 16px;
+    gap: 10px;
+    padding: 13px 16px;
     background: var(--surface-strong);
     position: relative;
     z-index: 2;
@@ -1843,7 +1852,7 @@ html.mobile-v2 #mobileV2Splash {
     border-radius: 18px;
     overflow: hidden;
     background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 96%, transparent), color-mix(in srgb, var(--surface2) 56%, transparent));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 10px 24px rgba(15, 23, 42, .04);
   }
 
   html.mobile-v2 .m2-patr-account .m-item-surface.static {
@@ -1892,7 +1901,7 @@ html.mobile-v2 #mobileV2Splash {
     color: var(--text2);
     font-size: 11px;
     font-weight: 800;
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 14px rgba(15, 23, 42, 0.04);
   }
 
   html.mobile-v2 .m2-patr-actions button.m2-patr-primary {
@@ -1905,10 +1914,25 @@ html.mobile-v2 #mobileV2Splash {
     background: var(--accent);
     border-color: var(--accent);
     color: #fff;
+    box-shadow: 0 10px 22px rgba(47, 105, 191, .18);
   }
 
   html.mobile-v2 .m2-patr-actions button.m2-patr-danger {
     color: var(--red);
+  }
+
+  html.mobile-v2 .m2-patr-account .m-item-name {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -.015em;
+  }
+
+  html.mobile-v2 .m2-patr-account .m-item-meta {
+    font-size: 12px;
+  }
+
+  html.mobile-v2 .m2-patr-account .m-item-value {
+    font-size: 17px;
   }
 
   html.mobile-v2 .m2-patr-movement-icon {

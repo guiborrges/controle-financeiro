@@ -85,6 +85,17 @@
     global.MobileV2Enhancements?.haptic?.('light');
   }
 
+  function hideFabTemporarily(duration = 280) {
+    const fab = document.getElementById('mobileV2Fab');
+    if (!fab) return;
+    fab.classList.remove('show', 'open');
+    global.setTimeout(() => {
+      if (!state.enabled || state.currentTab !== 'mes') return;
+      if (document.body?.classList.contains('mobile-v2-sheet-open')) return;
+      fab.classList.add('show');
+    }, duration);
+  }
+
   function openFabMenu() {
     if (!state.enabled || state.currentTab !== 'mes') return;
     const menu = document.getElementById('mobileV2FabMenu');
@@ -181,6 +192,7 @@
       button.addEventListener('click', () => {
         const action = String(button.getAttribute('data-m2-fab-action') || '');
         closeFabMenu();
+        hideFabTemporarily();
         if (action === 'launch') {
           global.MobileV2AddSheet?.open?.();
           return;
@@ -255,7 +267,7 @@
     });
 
     const fab = root.querySelector('#mobileV2Fab');
-    if (fab) fab.classList.toggle('show', state.currentTab === 'mes');
+    if (fab) fab.classList.toggle('show', state.currentTab === 'mes' && !document.body?.classList.contains('mobile-v2-sheet-open'));
     if (state.currentTab !== 'mes') closeFabMenu();
   }
 
