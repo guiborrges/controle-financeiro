@@ -80,6 +80,15 @@
     const liveMonths = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []);
     const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
     if (!allMonths.length) return [];
+    if (Number(value) === 1) {
+      const currentMonth = global.MobileV2Data?.getCurrentMonth
+        ? global.MobileV2Data.getCurrentMonth()
+        : (typeof global.getCurrentMonth === 'function' ? global.getCurrentMonth() : null);
+      const matched = currentMonth
+        ? allMonths.find((month) => String(month?.id || '') === String(currentMonth?.id || '')) || currentMonth
+        : allMonths[allMonths.length - 1];
+      return matched ? [matched].map(toChartMonth) : [];
+    }
     if (value === 'custom') {
       if (!customRange) return allMonths.slice(-6).map(toChartMonth);
       const startIdx = Math.max(0, Number(customRange.startIdx || 0));
@@ -113,7 +122,13 @@
         totals.set(safeCategory, Number(totals.get(safeCategory) || 0) + Math.max(0, Number(value || 0)));
       });
     });
-    return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, value]) => ({ name, value }));
+    const ordered = Array.from(totals.entries())
+      .filter(([, value]) => Number(value || 0) > 0)
+      .sort((a, b) => b[1] - a[1]);
+    const visible = ordered.slice(0, 7).map(([name, value]) => ({ name, value }));
+    const extra = ordered.slice(7).reduce((sum, [, value]) => sum + Number(value || 0), 0);
+    if (extra > 0) visible.push({ name: 'Outras', value: Number(extra.toFixed(2)) });
+    return visible;
   }
 
   function easeInOutCubic(t) {
@@ -157,12 +172,17 @@
     ctx.clearRect(0, 0, W, H);
     ctx.strokeStyle = '#d9dde5';
     ctx.lineWidth = 1;
+    ctx.fillStyle = '#8a93a3';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'right';
     [0, 0.5, 1].forEach((t) => {
       const y = PAD.top + chartH * (1 - t);
       ctx.beginPath();
       ctx.moveTo(PAD.left, y);
       ctx.lineTo(W - PAD.right, y);
       ctx.stroke();
+      const value = maxVal * t;
+      ctx.fillText(formatChartAxisValue(value), PAD.left - 5, y + 3);
     });
 
     const xOf = (i) => PAD.left + ((months.length <= 1 ? 0 : i / (months.length - 1)) * chartW);
@@ -185,6 +205,13 @@
     months.forEach((m, i) => {
       ctx.fillText(String(m.shortLabel || '--'), xOf(i), H - 8);
     });
+  }
+
+  function formatChartAxisValue(value) {
+    const numeric = Number(value || 0);
+    if (numeric >= 1000000) return `${(numeric / 1000000).toFixed(1).replace('.', ',')}M`;
+    if (numeric >= 1000) return `${Math.round(numeric / 1000)}k`;
+    return String(Math.round(numeric));
   }
 
   function drawPieChart(canvas, categories) {

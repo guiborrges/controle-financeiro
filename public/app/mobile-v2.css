@@ -239,23 +239,28 @@ html.mobile-v2 #mobileV2Root {
     inset: 0;
     border: 0;
     background: rgba(17, 24, 39, .10);
+    backdrop-filter: blur(0px);
     opacity: 0;
-    transition: opacity .22s ease-out, background-color .22s ease-out;
+    transition: opacity .22s ease-out, background-color .22s ease-out, backdrop-filter .22s ease-out;
   }
 
   html.mobile-v2 .m2-fab-menu.open .m2-fab-scrim {
-    background: rgba(17, 24, 39, .18);
+    background: rgba(17, 24, 39, .16);
+    backdrop-filter: blur(10px);
     opacity: 1;
   }
 
   html.mobile-v2 .m2-fab-text-action {
     position: fixed;
-    border: 0;
-    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--border, #dbe3ee) 72%, transparent);
+    background: color-mix(in srgb, #ffffff 90%, transparent);
     color: rgba(18, 25, 39, .98);
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: -.015em;
+    min-height: 42px;
+    padding: 0 15px;
+    border-radius: 999px;
     opacity: 0;
     left: 50%;
     bottom: calc(92px + env(safe-area-inset-bottom, 0px));
@@ -264,7 +269,7 @@ html.mobile-v2 #mobileV2Root {
     transition: opacity .18s ease-out, transform .22s cubic-bezier(.2,.86,.22,1), filter .18s ease-out;
     pointer-events: none;
     white-space: nowrap;
-    text-shadow: 0 10px 28px rgba(255, 255, 255, .32);
+    text-shadow: none;
     filter: saturate(.96);
     z-index: 658;
   }
@@ -721,7 +726,7 @@ html.mobile-v2 #mobileV2Root {
   }
 
   html.mobile-v2 .m2-title {
-    font-size: 23px;
+    font-size: 21px;
     margin: 0;
     font-weight: 800;
     letter-spacing: -0.03em;
@@ -900,9 +905,9 @@ html.mobile-v2 #mobileV2Root {
     position: sticky;
     top: 0;
     z-index: 3;
-    background: #fff;
+    background: transparent;
     padding: 8px 0 14px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    border-bottom: 0;
     margin-bottom: 12px;
   }
 
@@ -1328,7 +1333,8 @@ html.mobile-v2 #mobileV2Root {
   }
 
   html.mobile-v2 .m2-page-header > div:first-child .m2-title {
-    max-width: 10ch;
+    max-width: none;
+    white-space: nowrap;
   }
 
   html.mobile-v2 .m2-page-header .m2-header-actions {
@@ -1536,10 +1542,10 @@ html.mobile-v2 #mobileV2Root {
 
   html.mobile-v2 .tab-scroll-shell {
     margin: 0 0 14px;
-    padding: 6px;
+    padding: 0;
     border-radius: 18px;
-    background: var(--surface-strong);
-    border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+    background: transparent;
+    border: 0;
     box-shadow: none;
   }
 
@@ -2043,7 +2049,7 @@ html.mobile-v2 #mobileV2Root {
   html.mobile-v2 .m2-patr-actions {
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: 0;
     padding: 9px 10px 10px;
   }
 
@@ -2083,6 +2089,22 @@ html.mobile-v2 #mobileV2Root {
 
   html.mobile-v2 .m2-patr-actions button.m2-patr-danger {
     color: var(--red);
+  }
+
+  html.mobile-v2 .m2-patr-update-actions {
+    display: grid;
+    gap: 9px;
+    padding: 4px 0 14px;
+  }
+
+  html.mobile-v2 .m2-patr-update-actions button {
+    min-height: 46px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    background: var(--surface-strong);
+    color: var(--text1);
+    font-size: 14px;
+    font-weight: 800;
   }
 
   html.mobile-v2 .m2-patr-account .m-item-name {

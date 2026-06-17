@@ -93,6 +93,38 @@
     return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
   }
 
+  function openAccountUpdateActions(accountId) {
+    const safeAccountId = String(accountId || '');
+    if (!safeAccountId) return;
+    const sheet = global.MobileV2OutflowForm?.openInlineSheet;
+    if (typeof sheet !== 'function') {
+      window.openPatrimonioMovementModal?.({ accountId: safeAccountId, type: 'atualizacao' });
+      return;
+    }
+    sheet({
+      title: 'Atualizar conta',
+      subtitle: 'Escolha como quer registrar a movimentação.',
+      body: `
+        <div class="m2-patr-update-actions">
+          <button type="button" data-patr-update-action="atualizacao">Atualizar saldo</button>
+          <button type="button" data-patr-update-action="aporte">Adicionar aporte</button>
+          <button type="button" data-patr-update-action="retirada">Registrar retirada</button>
+          <button type="button" data-patr-update-action="transferencia">Transferir</button>
+        </div>
+      `
+    });
+    requestAnimationFrame(() => {
+      const currentSheet = document.getElementById('mobileV2OutflowSheet');
+      currentSheet?.querySelectorAll('[data-patr-update-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const type = String(button.getAttribute('data-patr-update-action') || 'atualizacao');
+          global.MobileV2OutflowForm?.closeInlineSheet?.();
+          window.openPatrimonioMovementModal?.({ accountId: safeAccountId, type });
+        });
+      });
+    });
+  }
+
   function render(target) {
     if (!target) return;
 
@@ -153,13 +185,8 @@
                 <span class="m-item-value ${balance >= 0 ? 'income' : ''}">${formatMoney(balance)}</span>
               </div>
               <div class="m2-patr-actions">
-                <div class="m2-patr-action-row primary">
-                  <button class="m2-patr-primary is-main" type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${accountId}', type: 'aporte' })">+</button>
-                  <button class="m2-patr-primary" type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${accountId}', type: 'retirada' })">-</button>
-                  <button class="m2-patr-primary" type="button" aria-label="Transferir" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${accountId}', type: 'transferencia' })">${actionIcon('transfer', '&lt;&gt;')}</button>
-                </div>
                 <div class="m2-patr-action-row secondary">
-                  <button type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ accountId: '${accountId}', type: 'atualizacao' })">Atualizar</button>
+                  <button type="button" onclick="MobileV2Patrimonio.openAccountUpdateActions('${accountId}')">Atualizar</button>
                   <button type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal('${accountId}')">Editar</button>
                   <button class="m2-patr-danger" type="button" onclick="window.deletePatrimonioAccount && window.deletePatrimonioAccount('${accountId}')">Excluir</button>
                 </div>
@@ -210,7 +237,8 @@
 
   global.MobileV2Patrimonio = {
     render,
-    refreshIfVisible
+    refreshIfVisible,
+    openAccountUpdateActions
   };
 
   document.addEventListener('appStateUpdated', refreshIfVisible);
