@@ -565,6 +565,39 @@ html.mobile-v2 #mobileV2Splash {
     scrollbar-width: none;
   }
   html.mobile-v2 .m2-calendar-actions::-webkit-scrollbar { display: none; }
+  html.mobile-v2 .m2-calendar-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 16px 14px;
+  }
+  html.mobile-v2 .m2-calendar-summary-card {
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    border-radius: 16px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 96%, transparent), color-mix(in srgb, var(--surface2) 64%, transparent));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.56);
+    padding: 11px 12px 10px;
+  }
+  html.mobile-v2 .m2-calendar-summary-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+  html.mobile-v2 .m2-calendar-summary-value {
+    display: block;
+    margin-top: 7px;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   html.mobile-v2 .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -582,7 +615,7 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .cal-day, html.mobile-v2 .cal-day-empty { aspect-ratio: 1 / 1; }
   html.mobile-v2 .cal-day {
     border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
-    border-radius: 16px;
+    border-radius: 18px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -593,12 +626,15 @@ html.mobile-v2 #mobileV2Splash {
     padding: 3px;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.52);
   }
-  html.mobile-v2 .cal-day.has-items { background: color-mix(in srgb, var(--surface-strong) 98%, transparent); }
+  html.mobile-v2 .cal-day.has-items {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 99%, transparent), color-mix(in srgb, var(--surface2) 70%, transparent));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.72), 0 6px 16px rgba(15, 23, 42, .04);
+  }
   html.mobile-v2 .cal-day:active {
     background: color-mix(in srgb, var(--surface2) 92%, transparent);
     transform: scale(.985);
   }
-  html.mobile-v2 .cal-day-num { font-size: 15px; font-weight: 750; }
+  html.mobile-v2 .cal-day-num { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; }
   html.mobile-v2 .cal-day-dot {
     width: 4px;
     height: 4px;
@@ -610,9 +646,9 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .cal-day-total {
     font-size: 9px;
     line-height: 1.1;
-    margin-top: 2px;
+    margin-top: 3px;
     color: var(--red);
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: -.01em;
   }
   html.mobile-v2 .mobile-v2-banking-mount { min-height: 240px; }
@@ -1916,6 +1952,47 @@ html.mobile-v2 #mobileV2Splash {
     padding: 10px 12px 12px;
   }
 
+  html.mobile-v2 .m2-patr-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 0 16px 12px;
+  }
+
+  html.mobile-v2 .m2-patr-summary-card {
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    border-radius: 18px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 98%, transparent), color-mix(in srgb, var(--surface2) 62%, transparent));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 10px 24px rgba(15, 23, 42, .045);
+    padding: 13px 14px 12px;
+  }
+
+  html.mobile-v2 .m2-patr-summary-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .075em;
+  }
+
+  html.mobile-v2 .m2-patr-summary-value {
+    display: block;
+    margin-top: 7px;
+    font-size: 22px;
+    font-weight: 850;
+    color: var(--text);
+    letter-spacing: -0.04em;
+  }
+
+  html.mobile-v2 .m2-patr-summary-note {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text3);
+    line-height: 1.35;
+  }
+
   html.mobile-v2 .m2-patr-account {
     border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
     border-radius: 20px;
@@ -1932,9 +2009,9 @@ html.mobile-v2 #mobileV2Splash {
   }
 
   html.mobile-v2 .m2-patr-badge {
-    width: 38px;
-    height: 38px;
-    border-radius: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 15px;
     background: color-mix(in srgb, var(--accent) 16%, var(--surface-strong));
     color: var(--accent);
     display: inline-flex;
@@ -1942,7 +2019,8 @@ html.mobile-v2 #mobileV2Splash {
     justify-content: center;
     font-size: 11px;
     font-weight: 900;
-    flex: 0 0 38px;
+    flex: 0 0 40px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
   }
 
   html.mobile-v2 .m2-patr-actions {
@@ -1963,7 +2041,7 @@ html.mobile-v2 #mobileV2Splash {
   }
 
   html.mobile-v2 .m2-patr-actions button {
-    min-height: 38px;
+    min-height: 40px;
     border-radius: 14px;
     border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
     background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
@@ -2001,7 +2079,7 @@ html.mobile-v2 #mobileV2Splash {
   }
 
   html.mobile-v2 .m2-patr-account .m-item-value {
-    font-size: 18px;
+    font-size: 20px;
     letter-spacing: -.02em;
   }
 
@@ -2034,6 +2112,13 @@ html.mobile-v2 #mobileV2Splash {
     align-items: center;
     gap: 5px;
     flex-wrap: wrap;
+  }
+
+  html.mobile-v2 .m2-list-actions .m2-chip-btn {
+    min-height: 42px;
+    border-radius: 15px;
+    padding-inline: 16px;
+    font-weight: 750;
   }
 
   html.mobile-v2 .m2-sheet-title {

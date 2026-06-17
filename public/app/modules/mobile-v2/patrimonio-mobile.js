@@ -99,6 +99,8 @@
     const { accounts, movements, metrics, error } = resolveData();
     const total = Number(metrics?.patrimonioTotal ?? accounts.reduce((sum, account) => sum + getAccountBalance(account), 0));
     const recent = [...movements].slice(0, 8);
+    const positiveAccounts = accounts.filter((account) => getAccountBalance(account) > 0).length;
+    const latestMovement = recent[0] || null;
 
     target.innerHTML = `
       <header class="m2-header m2-page-header">
@@ -118,6 +120,19 @@
         <div class="hero-result-label">TOTAL PATRIMONIAL</div>
         <div class="hero-result">${formatMoney(total)}</div>
         <div class="hero-sub"><span>${error ? escapeHtml(error) : `${accounts.length} conta(s) acompanhada(s) pelo mesmo cálculo do PC`}</span></div>
+      </section>
+
+      <section class="m2-patr-summary">
+        <article class="m2-patr-summary-card">
+          <span class="m2-patr-summary-label">Contas ativas</span>
+          <strong class="m2-patr-summary-value">${positiveAccounts}</strong>
+          <span class="m2-patr-summary-note">${accounts.length} cadastrada(s)</span>
+        </article>
+        <article class="m2-patr-summary-card">
+          <span class="m2-patr-summary-label">Movimentações</span>
+          <strong class="m2-patr-summary-value">${recent.length}</strong>
+          <span class="m2-patr-summary-note">${latestMovement ? `Última em ${escapeHtml(formatDate(latestMovement?.date || latestMovement?.data || ''))}` : 'Sem lançamentos recentes'}</span>
+        </article>
       </section>
 
       <section class="m-list-card">

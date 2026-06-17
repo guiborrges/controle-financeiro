@@ -122,9 +122,10 @@
       return `
         <article class="m-item m-item-income">
           <div class="m-item-surface static" data-action="edit" data-id="${escapeHtml(String(item?.id || ''))}">
+            <div class="m-item-cat-icon">${icon}</div>
             <div class="m-item-info">
               <span class="m-item-name">${escapeHtml(String(item?.description || 'Lançamento'))}</span>
-              <span class="m-item-meta">${escapeHtml(String(item?.date || ''))} · ${icon} ${escapeHtml(category)}</span>
+              <span class="m-item-meta">${escapeHtml(String(item?.date || ''))} · ${escapeHtml(category)}</span>
             </div>
             <span class="m-item-value">${formatMoney(amount)}</span>
           </div>
@@ -202,6 +203,9 @@
     const intensities = typeof global.FinanceCalendarUtils?.computeIntensitiesFromTotals === 'function'
       ? global.FinanceCalendarUtils.computeIntensitiesFromTotals(totalsByDay, month)
       : {};
+    const daysWithLaunches = Array.from(dayMap.values()).filter((ledger) => Array.isArray(ledger?.launches) && ledger.launches.length).length;
+    const totalOutflows = Array.from(dayMap.values()).reduce((sum, ledger) => sum + Number(ledger?.outflows || 0), 0);
+    const totalEvents = Array.isArray(month?.calendarEvents) ? month.calendarEvents.length : 0;
 
     target.innerHTML = `
       <header class="m2-header m2-page-header">
@@ -225,6 +229,20 @@
           <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${renderHeaderIcon('plus', '+')} Evento</button>
           <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarModal && window.openFinanceCalendarModal(); setTimeout(function(){ window.toggleFinanceCalendarChart && window.toggleFinanceCalendarChart(); }, 0)">${renderHeaderIcon('chart', '◔')} Gráfico diário</button>
           <button class="m2-chip-btn subtle" type="button" onclick="MobileV2Calendario.openSharedExpenses()">${renderHeaderIcon('share', '↗')} Despesas compartilhadas</button>
+        </div>
+        <div class="m2-calendar-summary">
+          <article class="m2-calendar-summary-card">
+            <span class="m2-calendar-summary-label">Dias com lançamentos</span>
+            <strong class="m2-calendar-summary-value">${daysWithLaunches}</strong>
+          </article>
+          <article class="m2-calendar-summary-card">
+            <span class="m2-calendar-summary-label">Saída do mês</span>
+            <strong class="m2-calendar-summary-value">${escapeHtml(formatMoney(totalOutflows))}</strong>
+          </article>
+          <article class="m2-calendar-summary-card">
+            <span class="m2-calendar-summary-label">Eventos</span>
+            <strong class="m2-calendar-summary-value">${totalEvents}</strong>
+          </article>
         </div>
         <div class="cal-grid">
           ${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d) => `<div class="cal-weekday">${d}</div>`).join('')}
