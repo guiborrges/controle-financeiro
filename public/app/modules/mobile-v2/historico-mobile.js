@@ -11,13 +11,6 @@
     return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
   }
 
-  function renderRowIcon() {
-    if (global.SystemIcons?.render) {
-      return global.SystemIcons.render('chart') || global.SystemIcons.render('history') || '▥';
-    }
-    return '▥';
-  }
-
   function summarizeMonth(month) {
     const metrics = global.MobileV2Data?.getMonthMetrics
       ? global.MobileV2Data.getMonthMetrics(month)
@@ -56,8 +49,7 @@
       <section class="m2-card">
         <h3 class="m2-card-title">Resumo mensal</h3>
         ${rows.length ? rows.map((row) => `
-          <article class="m2-recent-item">
-            <span class="m2-icon-pill">${renderRowIcon()}</span>
+          <article class="m2-recent-item m2-history-row-plain">
             <span>
               <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(row.name) : row.name}</p>
               <span class="m2-row-meta">Lançamentos ${formatMoney(row.expenses)} · Renda ${formatMoney(row.income)}</span>

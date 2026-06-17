@@ -327,8 +327,8 @@
         ? Number(global.getUnifiedCardBillEffectiveAmount(month, bill) || 0)
         : cardRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
       return `
-        <section class="m-list-card card-section">
-          <h3 class="m-list-title">
+        <div class="m2-summary-card-group">
+          <h3 class="m2-summary-card-title">
             <span class="m2-card-focus-head">
               <span class="m2-card-focus-icon">${global.SystemIcons?.render ? global.SystemIcons.render('card') : '💳'}</span>
               <span class="m2-card-focus-copy">
@@ -351,10 +351,33 @@
               </div>
             </article>
           `).join('')}
-        </section>
+        </div>
       `;
     }).join('');
-    return `<div class="m2-tab-panel ${activeSubtab === 'planejamento' ? 'active' : ''}" data-tab-panel="planejamento">${renderListCard('Resumo do mês', normalRows)}${cardSections}</div>`;
+    return `
+      <div class="m2-tab-panel ${activeSubtab === 'planejamento' ? 'active' : ''}" data-tab-panel="planejamento">
+        <section class="m-list-card m2-summary-unified">
+          <h3 class="m-list-title">Resumo do mês</h3>
+          <div class="m2-summary-block">
+            ${normalRows.length ? normalRows.map((row) => `
+              <article class="m-item" data-outflow-id="${row.id}">
+                <div class="m-item-action"><button class="btn-delete-swipe" type="button" data-action="delete" data-id="${row.id}" aria-label="Excluir">Excluir</button></div>
+                <div class="m-item-surface" data-action="edit" data-id="${row.id}">
+                  <div class="m-item-cat-icon">${row.icon || '•'}</div>
+                  <div class="m-item-info">
+                    <span class="m-item-name">${escapeHtml(row.description)}</span>
+                    <span class="m-item-meta">${escapeHtml(row.date)} · ${escapeHtml(row.category)}</span>
+                  </div>
+                  <span class="m-item-value">${formatMoney(row.amount)}</span>
+                </div>
+              </article>
+            `).join('') : ''}
+            ${cardSections}
+            ${(!normalRows.length && !cardSections) ? emptyState('Nenhum lançamento neste mês') : ''}
+          </div>
+        </section>
+      </div>
+    `;
   }
 
   function renderCardTab(month, cardId) {

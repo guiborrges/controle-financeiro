@@ -219,7 +219,7 @@
         </div>
       </header>
 
-      <section class="m-list-card">
+      <section class="m-list-card m2-calendar-card">
         <div class="cal-header">
           <button class="m2-icon-btn" type="button" aria-label="Mês anterior" onclick="MobileV2Calendario.prevMonth()">&lt;</button>
           <span class="cal-month-title">${escapeHtml(monthTitle(month))}</span>
@@ -258,7 +258,6 @@
             return `
               <button type="button" class="cal-day ${items.length ? 'has-items' : ''}" data-cal-day="${day}" ${tone ? `style="background:${escapeHtml(tone)}"` : ''}>
                 <span class="cal-day-num">${day}</span>
-                ${items.length ? '<span class="cal-day-dot"></span>' : ''}
                 ${total > 0 ? `<span class="cal-day-total">${escapeHtml(formatMoney(total))}</span>` : ''}
               </button>
             `;

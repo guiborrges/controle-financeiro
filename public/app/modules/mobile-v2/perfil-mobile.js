@@ -3,7 +3,7 @@
 
   function row(label, action, danger) {
     return `
-      <button class="row-link" type="button" onclick="${action}">
+      <button class="row-link" type="button" data-profile-action="${action}">
         <span>${label}</span>
         <span style="color:${danger ? 'var(--red)' : 'var(--text3)'}">&gt;</span>
       </button>
@@ -31,18 +31,18 @@
         </div>
         <section class="m2-card m2-list-like">
           <h3 class="m2-card-title">Conta</h3>
-          ${row('Editar perfil', "openPreferences()")}
-          ${row('Alterar senha', "openModal('modalRecovery')")}
+          ${row('Editar perfil', 'preferences')}
+          ${row('Alterar senha', 'recovery')}
         </section>
         <section class="m2-card m2-list-like">
           <h3 class="m2-card-title">Dados</h3>
-          ${row('Fazer backup', "createManualBackup()")}
-          ${row('Restaurar backup', "document.getElementById('importInput') && document.getElementById('importInput').click()")}
-          ${row('Categorias e tags', "openCategoryEditorModal()")}
+          ${row('Fazer backup', 'backup')}
+          ${row('Restaurar backup', 'restore')}
+          ${row('Categorias e tags', 'categories')}
         </section>
         <section class="m2-card m2-list-like">
           <h3 class="m2-card-title">Preferências</h3>
-          ${row('Abrir preferências', "openPreferences()")}
+          ${row('Abrir preferências', 'preferences')}
         </section>
         <section class="m2-card">
           <button class="btn" type="button" style="width:100%" onclick="logout()">Sair da conta</button>
@@ -55,6 +55,9 @@
     root.style.display = 'none';
     root.querySelectorAll('[data-close-perfil]').forEach((el) => {
       el.addEventListener('click', close);
+    });
+    root.querySelectorAll('[data-profile-action]').forEach((el) => {
+      el.addEventListener('click', () => runAction(el.getAttribute('data-profile-action')));
     });
     return root;
   }
@@ -79,10 +82,36 @@
     root.style.display = 'none';
   }
 
+  function runAction(action) {
+    close();
+    setTimeout(() => {
+      if (action === 'preferences') {
+        global.openPreferences?.();
+        return;
+      }
+      if (action === 'recovery') {
+        global.openModal?.('modalRecovery');
+        return;
+      }
+      if (action === 'backup') {
+        global.createManualBackup?.();
+        return;
+      }
+      if (action === 'restore') {
+        document.getElementById('importInput')?.click();
+        return;
+      }
+      if (action === 'categories') {
+        global.openCategoryEditorModal?.();
+      }
+    }, 120);
+  }
+
   global.MobileV2PerfilSheet = {
     ensureSheet,
     open,
-    close
+    close,
+    runAction
   };
 })(window);
 

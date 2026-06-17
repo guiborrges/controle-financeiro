@@ -184,8 +184,8 @@
       <div id="mobileV2BottomNavMount"></div>
       <div id="mobileV2FabMenu" class="m2-fab-menu" hidden>
         <button type="button" class="m2-fab-scrim" aria-label="Fechar ações rápidas"></button>
-        <button type="button" class="m2-fab-text-action is-left" data-m2-fab-action="launch">Lançamentos</button>
-        <button type="button" class="m2-fab-text-action is-top" data-m2-fab-action="card">Cartão de Crédito</button>
+        <button type="button" class="m2-fab-text-action is-left" data-m2-fab-action="card">Novo cartão</button>
+        <button type="button" class="m2-fab-text-action is-top" data-m2-fab-action="launch">Lançamentos</button>
         <button type="button" class="m2-fab-text-action is-right" data-m2-fab-action="income">Renda</button>
       </div>
       <button id="mobileV2Fab" type="button" aria-label="Adicionar lançamento"><span class="m2-fab-glyph">${icon('plus') || '+'}</span></button>
@@ -201,7 +201,7 @@
       button.addEventListener('click', () => {
         const action = String(button.getAttribute('data-m2-fab-action') || '');
         closeFabMenu({ instant: true });
-        hideFabTemporarily();
+        hideFabTemporarily(780);
         if (action === 'launch') {
           global.MobileV2AddSheet?.open?.();
           return;
