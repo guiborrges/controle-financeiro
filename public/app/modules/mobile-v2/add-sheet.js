@@ -96,6 +96,7 @@
 
   function open() {
     if (global.MobileV2?.isEnabled?.() !== true) return;
+    global.MobileV2?.closeFabMenu?.({ instant: true });
     const sheet = ensureSheet();
     if (!sheet) return;
     const bankingButton = sheet.querySelector('[data-m2-open-banking]');

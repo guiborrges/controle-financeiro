@@ -374,6 +374,7 @@
   }
 
   function openInlineSheet({ title, subtitle, body, showBack = false, backLabel = 'Voltar', onBack = null, closeLabel = 'Fechar' }) {
+    global.MobileV2?.closeFabMenu?.({ instant: true });
     const sheet = ensureSheet();
     const mount = document.getElementById('mobileV2OutflowFormBody');
     if (!mount) return;
@@ -428,6 +429,7 @@
 
   function open(mode = 'launch') {
     if (global.MobileV2?.isEnabled?.() !== true) return;
+    global.MobileV2?.closeFabMenu?.({ instant: true });
     const sheet = ensureSheet();
     if (!sheet) return;
     sheet.setAttribute('data-mobile-v2-mode', mode);
@@ -441,6 +443,7 @@
 
   function openEdit(item) {
     const source = item && typeof item === 'object' ? item : null;
+    global.MobileV2?.closeFabMenu?.({ instant: true });
     if (!source) return open('launch');
     const sheet = ensureSheet();
     sheet.setAttribute('data-mobile-v2-mode', 'launch');

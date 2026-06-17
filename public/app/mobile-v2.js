@@ -40,6 +40,8 @@
   }
 
   function openInternetBanking() {
+    closeFabMenu({ instant: true });
+    hideFabTemporarily(420);
     const openLoadedModule = () => global.MobileV2InternetBanking?.open?.();
     if (global.MobileV2InternetBanking?.open) {
       openLoadedModule();
@@ -57,6 +59,8 @@
   }
 
   function openUniversalSearch() {
+    closeFabMenu({ instant: true });
+    hideFabTemporarily(420);
     if (global.UniversalSearch?.open) {
       global.UniversalSearch.open();
       return;
@@ -66,7 +70,8 @@
     }
   }
 
-  function closeFabMenu() {
+  function closeFabMenu(options = {}) {
+    const instant = options === true || options?.instant === true;
     state.fabMenuOpen = false;
     const menu = document.getElementById('mobileV2FabMenu');
     const fab = document.getElementById('mobileV2Fab');
@@ -76,10 +81,14 @@
     }
     if (menu) {
       menu.classList.remove('open');
-      state.fabMenuHideTimer = global.setTimeout(() => {
-        if (!state.fabMenuOpen) menu.setAttribute('hidden', 'hidden');
-        state.fabMenuHideTimer = null;
-      }, 220);
+      if (instant) {
+        menu.setAttribute('hidden', 'hidden');
+      } else {
+        state.fabMenuHideTimer = global.setTimeout(() => {
+          if (!state.fabMenuOpen) menu.setAttribute('hidden', 'hidden');
+          state.fabMenuHideTimer = null;
+        }, 220);
+      }
     }
     if (fab) fab.classList.remove('open');
     global.MobileV2Enhancements?.haptic?.('light');
@@ -191,7 +200,7 @@
     root.querySelectorAll('[data-m2-fab-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const action = String(button.getAttribute('data-m2-fab-action') || '');
-        closeFabMenu();
+        closeFabMenu({ instant: true });
         hideFabTemporarily();
         if (action === 'launch') {
           global.MobileV2AddSheet?.open?.();

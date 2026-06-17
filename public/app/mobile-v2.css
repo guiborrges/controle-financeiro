@@ -306,6 +306,11 @@ html.mobile-v2 #mobileV2Splash {
     box-shadow: 0 8px 20px rgba(214, 69, 69, .18);
   }
 
+  html.mobile-v2 body.mobile-v2-sheet-open #mobileV2FabMenu {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   html.mobile-v2 .m2-empty-rich {
     display: grid;
     justify-items: center;
@@ -558,13 +563,19 @@ html.mobile-v2 #mobileV2Splash {
     letter-spacing: -0.035em;
   }
   html.mobile-v2 .m2-calendar-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 9px;
-    overflow-x: auto;
     padding: 0 16px 14px;
-    scrollbar-width: none;
   }
-  html.mobile-v2 .m2-calendar-actions::-webkit-scrollbar { display: none; }
+  html.mobile-v2 .m2-calendar-actions .m2-chip-btn {
+    min-height: 42px;
+    padding: 0 10px;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.15;
+    background: color-mix(in srgb, var(--surface-strong) 95%, var(--surface2));
+  }
   html.mobile-v2 .m2-calendar-summary {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -885,9 +896,9 @@ html.mobile-v2 #mobileV2Splash {
     position: sticky;
     top: 0;
     z-index: 3;
-    background: color-mix(in srgb, var(--bg) 92%, transparent);
-    backdrop-filter: blur(6px);
-    padding: 6px 0 12px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 96%, transparent), color-mix(in srgb, var(--bg) 88%, transparent));
+    backdrop-filter: blur(10px);
+    padding: 8px 0 14px;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
     margin-bottom: 12px;
   }
@@ -897,34 +908,35 @@ html.mobile-v2 #mobileV2Splash {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    padding: 0 2px;
   }
 
   html.mobile-v2 .m2-month-title {
     flex: 1;
     text-align: center;
-    font-size: 19px;
-    font-weight: 800;
-    letter-spacing: -0.03em;
+    font-size: 20px;
+    font-weight: 850;
+    letter-spacing: -0.04em;
   }
 
   html.mobile-v2 .m2-month-metrics {
-    margin-top: 10px;
+    margin-top: 12px;
     display: grid;
     grid-template-columns: repeat(3, minmax(0,1fr));
-    gap: 10px;
+    gap: 9px;
   }
 
   html.mobile-v2 .m2-mini-metric {
-    background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
-    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-    border-radius: 14px;
-    padding: 10px 8px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 96%, transparent), color-mix(in srgb, var(--surface2) 66%, transparent));
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    border-radius: 16px;
+    padding: 11px 9px 10px;
     text-align: center;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 10px 22px rgba(15, 23, 42, 0.045);
   }
 
-  html.mobile-v2 .m2-mini-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
-  html.mobile-v2 .m2-mini-value { font-size: 14px; font-weight: 800; letter-spacing: -0.02em; }
+  html.mobile-v2 .m2-mini-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+  html.mobile-v2 .m2-mini-value { font-size: 15px; font-weight: 850; letter-spacing: -0.03em; }
   html.mobile-v2 .m2-mini-value.positive { color: var(--green); }
   html.mobile-v2 .m2-mini-value.negative { color: var(--red); }
 
@@ -1948,8 +1960,8 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .m2-patr-grid {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 10px 12px 12px;
+    gap: 8px;
+    padding: 8px 10px 10px;
   }
 
   html.mobile-v2 .m2-patr-summary {
@@ -1995,15 +2007,15 @@ html.mobile-v2 #mobileV2Splash {
 
   html.mobile-v2 .m2-patr-account {
     border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    border-radius: 20px;
+    border-radius: 18px;
     overflow: hidden;
     background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 96%, transparent), color-mix(in srgb, var(--surface2) 56%, transparent));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.54), 0 12px 28px rgba(15, 23, 42, .05);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.54), 0 10px 22px rgba(15, 23, 42, .04);
   }
 
   html.mobile-v2 .m2-patr-account .m-item-surface.static {
     gap: 12px;
-    padding: 14px 14px 10px;
+    padding: 13px 13px 9px;
     background: transparent;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   }
@@ -2026,8 +2038,8 @@ html.mobile-v2 #mobileV2Splash {
   html.mobile-v2 .m2-patr-actions {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px 12px 12px;
+    gap: 7px;
+    padding: 9px 10px 10px;
   }
 
   html.mobile-v2 .m2-patr-action-row {
@@ -2041,20 +2053,20 @@ html.mobile-v2 #mobileV2Splash {
   }
 
   html.mobile-v2 .m2-patr-actions button {
-    min-height: 40px;
-    border-radius: 14px;
+    min-height: 38px;
+    border-radius: 13px;
     border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
     background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
     color: var(--text2);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 800;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 14px rgba(15, 23, 42, 0.04);
   }
 
   html.mobile-v2 .m2-patr-actions button.m2-patr-primary {
-    min-height: 40px;
-    border-radius: 16px;
-    font-size: 13px;
+    min-height: 38px;
+    border-radius: 15px;
+    font-size: 12px;
   }
 
   html.mobile-v2 .m2-patr-actions button.m2-patr-primary.is-main {
@@ -2069,7 +2081,7 @@ html.mobile-v2 #mobileV2Splash {
   }
 
   html.mobile-v2 .m2-patr-account .m-item-name {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
     letter-spacing: -.015em;
   }
@@ -2079,8 +2091,14 @@ html.mobile-v2 #mobileV2Splash {
   }
 
   html.mobile-v2 .m2-patr-account .m-item-value {
-    font-size: 20px;
+    font-size: 18px;
     letter-spacing: -.02em;
+  }
+
+  html.mobile-v2 .m2-page-header + .m2-card,
+  html.mobile-v2 .m2-page-header + .m-list-card,
+  html.mobile-v2 .m2-page-header + .hero-card {
+    margin-top: 2px;
   }
 
   html.mobile-v2 .m2-patr-movement-icon {
