@@ -142,12 +142,24 @@
     const renda = Array.isArray(month?.renda) ? month.renda : [];
     const projetos = Array.isArray(month?.projetos) ? month.projetos : [];
     const bills = Array.isArray(month?.cardBills) ? month.cardBills : [];
+    const outflowFingerprint = outflows.map((item) => [
+      item?.id || '',
+      item?.date || '',
+      item?.description || '',
+      item?.type || '',
+      item?.category || item?.categoria || '',
+      item?.outputKind || '',
+      item?.outputRef || '',
+      item?.outputMethod || '',
+      item?.amount ?? item?.valor ?? ''
+    ].join('~')).join('||');
     return [
       month?.id || '',
       outflows.length,
       renda.length,
       projetos.length,
       bills.length,
+      outflowFingerprint,
       JSON.stringify(month?.dailyGoals || {}),
       dataVersion
     ].join('|');
@@ -489,7 +501,8 @@
             spent: Number(spent.toFixed(2)),
             goal,
             pct: goal > 0 ? Math.round((spent / goal) * 100) : 0,
-            items: Array.isArray(row.categoryItems) ? row.categoryItems : []
+            items: (Array.isArray(row.categoryItems) ? row.categoryItems : [])
+              .filter((item) => getEffectiveOutflowAmount(item) > 0)
           };
         })
         .sort((a, b) => (b.spent - a.spent) || (b.goal - a.goal) || a.category.localeCompare(b.category, 'pt-BR'));
@@ -623,8 +636,11 @@
 
   function openMonthCategoryDetails(month, categoryName) {
     if (!month || !categoryName || !global.MobileV2OutflowForm?.openInlineSheet) return;
-    const rows = getCachedMonthView(month).outflowRows
-      .filter((item) => getUnifiedCategoryName(item) === categoryName && getEffectiveOutflowAmount(item) > 0)
+    const normalizedCategory = String(global.resolveCategoryName ? global.resolveCategoryName(categoryName) : categoryName).trim();
+    const categoryRow = buildGoalRows(month)
+      .find((row) => String(global.resolveCategoryName ? global.resolveCategoryName(row.category) : row.category).trim() === normalizedCategory);
+    const sourceItems = Array.isArray(categoryRow?.items) ? categoryRow.items : [];
+    const rows = sourceItems
       .map((item) => ({
         id: String(item?.id || ''),
         date: String(item?.date || ''),
