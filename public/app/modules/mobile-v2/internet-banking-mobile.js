@@ -538,6 +538,7 @@
       subtitle: 'Mostrando somente lan\u00e7amentos pendentes',
       body: '<div id="mobileV2InternetBankingMount" class="mobile-v2-banking-mount"><div class="m2-empty">Carregando dados...</div></div>'
     });
+    document.getElementById('mobileV2OutflowSheet')?.classList.add('m2-banking-sheet');
     try {
       await refresh(true);
     } catch (error) {

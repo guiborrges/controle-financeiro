@@ -588,6 +588,10 @@ html.mobile-v2 #mobileV2Root {
     overflow-x: auto;
     scrollbar-width: none;
   }
+
+  html.mobile-v2 .m2-calendar-actions .m2-chip-btn {
+    flex: 1 0 auto;
+  }
   html.mobile-v2 .m2-calendar-actions::-webkit-scrollbar { display: none; }
   html.mobile-v2 .m2-calendar-actions .m2-chip-btn {
     min-height: 34px;
@@ -692,6 +696,82 @@ html.mobile-v2 #mobileV2Root {
     text-overflow: ellipsis;
   }
   html.mobile-v2 .mobile-v2-banking-mount { min-height: 240px; }
+
+  html.mobile-v2 .m2-banking-sheet .bottom-sheet-panel {
+    height: min(96vh, calc(var(--app-vh, 1vh) * 96));
+    max-height: min(96vh, calc(var(--app-vh, 1vh) * 96));
+    padding-top: 0;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  html.mobile-v2 .m2-banking-sheet .bottom-sheet-grip {
+    margin: 7px auto 8px;
+  }
+
+  html.mobile-v2 .m2-banking-sheet .m2-sheet-head-inline {
+    margin-bottom: 3px;
+  }
+
+  html.mobile-v2 .m2-banking-sheet .m2-sheet-subtitle {
+    margin: 0 0 7px;
+  }
+
+  html.mobile-v2 .m2-banking-sheet .mobile-v2-inline-sheet-body,
+  html.mobile-v2 .m2-banking-sheet .mobile-v2-banking-mount {
+    min-height: 0;
+    height: calc(100% - 66px);
+    overflow-y: auto;
+  }
+
+  html.mobile-v2 .m2-native-date {
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 14px;
+  }
+
+  html.mobile-v2 .m2-shared-people {
+    display: grid;
+    gap: 9px;
+    margin: 10px 0 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--surface2) 38%, transparent);
+  }
+
+  html.mobile-v2 .m2-shared-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  html.mobile-v2 .m2-shared-summary strong {
+    display: block;
+    margin-top: 2px;
+    color: var(--text1);
+    font-size: 13px;
+  }
+
+  html.mobile-v2 .m2-shared-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(90px, .8fr);
+    gap: 8px;
+  }
+
+  html.mobile-v2 .m2-shared-row label {
+    display: grid;
+    gap: 5px;
+    color: var(--text3);
+    font-size: 10px;
+    font-weight: 750;
+  }
+
+  html.mobile-v2 .m2-shared-row .form-input {
+    min-height: 40px;
+    font-size: 14px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -2663,6 +2743,5 @@ html.mobile-v2 #mobileV2Root {
     padding: 12px;
   }
 }
-
 
 

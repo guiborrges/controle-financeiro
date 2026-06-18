@@ -137,6 +137,13 @@
     monthCache.clear();
   }
 
+  function resetView() {
+    activeSubtab = 'planejamento';
+    activeFilters.search = '';
+    uiStateByMonth.clear();
+    invalidateCache();
+  }
+
   function getMonthCacheKey(month) {
     const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
     const renda = Array.isArray(month?.renda) ? month.renda : [];
@@ -351,9 +358,11 @@
             </span>
           </h3>
           <div class="card-items-note">Itens atrelados ao cartão — editar no cartão.</div>
-          ${cardRows.map((row) => `
+          ${cardRows.map((row) => {
+            const readonly = row?.raw?.recurringSpend === true;
+            return `
             <article class="m-item" data-outflow-id="${row.id}">
-              <div class="m-item-surface static">
+              <div class="m-item-surface ${readonly ? 'static' : ''}" ${readonly ? '' : `data-action="edit" data-id="${row.id}"`}>
                 <div class="m-item-cat-icon">${row.icon || '•'}</div>
                 <div class="m-item-info">
                   <span class="m-item-name">${escapeHtml(row.description)}</span>
@@ -362,7 +371,8 @@
                 <span class="m-item-value">${formatMoney(row.amount)}</span>
               </div>
             </article>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       `;
     }).join('');
@@ -1212,6 +1222,7 @@
 
   global.MobileV2MesAtual = {
     render,
+    resetView,
     prevMonth,
     nextMonth,
     setSubtab(tab) {

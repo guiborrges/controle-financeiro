@@ -228,7 +228,6 @@
         <div class="m2-calendar-actions">
           <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${renderHeaderIcon('plus', '+')} Evento</button>
           <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarModal && window.openFinanceCalendarModal(); setTimeout(function(){ window.toggleFinanceCalendarChart && window.toggleFinanceCalendarChart(); }, 0)">${renderHeaderIcon('chart', '◔')} Gráfico diário</button>
-          <button class="m2-chip-btn subtle" type="button" onclick="MobileV2Calendario.openSharedExpenses()">${renderHeaderIcon('share', '↗')} Despesas compartilhadas</button>
         </div>
         <div class="m2-calendar-summary">
           <article class="m2-calendar-summary-card">

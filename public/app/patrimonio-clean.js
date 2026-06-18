@@ -1536,6 +1536,7 @@ function savePatrimonioMovement() {
   savePatrimonioData();
   closeModal('modalPatrimonioMovement');
   renderPatrimonio();
+  if (window.MobileV2?.isEnabled?.()) window.MobileV2.refresh();
 }
 
 function deletePatrimonioMovement(movementId) {

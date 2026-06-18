@@ -4,9 +4,11 @@
   const MOBILE_BREAKPOINT = 900;
   const state = {
     enabled: false,
-    currentTab: 'dashboard',
+    currentTab: 'mes',
     fabMenuOpen: false,
-    fabMenuHideTimer: null
+    fabMenuHideTimer: null,
+    defaultLandingApplied: false,
+    hiddenAt: 0
   };
   const modulePromises = {};
   const MOBILE_MODULE_VERSION = '2026-06-16-mobile-parity-banking-categories';
@@ -230,6 +232,24 @@
     render();
   }
 
+  function applyDefaultLanding() {
+    state.currentTab = 'mes';
+    global.MobileV2MesAtual?.resetView?.();
+    const months = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [];
+    if (!Array.isArray(months) || !months.length) {
+      state.defaultLandingApplied = false;
+      return;
+    }
+    const monthId = typeof global.getCurrentRealMonthId === 'function'
+      ? global.getCurrentRealMonthId(false)
+      : '';
+    if (monthId && typeof global.selectMonth === 'function') {
+      const currentId = String(global.getCurrentMonth?.()?.id || '');
+      if (currentId !== String(monthId)) global.selectMonth(monthId);
+    }
+    state.defaultLandingApplied = true;
+  }
+
   function syncTabFromCurrentPage() {
     const activePage = document.querySelector('.page.active')?.id || '';
     if (activePage === 'page-dashboard') state.currentTab = 'dashboard';
@@ -299,8 +319,7 @@
     const wasEnabled = state.enabled;
     state.enabled = isMobileV2Mode();
     if (!wasEnabled && state.enabled) {
-      // Sync only when entering mobile mode; resize during scroll must not reset active tab.
-      syncTabFromCurrentPage();
+      applyDefaultLanding();
     }
     updateBodyClasses();
     if (state.enabled) {
@@ -324,6 +343,7 @@
 
   function refresh() {
     if (!state.enabled) return;
+    if (!state.defaultLandingApplied) applyDefaultLanding();
     render();
   }
 
@@ -331,17 +351,33 @@
     apply();
     global.addEventListener('resize', apply, { passive: true });
     global.addEventListener('orientationchange', apply);
+    global.addEventListener('pageshow', () => {
+      if (!state.enabled) return;
+      applyDefaultLanding();
+      render();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        state.hiddenAt = Date.now();
+        return;
+      }
+      if (!state.enabled || !state.hiddenAt) return;
+      applyDefaultLanding();
+      render();
+    });
+    document.addEventListener('mobileDataChanged', () => {
+      if (!state.enabled || state.defaultLandingApplied) return;
+      applyDefaultLanding();
+      render();
+    });
 
     const oldNav = global.nav;
     if (typeof oldNav === 'function') {
       global.nav = function patchedNav(page) {
         const result = oldNav.apply(this, arguments);
         if (state.enabled) {
-          if (page === 'dashboard') state.currentTab = 'dashboard';
-          if (page === 'mes') state.currentTab = 'mes';
-          if (page === 'patrimonio') state.currentTab = 'patrimonio';
-          if (page === 'historico') state.currentTab = 'historico';
-          if (page === 'calendario') state.currentTab = 'calendario';
+          // A navegação mobile é controlada pela bottom nav. O bootstrap desktop
+          // não pode restaurar a última página por cima do landing do mês atual.
           render();
         }
         return result;

@@ -11,7 +11,16 @@
 
   function formatDateDefault() {
     const now = new Date();
-    return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+
+  function toNativeDateValue(rawValue) {
+    const value = String(rawValue || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+    if (!match) return formatDateDefault();
+    const year = match[3].length === 2 ? `20${match[3]}` : match[3];
+    return `${year}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
   }
 
   function parseMoneyInput(rawValue) {
@@ -109,7 +118,7 @@
       { value: 'method:pix', label: 'Pix' },
       { value: 'method:debito', label: 'Débito' },
       { value: 'method:dinheiro', label: 'Dinheiro' },
-      { value: 'method:credito', label: 'Crédito' }
+      { value: 'method:boleto', label: 'Boleto' }
     ];
     const cards = Array.isArray(month?.outflowCards) ? month.outflowCards : [];
     cards.forEach((card) => {
@@ -190,7 +199,7 @@
         </div>
         <div class="form-field" style="margin:0">
           <label class="form-label" for="mobileV2OutflowDate">Data</label>
-          <input id="mobileV2OutflowDate" class="form-input" type="text" inputmode="numeric" placeholder="dd/mm/aa" value="${formatDateDefault()}">
+          <input id="mobileV2OutflowDate" class="form-input m2-native-date" type="date" value="${formatDateDefault()}">
         </div>
       </div>
 
@@ -209,10 +218,7 @@
         </select>
       </div>
 
-      <label class="form-check-row" ${showRecurring ? '' : 'style="display:none"'}>
-        <input id="mobileV2RecurringToggle" type="checkbox" checked>
-        <span class="form-check-label">Marcar como recorrente mensal</span>
-      </label>
+      <input id="mobileV2RecurringToggle" type="checkbox" ${showRecurring ? 'checked' : ''} hidden>
 
       <div class="form-row-2" ${showInstallments ? '' : 'style="display:none"'}>
         <div class="form-field" style="margin:0">
@@ -242,8 +248,10 @@
         </div>
       </div>
 
-      <label class="form-check-row">
-        <input id="mobileV2PlanningToggle" type="checkbox">
+      <div id="mobileV2SharedPeopleList" class="m2-shared-people" ${showShared ? '' : 'style="display:none"'}></div>
+
+      <label class="form-check-row" ${showRecurring ? 'style="display:none"' : ''}>
+        <input id="mobileV2PlanningToggle" type="checkbox" ${showRecurring ? 'checked' : ''}>
         <span class="form-check-label">Aparecer no planejamento do mês</span>
       </label>
 
@@ -259,10 +267,74 @@
     });
     body.querySelector('#mobileV2OutflowCancel')?.addEventListener('click', close);
     body.querySelector('#mobileV2OutflowSubmit')?.addEventListener('click', () => submitForm(mode));
-    bindMoneyMask();
-    if (typeof global.bindMobileDatePickerToInput === 'function') {
-      global.bindMobileDatePickerToInput('mobileV2OutflowDate');
+    if (showShared) {
+      ['mobileV2SharedPeopleCount', 'mobileV2SharedMode', 'mobileV2OutflowAmount'].forEach((id) => {
+        body.querySelector(`#${id}`)?.addEventListener('input', renderMobileSharedPeople);
+        body.querySelector(`#${id}`)?.addEventListener('change', renderMobileSharedPeople);
+      });
+      renderMobileSharedPeople();
     }
+    bindMoneyMask();
+  }
+
+  function getMobileOwnerName() {
+    return String(document.getElementById('sessionUserName')?.textContent || 'Você').trim() || 'Você';
+  }
+
+  function renderMobileSharedPeople() {
+    const mount = document.getElementById('mobileV2SharedPeopleList');
+    if (!mount) return;
+    const count = Math.max(2, Math.min(20, Number(document.getElementById('mobileV2SharedPeopleCount')?.value || 2) || 2));
+    const mode = document.getElementById('mobileV2SharedMode')?.value === 'manual' ? 'manual' : 'equal';
+    const total = parseMoneyInput(document.getElementById('mobileV2OutflowAmount')?.value || '');
+    const previous = Array.from(mount.querySelectorAll('[data-mobile-shared-row]')).map((row) => ({
+      name: row.querySelector('[data-mobile-shared-name]')?.value || '',
+      amount: parseMoneyInput(row.querySelector('[data-mobile-shared-amount]')?.value || '')
+    }));
+    const equalValue = count > 0 ? total / count : 0;
+    mount.innerHTML = `
+      <div class="m2-shared-summary">
+        <span>Total do usuário: <strong id="mobileV2SharedOwnerTotal">${(mode === 'equal' ? equalValue : Number(previous[0]?.amount || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></span>
+        <span>Total de terceiros: <strong id="mobileV2SharedOthersTotal">${Math.max(0, total - (mode === 'equal' ? equalValue : Number(previous[0]?.amount || 0))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></span>
+      </div>
+      ${Array.from({ length: count }, (_, index) => {
+        const isOwner = index === 0;
+        const amount = mode === 'equal' ? equalValue : Number(previous[index]?.amount || 0);
+        return `
+          <div class="m2-shared-row" data-mobile-shared-row>
+            <label>${isOwner ? 'Proprietário' : `Pessoa ${index}`}
+              <input class="form-input" data-mobile-shared-name ${isOwner ? 'readonly' : ''} value="${escapeHtml(isOwner ? getMobileOwnerName() : previous[index]?.name || '')}" placeholder="Nome">
+            </label>
+            <label>Valor
+              <input class="form-input" data-mobile-shared-amount type="text" inputmode="decimal" ${mode === 'equal' ? 'readonly' : ''} value="${amount.toFixed(2).replace('.', ',')}">
+            </label>
+          </div>`;
+      }).join('')}
+    `;
+    mount.querySelectorAll('[data-mobile-shared-amount]').forEach((input) => {
+      input.addEventListener('input', updateMobileSharedSummary);
+    });
+  }
+
+  function updateMobileSharedSummary() {
+    const values = Array.from(document.querySelectorAll('#mobileV2SharedPeopleList [data-mobile-shared-amount]'))
+      .map((input) => parseMoneyInput(input.value));
+    const owner = Number(values[0] || 0);
+    const others = values.slice(1).reduce((sum, value) => sum + Number(value || 0), 0);
+    const formatter = (value) => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const ownerNode = document.getElementById('mobileV2SharedOwnerTotal');
+    const othersNode = document.getElementById('mobileV2SharedOthersTotal');
+    if (ownerNode) ownerNode.textContent = formatter(owner);
+    if (othersNode) othersNode.textContent = formatter(others);
+  }
+
+  function collectMobileSharedParticipants() {
+    return Array.from(document.querySelectorAll('#mobileV2SharedPeopleList [data-mobile-shared-row]')).map((row, index) => ({
+      isOwner: index === 0,
+      name: String(row.querySelector('[data-mobile-shared-name]')?.value || '').trim(),
+      amount: parseMoneyInput(row.querySelector('[data-mobile-shared-amount]')?.value || ''),
+      paid: false
+    }));
   }
 
   function applyToUnifiedModal(mode, payload) {
@@ -327,9 +399,20 @@
       if (typeof global.renderUnifiedOutflowSharedPeople === 'function') {
         global.renderUnifiedOutflowSharedPeople();
       }
+      const participantRows = Array.from(document.querySelectorAll('#unifiedOutflowSharedPeopleList .form-row'));
+      (payload.sharedParticipants || []).forEach((participant, index) => {
+        const row = participantRows[index];
+        if (!row) return;
+        const nameInput = row.querySelector('.unified-shared-name');
+        const amountInput = row.querySelector('.unified-shared-amount');
+        if (nameInput && !participant.isOwner) nameInput.value = participant.name || '';
+        if (amountInput) amountInput.value = String(participant.amount || 0);
+      });
     }
 
     global.saveUnifiedOutflow();
+    const month = getCurrentMonth();
+    return (month?.outflows || []).find((item) => !payload.beforeIds?.has?.(String(item?.id || '')))?.id || '';
   }
 
   function submitForm(mode) {
@@ -355,16 +438,21 @@
       planning,
       installmentsCount: Math.max(2, Number(document.getElementById('mobileV2InstallmentsCount')?.value || 2) || 2),
       sharedPeopleCount: Math.max(2, Number(document.getElementById('mobileV2SharedPeopleCount')?.value || 2) || 2),
-      sharedMode: document.getElementById('mobileV2SharedMode')?.value === 'manual' ? 'manual' : 'equal'
+      sharedMode: document.getElementById('mobileV2SharedMode')?.value === 'manual' ? 'manual' : 'equal',
+      sharedParticipants: mode === 'shared' ? collectMobileSharedParticipants() : [],
+      beforeIds: new Set((getCurrentMonth()?.outflows || []).map((item) => String(item?.id || '')))
     };
 
     try {
-      applyToUnifiedModal(mode, payload);
+      const createdId = applyToUnifiedModal(mode, payload);
       close();
       global.MobileV2?.setTab?.('mes');
       global.MobileV2?.refresh?.();
       global.MobileV2Enhancements?.notifyDataChanged?.('outflow-save');
       global.MobileV2Enhancements?.haptic?.('light');
+      if (!payload.editId && createdId && typeof global.openUnifiedOutflowModal === 'function') {
+        global.setTimeout(() => global.openUnifiedOutflowModal(createdId), 140);
+      }
       if (typeof global.showToast === 'function') global.showToast(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.');
       else if (typeof global.showAppStatus === 'function') global.showAppStatus(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.', 'success');
     } catch (error) {
@@ -376,6 +464,7 @@
   function openInlineSheet({ title, subtitle, body, showBack = false, backLabel = 'Voltar', onBack = null, closeLabel = 'Fechar' }) {
     global.MobileV2?.closeFabMenu?.({ instant: true });
     const sheet = ensureSheet();
+    sheet?.classList.remove('m2-banking-sheet');
     const mount = document.getElementById('mobileV2OutflowFormBody');
     if (!mount) return;
     const headerAction = showBack
@@ -460,7 +549,7 @@
     };
     setValue('mobileV2OutflowDescription', source.description || source.nome || '');
     setValue('mobileV2OutflowAmount', Math.abs(Number(source.amount || source.valor || 0)) || '');
-    setValue('mobileV2OutflowDate', source.date || source.data || '');
+    setValue('mobileV2OutflowDate', toNativeDateValue(source.date || source.data || ''));
     setValue('mobileV2OutflowCategory', source.category || source.categoria || '');
     if (source.outputKind === 'card' && source.outputRef) {
       setValue('mobileV2OutflowOutput', `card:${source.outputRef}`);
@@ -483,6 +572,7 @@
     sheet.classList.remove('open');
     sheet.setAttribute('hidden', 'hidden');
     sheet.style.display = 'none';
+    sheet.classList.remove('m2-banking-sheet');
     document.body.classList.remove('mobile-v2-sheet-open');
     global.requestAnimationFrame?.(() => global.MobileV2?.refresh?.());
   }
@@ -492,6 +582,7 @@
     open,
     openEdit,
     close,
+    closeInlineSheet: close,
     openInlineSheet,
     openIncomePicker
   };

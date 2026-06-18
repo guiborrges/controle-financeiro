@@ -271,11 +271,6 @@
       }
       document.dispatchEvent(new CustomEvent('mobileDataChanged', { detail: { reason: 'pull-refresh' } }));
       global.MobileV2?.refresh?.();
-      const now = Date.now();
-      if (now - state.lastRefreshToastAt > REFRESH_TOAST_COOLDOWN_MS) {
-        showToast('Dados atualizados.');
-        state.lastRefreshToastAt = now;
-      }
       haptic('light');
     } finally {
       setLoading(false);
