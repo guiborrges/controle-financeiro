@@ -2804,42 +2804,15 @@ function getUnifiedOutflowBillingDisplayValue(item) {
 }
 
 function buildUnifiedFixedBillingDate(dayValue, month = getCurrentMonth()) {
-  if (window.MesAtualOutflowExpenseDate?.buildNextMonthDateFromDay) {
-    return window.MesAtualOutflowExpenseDate.buildNextMonthDateFromDay(dayValue, month);
-  }
-  const resolved = normalizeFlexibleDateInput(dayValue, month, { simpleDayMonthOffset: 1 });
-  if (resolved) return resolved;
-  const digits = String(dayValue || '').replace(/\D/g, '').slice(0, 2);
-  const day = Math.min(31, Math.max(1, Number(digits || 1)));
-  const base = getMonthDateFromMonthObject(month);
-  const dueYear = base.getMonth() === 11 ? base.getFullYear() + 1 : base.getFullYear();
-  const dueMonthIndex = (base.getMonth() + 1) % 12;
-  const maxDay = new Date(dueYear, dueMonthIndex + 1, 0).getDate();
-  const safeDay = Math.min(day, maxDay);
-  return `${String(safeDay).padStart(2, '0')}/${String(dueMonthIndex + 1).padStart(2, '0')}/${String(dueYear).slice(-2)}`;
+  return window.MesAtualOutflowExpenseDate.buildNextMonthDateFromDay(dayValue, month);
 }
 
 function formatUnifiedExpenseDateInput(rawValue) {
-  if (window.MesAtualOutflowExpenseDate?.formatExpenseDateInput) {
-    return window.MesAtualOutflowExpenseDate.formatExpenseDateInput(rawValue);
-  }
-  const digits = String(rawValue || '').replace(/\D/g, '').slice(0, 6);
-  if (!digits) return '';
-  if (digits.length <= 2) return String(Math.min(31, Math.max(1, Number(digits) || 1)));
-  const day = String(Math.min(31, Math.max(1, Number(digits.slice(0, 2)) || 1))).padStart(2, '0');
-  if (digits.length <= 4) return `${day}/${digits.slice(2, 4)}`;
-  const month = String(Math.min(12, Math.max(1, Number(digits.slice(2, 4)) || 1))).padStart(2, '0');
-  return `${day}/${month}/${digits.slice(4, 6)}`;
+  return window.MesAtualOutflowExpenseDate.formatExpenseDateInput(rawValue);
 }
 
 function resolveUnifiedExpenseDateInput(rawValue, month) {
-  if (window.MesAtualOutflowExpenseDate?.resolveExpenseDate) {
-    return window.MesAtualOutflowExpenseDate.resolveExpenseDate(rawValue, month);
-  }
-  const raw = String(rawValue || '').trim();
-  if (!raw) return '';
-  if (/^\d{1,2}$/.test(raw)) return buildUnifiedFixedBillingDate(raw, month);
-  return normalizeVarDate(raw) || '';
+  return window.MesAtualOutflowExpenseDate.resolveExpenseDate(rawValue, month);
 }
 
 function sanitizeUnifiedOutflowDateInput(input) {
@@ -3530,152 +3503,53 @@ function selectUnifiedOutflowDescriptionSuggestion(value = '') {
 }
 
 function getUnifiedOutflowDraftStorageKey(monthId = '') {
-  if (window.MesAtualModals?.getUnifiedOutflowDraftStorageKey) {
-    return window.MesAtualModals.getUnifiedOutflowDraftStorageKey(monthId, {
-      currentMonthId,
-      currentMonth: getCurrentMonth()
-    });
-  }
-  const userId = String(window.__APP_BOOTSTRAP__?.session?.id || 'anonymous').trim() || 'anonymous';
-  const safeMonthId = String(monthId || currentMonthId || getCurrentMonth()?.id || 'sem_mes').trim() || 'sem_mes';
-  return `finUnifiedOutflowDraft::${userId}::${safeMonthId}`;
+  return window.MesAtualModals.getUnifiedOutflowDraftStorageKey(monthId, {
+    currentMonthId,
+    currentMonth: getCurrentMonth()
+  });
 }
 
 function readUnifiedOutflowDraft(month) {
-  if (window.MesAtualModals?.readUnifiedOutflowDraft) {
-    return window.MesAtualModals.readUnifiedOutflowDraft(month, {
-      currentMonthId,
-      currentMonth: getCurrentMonth()
-    });
-  }
-  try {
-    const raw = localStorage.getItem(getUnifiedOutflowDraftStorageKey(month?.id || ''));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch {
-    return null;
-  }
+  return window.MesAtualModals.readUnifiedOutflowDraft(month, {
+    currentMonthId,
+    currentMonth: getCurrentMonth()
+  });
 }
 
 function saveUnifiedOutflowDraft(month, draft) {
-  if (window.MesAtualModals?.saveUnifiedOutflowDraft) {
-    window.MesAtualModals.saveUnifiedOutflowDraft(month, draft, {
-      currentMonthId,
-      currentMonth: getCurrentMonth()
-    });
-    return;
-  }
-  try {
-    localStorage.setItem(getUnifiedOutflowDraftStorageKey(month?.id || ''), JSON.stringify(draft || {}));
-  } catch {}
+  window.MesAtualModals.saveUnifiedOutflowDraft(month, draft, {
+    currentMonthId,
+    currentMonth: getCurrentMonth()
+  });
 }
 
 function clearUnifiedOutflowDraft(month) {
-  if (window.MesAtualModals?.clearUnifiedOutflowDraft) {
-    window.MesAtualModals.clearUnifiedOutflowDraft(month, {
-      currentMonthId,
-      currentMonth: getCurrentMonth()
-    });
-    return;
-  }
-  try {
-    localStorage.removeItem(getUnifiedOutflowDraftStorageKey(month?.id || ''));
-  } catch {}
+  window.MesAtualModals.clearUnifiedOutflowDraft(month, {
+    currentMonthId,
+    currentMonth: getCurrentMonth()
+  });
 }
 
 function buildUnifiedOutflowDraftFromForm(month) {
-  if (window.MesAtualModals?.buildUnifiedOutflowDraftFromForm) {
-    return window.MesAtualModals.buildUnifiedOutflowDraftFromForm(month, {
-      getCurrentMonth,
-      readSharedParticipantsFromDOM: readUnifiedOutflowSharedParticipantsFromDOM
-    });
-  }
-  const safeMonth = month || getCurrentMonth();
-  const description = String(document.getElementById('unifiedOutflowDescription')?.value || '').trim();
-  const type = normalizeUnifiedOutflowType(document.getElementById('unifiedOutflowType')?.value);
-  const category = String(document.getElementById('unifiedOutflowCategory')?.value || '');
-  const newCategory = String(document.getElementById('unifiedOutflowNewCategory')?.value || '').trim();
-  const amount = String(document.getElementById('unifiedOutflowAmount')?.value || '').trim();
-  const outputValue = String(document.getElementById('unifiedOutflowOutput')?.value || 'method:debito').trim();
-  const date = String(document.getElementById('unifiedOutflowDate')?.value || '').trim();
-  const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle')?.checked === true;
-  const planningToggle = document.getElementById('unifiedOutflowPlanningToggle')?.checked === true;
-  const installmentsToggle = document.getElementById('unifiedOutflowInstallmentsToggle')?.checked === true;
-  const installmentsCount = String(document.getElementById('unifiedOutflowInstallmentsCount')?.value || '2').trim();
-  const tag = String(document.getElementById('unifiedOutflowTag')?.value || '');
-  const newTag = String(document.getElementById('unifiedOutflowNewTagInline')?.value || '').trim();
-  const sharedToggle = document.getElementById('unifiedOutflowSharedToggle')?.checked === true;
-  const sharedPeopleCount = String(document.getElementById('unifiedOutflowSharedPeopleCount')?.value || '2').trim();
-  const sharedMode = document.getElementById('unifiedOutflowSharedMode')?.value === 'manual' ? 'manual' : 'equal';
-  const sharedParticipants = readUnifiedOutflowSharedParticipantsFromDOM();
-
-  return {
-    monthId: safeMonth?.id || '',
-    description,
-    type,
-    category,
-    newCategory,
-    amount,
-    outputValue,
-    date,
-    recurringToggle,
-    planningToggle,
-    installmentsToggle,
-    installmentsCount,
-    tag,
-    newTag,
-    sharedToggle,
-    sharedPeopleCount,
-    sharedMode,
-    sharedParticipants,
-    updatedAt: Date.now()
-  };
+  return window.MesAtualModals.buildUnifiedOutflowDraftFromForm(month, {
+    getCurrentMonth,
+    readSharedParticipantsFromDOM: readUnifiedOutflowSharedParticipantsFromDOM
+  });
 }
 
 function applyUnifiedOutflowDraftToForm(month, draft) {
-  if (window.MesAtualModals?.applyUnifiedOutflowDraftToForm) {
-    return window.MesAtualModals.applyUnifiedOutflowDraftToForm(month, draft, {
-      populateCategoryOptions: populateUnifiedOutflowCategoryOptions,
-      resolveDefaultCategory: resolveCategoryName,
-      toggleNewCategory: toggleUnifiedOutflowNewCategory,
-      getOutputOptions: getUnifiedOutflowOutputOptions,
-      populateTagOptions: populateUnifiedOutflowTagOptions,
-      toggleNewTag: toggleUnifiedOutflowNewTag,
-      toggleInstallments: toggleUnifiedOutflowInstallments,
-      handleTypeChange: handleUnifiedOutflowTypeChange,
-      renderSharedPeople: renderUnifiedOutflowSharedPeople,
-      renderDescriptionSuggestions: renderUnifiedOutflowDescriptionSuggestions
-    });
-  }
-  if (!draft || typeof draft !== 'object') return false;
-  const descriptionInput = document.getElementById('unifiedOutflowDescription');
-  if (descriptionInput) descriptionInput.value = String(draft.description || '');
-  document.getElementById('unifiedOutflowType').value = 'launch';
-  populateUnifiedOutflowCategoryOptions(month, String(draft.category || resolveCategoryName('COMPRAS') || ''));
-  document.getElementById('unifiedOutflowNewCategory').value = String(draft.newCategory || '');
-  toggleUnifiedOutflowNewCategory();
-  document.getElementById('unifiedOutflowAmount').value = String(draft.amount || '');
-  document.getElementById('unifiedOutflowOutput').innerHTML = getUnifiedOutflowOutputOptions(month, String(draft.outputValue || 'method:debito'));
-  document.getElementById('unifiedOutflowDate').value = String(draft.date || '');
-  document.getElementById('unifiedOutflowRecurringToggle').checked = draft.recurringToggle === true;
-  document.getElementById('unifiedOutflowPlanningToggle').checked = draft.planningToggle === true || draft.showInMonthPlanning === true;
-  document.getElementById('unifiedOutflowInstallmentsToggle').checked = draft.installmentsToggle === true;
-  document.getElementById('unifiedOutflowInstallmentsCount').value = String(draft.installmentsCount || '2');
-  populateUnifiedOutflowTagOptions(String(draft.tag || ''));
-  document.getElementById('unifiedOutflowNewTagInline').value = String(draft.newTag || '');
-  toggleUnifiedOutflowNewTag();
-  const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
-  const sharedCount = document.getElementById('unifiedOutflowSharedPeopleCount');
-  const sharedMode = document.getElementById('unifiedOutflowSharedMode');
-  if (sharedToggle) sharedToggle.checked = draft.sharedToggle === true;
-  if (sharedCount) sharedCount.value = String(draft.sharedPeopleCount || '2');
-  if (sharedMode) sharedMode.value = draft.sharedMode === 'manual' ? 'manual' : 'equal';
-  toggleUnifiedOutflowInstallments();
-  handleUnifiedOutflowTypeChange();
-  if (sharedToggle?.checked) renderUnifiedOutflowSharedPeople(Array.isArray(draft.sharedParticipants) ? draft.sharedParticipants : []);
-  renderUnifiedOutflowDescriptionSuggestions(descriptionInput?.value || '');
-  return true;
+  return window.MesAtualModals.applyUnifiedOutflowDraftToForm(month, draft, {
+    populateCategoryOptions: populateUnifiedOutflowCategoryOptions,
+    resolveDefaultCategory: resolveCategoryName,
+    toggleNewCategory: toggleUnifiedOutflowNewCategory,
+    getOutputOptions: getUnifiedOutflowOutputOptions,
+    populateTagOptions: populateUnifiedOutflowTagOptions,
+    toggleNewTag: toggleUnifiedOutflowNewTag,
+    toggleInstallments: toggleUnifiedOutflowInstallments,
+    handleTypeChange: handleUnifiedOutflowTypeChange,
+    renderSharedPeople: renderUnifiedOutflowSharedPeople,
+    renderDescriptionSuggestions: renderUnifiedOutflowDescriptionSuggestions
+  });
 }
 
 function scheduleUnifiedOutflowDraftSave() {

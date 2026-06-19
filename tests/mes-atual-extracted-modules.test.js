@@ -90,6 +90,8 @@ test('canonical month modules load before the month controller', () => {
 
   [
     '/app-assets/modules/mes-atual/income-dates.js',
+    '/app-assets/modules/mes-atual/modals.js',
+    '/app-assets/modules/mes-atual/outflow-expense-date.js',
     '/app-assets/modules/mes-atual/recurrence.js',
     '/app-assets/modules/mes-atual/shared-expense.js'
   ].forEach(modulePath => {
