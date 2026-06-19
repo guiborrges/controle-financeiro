@@ -1,23 +1,25 @@
 (function initMesAtualCards(global) {
   'use strict';
 
-  function ensureMonth(month) {
-    if (typeof global.ensureUnifiedOutflowPilotMonth === 'function') {
-      global.ensureUnifiedOutflowPilotMonth(month);
+  function getEffectiveOutflowAmount(item) {
+    if (typeof global.getUnifiedEffectiveOutflowAmount === 'function') {
+      return Math.max(0, Number(global.getUnifiedEffectiveOutflowAmount(item) || 0) || 0);
     }
+    if (typeof global.OutflowAmounts?.getEffectiveOutflowAmount === 'function') {
+      return Math.max(0, Number(global.OutflowAmounts.getEffectiveOutflowAmount(item) || 0) || 0);
+    }
+    return Math.max(0, Number(item?.amount || 0) || 0);
   }
 
   function getUnifiedCardBill(month, cardId) {
-    ensureMonth(month);
     return (month?.cardBills || []).find(bill => bill?.cardId === cardId) || null;
   }
 
   function getUnifiedCardRecurringForecastAmount(month, cardId) {
-    ensureMonth(month);
     return (month?.outflows || []).reduce((acc, item) => {
       if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
       if (item?.recurringSpend !== true) return acc;
-      return acc + Number(item?.amount || 0);
+      return acc + getEffectiveOutflowAmount(item);
     }, 0);
   }
 
@@ -35,7 +37,6 @@
   }
 
   function getUnifiedCardLaunchesAmount(month, cardId) {
-    ensureMonth(month);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return (month?.outflows || []).reduce((acc, item) => {
@@ -49,7 +50,7 @@
         itemDate.setHours(0, 0, 0, 0);
         if (itemDate > today) return acc;
       }
-      return acc + Number(item?.amount || 0);
+      return acc + getEffectiveOutflowAmount(item);
     }, 0);
   }
 

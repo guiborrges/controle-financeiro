@@ -40,6 +40,27 @@ test('cards module computes recurring forecast and effective amount', () => {
   assert.equal(effective, 50);
 });
 
+test('cards module uses only owner share for shared card launches', () => {
+  const win = runModule('../public/app/modules/mes-atual/cards.js', {
+    window: {
+      getUnifiedEffectiveOutflowAmount: item => item.ownerShare
+    }
+  });
+  const month = {
+    outflows: [
+      {
+        outputKind: 'card',
+        outputRef: 'c1',
+        recurringSpend: true,
+        amount: 120,
+        ownerShare: 40
+      }
+    ]
+  };
+  assert.equal(win.MesAtualCards.getUnifiedCardRecurringForecastAmount(month, 'c1'), 40);
+  assert.equal(win.MesAtualCards.getUnifiedCardLaunchesAmount(month, 'c1'), 40);
+});
+
 test('totals module returns recurring card spend planned total', () => {
   const win = runModule('../public/app/modules/mes-atual/totals.js');
   const month = {

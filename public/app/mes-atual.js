@@ -1413,20 +1413,11 @@ function ensureUnifiedOutflowPilotMonth(month) {
 }
 
 function getUnifiedCardBill(month, cardId) {
-  if (window.MesAtualCards?.getUnifiedCardBill) {
-    return window.MesAtualCards.getUnifiedCardBill(month, cardId);
-  }
-  ensureUnifiedOutflowPilotMonth(month);
-  return (month.cardBills || []).find(bill => bill.cardId === cardId) || null;
+  return window.MesAtualCards.getUnifiedCardBill(month, cardId);
 }
 
 function getUnifiedCardRecurringForecastAmount(month, cardId) {
-  if (!month) return 0;
-  return (month.outflows || []).reduce((acc, item) => {
-    if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
-    if (item?.recurringSpend !== true) return acc;
-    return acc + getUnifiedEffectiveOutflowAmount(item);
-  }, 0);
+  return window.MesAtualCards.getUnifiedCardRecurringForecastAmount(month, cardId);
 }
 
 function syncUnifiedCardBillForecastAmounts(month) {
@@ -1506,24 +1497,7 @@ function syncUnifiedCardAutoAmount() {
 }
 
 function getUnifiedCardLaunchesAmount(month, cardId) {
-  ensureUnifiedOutflowPilotMonth(month);
-  return (month.outflows || []).reduce((acc, item) => {
-    if (item?.outputKind !== 'card' || item?.outputRef !== cardId) return acc;
-    if (!isUnifiedCardLaunchDue(item)) return acc;
-    return acc + getUnifiedEffectiveOutflowAmount(item);
-  }, 0);
-}
-
-function isUnifiedCardLaunchDue(item) {
-  const raw = String(item?.date || item?.data || '').trim();
-  if (!raw) return true;
-  const parsed = parseData(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) return true;
-  const date = new Date(parsed);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  date.setHours(0, 0, 0, 0);
-  return date <= today;
+  return window.MesAtualCards.getUnifiedCardLaunchesAmount(month, cardId);
 }
 
 function getUnifiedCardLaunchesTooltip(month, cardId, cardLaunchesAmount) {

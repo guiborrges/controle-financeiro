@@ -6,9 +6,9 @@ const assert = require('node:assert/strict');
 
 function loadMesAtualContext() {
   const filePath = path.resolve(__dirname, '../public/app/mes-atual.js');
+  const cardsModulePath = path.resolve(__dirname, '../public/app/modules/mes-atual/cards.js');
   const code = fs.readFileSync(filePath, 'utf8');
   const context = {
-    window: {},
     data: [],
     currentSession: null,
     getMonthSortValue: () => 1,
@@ -16,7 +16,9 @@ function loadMesAtualContext() {
     recalcTotals: () => {},
     UNIFIED_OUTFLOW_GLOBAL_MIGRATION_VERSION: 5
   };
+  context.window = context;
   vm.createContext(context);
+  vm.runInContext(fs.readFileSync(cardsModulePath, 'utf8'), context, { filename: cardsModulePath });
   vm.runInContext(code, context, { filename: filePath });
   return context;
 }
