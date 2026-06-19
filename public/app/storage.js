@@ -15,7 +15,6 @@ const STORAGE_KEYS = {
   dashboardWidgetLayout: 'finDashboardWidgetLayout',
   monthMetricOrder: 'finMesMetricOrder',
   monthSectionOrder: 'finMesSectionOrder',
-  monthCopyPreferences: 'finMonthCopyPreferences',
   expenseCategoryRules: 'finExpenseCategoryRules',
   expenseNameRenameMap: 'finExpenseNameRenameMap',
   expensePaymentDateRules: 'finExpensePaymentDateRules',

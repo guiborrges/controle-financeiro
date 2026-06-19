@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1104,48 +1104,6 @@
     <div class="form-actions" style="margin-top:20px">
       <button class="btn btn-ghost" onclick="closeModal('modalEso')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEsoItem()">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL NEW MONTH -->
-<div class="modal-bg" id="modalNewMonth">
-  <div class="modal">
-    <h3 id="modalNewMonthTitle">Novo mês</h3>
-    <div class="form-grid">
-      <div class="form-row">
-        <div class="field">
-          <label>Mês</label>
-          <select id="newMonthMes" onchange="refreshMonthCopyControls()">
-            <option value="JANEIRO">Janeiro</option><option value="FEVEREIRO">Fevereiro</option>
-            <option value="MARÇO">Março</option><option value="ABRIL">Abril</option>
-            <option value="MAIO">Maio</option><option value="JUNHO">Junho</option>
-            <option value="JULHO">Julho</option><option value="AGOSTO">Agosto</option>
-            <option value="SETEMBRO">Setembro</option><option value="OUTUBRO">Outubro</option>
-            <option value="NOVEMBRO">Novembro</option><option value="DEZEMBRO">Dezembro</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Ano</label>
-          <input type="number" id="newMonthAno" value="2026" min="2020" max="2035" onchange="refreshMonthCopyControls()">
-        </div>
-      </div>
-      <p id="modalNewMonthHelp" style="font-size:12px;color:var(--text2)">O novo mês copia automaticamente do mês anterior: gastos recorrentes selecionados, a categoria <b>ASSINATURAS</b> em gastos diários e as rendas fixas recorrentes.</p>
-      <div id="monthCopyControls" class="month-copy-controls" hidden>
-        <div class="month-copy-topline">
-          <label class="month-copy-toggle">
-            <input type="checkbox" id="copyPrevMonthToggle" onchange="handleMonthCopyEnabledChange(this.checked)">
-            <span>Copiar dados do mês anterior</span>
-          </label>
-          <button type="button" id="monthCopyChooseBtn" class="btn btn-ghost" onclick="toggleMonthCopyPicker()">Escolher dados</button>
-        </div>
-        <p id="monthCopySummary" class="month-copy-summary">Selecione exatamente o que deve ser copiado para os próximos meses.</p>
-        <div id="monthCopyPicker" class="month-copy-picker" hidden></div>
-      </div>
-    </div>
-    <div class="form-actions" style="margin-top:20px">
-      <button class="btn btn-ghost" onclick="closeModal('modalNewMonth')">Cancelar</button>
-      <button id="modalNewMonthSubmit" class="btn btn-primary" onclick="submitMonthModal()">Criar mês</button>
     </div>
   </div>
 </div>
