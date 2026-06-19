@@ -29,10 +29,6 @@ function renderUnifiedOutflowFilterOptions(month, selectedValue) {
   return `${standalone}${grouped}`;
 }
 
-function renderUnifiedSummaryCard(label, value, note = '', tone = '') {
-  return `<div class="unified-summary-item"><div class="unified-summary-label">${escapeHtml(label)}</div><div class="unified-summary-value ${tone}">${escapeHtml(value)}</div>${note ? `<div class="unified-summary-note">${escapeHtml(note)}</div>` : ''}</div>`;
-}
-
 function renderUnifiedSortLabel(month, field, label) {
   const sort = getUnifiedOutflowSort(month);
   if (sort.field !== field) return label;

@@ -291,12 +291,6 @@ function setPatrimonioPeriod(value) {
   renderPatrimonio();
 }
 
-function setPatrimonioMovementFilter(value) {
-  patrimonioFilters.movementType = value;
-  saveUIState();
-  renderPatrimonio();
-}
-
 function renderPatrimonioMetrics() {
   const container = document.getElementById('patrimonioMetrics');
   if (!container) return;

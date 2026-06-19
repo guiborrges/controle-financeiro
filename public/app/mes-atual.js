@@ -1258,23 +1258,6 @@ function renderUnifiedCardLabel(card, fallbackName = 'Cartão') {
   return `<span class="unified-card-inline-label"><span class="smart-icon-badge smart-bank-badge ${className}" aria-hidden="true">${escapeHtml(short)}</span><span>${escapeHtml(name)}</span></span>`;
 }
 
-function getUnifiedOutflowVisualLabel(visualId) {
-  const allMeta = (typeof globalThis !== 'undefined' && globalThis.PATRIMONIO_INSTITUTION_META)
-    || (typeof window !== 'undefined' && window.PATRIMONIO_INSTITUTION_META)
-    || {};
-  const raw = String(visualId || '').trim();
-  if (!raw) return 'Sem visual';
-  if (raw.startsWith('account:')) {
-    const account = getPatrimonioAccountById(raw.slice(8));
-    return account ? `Conta • ${account.nome}` : 'Conta do patrimônio';
-  }
-  if (raw.startsWith('institution:')) {
-    const key = raw.slice(12);
-    return allMeta[key]?.label || 'Instituição';
-  }
-  return allMeta[raw]?.label || 'Visual';
-}
-
 function getUnifiedSharedNoteHtml(item) {
   if (!(item?.sharedExpense === true)) return '';
   const othersAmount = Math.max(0, Number(item?.sharedOthersAmount || 0) || 0);
@@ -1596,39 +1579,6 @@ function syncUnifiedCardAutoAmount() {
   }
 }
 
-function diagnoseSuspiciousUnifiedCardBills(months = data) {
-  const currentRealSort = getMonthSortValue({ id: getCurrentRealMonthId(false) });
-  const findings = [];
-  (months || []).forEach(month => {
-    const monthSort = getMonthSortValue(month || {});
-    const isPastOrCurrent = monthSort <= currentRealSort;
-    (month?.cardBills || []).forEach(bill => {
-      if (!bill) return;
-      const amount = Math.max(0, Number(bill.amount || 0) || 0);
-      const forecast = Math.max(0, Number(getUnifiedCardRecurringForecastAmount(month, bill.cardId) || bill.forecastAmount || 0) || 0);
-      const reasons = [];
-      if (isPastOrCurrent && amount === 0) reasons.push('past_or_current_bill_zero');
-      if (isPastOrCurrent && bill.manualAmountSet !== true) reasons.push('past_or_current_without_authoritative_flag');
-      if (isPastOrCurrent && forecast > 0 && Number(amount.toFixed(2)) === Number(forecast.toFixed(2)) && bill.manualAmountSet !== true) {
-        reasons.push('matches_recurring_forecast_without_manual_flag');
-      }
-      if (!reasons.length) return;
-      findings.push({
-        monthId: month.id || '',
-        monthName: month.nome || '',
-        cardId: bill.cardId || '',
-        billId: bill.id || '',
-        amount,
-        forecastAmount: forecast,
-        manualAmountSet: bill.manualAmountSet === true,
-        source: bill.source || '',
-        reasons
-      });
-    });
-  });
-  return findings;
-}
-
 function getUnifiedCardLaunchesAmount(month, cardId) {
   ensureUnifiedOutflowPilotMonth(month);
   return (month.outflows || []).reduce((acc, item) => {
@@ -1798,49 +1748,6 @@ function getUnifiedOutflowTagFilterValue(month) {
     month.unifiedOutflowUi.tagFilter = '';
   }
   return '';
-}
-
-function renderUnifiedMonthSummary(month, filterValue, rows) {
-  const metrics = getUnifiedMonthPilotMetrics(month);
-  const countOutflows = rows.filter(row => row.kind === 'outflow').length;
-  const countBills = rows.filter(row => row.kind === 'bill').length;
-  if (filterValue === 'expense') {
-    const fixedOutflows = rows.filter(row => row.kind === 'outflow').map(row => row.item);
-    const bills = rows.filter(row => row.kind === 'bill').map(row => row.item);
-    const total = fixedOutflows.reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0) + bills.reduce((acc, item) => acc + Number(item.amount || 0), 0);
-    const paid = fixedOutflows.filter(item => item.paid).reduce((acc, item) => acc + getUnifiedEffectiveOutflowAmount(item), 0) + bills.filter(item => item.paid).reduce((acc, item) => acc + Number(item.amount || 0), 0);
-    const pending = Math.max(0, total - paid);
-    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Planejamento do mês</div><div class="unified-summary-text">Veja o que precisa ser cobrado neste mês e o que já foi marcado como pago.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total previsto', fmt(total), `${fixedOutflows.length + bills.length} itens nesta visão`)}${renderUnifiedSummaryCard('Já pago', fmt(paid), 'Valores já marcados como quitados', paid > 0 ? 'positive' : '')}${renderUnifiedSummaryCard('Ainda pendente', fmt(pending), 'Valor restante nesta aba', pending > 0 ? 'warning' : 'positive')}</div></div>`;
-  }
-  if (filterValue === 'spend') {
-    const total = rows
-      .filter(row => row.kind === 'outflow' && isComparableDailyGoalSpend(row.item))
-      .reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
-    const target = Number(getDailyGoalTarget(month) || 0);
-    const remaining = target - total;
-    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Consumo por categoria</div><div class="unified-summary-text">Acompanhe o que já foi gasto por categoria e quanto ainda cabe dentro da meta planejada.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total gasto', fmt(total), `${countOutflows} lançamentos nesta visão`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Meta planejada', target > 0 ? fmt(target) : '—', 'Soma das metas das categorias')}${renderUnifiedSummaryCard(remaining >= 0 ? 'Ainda resta' : 'Ultrapassou', fmt(Math.abs(remaining)), remaining >= 0 ? 'Espaço restante dentro da meta' : 'Valor acima da meta', remaining >= 0 ? 'positive' : 'negative')}</div></div>`;
-  }
-  if (filterValue.startsWith('card:')) {
-    const cardId = filterValue.slice(5);
-    const card = (month.outflowCards || []).find(entry => entry.id === cardId);
-    const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
-    const bill = (month.cardBills || []).find(entry => entry.cardId === cardId);
-    const billAmount = getUnifiedCardBillEffectiveAmount(month, bill);
-    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(card?.name || 'Cartão')}</div><div class="unified-summary-text">Aqui você vê o consumo lançado nesse cartão por categoria. A fatura mensal continua sendo controlada separadamente.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total lançado', fmt(total), `${countOutflows} lançamentos neste cartão`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Fechamento', card ? getUnifiedCardClosingDateLabel(month, card) : '—', 'Data de fechamento do cartão')}${renderUnifiedSummaryCard('Fatura do mês', fmt(billAmount), card ? `Pagamento ${getUnifiedCardPaymentDateLabel(month, card)}` : 'Sem data definida', bill?.paid ? 'positive' : 'warning')}</div></div>`;
-  }
-  if (filterValue.startsWith('account:') || filterValue.startsWith('method:')) {
-    const total = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
-    const fixedCount = rows.filter(row => row.kind === 'outflow' && isUnifiedExpenseType(row.item)).length;
-    const spendCount = rows.filter(row => row.kind === 'outflow' && (typeof isUnifiedLaunchOfType === 'function'
-      ? isUnifiedLaunchOfType(row.item, 'spend')
-      : String(row?.item?.type || '').toLowerCase() === 'spend')).length;
-    const title = filterValue.startsWith('account:')
-      ? 'Saídas por conta'
-      : String(filterValue.split(':')[1] || 'Saída').replace(/^./, c => c.toUpperCase());
-    return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">${escapeHtml(title)}</div><div class="unified-summary-text">Visualize tudo o que passou por esse meio de saída, sem misturar com o restante do mês.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total nesta visão', fmt(total), `${countOutflows + countBills} itens filtrados`, total > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas', String(fixedCount), 'Compromissos nessa saída')}${renderUnifiedSummaryCard('Gastos', String(spendCount), 'Lançamentos de consumo nessa saída')}</div></div>`;
-  }
-  const allTotal = rows.filter(row => row.kind === 'outflow').reduce((acc, row) => acc + getUnifiedEffectiveOutflowAmount(row.item), 0);
-  return `<div class="unified-summary"><div class="unified-summary-head"><div><div class="unified-summary-title">Visão geral das saídas</div><div class="unified-summary-text">Use esta aba para ver o mês inteiro junto. Se quiser mais clareza, troque o filtro para compromissos ou consumo.</div></div></div><div class="unified-summary-grid">${renderUnifiedSummaryCard('Total na lista', fmt(allTotal), `${countOutflows + countBills} itens nesta visão`, allTotal > 0 ? 'negative' : '')}${renderUnifiedSummaryCard('Despesas planejadas', fmt(metrics.plannedExpenses), 'Compromissos e metas do mês')}${renderUnifiedSummaryCard('Lançamentos', String(countOutflows + countBills), 'Itens que compõem esta visão')}</div></div>`;
 }
 
 function isUnifiedOutflowCategoryExpanded(month, category) {
@@ -2522,17 +2429,6 @@ function removeUnifiedSpendCategory(category) {
   syncUnifiedOutflowLegacyData(month);
   save(true);
   preserveCurrentScroll(() => renderMes());
-}
-
-function renderUnifiedCardCategoryGroups(month, rows, filterValue) {
-  const cardId = String(filterValue || '').slice(5);
-  const card = (month.outflowCards || []).find(entry => entry.id === cardId);
-  const items = rows.filter(row => row.kind === 'outflow').map(row => row.item);
-  return renderUnifiedCategoryGroups(month, items, {
-    emptyText: 'Nenhuma despesa associada a esse cartão ainda.',
-    includePaymentLabel: false,
-    totalLabel: card ? `Total no ${card.name}` : 'Total no cartão',
-  });
 }
 
 function renderUnifiedMethodRows(month, rows, filterValue) {
@@ -4990,22 +4886,13 @@ function updateProjTableHeaders() {
   });
 }
 
-// Totais de categorias apenas das despesas fixas
-function getFixedCategoryTotals(m) {
-  const totals = {};
-  (m.despesas || []).forEach(d => {
-    const c = (d.categoria || 'OUTROS').toUpperCase();
-    totals[c] = (totals[c] || 0) + d.valor;
-  });
-  return totals;
-}
-
 function renderCatGrid() {
   const m = getCurrentMonth();
   const cats = getVariableCategoryTotals(m);
   const keys = Object.keys(cats);
   const total = keys.reduce((a,k)=>a+(cats[k]||0),0);
   const grid = document.getElementById('catGrid');
+  if (!grid) return;
   if (keys.length === 0) {
     grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><span>📊</span><p>Adicione categorias de gastos variáveis para rastrear onde seu dinheiro vai.</p></div>';
     return;
@@ -5785,11 +5672,6 @@ function recalcTotals(m) {
 // ============================================================
 // CATEGORIAS
 // ============================================================
-function openAddCat() {
-  openModal('modalCat');
-  document.getElementById('modalCatTitle').textContent = 'Adicionar categoria';
-}
-
 function saveCat() {
   const cat = document.getElementById('catNome').value;
   if (!cat) { alert('Informe o nome da categoria'); return; }

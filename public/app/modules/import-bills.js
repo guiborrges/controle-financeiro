@@ -110,17 +110,6 @@
     document.body.appendChild(modal);
   }
 
-  function fmtMoney(value) {
-    const n = Number(value || 0);
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number.isFinite(n) ? n : 0);
-  }
-
-  function fmtShortDate(value) {
-    const ms = Date.parse(String(value || ''));
-    if (!Number.isFinite(ms)) return '--';
-    return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(ms));
-  }
-
   function renderInternetBankingPreview() {
     ensureInternetBankingModal();
     const statusNode = document.getElementById('internetBankingPreviewStatus');

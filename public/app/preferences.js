@@ -322,29 +322,6 @@ async function revokeWidgetToken() {
   }
 }
 
-function formatScriptableBrl(value) {
-  const sign = value < 0 ? '-' : '';
-  const abs = Math.abs(Number(value || 0)).toFixed(2);
-  const [intPart, decimals] = abs.split('.');
-  return `${sign}R$ ${intPart.replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.')},${decimals}`;
-}
-
-function buildScriptableCode(token) {
-  const safeToken = String(token || '').trim();
-  return `// Widget bootstrap temporário — se você estiver vendo isso, gere o código novamente.
-const TOKEN = "${safeToken}";
-const BASE_URL = "${window.location.origin}";
-const UPDATE_URL = BASE_URL + "/api/widget/script/latest?token=" + TOKEN;
-const req = new Request(UPDATE_URL);
-const latest = await req.loadString();
-if (latest && typeof latest === "string") {
-  const fm = FileManager.iCloud();
-  const file = fm.joinPath(fm.documentsDirectory(), Script.name() + ".js");
-  fm.writeString(file, latest);
-}
-Script.complete();`.trim();
-}
-
 async function copyWidgetCode() {
   try {
     if (!_widgetTokenFull) {

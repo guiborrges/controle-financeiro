@@ -250,16 +250,6 @@
     state.defaultLandingApplied = true;
   }
 
-  function syncTabFromCurrentPage() {
-    const activePage = document.querySelector('.page.active')?.id || '';
-    if (activePage === 'page-dashboard') state.currentTab = 'dashboard';
-    else if (activePage === 'page-mes') state.currentTab = 'mes';
-    else if (activePage === 'page-patrimonio') state.currentTab = 'patrimonio';
-    else if (activePage === 'page-historico' || activePage === 'page-eso') state.currentTab = 'historico';
-    else if (activePage === 'page-calendario') state.currentTab = 'calendario';
-    else state.currentTab = state.currentTab || 'dashboard';
-  }
-
   function updateBodyClasses() {
     document.documentElement.classList.toggle('mobile-v2', state.enabled);
     document.body?.classList.toggle('mobile-v2', state.enabled);

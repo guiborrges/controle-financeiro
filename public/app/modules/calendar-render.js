@@ -17,18 +17,6 @@
     return WEEK_DAYS.map(day => `<div class="finance-calendar-weekday">${day}</div>`).join('');
   }
 
-  function parseDayFromDateKey(value, year, monthIndex) {
-    const text = String(value || '').trim();
-    if (!text) return 0;
-    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!match) return 0;
-    const y = Number(match[1] || 0);
-    const m = Number(match[2] || 0) - 1;
-    const d = Number(match[3] || 0);
-    if (y !== year || m !== monthIndex) return 0;
-    return d > 0 ? d : 0;
-  }
-
   function renderDayMarkers(markers) {
     const payment = markers?.payment === true;
     const receiving = markers?.receiving === true;

@@ -1,6 +1,4 @@
 ﻿
-function openAddMeta() { openModal('modalMeta'); }
-
 function saveMeta() {
   const cat = document.getElementById('metaCat').value;
   const val = parseFloat(document.getElementById('metaValor').value);

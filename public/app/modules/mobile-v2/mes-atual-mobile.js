@@ -461,10 +461,6 @@
       }));
   }
 
-  function buildCategoryRows(month) {
-    return getCachedMonthView(month).categoryRows;
-  }
-
   function getEffectiveOutflowAmount(item) {
     const resolver = global.OutflowAmounts?.getEffectiveOutflowAmount || global.getUnifiedEffectiveOutflowAmount;
     const raw = typeof resolver === 'function'

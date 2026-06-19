@@ -216,7 +216,7 @@
         recoveryWrappedKey: nextRecoveryWrappedKey || user.recoveryWrappedKey
       });
       deps.writeUserAppState(user.id, currentState?.state || {}, nextEncryptionKey);
-      return res.json({ ok: true, message: 'Senha redefinida com sucesso. FaÃ§a login com a nova senha.' });
+      return res.json({ ok: true, message: 'Senha redefinida com sucesso. Faça login com a nova senha.' });
     } catch (error) {
       console.error('[auth] falha ao redefinir senha:', error?.message || error);
       return res.status(500).json({ message: 'Nao foi possivel redefinir a senha agora.' });
@@ -238,7 +238,7 @@
       const completeLogin = (passwordOk) => {
         if (!user || !passwordOk) {
           finishLoginTrace(401);
-          return res.status(401).json({ message: 'E-mail ou senha invÃ¡lidos.' });
+          return res.status(401).json({ message: 'E-mail ou senha inválidos.' });
         }
 
         req.session.regenerate(async (error) => {
@@ -331,13 +331,13 @@
       const cleanPasswordHint = String(passwordHint).trim();
 
       if (!cleanFullName || !cleanEmail || !cleanPhone || !cleanBirthDate || !cleanPassword) {
-        return res.status(400).json({ message: 'Preencha todos os campos obrigatÃ³rios.' });
+        return res.status(400).json({ message: 'Preencha todos os campos obrigatórios.' });
       }
       if (!isValidEmail(cleanEmail)) {
-        return res.status(400).json({ message: 'Digite um e-mail vÃ¡lido.' });
+        return res.status(400).json({ message: 'Digite um e-mail válido.' });
       }
       if (!isValidBrazilPhone(cleanPhone)) {
-        return res.status(400).json({ message: 'Digite um celular brasileiro vÃ¡lido.' });
+        return res.status(400).json({ message: 'Digite um celular brasileiro válido.' });
       }
       if (!/^\d{2}\/\d{2}\/\d{4}$/.test(cleanBirthDate)) {
         return res.status(400).json({ message: 'Digite a data de nascimento no formato dd/mm/aaaa.' });
