@@ -1,18 +1,22 @@
 (function initMesAtualTotals(global) {
   'use strict';
 
+  function getEffectiveOutflowAmount(item) {
+    if (typeof global.getUnifiedEffectiveOutflowAmount === 'function') {
+      return Math.max(0, Number(global.getUnifiedEffectiveOutflowAmount(item) || 0) || 0);
+    }
+    if (typeof global.OutflowAmounts?.getEffectiveOutflowAmount === 'function') {
+      return Math.max(0, Number(global.OutflowAmounts.getEffectiveOutflowAmount(item) || 0) || 0);
+    }
+    return Math.max(0, Number(item?.amount || 0) || 0);
+  }
+
   function getUnifiedRecurringSpendPlannedTotal(month) {
-    if (typeof global.ensureUnifiedOutflowPilotMonth === 'function') global.ensureUnifiedOutflowPilotMonth(month);
-    const isSpend = (item) => typeof global.isUnifiedLaunchOfType === 'function'
-      ? global.isUnifiedLaunchOfType(item, 'spend')
-      : String(item?.type || '').toLowerCase() === 'spend';
-    const isRecurring = (item) => typeof global.isUnifiedLaunchRecurring === 'function'
-      ? global.isUnifiedLaunchRecurring(item)
-      : item?.recurringSpend === true || item?.expenseRecurring === true;
     return (month?.outflows || []).reduce((acc, item) => {
-      if (!isSpend(item) || !isRecurring(item)) return acc;
+      if (String(item?.type || '').toLowerCase() !== 'spend') return acc;
+      if (item?.recurringSpend !== true) return acc;
       if (item?.outputKind !== 'card') return acc;
-      return acc + Number(item?.amount || 0);
+      return acc + getEffectiveOutflowAmount(item);
     }, 0);
   }
 

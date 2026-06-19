@@ -250,17 +250,15 @@ function getUnifiedBillingDayFromDateLabel(value) {
 function applyRecurringChangedFieldsToItem(targetItem, sourceItem, changedFields, monthRef, sourceMonthRef = null) {
   changedFields.forEach(field => {
     if (field === 'date' && (isUnifiedRecurringExpense(sourceItem) || sourceItem?.recurringSpend === true)) {
-      if (window.MesAtualOutflowExpenseDate?.getExpenseDateForTargetMonth) {
-        const targetMonthDate = getMonthDateFromMonthObject(monthRef);
-        const resolved = window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(
-          sourceItem?.date || '',
-          sourceMonthRef || getCurrentMonth(),
-          targetMonthDate
-        );
-        if (resolved) {
-          targetItem.date = resolved;
-          return;
-        }
+      const targetMonthDate = getMonthDateFromMonthObject(monthRef);
+      const resolved = window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(
+        sourceItem?.date || '',
+        sourceMonthRef || getCurrentMonth(),
+        targetMonthDate
+      );
+      if (resolved) {
+        targetItem.date = resolved;
+        return;
       }
       const day = getUnifiedBillingDayFromDateLabel(sourceItem?.date || '');
       targetItem.date = buildUnifiedFixedBillingDate(String(day), monthRef);
@@ -1505,18 +1503,7 @@ function getUnifiedCardLaunchesTooltip(month, cardId, cardLaunchesAmount) {
 }
 
 function getUnifiedRecurringSpendPlannedTotal(month) {
-  if (window.MesAtualTotals?.getUnifiedRecurringSpendPlannedTotal) {
-    return window.MesAtualTotals.getUnifiedRecurringSpendPlannedTotal(month);
-  }
-  ensureUnifiedOutflowPilotMonth(month);
-  return (month.outflows || []).reduce((acc, item) => {
-    if (item?.type !== 'spend') return acc;
-    if (item?.recurringSpend !== true) return acc;
-    // Regra de planejamento: não somar fatura/cartão diretamente.
-    // Entram apenas gastos recorrentes vinculados a cartão.
-    if (item?.outputKind !== 'card') return acc;
-    return acc + getUnifiedEffectiveOutflowAmount(item);
-  }, 0);
+  return window.MesAtualTotals.getUnifiedRecurringSpendPlannedTotal(month);
 }
 
 function getUnifiedMonthPilotMetrics(month) {
@@ -2723,11 +2710,8 @@ function resolveUnifiedCardDateInput(rawValue, month = getCurrentMonth()) {
 function getUnifiedCardDateForMonth(sourceDate, sourceMonth, targetMonth) {
   const normalized = normalizeVarDate(sourceDate || '');
   if (!normalized) return '';
-  if (window.MesAtualOutflowExpenseDate?.getExpenseDateForTargetMonth) {
-    const targetMonthDate = getMonthDateFromMonthObject(targetMonth);
-    return window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(normalized, sourceMonth, targetMonthDate) || normalized;
-  }
-  return normalized;
+  const targetMonthDate = getMonthDateFromMonthObject(targetMonth);
+  return window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(normalized, sourceMonth, targetMonthDate) || normalized;
 }
 
 function getUnifiedCardClosingDateLabel(month, card) {
@@ -3860,18 +3844,8 @@ function cloneUnifiedOutflowForMonth(item, targetDate, sourceMonth = null) {
     const nextDay = Math.min(closingDay, maxDay);
     clone.date = `${String(nextDay).padStart(2, '0')}/${String(targetDate.getMonth() + 1).padStart(2, '0')}/${String(targetDate.getFullYear()).slice(-2)}`;
   } else if (isUnifiedExpenseType(clone) && clone.outputKind !== 'card') {
-    if (window.MesAtualOutflowExpenseDate?.getExpenseDateForTargetMonth) {
-      const resolved = window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(clone.date || '', sourceMonth || getCurrentMonth(), targetDate);
-      if (resolved) clone.date = resolved;
-    } else {
-      const normalized = normalizeVarDate(clone.date || '');
-      if (normalized) {
-        const [day] = normalized.split('/');
-        const monthName = Object.keys(MONTH_INDEX).find(name => MONTH_INDEX[name] === targetDate.getMonth()) || 'JANEIRO';
-        const monthRef = { nome: `${monthName} ${targetDate.getFullYear()}` };
-        clone.date = buildUnifiedFixedBillingDate(String(Number(day || 1)), monthRef);
-      }
-    }
+    const resolved = window.MesAtualOutflowExpenseDate.getExpenseDateForTargetMonth(clone.date || '', sourceMonth || getCurrentMonth(), targetDate);
+    if (resolved) clone.date = resolved;
   } else if (clone.date) {
     const normalized = normalizeVarDate(clone.date);
     if (normalized) {

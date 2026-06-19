@@ -75,6 +75,26 @@ test('totals module returns recurring card spend planned total', () => {
   assert.equal(win.MesAtualMonthTotals.calculateMonthResult(100, 20), 80);
 });
 
+test('totals module uses owner share for shared recurring card spend', () => {
+  const win = runModule('../public/app/modules/mes-atual/totals.js', {
+    window: {
+      getUnifiedEffectiveOutflowAmount: item => item.ownerShare
+    }
+  });
+  const total = win.MesAtualTotals.getUnifiedRecurringSpendPlannedTotal({
+    outflows: [
+      {
+        type: 'spend',
+        recurringSpend: true,
+        outputKind: 'card',
+        amount: 150,
+        ownerShare: 50
+      }
+    ]
+  });
+  assert.equal(total, 50);
+});
+
 test('planned expenses excludes card bills and includes goals/daily target', () => {
   const win = runModule('../public/app/modules/mes-atual/totals.js');
   const planned = win.MesAtualMonthTotals.calculateUnifiedPlannedExpenses({
