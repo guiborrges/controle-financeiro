@@ -66,6 +66,39 @@ test('planned expenses excludes card bills and includes goals/daily target', () 
   assert.equal(planned, 1700);
 });
 
+test('recurrence module blocks propagation to months before current month', () => {
+  const win = runModule('../public/app/modules/mes-atual/recurrence.js', {
+    window: {
+      getCurrentRealMonthId: () => 'junho_2026',
+      getAllFinanceMonths: () => [
+        { id: 'maio_2026', order: 5 },
+        { id: 'junho_2026', order: 6 },
+        { id: 'julho_2026', order: 7 }
+      ],
+      getMonthSortValue: (month) => month.order
+    }
+  });
+  assert.equal(win.MesAtualRecurrence.canPropagateRecurringFromMonth({ order: 5 }), false);
+  assert.equal(win.MesAtualRecurrence.canPropagateRecurringFromMonth({ order: 6 }), true);
+  assert.equal(win.MesAtualRecurrence.canPropagateRecurringFromMonth({ order: 7 }), true);
+});
+
+test('canonical month modules load before the month controller', () => {
+  const indexSource = fs.readFileSync(path.join(__dirname, '../public/app/index.html'), 'utf8');
+  const controllerPosition = indexSource.indexOf('/app-assets/mes-atual.js');
+  assert.ok(controllerPosition >= 0, 'mes-atual.js must be loaded');
+
+  [
+    '/app-assets/modules/mes-atual/income-dates.js',
+    '/app-assets/modules/mes-atual/recurrence.js',
+    '/app-assets/modules/mes-atual/shared-expense.js'
+  ].forEach(modulePath => {
+    const modulePosition = indexSource.indexOf(modulePath);
+    assert.ok(modulePosition >= 0, `${modulePath} must be loaded`);
+    assert.ok(modulePosition < controllerPosition, `${modulePath} must load before mes-atual.js`);
+  });
+});
+
 test('outflow-filters module delegates to global filter functions', () => {
   const calls = [];
   const win = runModule('../public/app/modules/mes-atual/outflow-filters.js', {

@@ -961,16 +961,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
 }
 
 function getMonthDateByDayForMonth(day, month) {
-  if (window.IncomeDateRules?.getMonthDateByDayForMonth) {
-    return window.IncomeDateRules.getMonthDateByDayForMonth(day, month, 1);
-  }
-  const parsedDay = Math.max(1, Math.min(31, Number(day || 1) || 1));
-  const base = getMonthDateFromMonthObject(month || getCurrentMonth());
-  const date = new Date(base.getFullYear(), base.getMonth() + 1, 1);
-  const yy = String(date.getFullYear()).slice(-2);
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(parsedDay).padStart(2, '0');
-  return `${dd}/${mm}/${yy}`;
+  return window.IncomeDateRules.getMonthDateByDayForMonth(day, month, 1);
 }
 
 function harmonizeRecurringIncomeReceiveDays(month) {
@@ -1022,56 +1013,19 @@ function normalizeUnifiedOutflowSpendDateInput(rawValue, month) {
 }
 
 function normalizeIncomeReceiveDate(rawValue, month, allowDayOnly = true) {
-  if (window.IncomeDateRules?.normalizeIncomeReceiveDate) {
-    return window.IncomeDateRules.normalizeIncomeReceiveDate(rawValue, month, allowDayOnly);
-  }
-  const raw = String(rawValue || '').trim();
-  if (!raw) return '';
-  if (allowDayOnly && /^\d{1,2}$/.test(raw)) {
-    return normalizeFlexibleDateInput(raw, month, { simpleDayMonthOffset: 1 });
-  }
-  return normalizeVarDate(raw) || '';
+  return window.IncomeDateRules.normalizeIncomeReceiveDate(rawValue, month, allowDayOnly);
 }
 
 function getRecurringIncomeReceiveDay(value) {
-  if (window.IncomeDateRules?.getRecurringIncomeReceiveDay) {
-    return window.IncomeDateRules.getRecurringIncomeReceiveDay(value);
-  }
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  if (/^\d{1,2}$/.test(raw)) {
-    const day = Math.max(1, Math.min(31, Number(raw) || 1));
-    return String(day).padStart(2, '0');
-  }
-  const normalizedDate = normalizeVarDate(raw);
-  if (!normalizedDate) return '';
-  const [dayRaw] = normalizedDate.split('/');
-  const day = Math.max(1, Math.min(31, Number(dayRaw || 1) || 1));
-  return String(day).padStart(2, '0');
+  return window.IncomeDateRules.getRecurringIncomeReceiveDay(value);
 }
 
 function getIncomeReceiveDateLabel(item, month) {
-  if (window.IncomeDateRules?.getIncomeReceiveDateLabel) {
-    return window.IncomeDateRules.getIncomeReceiveDateLabel(item, month);
-  }
-  if (!item) return '—';
-  const recurring = item?.recurringFixed !== false;
-  if (recurring) {
-    const raw = String(item?.dataRecebimento || '').trim();
-    const fullDate = normalizeVarDate(raw);
-    if (fullDate && fullDate.includes('/')) return fullDate;
-    const day = getRecurringIncomeReceiveDay(item?.dataRecebimento || '');
-    if (!day) return '—';
-    return getMonthDateByDayForMonth(day, month);
-  }
-  return normalizeVarDate(String(item?.dataRecebimento || '').trim()) || '—';
+  return window.IncomeDateRules.getIncomeReceiveDateLabel(item, month);
 }
 
 function getIncomeReceiveDateSortValue(item, month) {
-  if (window.IncomeDateRules?.getIncomeReceiveDateSortValue) {
-    return window.IncomeDateRules.getIncomeReceiveDateSortValue(item, month);
-  }
-  return parseData(getIncomeReceiveDateLabel(item, month)) || 0;
+  return window.IncomeDateRules.getIncomeReceiveDateSortValue(item, month);
 }
 
 function getOwnerDisplayName() {
@@ -1101,35 +1055,7 @@ function getSharedParticipantNameSuggestions() {
 }
 
 function getUnifiedSharedComputedValues(totalAmount, peopleCount, mode, peopleRows = []) {
-  const safeTotal = Math.max(0, Number(totalAmount || 0) || 0);
-  const safeCount = Math.max(1, Math.min(20, Number(peopleCount || 1) || 1));
-  const normalizedMode = String(mode || 'equal').toLowerCase() === 'manual' ? 'manual' : 'equal';
-  if (safeCount <= 1) {
-    const sanitizedRows = Array.isArray(peopleRows) ? peopleRows : [];
-    const ownerRow = sanitizedRows.find(row => row?.isOwner === true) || null;
-    const ownerShare = Math.max(0, Number(ownerRow?.amount || 0) || 0);
-    return {
-      ownerShare,
-      othersShare: Math.max(0, safeTotal - ownerShare),
-      participants: sanitizedRows
-    };
-  }
-  if (normalizedMode === 'equal') {
-    const each = safeTotal / safeCount;
-    return {
-      ownerShare: each,
-      othersShare: Math.max(0, safeTotal - each),
-      participants: []
-    };
-  }
-  const sanitizedRows = Array.isArray(peopleRows) ? peopleRows : [];
-  const ownerRow = sanitizedRows.find(row => row?.isOwner === true) || null;
-  const ownerShare = Math.max(0, Number(ownerRow?.amount || 0) || 0);
-  return {
-    ownerShare,
-    othersShare: Math.max(0, safeTotal - ownerShare),
-    participants: sanitizedRows
-  };
+  return window.MesAtualSharedExpense.getUnifiedSharedComputedValues(totalAmount, peopleCount, mode, peopleRows);
 }
 
 function getUnifiedOutflowTags() {
@@ -3951,13 +3877,7 @@ function deleteUnifiedOutflowFromModalList(outflowId) {
 }
 
 function canPropagateRecurringFromMonth(month) {
-  if (window.MesAtualRecurrence?.canPropagateRecurringFromMonth) {
-    return window.MesAtualRecurrence.canPropagateRecurringFromMonth(month);
-  }
-  const currentRealMonthId = getCurrentRealMonthId(false);
-  const currentRealMonth = (data || []).find(entry => entry.id === currentRealMonthId);
-  if (!currentRealMonth) return true;
-  return getMonthSortValue(month) >= getMonthSortValue(currentRealMonth);
+  return window.MesAtualRecurrence.canPropagateRecurringFromMonth(month);
 }
 
 function getIncomeRecurringGroupId(item, fallbackName = '') {
