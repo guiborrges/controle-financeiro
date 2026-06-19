@@ -1929,20 +1929,6 @@ body {
   border-color: rgba(44,95,168,.44);
   background: rgba(44,95,168,.12);
 }
-.month-copy-controls {
-  margin-top: 10px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(255,255,255,.55);
-}
-.month-copy-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
 .month-copy-toggle {
   display: inline-flex;
   align-items: center;
@@ -1963,69 +1949,6 @@ body {
   height: 16px;
   accent-color: var(--accent);
 }
-.month-copy-summary {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: var(--text2);
-  line-height: 1.45;
-}
-.month-copy-picker {
-  margin-top: 12px;
-  display: grid;
-  gap: 12px;
-}
-.month-copy-controls[hidden],
-.month-copy-picker[hidden] {
-  display: none !important;
-}
-.month-copy-group {
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-}
-.month-copy-group h4 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--text2);
-}
-.month-copy-list {
-  display: grid;
-  gap: 8px;
-}
-.month-copy-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(255,255,255,.72);
-}
-.month-copy-item input {
-  width: 16px;
-  height: 16px;
-  margin-top: 2px;
-  accent-color: var(--accent);
-}
-.month-copy-item strong {
-  display: block;
-  font-size: 13px;
-  color: var(--text);
-}
-.month-copy-item span {
-  display: block;
-  font-size: 11px;
-  color: var(--text2);
-  margin-top: 2px;
-}
-.month-copy-empty {
-  font-size: 12px;
-  color: var(--text3);
-  padding: 10px 0 2px;
-}
-
 /* ---- STATUS ---- */
 .app-status {
   position: fixed;

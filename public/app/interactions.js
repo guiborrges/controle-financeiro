@@ -300,10 +300,6 @@ function bindGlobalInteractions() {
   document.addEventListener('mouseup', stopDashboardWidgetResize);
 }
 
-function openEditMonth() {
-  alert('Edite os dados diretamente nas tabelas com duplo clique sobre o campo desejado.');
-}
-
 const __operationLocks = new Set();
 
 async function runExclusiveAction(actionKey, handler) {

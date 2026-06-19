@@ -676,26 +676,6 @@ function buildMonthSelect() {
   updateMonthCalendarLabel();
 }
 
-function deleteCurrentMonth() {
-  if (!currentMonthId) return;
-  if (data.length <= 1) {
-    alert('Você precisa manter pelo menos um mês cadastrado.');
-    return;
-  }
-  const current = getCurrentMonth();
-  if (!current) return;
-  if (!confirm(`Excluir o mês ${current.nome}?`)) return;
-
-  recordHistoryState();
-  const currentIndex = data.findIndex(m => m.id === currentMonthId);
-  data = data.filter(m => m.id !== currentMonthId);
-  const nextMonth = data[currentIndex] || data[currentIndex - 1] || data[data.length - 1];
-  currentMonthId = nextMonth?.id || getDefaultMonthId();
-  save();
-  buildMonthSelect();
-  renderAll();
-}
-
 function getCategoryTotals(m) {
   const totals = {...(m._catOrig || {})};
   const importedCats = new Set(getImportedCategoriesForMonth(m.id));
@@ -905,20 +885,6 @@ function sortDataChronologically() {
   data.sort((a, b) => getMonthSortValue(a) - getMonthSortValue(b));
 }
 
-function getNextMonthInfo(baseMonth) {
-  const monthName = getMonthName(baseMonth);
-  const year = parseInt(getYear(baseMonth), 10);
-  const monthIndex = MONTH_INDEX[monthName];
-  if (monthIndex === undefined || Number.isNaN(year)) {
-    const now = new Date();
-    return { monthName: Object.keys(MONTH_INDEX)[now.getMonth()], year: now.getFullYear() };
-  }
-  const nextIndex = (monthIndex + 1) % 12;
-  const nextYear = year + (monthIndex === 11 ? 1 : 0);
-  const nextMonthName = Object.keys(MONTH_INDEX).find(name => MONTH_INDEX[name] === nextIndex) || 'JANEIRO';
-  return { monthName: nextMonthName, year: nextYear };
-}
-
 function labelResult(listOverride = null) {
   const labels = { simples:'Resultado', fixo:'Resultado', final:'Resultado' };
   const baseList = listOverride && listOverride.length ? listOverride : [getCurrentMonth()];
@@ -1073,14 +1039,6 @@ function onPeriodTypeChange(val) {
   renderAll();
 }
 function setPeriodMonth(v) { periodFilter.month = v; saveUIState(); renderAll(); }
-function setPeriodMonthReal(v) { // yyyy-mm
-  if (!v) return;
-  const [y,m] = v.split('-');
-  const match = data.find(d => d.nome.toLowerCase().includes(`${mesesPT(m)} ${y}`.toLowerCase()));
-  if (match) periodFilter.month = match.id;
-  saveUIState();
-  renderAll();
-}
 function setPeriodYear(v) { periodFilter.year = v; saveUIState(); renderAll(); }
 function setPeriodRange() {
   periodFilter.start = document.getElementById('periodStart').value;
@@ -1088,29 +1046,6 @@ function setPeriodRange() {
   saveUIState();
   renderAll();
 }
-function setPeriodRangeReal() {
-  const s = document.getElementById('periodStartReal').value;
-  const e = document.getElementById('periodEndReal').value;
-  if (s) {
-    const [ys,ms] = s.split('-');
-    const matchS = data.find(d => d.nome.toLowerCase().includes(`${mesesPT(ms)} ${ys}`.toLowerCase()));
-    if (matchS) periodFilter.start = matchS.id;
-  }
-  if (e) {
-    const [ye,me] = e.split('-');
-    const matchE = data.find(d => d.nome.toLowerCase().includes(`${mesesPT(me)} ${ye}`.toLowerCase()));
-    if (matchE) periodFilter.end = matchE.id;
-  }
-  saveUIState();
-  renderAll();
-}
-
-function mesesPT(mNumStr) {
-  const idx = parseInt(mNumStr,10)-1;
-  const arr = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  return arr[idx] || '';
-}
-
 function periodLabel() {
   if (periodFilter.type === 'all') return 'todo o histórico';
   if (periodFilter.type === 'month') {
@@ -1200,45 +1135,6 @@ function handleTitleEditorKeydown(event) {
     event.preventDefault();
     cancelTitleEdit();
   }
-}
-
-function openTitles() {
-  const defaultProjetosTitle = isPrimaryUserEnvironment() ? 'Projetos / entradas extras' : 'Renda extra';
-  document.getElementById('titleInpDesp').value = sectionTitles.despesas;
-  document.getElementById('titleInpRenda').value = sectionTitles.renda;
-  document.getElementById('titleInpGoals').value = sectionTitles.goals || 'Metas financeiras';
-  document.getElementById('titleInpProj').value = sectionTitles.projetos || defaultProjetosTitle;
-  document.getElementById('titleInpVar').value = sectionTitles.variaveis;
-  document.getElementById('titleInpDaily').value = sectionTitles.daily;
-  document.getElementById('titleInpGvsr').value = sectionTitles.gvsr;
-  document.getElementById('titleInpRes').value = sectionTitles.resultchart;
-  document.getElementById('titleInpCatDash').value = sectionTitles.catdash;
-  document.getElementById('titleInpQuick').value = sectionTitles.quickhist;
-  openModal('modalTitles');
-}
-
-function saveTitles() {
-  const defaultProjetosTitle = isPrimaryUserEnvironment() ? 'Projetos / entradas extras' : 'Renda extra';
-  const nextTitles = {
-    despesas: document.getElementById('titleInpDesp').value || 'Despesas',
-    renda: document.getElementById('titleInpRenda').value || 'Renda fixa',
-    goals: document.getElementById('titleInpGoals').value || 'Metas financeiras',
-    projetos: document.getElementById('titleInpProj').value || defaultProjetosTitle,
-    variaveis: document.getElementById('titleInpVar').value || 'Gastos variáveis',
-    daily: document.getElementById('titleInpDaily').value || 'Gastos diários',
-    gvsr: document.getElementById('titleInpGvsr').value || 'Gastos vs Renda',
-    resultchart: document.getElementById('titleInpRes').value || 'Resultado por período selecionado',
-    catdash: document.getElementById('titleInpCatDash').value || 'Categorias',
-    quickhist: document.getElementById('titleInpQuick').value || 'Histórico rápido'
-  };
-  if (JSON.stringify(sectionTitles || {}) !== JSON.stringify(nextTitles)) {
-    recordHistoryState();
-  }
-  sectionTitles = nextTitles;
-  Storage.setJSON(STORAGE_KEYS.titles, sectionTitles);
-  saveUIState();
-  renderTitles();
-  closeModal('modalTitles');
 }
 
 let activeFormHelpTarget = null;

@@ -21,18 +21,6 @@ function resolveExpenseName(name) {
   return currentValue || (name || '').trim();
 }
 
-function resolveIncomeName(name) {
-  let currentKey = normalizeIncomeName(name);
-  let currentValue = (name || '').trim();
-  const visited = new Set();
-  while (incomeNameRenameMap[currentKey] && !visited.has(currentKey)) {
-    visited.add(currentKey);
-    currentValue = incomeNameRenameMap[currentKey];
-    currentKey = normalizeIncomeName(currentValue);
-  }
-  return currentValue || (name || '').trim();
-}
-
 function normalizeCategoryComparable(value) {
   return String(value || '')
     .normalize('NFD')
