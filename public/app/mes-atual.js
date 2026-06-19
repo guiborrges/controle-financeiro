@@ -3656,18 +3656,10 @@ function setUnifiedOutflowModalMode(isSimpleEditMode) {
 }
 
 function getUnifiedOutflowRowsForRecentList(month) {
-  return (month?.outflows || [])
-    .slice()
-    .sort((a, b) => {
-      const aTail = isUnifiedExpenseType(a) || a?.recurringSpend === true;
-      const bTail = isUnifiedExpenseType(b) || b?.recurringSpend === true;
-      if (aTail !== bTail) return aTail ? 1 : -1;
-      const createdDiff = new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
-      if (createdDiff !== 0) return createdDiff;
-      const dateDiff = parseData(b?.date || '') - parseData(a?.date || '');
-      if (dateDiff !== 0) return dateDiff;
-      return String(b?.id || '').localeCompare(String(a?.id || ''), 'pt-BR');
-    });
+  return window.MesAtualOutflows.getRowsForRecentList(month, {
+    parseData,
+    isExpenseType: isUnifiedExpenseType
+  });
 }
 
 function renderUnifiedOutflowModalRecentList() {

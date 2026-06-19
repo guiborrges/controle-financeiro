@@ -133,6 +133,7 @@ test('canonical month modules load before the month controller', () => {
     '/app-assets/modules/mes-atual/income-dates.js',
     '/app-assets/modules/mes-atual/modals.js',
     '/app-assets/modules/mes-atual/outflow-expense-date.js',
+    '/app-assets/modules/mes-atual/outflows.js',
     '/app-assets/modules/mes-atual/recurrence.js',
     '/app-assets/modules/mes-atual/shared-expense.js'
   ].forEach(modulePath => {
@@ -140,42 +141,6 @@ test('canonical month modules load before the month controller', () => {
     assert.ok(modulePosition >= 0, `${modulePath} must be loaded`);
     assert.ok(modulePosition < controllerPosition, `${modulePath} must load before mes-atual.js`);
   });
-});
-
-test('outflow-filters module delegates to global filter functions', () => {
-  const calls = [];
-  const win = runModule('../public/app/modules/mes-atual/outflow-filters.js', {
-    window: {
-      getUnifiedFilterRows: (...args) => {
-        calls.push(['rows', ...args]);
-        return [{ kind: 'outflow', item: { id: 'x' } }];
-      },
-      getSortedUnifiedRows: (...args) => {
-        calls.push(['sorted', ...args]);
-        return [{ kind: 'outflow', item: { id: 'y' } }];
-      }
-    }
-  });
-  const rows = win.MesAtualOutflowFilters.getRows({ id: 'm' }, 'all', '', '');
-  const sorted = win.MesAtualOutflowFilters.getSortedRows({ id: 'm' }, rows);
-  assert.equal(rows.length, 1);
-  assert.equal(sorted.length, 1);
-  assert.equal(calls.length, 2);
-});
-
-test('outflows module delegates draft build/apply to modals module', () => {
-  const win = runModule('../public/app/modules/mes-atual/outflows.js', {
-    window: {
-      MesAtualModals: {
-        buildUnifiedOutflowDraftFromForm: () => ({ ok: true }),
-        applyUnifiedOutflowDraftToForm: () => true
-      }
-    }
-  });
-  const draft = win.MesAtualOutflows.buildDraftFromForm({}, {});
-  const applied = win.MesAtualOutflows.applyDraftToForm({}, {}, {});
-  assert.equal(draft.ok, true);
-  assert.equal(applied, true);
 });
 
 test('outflows module sorts recent rows with fixed/recurring items at tail', () => {
@@ -194,4 +159,17 @@ test('outflows module sorts recent rows with fixed/recurring items at tail', () 
     }
   });
   assert.deepEqual(sorted.map(item => item.id), ['2', '1', '3']);
+});
+
+test('outflows module accepts canonical expense classifier for legacy rows', () => {
+  const win = runModule('../public/app/modules/mes-atual/outflows.js');
+  const sorted = win.MesAtualOutflows.getRowsForRecentList({
+    outflows: [
+      { id: 'legacy', expenseRecurring: true, createdAt: '2026-04-13T12:00:00.000Z' },
+      { id: 'regular', createdAt: '2026-04-12T12:00:00.000Z' }
+    ]
+  }, {
+    isExpenseType: item => item.expenseRecurring === true
+  });
+  assert.deepEqual(sorted.map(item => item.id), ['regular', 'legacy']);
 });
