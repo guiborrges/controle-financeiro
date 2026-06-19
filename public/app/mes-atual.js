@@ -4410,6 +4410,11 @@ function saveUnifiedOutflow() {
 
 function renderMes() {
   const m = getCurrentMonth();
+  if (!m) {
+    const title = document.getElementById('mesTitle');
+    if (title) title.textContent = 'Carregando mês...';
+    return;
+  }
   ensureInheritedDailyGoalCategoriesAcrossData();
   if (m?.id && unifiedLastRenderedMonthId !== m.id) {
     resetUnifiedOutflowViewForMonth(m);

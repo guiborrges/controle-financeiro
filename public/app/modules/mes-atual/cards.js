@@ -53,11 +53,13 @@
     }, 0);
   }
 
-  global.MesAtualCards = {
+  const api = {
     getUnifiedCardBill,
     getUnifiedCardRecurringForecastAmount,
     getUnifiedCardBillEffectiveAmount,
     getUnifiedCardLaunchesAmount
   };
+  global.MesAtualCards = api;
+  global.MesAtualCardBill = api;
 })(window);
 

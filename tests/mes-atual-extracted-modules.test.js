@@ -21,8 +21,8 @@ test('shared-expense module computes owner/others shares', () => {
   assert.equal(Number(result.othersShare.toFixed(2)), 80);
 });
 
-test('card-bill module computes recurring forecast and effective amount', () => {
-  const win = runModule('../public/app/modules/mes-atual/card-bill.js');
+test('cards module computes recurring forecast and effective amount', () => {
+  const win = runModule('../public/app/modules/mes-atual/cards.js');
   const month = {
     outflows: [
       { outputKind: 'card', outputRef: 'c1', recurringSpend: true, amount: 30 },
@@ -40,8 +40,8 @@ test('card-bill module computes recurring forecast and effective amount', () => 
   assert.equal(effective, 50);
 });
 
-test('month-totals module returns recurring card spend planned total', () => {
-  const win = runModule('../public/app/modules/mes-atual/month-totals.js');
+test('totals module returns recurring card spend planned total', () => {
+  const win = runModule('../public/app/modules/mes-atual/totals.js');
   const month = {
     outflows: [
       { type: 'spend', recurringSpend: true, outputKind: 'card', amount: 10 },
@@ -55,7 +55,7 @@ test('month-totals module returns recurring card spend planned total', () => {
 });
 
 test('planned expenses excludes card bills and includes goals/daily target', () => {
-  const win = runModule('../public/app/modules/mes-atual/month-totals.js');
+  const win = runModule('../public/app/modules/mes-atual/totals.js');
   const planned = win.MesAtualMonthTotals.calculateUnifiedPlannedExpenses({
     fixedPlannedTotal: 500,
     recurringSpendPlannedTotal: 300,

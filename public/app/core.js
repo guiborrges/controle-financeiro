@@ -387,6 +387,7 @@ function normalizeMonthIdentity(m) {
 }
 
 function normalizeMonth(m) {
+  if (!m || typeof m !== 'object') return null;
   normalizeMonthIdentity(m);
   if (!m.despesas) m.despesas = [];
   if (!m.renda) m.renda = [];
@@ -455,6 +456,7 @@ function normalizeMonth(m) {
     });
   }
   if (canUseBundledFinanceData()) ensureImportedBreakdown(m);
+  return m;
 }
 
 function buildImportedBreakdownEntries(monthId) {
