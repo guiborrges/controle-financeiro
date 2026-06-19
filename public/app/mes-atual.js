@@ -806,13 +806,7 @@ function normalizeUnifiedCardBill(month, bill, idx = 0) {
 }
 
 function getUnifiedCardBillEffectiveAmount(month, bill) {
-  if (!bill) return 0;
-  const source = String(bill.source || '').toLowerCase();
-  const amount = Math.max(0, Number(bill.amount || 0) || 0);
-  if (bill.manualAmountSet === true || (source !== 'forecast' && amount > 0)) {
-    return Math.max(0, Number(bill.amount || 0) || 0);
-  }
-  return Math.max(0, Number(bill.forecastAmount || 0) || 0);
+  return window.MesAtualCards.getUnifiedCardBillEffectiveAmount(month, bill);
 }
 
 function resolveUnifiedBillCardId(month, rawCardId) {

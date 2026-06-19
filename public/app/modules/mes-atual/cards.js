@@ -28,12 +28,9 @@
     const source = String(bill?.source || '').toLowerCase();
     const rawAmount = Math.max(0, Number(bill?.amount || 0) || 0);
     if (bill?.manualAmountSet === true || (source !== 'forecast' && rawAmount > 0)) {
-      return Math.max(0, Number(bill?.amount || 0) || 0);
+      return rawAmount;
     }
-    const storedForecast = Math.max(0, Number(bill?.forecastAmount || 0) || 0);
-    if (storedForecast > 0) return storedForecast;
-    const forecast = getUnifiedCardRecurringForecastAmount(month, bill?.cardId);
-    return Math.max(0, Number(forecast || 0) || 0);
+    return Math.max(0, Number(bill?.forecastAmount || 0) || 0);
   }
 
   function getUnifiedCardLaunchesAmount(month, cardId) {
