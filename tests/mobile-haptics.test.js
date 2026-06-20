@@ -56,12 +56,14 @@ test('iOS fallback creates one hidden switch and clicks its label', () => {
     maxTouchPoints: 5,
     vibrate(pattern) { vibrateCalls.push(pattern); return true; }
   });
+  assert.equal(elements.size, 2, 'the native switch must exist before the first user gesture');
   assert.equal(window.triggerHapticFeedback('selection'), true);
   assert.equal(window.triggerHapticFeedback('light'), true);
   assert.deepEqual(vibrateCalls, []);
   assert.equal(elements.size, 2);
   assert.equal(elements.get('ios-haptic-label').clickCount, 2);
   assert.equal(elements.get('ios-haptic-switch').attributes.switch, '');
+  assert.equal(elements.get('ios-haptic-label').attributes.for, 'ios-haptic-switch');
   assert.equal(elements.get('ios-haptic-switch').style.left, '0');
   assert.equal(elements.get('ios-haptic-switch').style.clipPath, 'inset(50%)');
 });

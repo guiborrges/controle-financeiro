@@ -53,6 +53,7 @@
     label = global.document.createElement('label');
     label.id = IOS_LABEL_ID;
     label.htmlFor = IOS_INPUT_ID;
+    label.setAttribute('for', IOS_INPUT_ID);
     label.setAttribute('aria-hidden', 'true');
     applyHiddenControlStyle(label);
 
@@ -79,4 +80,9 @@
 
   global.HapticFeedback = Object.freeze({ trigger: triggerHapticFeedback });
   global.triggerHapticFeedback = triggerHapticFeedback;
+
+  if (isIOSLikeBrowser()) {
+    if (global.document?.body) ensureIOSHapticSwitch();
+    else global.document?.addEventListener?.('DOMContentLoaded', ensureIOSHapticSwitch, { once: true });
+  }
 })(window);
