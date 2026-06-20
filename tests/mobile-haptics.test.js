@@ -49,12 +49,21 @@ test('haptics use navigator.vibrate when the browser accepts it', () => {
 });
 
 test('iOS fallback creates one hidden switch and clicks its label', () => {
-  const { window, elements } = loadHaptics({});
+  const vibrateCalls = [];
+  const { window, elements } = loadHaptics({
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)',
+    platform: 'iPhone',
+    maxTouchPoints: 5,
+    vibrate(pattern) { vibrateCalls.push(pattern); return true; }
+  });
   assert.equal(window.triggerHapticFeedback('selection'), true);
   assert.equal(window.triggerHapticFeedback('light'), true);
+  assert.deepEqual(vibrateCalls, []);
   assert.equal(elements.size, 2);
   assert.equal(elements.get('ios-haptic-label').clickCount, 2);
   assert.equal(elements.get('ios-haptic-switch').attributes.switch, '');
+  assert.equal(elements.get('ios-haptic-switch').style.left, '0');
+  assert.equal(elements.get('ios-haptic-switch').style.clipPath, 'inset(50%)');
 });
 
 test('no other app module calls navigator.vibrate directly', () => {

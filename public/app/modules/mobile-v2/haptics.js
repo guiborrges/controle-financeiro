@@ -11,15 +11,26 @@
     selection: 5
   });
 
-  function applyHiddenControlStyle(element) {
+  function isIOSLikeBrowser() {
+    const navigator = global.navigator || {};
+    const userAgent = String(navigator.userAgent || '');
+    const platform = String(navigator.platform || '');
+    return /iPad|iPhone|iPod/i.test(userAgent)
+      || (platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1);
+  }
+
+  function applyHiddenControlStyle(element, nativeSwitch = false) {
     Object.assign(element.style, {
       position: 'fixed',
-      opacity: '0',
-      width: '1px',
-      height: '1px',
+      opacity: '0.0001',
+      width: nativeSwitch ? '51px' : '1px',
+      height: nativeSwitch ? '31px' : '1px',
       pointerEvents: 'none',
-      left: '-9999px',
-      top: '-9999px'
+      left: '0',
+      top: '0',
+      margin: '0',
+      clipPath: 'inset(50%)',
+      overflow: 'hidden'
     });
   }
 
@@ -37,7 +48,7 @@
     input.setAttribute('switch', '');
     input.setAttribute('aria-hidden', 'true');
     input.tabIndex = -1;
-    applyHiddenControlStyle(input);
+    applyHiddenControlStyle(input, true);
 
     label = global.document.createElement('label');
     label.id = IOS_LABEL_ID;
@@ -52,7 +63,7 @@
   function triggerHapticFeedback(type = 'light') {
     try {
       const pattern = PATTERNS[type] || PATTERNS.light;
-      if (typeof global.navigator?.vibrate === 'function') {
+      if (!isIOSLikeBrowser() && typeof global.navigator?.vibrate === 'function') {
         const accepted = global.navigator.vibrate(pattern);
         if (accepted !== false) return true;
       }
