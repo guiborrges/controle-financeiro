@@ -9,7 +9,7 @@ Este projeto roda com backend em Node.js + Express, suporta múltiplos usuários
   - backend em `server/`
   - frontend em `public/`
 - Os arquivos JS/HTML/CSS da raiz foram neutralizados para compatibilidade e **não** são a fonte ativa.
-- As pastas `render-deploy/` e `render-upload/` são cópias de apoio para empacotamento/deploy e não devem ser usadas como base principal de desenvolvimento.
+- O deploy usa diretamente esta raiz canônica. Não mantenha cópias paralelas como `render-deploy/` ou `render-upload/`, pois elas ficam desatualizadas e são enviadas desnecessariamente para a Oracle.
 
 ## Estrutura principal
 
