@@ -553,6 +553,8 @@
     if (submit) submit.textContent = 'Salvar';
     const title = document.querySelector('#mobileV2OutflowFormBody .form-title');
     if (title) title.textContent = 'Editar lançamento';
+    sheet.style.display = '';
+    sheet.removeAttribute('hidden');
     sheet.classList.add('open');
     document.body.classList.add('mobile-v2-sheet-open');
   }
