@@ -440,7 +440,7 @@
       global.MobileV2?.setTab?.('mes');
       global.MobileV2?.refresh?.();
       global.MobileV2Enhancements?.notifyDataChanged?.('outflow-save');
-      global.MobileV2Enhancements?.haptic?.('light');
+      global.triggerHapticFeedback?.('light');
       if (!payload.editId && createdId && typeof global.openUnifiedOutflowModal === 'function') {
         global.setTimeout(() => global.openUnifiedOutflowModal(createdId), 140);
       }

@@ -18,16 +18,6 @@
     return global.MobileV2?.isEnabled?.() === true || document.documentElement.classList.contains('mobile-v2');
   }
 
-  function haptic(type = 'light') {
-    if (!navigator.vibrate) return;
-    const patterns = {
-      light: 10,
-      medium: 20,
-      error: [30, 50, 30]
-    };
-    try { navigator.vibrate(patterns[type] || patterns.light); } catch {}
-  }
-
   function ensureToastRoot() {
     let root = document.getElementById('mobileV2ToastRoot');
     if (root) return root;
@@ -215,11 +205,11 @@
     };
     const didWrapSave = wrap('save', () => notifyDataChanged('save'));
     wrap('saveUnifiedOutflow', () => {
-      haptic('light');
+      global.triggerHapticFeedback?.('light');
       notifyDataChanged('saveUnifiedOutflow');
     });
     wrap('deleteUnifiedOutflow', () => {
-      haptic('medium');
+      global.triggerHapticFeedback?.('medium');
       notifyDataChanged('deleteUnifiedOutflow');
     });
     state.patched = didWrapSave || state.patched;
@@ -271,7 +261,7 @@
       }
       document.dispatchEvent(new CustomEvent('mobileDataChanged', { detail: { reason: 'pull-refresh' } }));
       global.MobileV2?.refresh?.();
-      haptic('light');
+      global.triggerHapticFeedback?.('light');
     } finally {
       setLoading(false);
       state.refreshInFlight = false;
@@ -544,7 +534,7 @@
 
   global.showToast = global.showToast || showToast;
   global.MobileV2Enhancements = {
-    haptic,
+    haptic: global.triggerHapticFeedback,
     showToast,
     notifyDataChanged,
     refreshFromServer

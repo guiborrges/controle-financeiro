@@ -93,7 +93,7 @@
       }
     }
     if (fab) fab.classList.remove('open');
-    global.MobileV2Enhancements?.haptic?.('light');
+    global.triggerHapticFeedback?.('light');
   }
 
   function hideFabTemporarily(duration = 280) {
@@ -120,7 +120,7 @@
     menu.removeAttribute('hidden');
     menu.classList.add('open');
     fab.classList.add('open');
-    global.MobileV2Enhancements?.haptic?.('light');
+    global.triggerHapticFeedback?.('light');
   }
 
   function toggleFabMenu() {

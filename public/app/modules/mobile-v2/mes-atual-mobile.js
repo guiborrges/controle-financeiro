@@ -944,7 +944,7 @@
           if (undone) return;
           global.deleteUnifiedOutflow(id);
           global.MobileV2Enhancements?.notifyDataChanged?.('outflow-delete');
-          global.MobileV2Enhancements?.haptic?.('medium');
+          global.triggerHapticFeedback?.('medium');
           global.MobileV2?.refresh?.();
         };
         const undo = () => {
@@ -1127,7 +1127,7 @@
     const idx = allMonths.findIndex((entry) => entry?.id === current.id);
     if (idx <= 0 || typeof global.selectMonth !== 'function') return;
     global.selectMonth(allMonths[idx - 1].id);
-    global.MobileV2Enhancements?.haptic?.('light');
+    global.triggerHapticFeedback?.('light');
     global.MobileV2?.refresh?.();
   }
 
@@ -1139,7 +1139,7 @@
     const idx = allMonths.findIndex((entry) => entry?.id === current.id);
     if (idx < 0 || idx >= allMonths.length - 1 || typeof global.selectMonth !== 'function') return;
     global.selectMonth(allMonths[idx + 1].id);
-    global.MobileV2Enhancements?.haptic?.('light');
+    global.triggerHapticFeedback?.('light');
     global.MobileV2?.refresh?.();
   }
 
