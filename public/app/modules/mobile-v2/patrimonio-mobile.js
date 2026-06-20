@@ -1,21 +1,7 @@
 ﻿(function initMobileV2Patrimonio(global) {
   'use strict';
 
-  function formatMoney(value) {
-    if (global.MobileV2Data?.formatMoney) return global.MobileV2Data.formatMoney(value);
-    if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
-    return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
-
-  function escapeHtml(value) {
-    if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  const { escapeHtml, formatMoney } = global.MobileV2Data;
 
   function resolveData() {
     if (global.MobileV2Data?.getPatrimonioData) {

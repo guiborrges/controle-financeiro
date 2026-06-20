@@ -1,11 +1,7 @@
 ﻿(function initMobileV2Historico(global) {
   'use strict';
 
-  function formatMoney(value) {
-    if (global.MobileV2Data?.formatMoney) return global.MobileV2Data.formatMoney(value);
-    if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
-    return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
+  const { formatMoney, escapeHtml } = global.MobileV2Data;
 
   function renderHeaderIcon(name, fallback) {
     return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
@@ -51,7 +47,7 @@
         ${rows.length ? rows.map((row) => `
           <article class="m2-recent-item m2-history-row-plain">
             <span>
-              <p class="m2-row-title">${global.escapeHtml ? global.escapeHtml(row.name) : row.name}</p>
+              <p class="m2-row-title">${escapeHtml(row.name)}</p>
               <span class="m2-row-meta">Lançamentos ${formatMoney(row.expenses)} · Renda ${formatMoney(row.income)}</span>
             </span>
             <span class="m2-row-amount ${row.result >= 0 ? 'positive' : 'negative'}">${formatMoney(row.result)}</span>

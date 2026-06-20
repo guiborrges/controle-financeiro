@@ -15,35 +15,10 @@
   let chartAnimationFrame = 0;
   let customRange = null;
 
-  function escapeHtml(value) {
-    if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  const { escapeHtml, formatMoney, categoryIcon: getCategorySymbol } = global.MobileV2Data;
 
   function renderHeaderIcon(name, fallback) {
     return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
-  }
-
-  function formatMoney(value) {
-    if (global.MobileV2Data?.formatMoney) return global.MobileV2Data.formatMoney(value);
-    if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
-    return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
-
-  function getCategorySymbol(categoryName) {
-    if (global.MobileV2Data?.categoryIcon) return global.MobileV2Data.categoryIcon(categoryName);
-    const safeCategory = String(categoryName || 'OUTROS');
-    if (typeof global.renderSmartIconBadge === 'function' && typeof global.inferCategoryVisual === 'function') {
-      const visual = global.inferCategoryVisual(safeCategory);
-      return global.renderSmartIconBadge(visual.icon, visual.tone);
-    }
-    const emoji = typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(safeCategory) : '';
-    return escapeHtml(String(emoji || '•'));
   }
 
   function monthExpenses(month) {

@@ -21,21 +21,7 @@
   const VIRTUAL_THRESHOLD = 80;
   const VIRTUAL_BUFFER = 10;
 
-  function escapeHtml(value) {
-    if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  function formatMoney(value) {
-    return global.MobileV2Data?.formatMoney
-      ? global.MobileV2Data.formatMoney(value)
-      : (typeof global.fmt === 'function' ? global.fmt(Number(value || 0)) : Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-  }
+  const { escapeHtml, formatMoney, categoryIcon: getCategorySymbol, getOutflowRows, getMonthMetrics, getOutflowAmount: getEffectiveOutflowAmount } = global.MobileV2Data;
 
   function renderHeaderIcon(name, fallback) {
     return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
@@ -84,12 +70,6 @@
         close();
       });
     });
-  }
-
-  function getCategorySymbol(categoryName) {
-    return global.MobileV2Data?.categoryIcon
-      ? global.MobileV2Data.categoryIcon(categoryName)
-      : escapeHtml('•');
   }
 
   function parseDateScore(raw) {
@@ -193,20 +173,6 @@
   function getUnifiedCategoryName(item) {
     if (global.MobileV2Data?.getCategoryName) return global.MobileV2Data.getCategoryName(item, 'OUTROS');
     return resolveCategory(item);
-  }
-
-  function getOutflowRows(month) {
-    if (global.MobileV2Data?.getOutflowRows) return global.MobileV2Data.getOutflowRows(month);
-    return [...(Array.isArray(month?.outflows) ? month.outflows : [])]
-      .filter((item) => getEffectiveOutflowAmount(item) > 0)
-      .sort((a, b) => parseDateScore(b?.date) - parseDateScore(a?.date));
-  }
-
-  function getMonthMetrics(month) {
-    if (global.MobileV2Data?.getMonthMetrics) return global.MobileV2Data.getMonthMetrics(month);
-    const renda = 0;
-    const lancamentos = 0;
-    return { renda, despesas: lancamentos, lancamentos, resultado: renda - lancamentos };
   }
 
   function renderPageHeader() {
@@ -459,14 +425,6 @@
         total,
         icon: getCategorySymbol(name)
       }));
-  }
-
-  function getEffectiveOutflowAmount(item) {
-    const resolver = global.OutflowAmounts?.getEffectiveOutflowAmount || global.getUnifiedEffectiveOutflowAmount;
-    const raw = typeof resolver === 'function'
-      ? resolver(item)
-      : (item?.amount ?? item?.valor ?? 0);
-    return Math.max(0, Number(raw || 0) || 0);
   }
 
   function isSpendLaunch(item) {

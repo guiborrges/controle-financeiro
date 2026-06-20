@@ -226,10 +226,6 @@ body {
   background: #f5f8fc;
   color: #182232;
 }
-.btn-delete-month { width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.08); color: rgba(255,255,255,.88); border-radius: 12px; cursor: pointer; font-size: 18px; line-height: 1; transition: all .18s ease; }
-.btn-delete-month:hover { background: rgba(192,57,43,.18); border-color: rgba(192,57,43,.4); color: #fff; }
-.btn-new-month { margin: 0 12px 16px; display: block; background: linear-gradient(135deg, #27503f 0%, #3f705d 100%); color: #fff; border: none; border-radius: 14px; padding: 11px 12px; font-size: 12px; font-family: inherit; cursor: pointer; width: calc(100% - 24px); text-align: center; font-weight: 600; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; box-shadow: 0 12px 26px rgba(36,80,63,.24); }
-.btn-new-month:hover { background: linear-gradient(135deg, #2f5c49 0%, #4d7f68 100%); transform: translateY(-1px); }
 .month-calendar-modal {
   position: fixed;
   width: min(248px, calc(100vw - 24px));
@@ -237,24 +233,6 @@ body {
   flex-direction: column;
   gap: 6px;
   z-index: 520;
-}
-.month-calendar-pill {
-  align-self: flex-start;
-  min-width: 112px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 7px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.1);
-  background: rgba(46,54,65,.96);
-  color: rgba(255,255,255,.88);
-  font-size: 11px;
-  font-family: inherit;
-  text-transform: lowercase;
-  cursor: pointer;
-  box-shadow: 0 12px 26px rgba(13,18,24,.24);
 }
 .month-calendar-card {
   border-radius: 18px;
@@ -538,14 +516,10 @@ body {
   margin: 2px 0 0;
   padding: 0;
 }
-.page-header-main .page-guide.page-guide-compact {
-  margin-top: 2px;
-}
 .page-guide::before {
   content: none;
 }
 .page-guide strong { color: var(--text); font-weight: 600; }
-.page-guide.page-guide-compact { margin-top: 2px; }
 .filter-panel {
   position: relative;
   z-index: 90;
@@ -575,8 +549,6 @@ body {
   backdrop-filter: blur(8px);
 }
 .patrimonio-topbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
-.btn-inline-edit-month { width: 34px; height: 34px; border: 1px solid rgba(41,87,164,.14); background: rgba(41,87,164,.07); color: var(--blue); border-radius: 12px; cursor: pointer; font-size: 15px; line-height: 1; transition: all .18s ease; }
-.btn-inline-edit-month:hover { background: rgba(41,87,164,.12); border-color: rgba(41,87,164,.22); color: #224782; }
 .btn-inline-calendar {
   width: 34px;
   height: 34px;

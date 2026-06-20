@@ -146,8 +146,7 @@ body * {
 [data-theme="dark"] .month-calendar-yearbar,
 [data-theme="dark"] .month-picker-trigger,
 [data-theme="dark"] .btn-primary,
-[data-theme="dark"] .btn-danger,
-[data-theme="dark"] .btn-new-month {
+[data-theme="dark"] .btn-danger {
   background-image: none !important;
 }
 
@@ -244,13 +243,11 @@ body * {
 [data-theme="dark"] .month-picker select,
 [data-theme="dark"] .btn-ghost,
 [data-theme="dark"] .btn-inline-calendar,
-[data-theme="dark"] .btn-inline-edit-month,
 [data-theme="dark"] .top-bell-btn,
 [data-theme="dark"] .tab-btn,
 [data-theme="dark"] .patrimonio-kind-btn,
 [data-theme="dark"] .category-emoji-choice,
-[data-theme="dark"] .month-calendar-arrow,
-[data-theme="dark"] .month-calendar-pill {
+[data-theme="dark"] .month-calendar-arrow {
   background: var(--dark-surface-elevated);
   border-color: var(--dark-border);
   color: var(--dark-text);

@@ -1,5 +1,6 @@
 ﻿(function initMobileV2OutflowForm(global) {
   'use strict';
+  const { escapeHtml } = global.MobileV2Data;
 
   const MODE_LABEL = {
     launch: 'Lançamento',
@@ -57,16 +58,6 @@
 
   function getCurrentMonth() {
     return typeof global.getCurrentMonth === 'function' ? global.getCurrentMonth() : null;
-  }
-
-  function escapeHtml(value) {
-    if (typeof global.escapeHtml === 'function') return global.escapeHtml(value);
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 
   function resolveCategories(month) {
