@@ -194,10 +194,13 @@
     `;
     main.appendChild(root);
 
-    root.querySelector('#mobileV2Fab')?.addEventListener('click', () => {
+    const fab = root.querySelector('#mobileV2Fab');
+    const activateFab = () => {
       if (!state.enabled || state.currentTab !== 'mes') return;
       toggleFabMenu();
-    });
+    };
+    const directHapticBinding = global.HapticFeedback?.bindDirectTarget?.(fab, activateFab);
+    if (!directHapticBinding) fab?.addEventListener('click', activateFab);
     root.querySelector('.m2-fab-scrim')?.addEventListener('click', closeFabMenu);
     root.querySelectorAll('[data-m2-fab-action]').forEach((button) => {
       button.addEventListener('click', () => {

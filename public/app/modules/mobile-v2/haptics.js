@@ -3,6 +3,7 @@
 
   const IOS_INPUT_ID = 'ios-haptic-switch';
   const IOS_LABEL_ID = 'ios-haptic-label';
+  const IOS_DIRECT_TARGET_ID = 'ios-haptic-direct-target';
   const PATTERNS = Object.freeze({
     light: 8,
     medium: 15,
@@ -78,7 +79,78 @@
     }
   }
 
-  global.HapticFeedback = Object.freeze({ trigger: triggerHapticFeedback });
+  function bindDirectHapticTarget(target, onActivate) {
+    if (!isIOSLikeBrowser() || !target || typeof onActivate !== 'function' || !global.document?.body) {
+      return null;
+    }
+
+    global.document.getElementById(IOS_DIRECT_TARGET_ID)?.remove();
+    const input = global.document.createElement('input');
+    input.id = IOS_DIRECT_TARGET_ID;
+    input.type = 'checkbox';
+    input.setAttribute('switch', '');
+    input.setAttribute('aria-label', target.getAttribute?.('aria-label') || 'Ação rápida');
+    input.className = 'ios-haptic-direct-target';
+    Object.assign(input.style, {
+      position: 'fixed',
+      opacity: '0.001',
+      pointerEvents: 'auto',
+      margin: '0',
+      padding: '0',
+      clipPath: 'none',
+      overflow: 'visible',
+      zIndex: '710'
+    });
+    global.document.body.append(input);
+
+    const sync = () => {
+      const rect = target.getBoundingClientRect?.();
+      const isVisible = !!rect && rect.width > 0 && rect.height > 0
+        && target.classList?.contains('show')
+        && !target.hasAttribute?.('hidden');
+      if (!isVisible) {
+        input.style.display = 'none';
+        return;
+      }
+      input.style.display = 'block';
+      input.style.left = `${rect.left}px`;
+      input.style.top = `${rect.top}px`;
+      input.style.width = `${rect.width}px`;
+      input.style.height = `${rect.height}px`;
+    };
+
+    input.addEventListener('click', (event) => {
+      // A trusted tap directly on the native switch is what makes modern Safari emit haptics.
+      onActivate(event);
+      global.requestAnimationFrame?.(sync);
+    });
+
+    const observer = typeof global.MutationObserver === 'function'
+      ? new global.MutationObserver(sync)
+      : null;
+    observer?.observe(target, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+    observer?.observe(global.document.body, { attributes: true, attributeFilter: ['class'] });
+    global.addEventListener?.('resize', sync, { passive: true });
+    global.addEventListener?.('orientationchange', sync, { passive: true });
+    global.requestAnimationFrame?.(sync);
+
+    return Object.freeze({
+      input,
+      sync,
+      destroy() {
+        observer?.disconnect();
+        global.removeEventListener?.('resize', sync);
+        global.removeEventListener?.('orientationchange', sync);
+        input.remove();
+      }
+    });
+  }
+
+  global.HapticFeedback = Object.freeze({
+    trigger: triggerHapticFeedback,
+    bindDirectTarget: bindDirectHapticTarget,
+    isIOSLikeBrowser
+  });
   global.triggerHapticFeedback = triggerHapticFeedback;
 
   if (isIOSLikeBrowser()) {

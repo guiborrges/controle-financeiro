@@ -17,15 +17,23 @@ function createDocument() {
       }
     },
     createElement(tagName) {
+      const listeners = {};
       return {
         tagName,
         id: '',
+        className: '',
         style: {},
         attributes: {},
         clickCount: 0,
         setAttribute(name, value) { this.attributes[name] = value; },
+        getAttribute(name) { return this.attributes[name] ?? null; },
+        hasAttribute(name) { return Object.hasOwn(this.attributes, name); },
+        addEventListener(name, handler) { listeners[name] = handler; },
         remove() { if (this.id) elements.delete(this.id); },
-        click() { this.clickCount += 1; }
+        click() {
+          this.clickCount += 1;
+          listeners.click?.({ isTrusted: true, currentTarget: this });
+        }
       };
     },
     getElementById(id) { return elements.get(id) || null; }
@@ -35,7 +43,17 @@ function createDocument() {
 
 function loadHaptics(navigator) {
   const { document, elements } = createDocument();
-  const window = { document, navigator };
+  const window = {
+    document,
+    navigator,
+    requestAnimationFrame(callback) { callback(); },
+    addEventListener() {},
+    removeEventListener() {},
+    MutationObserver: class {
+      observe() {}
+      disconnect() {}
+    }
+  };
   vm.runInNewContext(source, { window, console });
   return { window, elements };
 }
@@ -66,6 +84,33 @@ test('iOS fallback creates one hidden switch and clicks its label', () => {
   assert.equal(elements.get('ios-haptic-label').attributes.for, 'ios-haptic-switch');
   assert.equal(elements.get('ios-haptic-switch').style.left, '0');
   assert.equal(elements.get('ios-haptic-switch').style.clipPath, 'inset(50%)');
+});
+
+test('modern iOS can bind a directly tapped native switch over the FAB', () => {
+  const { window, elements } = loadHaptics({
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_5 like Mac OS X)',
+    platform: 'iPhone',
+    maxTouchPoints: 5
+  });
+  let activations = 0;
+  const target = {
+    attributes: { 'aria-label': 'Adicionar lançamento' },
+    classList: { contains(name) { return name === 'show'; } },
+    getAttribute(name) { return this.attributes[name] || null; },
+    hasAttribute() { return false; },
+    getBoundingClientRect() { return { left: 100, top: 500, width: 56, height: 56 }; }
+  };
+
+  const binding = window.HapticFeedback.bindDirectTarget(target, () => { activations += 1; });
+  const directInput = elements.get('ios-haptic-direct-target');
+  assert.ok(binding);
+  assert.equal(directInput.attributes.switch, '');
+  assert.equal(directInput.style.pointerEvents, 'auto');
+  assert.equal(directInput.style.clipPath, 'none');
+  assert.equal(directInput.style.left, '100px');
+  assert.equal(directInput.style.width, '56px');
+  directInput.click();
+  assert.equal(activations, 1);
 });
 
 test('no other app module calls navigator.vibrate directly', () => {
