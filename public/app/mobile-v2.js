@@ -306,6 +306,7 @@
     if (!root) return;
     renderScreens(root);
     renderBottomNav(root);
+    global.MobileV2Onboarding?.sync?.({ allowWelcome: false });
   }
 
   function apply() {

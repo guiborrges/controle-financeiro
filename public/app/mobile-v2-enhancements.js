@@ -205,12 +205,35 @@
     };
     const didWrapSave = wrap('save', () => notifyDataChanged('save'));
     wrap('saveUnifiedOutflow', () => {
-      global.triggerHapticFeedback?.('light');
+      global.triggerHapticFeedback?.('confirm');
       notifyDataChanged('saveUnifiedOutflow');
     });
     wrap('deleteUnifiedOutflow', () => {
-      global.triggerHapticFeedback?.('medium');
+      global.triggerHapticFeedback?.('firm');
       notifyDataChanged('deleteUnifiedOutflow');
+    });
+    ['saveUnifiedCard', 'saveItem'].forEach((name) => {
+      wrap(name, () => global.triggerHapticFeedback?.('confirm'));
+    });
+    ['savePatrimonioAccount', 'savePatrimonioMovement'].forEach((name) => {
+      wrap(name, () => {
+        global.triggerHapticFeedback?.('confirm');
+        notifyDataChanged(name);
+      });
+    });
+    [
+      'toggleUnifiedOutflowPaid',
+      'toggleUnifiedCardBillPaid',
+      'toggleUnifiedDirectMethodCategoryPaid',
+      'toggleDespesaSelection',
+      'toggleRendaPaidStatus',
+      'toggleProjetoPaidStatus'
+    ].forEach((name) => wrap(name, () => global.triggerHapticFeedback?.('short')));
+    wrap('openUnifiedOutflowModal', () => global.triggerHapticFeedback?.('light'));
+    wrap('openPatrimonioMovementModal', () => global.triggerHapticFeedback?.('light'));
+    wrap('showAppStatus', (args) => {
+      const tone = String(args?.[2] || args?.[1] || '').toLowerCase();
+      if (tone === 'error' || tone === 'warn') global.triggerHapticFeedback?.('error');
     });
     state.patched = didWrapSave || state.patched;
   }

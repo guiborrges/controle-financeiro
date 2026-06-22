@@ -432,7 +432,7 @@
     if (!target) return;
     const months = getMonthsForPeriod(activePeriod);
     if (!months.length) {
-      target.innerHTML = '<div class="m2-empty">Sem histórico para exibir no dashboard.</div>';
+      target.innerHTML = '<div class="m2-empty m2-empty-rich"><strong>Seu dashboard ficará mais completo conforme você utiliza o sistema.</strong></div>';
       return;
     }
 

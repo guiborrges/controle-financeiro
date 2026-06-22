@@ -249,7 +249,7 @@
     };
   }
 
-  function emptyState(message, actionLabel = 'Adicionar primeiro lançamento') {
+  function emptyState(message, actionLabel = 'Adicionar primeiro lançamento', description = '') {
     return `
       <div class="m2-empty m2-empty-rich">
         <div class="m2-empty-icon" aria-hidden="true">
@@ -259,6 +259,7 @@
           </svg>
         </div>
         <strong>${escapeHtml(message || 'Nenhum lançamento neste mês')}</strong>
+        ${description ? `<span class="m2-empty-description">${escapeHtml(description)}</span>` : ''}
         <button class="m2-chip-btn positive" type="button" data-action="add-first">${escapeHtml(actionLabel)}</button>
       </div>
     `;
@@ -361,7 +362,8 @@
               </article>
             `).join('') : ''}
             ${cardSections}
-            ${(!normalRows.length && !cardSections) ? emptyState('Nenhum lançamento neste mês') : ''}
+            ${(!normalRows.length && !cardSections) ? emptyState('Você ainda não possui lançamentos neste mês.', '+ Adicionar primeiro lançamento') : ''}
+            ${!monthCards.length ? emptyState('Nenhum cartão cadastrado.', '+ Adicionar cartão', 'Cadastre seus cartões para acompanhar faturas e gastos futuros.').replace('data-action="add-first"', 'data-action="add-card"') : ''}
           </div>
         </section>
       </div>
@@ -923,6 +925,7 @@
         const item = (month?.outflows || []).find((entry) => String(entry?.id || '') === id);
         if (global.MobileV2OutflowForm?.openEdit && item) {
           event.preventDefault();
+          global.triggerHapticFeedback?.('light');
           global.MobileV2OutflowForm.openEdit(item);
         } else if (typeof global.openUnifiedOutflowModal === 'function') {
           event.preventDefault();
@@ -944,7 +947,7 @@
           if (undone) return;
           global.deleteUnifiedOutflow(id);
           global.MobileV2Enhancements?.notifyDataChanged?.('outflow-delete');
-          global.triggerHapticFeedback?.('medium');
+          global.triggerHapticFeedback?.('firm');
           global.MobileV2?.refresh?.();
         };
         const undo = () => {
@@ -965,6 +968,10 @@
 
     target.querySelectorAll('[data-action="add-first"]').forEach((btn) => {
       btn.addEventListener('click', () => global.MobileV2AddSheet?.open?.());
+    });
+
+    target.querySelectorAll('[data-action="add-card"]').forEach((btn) => {
+      btn.addEventListener('click', () => global.openUnifiedCardModal?.());
     });
 
     target.querySelectorAll('[data-action="edit-goal"]').forEach((btn) => {
@@ -1067,6 +1074,7 @@
         const paid = btn.getAttribute('data-paid') === '1';
         if (!key || typeof global.toggleReimbursementPersonPaid !== 'function') return;
         global.toggleReimbursementPersonPaid(key, paid);
+        global.triggerHapticFeedback?.('short');
         invalidateCache();
         global.MobileV2?.refresh?.();
       });

@@ -33,6 +33,7 @@
     container.querySelectorAll('[data-mobile-v2-tab]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const key = btn.getAttribute('data-mobile-v2-tab');
+        global.triggerHapticFeedback?.('selection');
         if (typeof onChange === 'function') onChange(key);
       });
     });

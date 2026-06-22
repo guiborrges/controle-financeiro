@@ -499,8 +499,14 @@
         renderSnapshot(snapshot);
       });
       groupNode.querySelector('[data-action="all"]')?.addEventListener('click', async () => {
-        global.PluggyBanking.addAll(accountId);
-        await refresh(false);
+        try {
+          await global.PluggyBanking.addAll(accountId);
+          await refresh(false);
+          global.triggerHapticFeedback?.('successStrong');
+        } catch (error) {
+          global.triggerHapticFeedback?.('error');
+          global.showAppStatus?.(error?.message || 'Não foi possível adicionar os lançamentos.', 'Internet Banking', 'error');
+        }
       });
       groupNode.querySelectorAll('.mobile-banking-row').forEach((rowNode) => {
         const txId = String(rowNode.getAttribute('data-tx-id') || '');
@@ -511,8 +517,14 @@
           });
         });
         rowNode.querySelector('[data-action="ok"]')?.addEventListener('click', async () => {
-          global.PluggyBanking.addOne(accountId, txId);
-          await refresh(false);
+          try {
+            await global.PluggyBanking.addOne(accountId, txId);
+            await refresh(false);
+            global.triggerHapticFeedback?.('confirm');
+          } catch (error) {
+            global.triggerHapticFeedback?.('error');
+            global.showAppStatus?.(error?.message || 'Não foi possível adicionar o lançamento.', 'Internet Banking', 'error');
+          }
         });
         rowNode.querySelector('[data-action="x"]')?.addEventListener('click', async () => {
           global.PluggyBanking.dismiss(accountId, txId);
@@ -525,6 +537,32 @@
   async function open() {
     injectMibStyles();
     if (global.MobileV2?.isEnabled?.() !== true) return;
+    let connected = true;
+    try {
+      const response = await fetch('/api/pluggy/connection', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' }
+      });
+      const payload = await response.json().catch(() => ({}));
+      connected = response.ok && payload?.connected === true;
+    } catch {
+      connected = false;
+    }
+    if (!connected) {
+      global.MobileV2OutflowForm?.openInlineSheet?.({
+        title: 'Internet Banking',
+        subtitle: 'Conecte suas instituições para importar movimentações automaticamente.',
+        body: '<div class="m2-empty m2-empty-rich"><button type="button" class="m2-chip-btn positive" id="mobileV2ConnectBanking">Conectar Internet Banking</button></div>'
+      });
+      requestAnimationFrame(() => {
+        document.getElementById('mobileV2ConnectBanking')?.addEventListener('click', () => {
+          global.MobileV2OutflowForm?.closeInlineSheet?.();
+          if (typeof global.openInternetBankingHub === 'function') global.openInternetBankingHub();
+        });
+      });
+      return;
+    }
     if (!global.PluggyBanking?.getMobileSnapshot) {
       global.MobileV2OutflowForm?.openInlineSheet?.({
         title: 'Internet Banking',
@@ -542,6 +580,7 @@
     try {
       await refresh(true);
     } catch (error) {
+      global.triggerHapticFeedback?.('error');
       const mount = ensureWorkspace();
       if (mount) mount.innerHTML = `<div class="m2-empty">Falha ao carregar Internet Banking: ${escapeHtml(String(error?.message || 'erro desconhecido'))}</div>`;
     }

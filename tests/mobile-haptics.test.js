@@ -66,6 +66,15 @@ test('haptics use navigator.vibrate when the browser accepts it', () => {
   assert.equal(elements.size, 0);
 });
 
+test('semantic haptic patterns distinguish confirmation, strong success and error', () => {
+  const calls = [];
+  const { window } = loadHaptics({ vibrate(pattern) { calls.push(pattern); return true; } });
+  window.HapticFeedback.confirm();
+  window.HapticFeedback.successStrong();
+  window.HapticFeedback.error();
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [[10, 28, 10], [14, 32, 14, 32, 18], [20, 40, 20]]);
+});
+
 test('iOS fallback creates one hidden switch and clicks its label', () => {
   const vibrateCalls = [];
   const { window, elements } = loadHaptics({

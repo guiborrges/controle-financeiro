@@ -7,10 +7,16 @@
   const PATTERNS = Object.freeze({
     light: 8,
     medium: 15,
+    selection: 5,
+    short: 7,
+    confirm: [10, 28, 10],
     success: [10, 30, 10],
+    successStrong: [14, 32, 14, 32, 18],
+    firm: 24,
     error: [20, 40, 20],
-    selection: 5
   });
+  let lastFeedbackAt = 0;
+  let lastFeedbackType = '';
 
   function isIOSLikeBrowser() {
     const navigator = global.navigator || {};
@@ -65,6 +71,10 @@
   function triggerHapticFeedback(type = 'light') {
     try {
       const pattern = PATTERNS[type] || PATTERNS.light;
+      const now = Date.now();
+      if (type === lastFeedbackType && now - lastFeedbackAt < 90) return true;
+      lastFeedbackAt = now;
+      lastFeedbackType = type;
       if (!isIOSLikeBrowser() && typeof global.navigator?.vibrate === 'function') {
         const accepted = global.navigator.vibrate(pattern);
         if (accepted !== false) return true;
@@ -148,6 +158,12 @@
 
   global.HapticFeedback = Object.freeze({
     trigger: triggerHapticFeedback,
+    selection: () => triggerHapticFeedback('selection'),
+    confirm: () => triggerHapticFeedback('confirm'),
+    success: () => triggerHapticFeedback('success'),
+    successStrong: () => triggerHapticFeedback('successStrong'),
+    error: () => triggerHapticFeedback('error'),
+    firm: () => triggerHapticFeedback('firm'),
     bindDirectTarget: bindDirectHapticTarget,
     isIOSLikeBrowser
   });

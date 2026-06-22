@@ -414,7 +414,8 @@
     const planning = document.getElementById('mobileV2PlanningToggle')?.checked === true;
 
     if (!description || !category || !(amount > 0) || !date) {
-      if (typeof global.showAppStatus === 'function') global.showAppStatus('Preencha descrição, categoria, valor e data.', 'error');
+      global.triggerHapticFeedback?.('error');
+      if (typeof global.showAppStatus === 'function') global.showAppStatus('Preencha descrição, categoria, valor e data.', 'Lançamento', 'error');
       else global.alert?.('Preencha descrição, categoria, valor e data.');
       return;
     }
@@ -440,14 +441,15 @@
       global.MobileV2?.setTab?.('mes');
       global.MobileV2?.refresh?.();
       global.MobileV2Enhancements?.notifyDataChanged?.('outflow-save');
-      global.triggerHapticFeedback?.('light');
+      global.triggerHapticFeedback?.('confirm');
       if (!payload.editId && createdId && typeof global.openUnifiedOutflowModal === 'function') {
         global.setTimeout(() => global.openUnifiedOutflowModal(createdId), 140);
       }
       if (typeof global.showToast === 'function') global.showToast(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.');
-      else if (typeof global.showAppStatus === 'function') global.showAppStatus(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.', 'success');
+      else if (typeof global.showAppStatus === 'function') global.showAppStatus(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.', 'Lançamento', 'ok');
     } catch (error) {
-      if (typeof global.showAppStatus === 'function') global.showAppStatus(error?.message || 'Não foi possível adicionar o lançamento.', 'error');
+      global.triggerHapticFeedback?.('error');
+      if (typeof global.showAppStatus === 'function') global.showAppStatus(error?.message || 'Não foi possível adicionar o lançamento.', 'Lançamento', 'error');
       else global.alert?.(error?.message || 'Não foi possível adicionar o lançamento.');
     }
   }

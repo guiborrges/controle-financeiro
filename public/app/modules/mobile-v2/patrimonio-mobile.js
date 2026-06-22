@@ -179,9 +179,9 @@
               </div>
             </article>
           `;
-        }).join('')}</div>` : '<div class="m2-empty">Nenhuma conta patrimonial cadastrada.</div>'}
+        }).join('')}</div>` : '<div class="m2-empty m2-empty-rich"><strong>Adicione suas contas e investimentos para acompanhar sua evolução financeira.</strong></div>'}
         <div class="m2-list-actions">
-          <button class="m2-chip-btn" type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal()">+ Nova conta</button>
+          <button class="m2-chip-btn" type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal()">+ Adicionar patrimônio</button>
         </div>
       </section>
 
