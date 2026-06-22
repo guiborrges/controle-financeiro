@@ -36,7 +36,10 @@
   }
 
   function storageKey() {
-    return `meufin:onboarding:v${VERSION}:${userKey()}`;
+    const resetToken = String(
+      global.__APP_BOOTSTRAP__?.appState?.finOnboardingResetToken || ''
+    ).trim();
+    return `meufin:onboarding:v${VERSION}:${userKey()}:${resetToken || 'default'}`;
   }
 
   function readState() {
