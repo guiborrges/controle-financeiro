@@ -11,7 +11,7 @@
     hiddenAt: 0
   };
   const modulePromises = {};
-  const MOBILE_MODULE_VERSION = '2026-06-16-mobile-parity-banking-categories';
+  const MOBILE_MODULE_VERSION = '2026-06-22-mobile-final-ux-v2';
 
   function closeLeakingMobileSheets() {
     [
@@ -19,7 +19,8 @@
       'mobileV2OutflowSheet',
       'mobileV2FiltersSheet',
       'mobileV2PerfilSheet',
-      'mobileV2DatePickerSheet'
+      'mobileV2DatePickerSheet',
+      'mobileV2InternetBankingSheet'
     ].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;

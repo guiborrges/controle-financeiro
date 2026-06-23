@@ -116,12 +116,20 @@
     global.MobileV2?.refresh?.();
   }
 
+  function dismissOnboarding() {
+    const state = readState();
+    writeState({ ...state, welcomeSeen: true, suppressed: true, dismissedAt: Date.now() });
+    global.triggerHapticFeedback?.('selection');
+    closeLayer();
+  }
+
   function openWelcome() {
     if (!isEnabled()) return;
     const layer = showLayer();
     const panel = layer.querySelector('.m2-onboarding-panel');
     panel.className = 'm2-onboarding-panel is-welcome';
     panel.innerHTML = `
+      <button class="m2-onboarding-close" type="button" aria-label="Encerrar ajuda inicial">×</button>
       <div class="m2-onboarding-mark" aria-hidden="true">M</div>
       <span class="m2-onboarding-eyebrow">SEU CONTROLE COMEÇA AQUI</span>
       <h2>Bem-vindo ao Meufin</h2>
@@ -131,6 +139,7 @@
         <button class="m2-onboarding-secondary" type="button" data-onboarding-later>Fazer depois</button>
       </div>
     `;
+    panel.querySelector('.m2-onboarding-close')?.addEventListener('click', dismissOnboarding);
     panel.querySelector('[data-onboarding-start]')?.addEventListener('click', () => {
       const state = readState();
       writeState({ ...state, welcomeSeen: true });
@@ -175,7 +184,7 @@
         }).join('')}
       </div>
     `;
-    panel.querySelector('.m2-onboarding-close')?.addEventListener('click', closeLayer);
+    panel.querySelector('.m2-onboarding-close')?.addEventListener('click', dismissOnboarding);
     panel.querySelectorAll('[data-onboarding-task]').forEach((button) => {
       button.addEventListener('click', () => runTaskAction(button.getAttribute('data-onboarding-task')));
     });

@@ -198,6 +198,17 @@
         color: var(--text3, #9ca3af);
       }
       .m2-subtitle { font-size: 12px; color: var(--text3, #9ca3af); }
+      .mib-shell { position:fixed; inset:0; z-index:760; display:flex; align-items:flex-end; background:rgba(15,23,42,.34); }
+      .mib-shell[hidden] { display:none !important; }
+      .mib-shell-panel { width:100%; height:min(94dvh,900px); display:flex; flex-direction:column; overflow:hidden; border-radius:24px 24px 0 0; background:var(--bg,#f4f7fb); padding-bottom:env(safe-area-inset-bottom,0px); }
+      .mib-shell-header { min-height:66px; display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:10px; flex:0 0 auto; padding:10px 16px 8px; border-bottom:1px solid var(--border,#e5e7eb); background:color-mix(in srgb,var(--bg,#f4f7fb) 94%,transparent); backdrop-filter:blur(14px); }
+      .mib-shell-close { width:40px; height:40px; display:grid; place-items:center; border:1px solid var(--border,#e5e7eb); border-radius:14px; background:var(--surface-strong,#fff); color:var(--text1,#111827); font-size:22px; }
+      .mib-shell-heading { min-width:0; text-align:center; }
+      .mib-shell-title { display:block; font-size:18px; font-weight:800; letter-spacing:-.025em; }
+      .mib-shell-subtitle { display:block; margin-top:2px; color:var(--text3,#9ca3af); font-size:10px; }
+      .mib-shell-content { min-height:0; flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:12px 12px 24px; }
+      .mib-description-input { width:100%; height:36px; border:1px solid color-mix(in srgb,var(--border,#e5e7eb) 86%,transparent); border-radius:12px; background:var(--surface-strong,#fff); color:var(--text1,#111827); padding:0 10px; font-size:13px; font-weight:700; }
+      .mib-item-fields { display:grid; gap:8px; }
     `;
     document.head.appendChild(style);
   }
@@ -303,10 +314,51 @@
     return Array.from(wrap.options || []).some((option) => String(option.value || '').trim());
   }
 
+  function ensureShell() {
+    let shell = document.getElementById('mobileV2InternetBankingSheet');
+    if (shell) return shell;
+    shell = document.createElement('div');
+    shell.id = 'mobileV2InternetBankingSheet';
+    shell.className = 'mib-shell';
+    shell.setAttribute('hidden', 'hidden');
+    shell.innerHTML = `
+      <section class="mib-shell-panel" role="dialog" aria-modal="true" aria-labelledby="mobileV2InternetBankingTitle">
+        <header class="mib-shell-header">
+          <button class="mib-shell-close" type="button" aria-label="Fechar Internet Banking" data-mib-close>&times;</button>
+          <div class="mib-shell-heading"><strong class="mib-shell-title" id="mobileV2InternetBankingTitle">Internet Banking</strong><span class="mib-shell-subtitle" id="mobileV2InternetBankingSubtitle">Somente lançamentos pendentes</span></div>
+          <span aria-hidden="true"></span>
+        </header>
+        <div class="mib-shell-content" id="mobileV2InternetBankingMount"></div>
+      </section>`;
+    shell.querySelector('[data-mib-close]')?.addEventListener('click', close);
+    document.body.appendChild(shell);
+    return shell;
+  }
+
+  function showShell(subtitle = 'Somente lançamentos pendentes') {
+    const shell = ensureShell();
+    const subtitleNode = shell.querySelector('#mobileV2InternetBankingSubtitle');
+    if (subtitleNode) subtitleNode.textContent = subtitle;
+    shell.style.display = '';
+    shell.removeAttribute('hidden');
+    document.body.classList.add('mobile-v2-sheet-open');
+    global.triggerHapticFeedback?.('light');
+    return shell;
+  }
+
+  function close() {
+    const shell = document.getElementById('mobileV2InternetBankingSheet');
+    if (!shell) return;
+    shell.setAttribute('hidden', 'hidden');
+    document.body.classList.remove('mobile-v2-sheet-open');
+    global.triggerHapticFeedback?.('light');
+    global.MobileV2?.refresh?.();
+  }
+
   function ensureWorkspace() {
     let mount = document.getElementById('mobileV2InternetBankingMount');
     if (mount) return mount;
-    const host = document.getElementById('mobileV2OutflowFormBody');
+    const host = ensureShell()?.querySelector('.mib-shell-content');
     if (!host) return null;
     mount = document.createElement('div');
     mount.id = 'mobileV2InternetBankingMount';
@@ -367,18 +419,20 @@
       const catLabel = row.category || '';
       const fields = isCredit ? `
         <div class="mib-item-fields">
+          <input class="mib-description-input mobile-banking-field" data-field="description" type="text" value="${escapeHtml(row.description || '')}" aria-label="Descrição do lançamento">
           <div class="mib-field-pair">
-            <select class="mib-select mobile-banking-select" data-field="category">
+            <select class="mib-select mobile-banking-field" data-field="category">
               ${categoryOptions(row.category)}
             </select>
-            <select class="mib-select mobile-banking-select" data-field="tag">
+            <select class="mib-select mobile-banking-field" data-field="tag">
               ${tagOptions(row.tag)}
             </select>
           </div>
         </div>
       ` : `
         <div class="mib-item-fields">
-          <select class="mib-select mobile-banking-select" data-field="movementType">
+          <input class="mib-description-input mobile-banking-field" data-field="description" type="text" value="${escapeHtml(row.description || '')}" aria-label="Descrição do lançamento">
+          <select class="mib-select mobile-banking-field" data-field="movementType">
             <option value="aporte" ${row.movementType === 'aporte' ? 'selected' : ''}>Aporte</option>
             <option value="retirada" ${row.movementType === 'retirada' ? 'selected' : ''}>Retirada</option>
           </select>
@@ -510,10 +564,10 @@
       });
       groupNode.querySelectorAll('.mobile-banking-row').forEach((rowNode) => {
         const txId = String(rowNode.getAttribute('data-tx-id') || '');
-        rowNode.querySelectorAll('.mobile-banking-select').forEach((selectNode) => {
-          selectNode.addEventListener('change', () => {
-            const field = String(selectNode.getAttribute('data-field') || '');
-            global.PluggyBanking.updateField(accountId, txId, field, selectNode.value);
+        rowNode.querySelectorAll('.mobile-banking-field').forEach((fieldNode) => {
+          fieldNode.addEventListener('change', () => {
+            const field = String(fieldNode.getAttribute('data-field') || '');
+            global.PluggyBanking.updateField(accountId, txId, field, fieldNode.value);
           });
         });
         rowNode.querySelector('[data-action="ok"]')?.addEventListener('click', async () => {
@@ -537,6 +591,8 @@
   async function open() {
     injectMibStyles();
     if (global.MobileV2?.isEnabled?.() !== true) return;
+    showShell('Verificando conexão...');
+    ensureWorkspace().innerHTML = '<div class="m2-empty">Carregando Internet Banking...</div>';
     let connected = true;
     try {
       const response = await fetch('/api/pluggy/connection', {
@@ -550,33 +606,23 @@
       connected = false;
     }
     if (!connected) {
-      global.MobileV2OutflowForm?.openInlineSheet?.({
-        title: 'Internet Banking',
-        subtitle: 'Conecte suas instituições para importar movimentações automaticamente.',
-        body: '<div class="m2-empty m2-empty-rich"><button type="button" class="m2-chip-btn positive" id="mobileV2ConnectBanking">Conectar Internet Banking</button></div>'
-      });
+      showShell('Conecte suas instituições para importar movimentações');
+      ensureWorkspace().innerHTML = '<div class="m2-empty m2-empty-rich"><button type="button" class="m2-chip-btn positive" id="mobileV2ConnectBanking">Conectar Internet Banking</button></div>';
       requestAnimationFrame(() => {
         document.getElementById('mobileV2ConnectBanking')?.addEventListener('click', () => {
-          global.MobileV2OutflowForm?.closeInlineSheet?.();
+          close();
           if (typeof global.openInternetBankingHub === 'function') global.openInternetBankingHub();
         });
       });
       return;
     }
     if (!global.PluggyBanking?.getMobileSnapshot) {
-      global.MobileV2OutflowForm?.openInlineSheet?.({
-        title: 'Internet Banking',
-        subtitle: 'Pr\u00e9-visualiza\u00e7\u00e3o indispon\u00edvel',
-        body: '<div class="m2-empty">N\u00e3o foi poss\u00edvel abrir os dados do Internet Banking agora.</div>'
-      });
+      showShell('Pr\u00e9-visualiza\u00e7\u00e3o indispon\u00edvel');
+      ensureWorkspace().innerHTML = '<div class="m2-empty">N\u00e3o foi poss\u00edvel abrir os dados do Internet Banking agora.</div>';
       return;
     }
-    global.MobileV2OutflowForm?.openInlineSheet?.({
-      title: 'Internet Banking',
-      subtitle: 'Mostrando somente lan\u00e7amentos pendentes',
-      body: '<div id="mobileV2InternetBankingMount" class="mobile-v2-banking-mount"><div class="m2-empty">Carregando dados...</div></div>'
-    });
-    document.getElementById('mobileV2OutflowSheet')?.classList.add('m2-banking-sheet');
+    showShell('Mostrando somente lan\u00e7amentos pendentes');
+    ensureWorkspace().innerHTML = '<div class="m2-empty">Carregando dados...</div>';
     try {
       await refresh(true);
     } catch (error) {
@@ -588,6 +634,7 @@
 
   global.MobileV2InternetBanking = {
     open,
+    close,
     refresh
   };
 })(window);

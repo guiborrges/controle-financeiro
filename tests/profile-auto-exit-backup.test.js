@@ -191,3 +191,37 @@ test('auto-exit backup rejects invalid csrf token', () => {
   assert.equal(res.statusCode, 403);
   assert.match(String(res.payload?.message || ''), /csrf/i);
 });
+
+test('profile update accepts a compact validated avatar', () => {
+  let savedPatch = null;
+  const { app } = registerWithDeps({
+    updateUser: (_id, patch) => {
+      savedPatch = patch;
+      return { id: 'u1', ...patch };
+    },
+    buildPrivateProfile: (user) => user
+  });
+  const handler = app.routes.get('PUT /api/profile');
+  const avatarDataUrl = `data:image/png;base64,${Buffer.from('avatar').toString('base64')}`;
+  const req = createReq({
+    get: (name) => name === 'X-CSRF-Token' ? 'csrf-token' : '',
+    body: { displayName: 'Teste', email: 'teste@example.com', avatarDataUrl }
+  });
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(savedPatch.avatarDataUrl, avatarDataUrl);
+});
+
+test('profile update rejects unsafe avatar payload', () => {
+  const { app } = registerWithDeps();
+  const handler = app.routes.get('PUT /api/profile');
+  const req = createReq({
+    get: (name) => name === 'X-CSRF-Token' ? 'csrf-token' : '',
+    body: { displayName: 'Teste', email: 'teste@example.com', avatarDataUrl: 'javascript:alert(1)' }
+  });
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 400);
+  assert.match(res.payload.message, /foto do perfil/i);
+});

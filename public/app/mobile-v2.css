@@ -2997,4 +2997,67 @@ html.mobile-v2 #mobileV2Root {
   html.mobile-v2 #modalPreferences .section-body {
     padding: 12px;
   }
+
+  html.mobile-v2 #modalPreferences .widget-preferences-section { display: none !important; }
+
+  html.mobile-v2 .m2-calendar-daily-chart,
+  html.mobile-v2 .m2-calendar-day-details {
+    margin: 12px 16px 0;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface-strong);
+  }
+  html.mobile-v2 .m2-calendar-section-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; }
+  html.mobile-v2 .m2-calendar-section-head strong { font-size:14px; }
+  html.mobile-v2 .m2-calendar-section-head span { color:var(--text3); font-size:10px; text-align:right; }
+  html.mobile-v2 .m2-calendar-bars { height:116px; display:flex; align-items:stretch; gap:2px; overflow-x:auto; scrollbar-width:none; }
+  html.mobile-v2 .m2-calendar-bars::-webkit-scrollbar { display:none; }
+  html.mobile-v2 .m2-calendar-bar { width:16px; min-width:16px; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:5px; padding:0; border:0; background:transparent; }
+  html.mobile-v2 .m2-calendar-bar > span { width:7px; min-height:3px; border-radius:6px 6px 2px 2px; background:color-mix(in srgb,var(--accent) 58%,#fff); transition:height .2s ease; }
+  html.mobile-v2 .m2-calendar-bar.active > span { width:9px; background:var(--accent); }
+  html.mobile-v2 .m2-calendar-bar small { color:var(--text3); font-size:8px; }
+  html.mobile-v2 .cal-day.selected { outline:2px solid var(--accent); outline-offset:-2px; }
+  html.mobile-v2 .m2-calendar-detail-row { width:100%; display:grid; grid-template-columns:36px minmax(0,1fr) auto; align-items:center; gap:10px; padding:10px 0; border:0; border-top:1px solid var(--border); background:transparent; color:var(--text1); text-align:left; }
+  html.mobile-v2 .m2-calendar-detail-row > span:nth-child(2) { min-width:0; }
+  html.mobile-v2 .m2-calendar-detail-row strong, html.mobile-v2 .m2-calendar-detail-row small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  html.mobile-v2 .m2-calendar-detail-row strong { font-size:13px; }
+  html.mobile-v2 .m2-calendar-detail-row small { margin-top:2px; color:var(--text3); font-size:10px; }
+  html.mobile-v2 .m2-calendar-detail-row b { font-size:12px; }
+
+  html.mobile-v2 .m2-settings-sheet .bottom-sheet-panel { max-height:94dvh; padding:0 16px calc(22px + env(safe-area-inset-bottom)); background:var(--bg); }
+  html.mobile-v2 .m2-settings-main-head { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; padding:16px 0 12px; background:var(--bg); }
+  html.mobile-v2 .m2-settings-main-head h2, html.mobile-v2 .m2-settings-subview-head h2 { margin:0; font-size:22px; letter-spacing:-.025em; }
+  html.mobile-v2 .m2-settings-main-head p, html.mobile-v2 .m2-settings-subview-head p { margin:3px 0 0; color:var(--text3); font-size:11px; }
+  html.mobile-v2 .m2-settings-body { padding-bottom:18px; }
+  html.mobile-v2 .m2-settings-identity { display:flex; align-items:center; gap:12px; padding:14px 4px 18px; }
+  html.mobile-v2 .m2-settings-identity strong, html.mobile-v2 .m2-settings-identity small { display:block; }
+  html.mobile-v2 .m2-settings-identity small { margin-top:3px; color:var(--text3); font-size:11px; }
+  html.mobile-v2 .m2-settings-avatar { width:46px; height:46px; display:grid; place-items:center; border-radius:50%; background:var(--accent); color:#fff; font-weight:800; }
+  html.mobile-v2 img.m2-settings-avatar { object-fit:cover; }
+  html.mobile-v2 .m2-settings-avatar.large { width:68px; height:68px; margin:0 auto 6px; font-size:24px; }
+  html.mobile-v2 .m2-settings-group-title { margin:18px 10px 7px; color:var(--text3); font-size:10px; letter-spacing:.09em; text-transform:uppercase; }
+  html.mobile-v2 .m2-settings-group { overflow:hidden; border:1px solid var(--border); border-radius:18px; background:var(--surface-strong); }
+  html.mobile-v2 .m2-settings-row { width:100%; min-height:54px; display:grid; grid-template-columns:32px minmax(0,1fr) 18px; align-items:center; gap:10px; padding:8px 12px; border:0; border-bottom:1px solid var(--border); background:transparent; color:var(--text1); text-align:left; }
+  html.mobile-v2 .m2-settings-row:last-child { border-bottom:0; }
+  html.mobile-v2 .m2-settings-icon { width:30px; height:30px; display:grid; place-items:center; border-radius:9px; background:var(--surface2); color:var(--accent); }
+  html.mobile-v2 .m2-settings-copy strong, html.mobile-v2 .m2-settings-copy small { display:block; }
+  html.mobile-v2 .m2-settings-copy strong { font-size:13px; }
+  html.mobile-v2 .m2-settings-copy small { margin-top:2px; color:var(--text3); font-size:10px; }
+  html.mobile-v2 .m2-settings-chevron { color:var(--text3); font-size:20px; }
+  html.mobile-v2 .m2-settings-logout { width:100%; height:48px; margin-top:20px; border:1px solid color-mix(in srgb,var(--red) 40%,var(--border)); border-radius:16px; background:transparent; color:var(--red); font-weight:700; }
+  html.mobile-v2 .m2-settings-subview-head { display:grid; grid-template-columns:42px minmax(0,1fr); align-items:center; gap:10px; padding:12px 0 18px; }
+  html.mobile-v2 .m2-settings-form { display:grid; gap:12px; }
+  html.mobile-v2 .m2-settings-form label { display:grid; gap:5px; color:var(--text3); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+  html.mobile-v2 .m2-settings-form .m2-avatar-picker { width:max-content; margin:0 auto 4px; padding:8px 13px; border:1px solid var(--border); border-radius:14px; color:var(--accent); background:var(--surface-strong); }
+  html.mobile-v2 .m2-avatar-picker input { position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; }
+  html.mobile-v2 .m2-settings-form input { width:100%; min-height:46px; padding:0 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface-strong); color:var(--text1); font-size:16px; text-transform:none; letter-spacing:0; }
+  html.mobile-v2 .m2-settings-primary { height:48px; border:0; border-radius:15px; background:var(--accent); color:#fff; font-weight:800; }
+  html.mobile-v2 .m2-settings-status { min-height:18px; margin:0; color:var(--text2); font-size:11px; text-align:center; }
+  html.mobile-v2 .m2-widget-card { padding:18px; border:1px solid var(--border); border-radius:20px; background:var(--surface-strong); }
+  html.mobile-v2 .m2-widget-card > p { color:var(--text2); font-size:12px; }
+  html.mobile-v2 .m2-widget-actions { display:grid; gap:8px; }
+  html.mobile-v2 .m2-widget-actions button { min-height:44px; border:1px solid var(--border); border-radius:14px; background:transparent; color:var(--text1); font-weight:700; }
+  html.mobile-v2 .m2-widget-actions button:first-child { border-color:var(--accent); background:var(--accent); color:#fff; }
+  html.mobile-v2 .m2-widget-card ol { padding-left:20px; color:var(--text2); font-size:11px; line-height:1.7; }
 }

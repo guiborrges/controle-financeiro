@@ -75,6 +75,11 @@
   function parseDateScore(raw) {
     const text = String(raw || '').trim();
     if (!text) return 0;
+    if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+      const isoScore = new Date(`${text.slice(0, 10)}T12:00:00`).getTime();
+      return Number.isFinite(isoScore) ? isoScore : 0;
+    }
+    if (/^\d{1,2}$/.test(text)) return Number(text);
     const normalized = typeof global.normalizeVarDate === 'function' ? global.normalizeVarDate(text) : text;
     const parts = String(normalized || '').split('/');
     if (parts.length !== 3) return 0;
@@ -83,11 +88,31 @@
     return new Date(yyyy, Math.max(0, (mm || 1) - 1), dd || 1).getTime() || 0;
   }
 
+  function sortViewsByDateDesc(rows) {
+    return [...(Array.isArray(rows) ? rows : [])].sort((a, b) => {
+      const dateDiff = parseDateScore(b?.date || b?.data || b?.dataRecebimento)
+        - parseDateScore(a?.date || a?.data || a?.dataRecebimento);
+      if (dateDiff) return dateDiff;
+      return String(a?.description || a?.fonte || a?.nome || '')
+        .localeCompare(String(b?.description || b?.fonte || b?.nome || ''), 'pt-BR');
+    });
+  }
+
+  function getDirectMethodTabs(month) {
+    const labels = { pix: 'Pix', dinheiro: 'Dinheiro', debito: 'Débito' };
+    const rows = getCachedMonthView(month).outflowRows;
+    return Object.keys(labels).filter((method) => rows.some((item) =>
+      String(item?.outputKind || '').toLowerCase() === 'method'
+      && String(item?.outputMethod || '').toLowerCase() === method
+    )).map((method) => ({ key: `method:${method}`, method, label: labels[method] }));
+  }
+
   function ensureUiState(month) {
     if (!month) return;
     const monthId = String(month?.id || 'current');
     const state = uiStateByMonth.get(monthId) || { subtab: activeSubtab, allSearch: '' };
-    const isKnownTab = SUBTABS.some((tab) => tab.key === state.subtab) || String(state.subtab || '').startsWith('card:');
+    const isKnownTab = SUBTABS.some((tab) => tab.key === state.subtab)
+      || /^(card|method):/.test(String(state.subtab || ''));
     if (!isKnownTab) state.subtab = activeSubtab;
     if (typeof state.allSearch !== 'string') state.allSearch = '';
     uiStateByMonth.set(monthId, state);
@@ -180,6 +205,7 @@
       <header class="m2-header m2-page-header">
         <div>
           <h2 class="m2-title">Controle dos meses</h2>
+          <p class="m2-subtitle">Acompanhe seu planejamento mês a mês.</p>
         </div>
         <div class="m2-header-actions">
           <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${renderHeaderIcon('search', '⌕')}</button>
@@ -210,6 +236,7 @@
 
   function renderSubtabs() {
     const month = getCurrentMonthSafe();
+    const methodTabs = getDirectMethodTabs(month);
     const cardTabs = (Array.isArray(month?.outflowCards) ? month.outflowCards : [])
       .filter((card) => String(card?.name || '').trim())
       .map((card) => ({
@@ -228,6 +255,9 @@
             <span class="tab-pill-card-icon">${global.SystemIcons?.render ? global.SystemIcons.render('card') : '💳'}</span>
             <span>${escapeHtml(tab.shortLabel)}</span>
           </button>
+        `).join('')}
+        ${methodTabs.map((tab) => `
+          <button type="button" class="tab-pill ${activeSubtab === tab.key ? 'active' : ''}" data-m2-subtab="${tab.key}">${escapeHtml(tab.label)}</button>
         `).join('')}
       </div>
       </div>
@@ -267,10 +297,11 @@
 
   function renderListCard(title, rows, options = {}) {
     const isReadonly = options.readonly === true;
+    const sortedRows = sortViewsByDateDesc(rows);
     return `
       <section class="m-list-card">
         ${title ? `<h3 class="m-list-title">${escapeHtml(title)}</h3>` : ''}
-        ${rows.length ? rows.map((row) => `
+        ${sortedRows.length ? sortedRows.map((row) => `
           <article class="m-item" data-outflow-id="${row.id}">
             <div class="m-item-action"><button class="btn-delete-swipe" type="button" data-action="delete" data-id="${row.id}" aria-label="Excluir">Excluir</button></div>
             <div class="m-item-surface ${isReadonly ? 'static' : ''}" ${isReadonly ? '' : `data-action="edit" data-id="${row.id}"`}>
@@ -325,7 +356,7 @@
             </span>
           </h3>
           <div class="card-items-note">Itens atrelados ao cartão — editar no cartão.</div>
-          ${cardRows.map((row) => {
+          ${sortViewsByDateDesc(cardRows).map((row) => {
             const readonly = row?.raw?.recurringSpend === true;
             return `
             <article class="m-item" data-outflow-id="${row.id}">
@@ -348,7 +379,7 @@
         <section class="m-list-card m2-summary-unified">
           <h3 class="m-list-title">Resumo do mês</h3>
           <div class="m2-summary-block">
-            ${normalRows.length ? normalRows.map((row) => `
+            ${normalRows.length ? sortViewsByDateDesc(normalRows).map((row) => `
               <article class="m-item" data-outflow-id="${row.id}">
                 <div class="m-item-action"><button class="btn-delete-swipe" type="button" data-action="delete" data-id="${row.id}" aria-label="Excluir">Excluir</button></div>
                 <div class="m-item-surface" data-action="edit" data-id="${row.id}">
@@ -397,6 +428,21 @@
         </section>
       </div>
     `;
+  }
+
+  function renderMethodTab(month, method) {
+    const safeMethod = String(method || '').toLowerCase();
+    const labels = { pix: 'Pix', dinheiro: 'Dinheiro', debito: 'Débito' };
+    if (!labels[safeMethod]) return '';
+    const rows = getCachedMonthView(month).outflowRows
+      .filter((item) => String(item?.outputKind || '').toLowerCase() === 'method'
+        && String(item?.outputMethod || '').toLowerCase() === safeMethod)
+      .map(toItemView);
+    if (!rows.length) return '';
+    return `
+      <div class="m2-tab-panel ${activeSubtab === `method:${safeMethod}` ? 'active' : ''}" data-tab-panel="method:${safeMethod}">
+        ${renderListCard(labels[safeMethod], rows)}
+      </div>`;
   }
 
   function buildCategoryRowsFromRows(month, rows) {
@@ -691,7 +737,7 @@
   }
 
   function renderTodos(month) {
-    const allRows = getCachedMonthView(month).outflowRows.map(toItemView);
+    const allRows = sortViewsByDateDesc(getCachedMonthView(month).outflowRows.map(toItemView));
     const uiState = uiStateByMonth.get(String(month?.id || 'current')) || {};
     const searchValue = String(activeFilters.search || uiState.allSearch || '');
     const badgeCount = searchValue.trim() ? 1 : 0;
@@ -719,8 +765,8 @@
   }
 
   function renderRenda(month) {
-    const rendaFixa = month?.renda || [];
-    const rendaExtra = month?.projetos || [];
+    const rendaFixa = sortViewsByDateDesc((month?.renda || []).map((row, index) => ({ ...row, __sourceIndex: index })));
+    const rendaExtra = sortViewsByDateDesc((month?.projetos || []).map((row, index) => ({ ...row, __sourceIndex: index })));
     const monthMetrics = getCachedMonthView(month).metrics;
     const total = Number(monthMetrics?.renda || 0);
 
@@ -728,8 +774,8 @@
       <div class="m2-tab-panel ${activeSubtab === 'renda' ? 'active' : ''}" data-tab-panel="renda">
         <section class="m-list-card">
           <h3 class="m-list-title">Renda do mês</h3>
-          ${rendaFixa.length ? rendaFixa.map((row, index) => `
-            <article class="m-item m-item-income" data-income-type="renda" data-income-index="${index}">
+          ${rendaFixa.length ? rendaFixa.map((row) => `
+            <article class="m-item m-item-income" data-income-type="renda" data-income-index="${row.__sourceIndex}">
               <div class="m-item-surface static">
                 <div class="m-item-cat-icon">${getCategorySymbol('SALÁRIO')}</div>
                 <div class="m-item-info">
@@ -737,14 +783,14 @@
                   <span class="m-item-meta">${escapeHtml(String(row?.dataRecebimento || 'Sem data'))} · ${row?.paid ? 'Recebido' : 'Pendente'}</span>
                 </div>
                 <span class="m-item-value income">${formatMoney(row?.valor || 0)}</span>
-                <button class="m2-icon-mini" type="button" data-action="edit-income" data-income-type="renda" data-income-index="${index}" aria-label="Editar renda">✎</button>
-                <button class="m2-icon-mini danger" type="button" data-action="delete-income" data-income-type="renda" data-income-index="${index}" aria-label="Excluir renda">×</button>
+                <button class="m2-icon-mini" type="button" data-action="edit-income" data-income-type="renda" data-income-index="${row.__sourceIndex}" aria-label="Editar renda">✎</button>
+                <button class="m2-icon-mini danger" type="button" data-action="delete-income" data-income-type="renda" data-income-index="${row.__sourceIndex}" aria-label="Excluir renda">×</button>
               </div>
             </article>
           `).join('') : emptyState('Nenhuma renda fixa cadastrada')}
           <h3 class="m-list-title" style="margin-top:10px">Renda extra</h3>
-          ${rendaExtra.length ? rendaExtra.map((row, index) => `
-            <article class="m-item m-item-income" data-income-type="projeto" data-income-index="${index}">
+          ${rendaExtra.length ? rendaExtra.map((row) => `
+            <article class="m-item m-item-income" data-income-type="projeto" data-income-index="${row.__sourceIndex}">
               <div class="m-item-surface static">
                 <div class="m-item-cat-icon">${getCategorySymbol('OUTROS')}</div>
                 <div class="m-item-info">
@@ -752,8 +798,8 @@
                   <span class="m-item-meta">${escapeHtml(String(row?.dataRecebimento || 'Sem data'))} · ${row?.paid ? 'Recebido' : 'Pendente'}</span>
                 </div>
                 <span class="m-item-value income">${formatMoney(row?.valor || 0)}</span>
-                <button class="m2-icon-mini" type="button" data-action="edit-income" data-income-type="projeto" data-income-index="${index}" aria-label="Editar renda extra">✎</button>
-                <button class="m2-icon-mini danger" type="button" data-action="delete-income" data-income-type="projeto" data-income-index="${index}" aria-label="Excluir renda extra">×</button>
+                <button class="m2-icon-mini" type="button" data-action="edit-income" data-income-type="projeto" data-income-index="${row.__sourceIndex}" aria-label="Editar renda extra">✎</button>
+                <button class="m2-icon-mini danger" type="button" data-action="delete-income" data-income-type="projeto" data-income-index="${row.__sourceIndex}" aria-label="Excluir renda extra">×</button>
               </div>
             </article>
           `).join('') : emptyState('Nenhuma renda extra cadastrada')}
@@ -790,12 +836,16 @@
           outflowId: item.id,
           participantIndex: index,
           description: String(item?.description || 'Compra dividida'),
+          date: String(item?.date || ''),
           amount,
           paid: participant?.paid === true
         });
       });
     });
-    return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    return Array.from(groups.values()).map((group) => ({
+      ...group,
+      rows: sortViewsByDateDesc(group.rows)
+    })).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
 
   function renderReembolsos(month) {
@@ -816,7 +866,7 @@
                   <div class="m-item-surface static">
                     <div class="m-item-info">
                       <span class="m-item-name">${escapeHtml(row.description)}</span>
-                      <span class="m-item-meta">${row.paid ? 'Pago' : 'Pendente'}</span>
+                      <span class="m-item-meta">${escapeHtml(row.date)} · ${row.paid ? 'Pago' : 'Pendente'}</span>
                     </div>
                     <span class="m-item-value income">${formatMoney(row.amount)}</span>
                   </div>
@@ -882,6 +932,7 @@
   function attachListeners(target, month) {
     target.querySelectorAll('[data-m2-subtab]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        global.triggerHapticFeedback?.('selection');
         activeSubtab = btn.getAttribute('data-m2-subtab') || 'planejamento';
         const monthId = String(month?.id || 'current');
         const state = uiStateByMonth.get(monthId) || { allSearch: '' };
@@ -1167,6 +1218,7 @@
       ${renderSubtabs()}
       ${renderPlanejamento(month)}
       ${Array.isArray(month?.outflowCards) ? month.outflowCards.map((card) => renderCardTab(month, card?.id)).join('') : ''}
+      ${getDirectMethodTabs(month).map((tab) => renderMethodTab(month, tab.method)).join('')}
       ${renderGastosMetas(month)}
       ${renderTodos(month)}
       ${renderRenda(month)}
@@ -1188,7 +1240,7 @@
     prevMonth,
     nextMonth,
     setSubtab(tab) {
-      if (SUBTABS.some((entry) => entry.key === tab) || String(tab || '').startsWith('card:')) activeSubtab = tab;
+      if (SUBTABS.some((entry) => entry.key === tab) || /^(card|method):/.test(String(tab || ''))) activeSubtab = tab;
     },
     getActiveFilters: () => ({ ...activeFilters }),
     invalidateCache

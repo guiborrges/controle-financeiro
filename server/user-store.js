@@ -212,6 +212,7 @@ function buildPublicProfile(user) {
     email: user.email || '',
     displayName: user.displayName || user.fullName || user.username,
     fullName: user.fullName || user.displayName || user.username,
+    avatarDataUrl: String(user.avatarDataUrl || ''),
     legacyRecurrenceBackfillRestricted: !!user.legacyRecurrenceBackfillRestricted,
     permissions: {
       canAccessESO: !!user.permissions?.canAccessESO
@@ -228,6 +229,7 @@ function buildPrivateProfile(user) {
     fullName: user.fullName || '',
     birthDate: user.birthDate || '',
     phone: user.phone || '',
+    avatarDataUrl: String(user.avatarDataUrl || ''),
     passwordHint: user.passwordHint || '',
     legacyRecurrenceBackfillRestricted: !!user.legacyRecurrenceBackfillRestricted,
     permissions: {
@@ -254,6 +256,7 @@ function createUser(payload) {
     fullName: String(payload.fullName || '').trim(),
     birthDate: String(payload.birthDate || '').trim(),
     phone: String(payload.phone || '').trim(),
+    avatarDataUrl: String(payload.avatarDataUrl || ''),
     email: normalizeEmail(payload.email),
     passwordHint: String(payload.passwordHint || '').trim(),
     passwordHash: payload.passwordHash,

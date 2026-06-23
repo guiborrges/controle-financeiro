@@ -2,6 +2,7 @@
   'use strict';
 
   const { escapeHtml, formatMoney, categoryIcon: getCategorySymbol } = global.MobileV2Data;
+  const selectedDayByMonth = new Map();
 
   function renderHeaderIcon(name, fallback) {
     return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
@@ -71,6 +72,51 @@
       const end = String(event?.endDate || start);
       return start <= yyyyMmDd && yyyyMmDd <= end;
     });
+  }
+
+  function renderDailyChart(dayMap, selectedDay) {
+    const rows = Array.from(dayMap.entries());
+    const max = Math.max(1, ...rows.map(([, ledger]) => Number(ledger?.outflows || 0)));
+    return `
+      <section class="m2-calendar-daily-chart" aria-label="Gráfico diário de saídas">
+        <div class="m2-calendar-section-head"><strong>Saídas por dia</strong><span>Toque em uma barra para ver o dia</span></div>
+        <div class="m2-calendar-bars">
+          ${rows.map(([day, ledger]) => {
+            const total = Number(ledger?.outflows || 0);
+            const height = total > 0 ? Math.max(8, Math.round((total / max) * 100)) : 3;
+            return `<button type="button" class="m2-calendar-bar ${day === selectedDay ? 'active' : ''}" data-chart-day="${day}" aria-label="Dia ${day}: ${escapeHtml(formatMoney(total))}">
+              <span style="height:${height}%"></span><small>${day}</small>
+            </button>`;
+          }).join('')}
+        </div>
+      </section>`;
+  }
+
+  function renderSelectedDay(month, day, dayMap) {
+    const ledger = dayMap.get(day) || { outflows: 0, launches: [] };
+    const launches = Array.isArray(ledger?.launches) ? ledger.launches : [];
+    const events = getEventsForDay(month, day);
+    return `
+      <section class="m2-calendar-day-details">
+        <div class="m2-calendar-section-head"><strong>Dia ${day}</strong><span>${escapeHtml(formatMoney(Number(ledger?.outflows || 0)))}</span></div>
+        ${launches.map((item) => {
+          const category = String(item?.category || item?.categoria || 'OUTROS');
+          const amount = typeof global.getUnifiedEffectiveOutflowAmount === 'function'
+            ? global.getUnifiedEffectiveOutflowAmount(item)
+            : Math.abs(Number(item?.amount || item?.valor || 0));
+          return `<button type="button" class="m2-calendar-detail-row" data-calendar-edit="${escapeHtml(String(item?.id || ''))}">
+            <span class="m-item-cat-icon">${getCategorySymbol(category)}</span>
+            <span><strong>${escapeHtml(String(item?.description || 'Lançamento'))}</strong><small>${escapeHtml(category)}</small></span>
+            <b>${escapeHtml(formatMoney(amount))}</b>
+          </button>`;
+        }).join('')}
+        ${events.map((event) => `<button type="button" class="m2-calendar-detail-row" data-calendar-event="${escapeHtml(String(event?.id || ''))}">
+          <span class="m-item-cat-icon" style="background:${escapeHtml(String(event?.color || '#9b88f7'))};color:#fff">•</span>
+          <span><strong>${escapeHtml(String(event?.name || 'Evento financeiro'))}</strong><small>Evento</small></span>
+          <b>${Number(event?.budget || 0) > 0 ? escapeHtml(formatMoney(event.budget)) : ''}</b>
+        </button>`).join('')}
+        ${!launches.length && !events.length ? '<div class="m2-empty">Sem lançamentos ou eventos neste dia.</div>' : ''}
+      </section>`;
   }
 
   function openDaySheet(day, items, title, month) {
@@ -148,6 +194,7 @@
     const idx = allMonths.findIndex((m) => m?.id === current?.id);
     if (idx <= 0 || typeof global.selectMonth !== 'function') return;
     global.selectMonth(allMonths[idx - 1].id);
+    global.triggerHapticFeedback?.('light');
     global.MobileV2?.refresh?.();
   }
 
@@ -157,6 +204,7 @@
     const idx = allMonths.findIndex((m) => m?.id === current?.id);
     if (idx < 0 || idx >= allMonths.length - 1 || typeof global.selectMonth !== 'function') return;
     global.selectMonth(allMonths[idx + 1].id);
+    global.triggerHapticFeedback?.('light');
     global.MobileV2?.refresh?.();
   }
 
@@ -183,6 +231,8 @@
     const daysWithLaunches = Array.from(dayMap.values()).filter((ledger) => Array.isArray(ledger?.launches) && ledger.launches.length).length;
     const totalOutflows = Array.from(dayMap.values()).reduce((sum, ledger) => sum + Number(ledger?.outflows || 0), 0);
     const totalEvents = Array.isArray(month?.calendarEvents) ? month.calendarEvents.length : 0;
+    const monthKey = String(month?.id || monthTitle(month));
+    const selectedDay = selectedDayByMonth.get(monthKey) || Math.min(new Date().getDate(), Number(dayContext?.daysInMonth || 31));
 
     target.innerHTML = `
       <header class="m2-header m2-page-header">
@@ -204,7 +254,6 @@
         </div>
         <div class="m2-calendar-actions">
           <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarEventModal && window.openFinanceCalendarEventModal()">${renderHeaderIcon('plus', '+')} Evento</button>
-          <button class="m2-chip-btn subtle" type="button" onclick="window.openFinanceCalendarModal && window.openFinanceCalendarModal(); setTimeout(function(){ window.toggleFinanceCalendarChart && window.toggleFinanceCalendarChart(); }, 0)">${renderHeaderIcon('chart', '◔')} Gráfico diário</button>
         </div>
         <div class="m2-calendar-summary">
           <article class="m2-calendar-summary-card">
@@ -232,7 +281,7 @@
               ? global.FinanceCalendarUtils.getDayIntensityColor(intensity)
               : null;
             return `
-              <button type="button" class="cal-day ${items.length ? 'has-items' : ''}" data-cal-day="${day}" ${tone ? `style="background:${escapeHtml(tone)}"` : ''}>
+              <button type="button" class="cal-day ${items.length ? 'has-items' : ''} ${day === selectedDay ? 'selected' : ''}" data-cal-day="${day}" ${tone ? `style="background:${escapeHtml(tone)}"` : ''}>
                 <span class="cal-day-num">${day}</span>
                 ${total > 0 ? `<span class="cal-day-total">${escapeHtml(formatMoney(total))}</span>` : ''}
               </button>
@@ -240,15 +289,35 @@
           }).join('')}
         </div>
       </section>
+      ${renderDailyChart(dayMap, selectedDay)}
+      ${renderSelectedDay(month, selectedDay, dayMap)}
     `;
 
     target.querySelectorAll('[data-cal-day]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const day = Number(btn.getAttribute('data-cal-day') || 0);
         if (!day) return;
-        const launches = (dayMap.get(day) || { launches: [] }).launches || [];
-        openDaySheet(day, launches, monthTitle(month), month);
+        selectedDayByMonth.set(monthKey, day);
+        global.triggerHapticFeedback?.('selection');
+        render(target);
       });
+    });
+    target.querySelectorAll('[data-chart-day]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedDayByMonth.set(monthKey, Number(btn.getAttribute('data-chart-day') || selectedDay));
+        global.triggerHapticFeedback?.('selection');
+        render(target);
+      });
+    });
+    target.querySelectorAll('[data-calendar-edit]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-calendar-edit');
+        const item = (month?.outflows || []).find((entry) => String(entry?.id || '') === String(id || ''));
+        if (item && global.MobileV2OutflowForm?.openEdit) global.MobileV2OutflowForm.openEdit(item);
+      });
+    });
+    target.querySelectorAll('[data-calendar-event]').forEach((btn) => {
+      btn.addEventListener('click', () => global.openFinanceCalendarEditEventModal?.(btn.getAttribute('data-calendar-event')));
     });
   }
 

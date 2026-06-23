@@ -111,8 +111,14 @@ function registerProfileRoutes(app, deps) {
         birthDate: String(req.body?.birthDate || '').trim(),
         phone: String(req.body?.phone || '').trim(),
         email: String(req.body?.email || '').trim(),
-        passwordHint: String(req.body?.passwordHint || '').trim()
+        passwordHint: String(req.body?.passwordHint || '').trim(),
+        avatarDataUrl: String(req.body?.avatarDataUrl || '').trim()
       };
+      if (nextProfile.avatarDataUrl
+        && (!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(nextProfile.avatarDataUrl)
+          || nextProfile.avatarDataUrl.length > 600000)) {
+        return res.status(400).json({ message: 'A foto do perfil precisa ser PNG, JPEG ou WebP e ter tamanho reduzido.' });
+      }
       const isKeepingLegacyLoginValue = nextProfile.email === (user.email || '');
       if (!isKeepingLegacyLoginValue && !isValidEmail(nextProfile.email)) {
         return res.status(400).json({ message: 'Digite um e-mail válido.' });
