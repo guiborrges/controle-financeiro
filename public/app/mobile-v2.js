@@ -11,7 +11,7 @@
     hiddenAt: 0
   };
   const modulePromises = {};
-  const MOBILE_MODULE_VERSION = '2026-06-23-mobile-stability-v1';
+  const MOBILE_MODULE_VERSION = '2026-06-23-mobile-final-ux-v2';
 
   function closeLeakingMobileSheets() {
     [
@@ -290,7 +290,12 @@
     });
 
     const fab = root.querySelector('#mobileV2Fab');
-    if (fab) fab.classList.toggle('show', state.currentTab === 'mes' && !document.body?.classList.contains('mobile-v2-sheet-open'));
+    if (fab) {
+      const shouldShowFab = state.currentTab === 'mes' && !document.body?.classList.contains('mobile-v2-sheet-open');
+      fab.classList.toggle('show', shouldShowFab);
+      fab.toggleAttribute('hidden', !shouldShowFab);
+      if (!shouldShowFab) fab.classList.remove('open');
+    }
     if (state.currentTab !== 'mes') closeFabMenu();
   }
 
@@ -389,7 +394,8 @@
     openUniversalSearch,
     closeFabMenu,
     setTab,
-    isEnabled: () => state.enabled
+    isEnabled: () => state.enabled,
+    version: MOBILE_MODULE_VERSION
   };
   if (typeof global.getPatrimonioData !== 'function') {
     getPatrimonioData.__mobileV2Fallback = true;

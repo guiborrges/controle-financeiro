@@ -37,7 +37,6 @@
           <p class="m2-subtitle">Comparativo dos últimos meses</p>
         </div>
         <div class="m2-header-actions">
-          <button class="m2-icon-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${renderHeaderIcon('notification', '◌')}</button>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '◯')}</button>
         </div>
       </div>

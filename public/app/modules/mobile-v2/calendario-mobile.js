@@ -281,7 +281,7 @@
               ? global.FinanceCalendarUtils.getDayIntensityColor(intensity)
               : null;
             return `
-              <button type="button" class="cal-day ${items.length ? 'has-items' : ''} ${day === selectedDay ? 'selected' : ''}" data-cal-day="${day}" ${tone ? `style="background:${escapeHtml(tone)}"` : ''}>
+              <button type="button" class="cal-day ${items.length ? 'has-items' : ''} ${day === selectedDay ? 'selected' : ''}" data-cal-day="${day}" ${tone ? `style="--m2-day-tone:${escapeHtml(tone)}"` : ''}>
                 <span class="cal-day-num">${day}</span>
                 ${total > 0 ? `<span class="cal-day-total">${escapeHtml(formatMoney(total))}</span>` : ''}
               </button>

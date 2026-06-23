@@ -68,7 +68,6 @@
       <h3 class="m2-settings-group-title">Sistema</h3>
       <section class="m2-settings-group">
         ${toggleRow('Modo noturno', isDark, 'toggle-theme', 'moon', 'Alterna claro e escuro')}
-        ${row('Preferências do sistema', 'preferences', 'controls', 'Integridade e interface')}
       </section>
       <h3 class="m2-settings-group-title">Integrações</h3>
       <section class="m2-settings-group">
@@ -83,7 +82,7 @@
       <h3 class="m2-settings-group-title">Ajuda</h3>
       <section class="m2-settings-group">
         ${row('Tutorial inicial', 'tutorial', 'help')}
-        ${row('Sobre o Meufin', 'about', 'info')}
+        ${row('Sobre o MeuFin', 'about', 'info')}
       </section>
       <button class="m2-settings-logout" type="button" data-profile-action="logout">Sair da conta</button>`;
     bindActions(root);
@@ -256,18 +255,25 @@
     });
   }
 
-  function openPreferencesLite() {
+  function openAbout() {
     const root = ensureSheet();
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    root.querySelector('.m2-settings-body').innerHTML = shell('Preferências', 'Ajustes simples do sistema', `
-      <section class="m2-settings-group">
-        ${toggleRow('Modo noturno', isDark, 'toggle-theme', 'moon', 'Alterna claro e escuro')}
-        ${row('Verificar integridade', 'integrity', 'shield', 'Checa consistência local')}
-        ${row('Resetar preferências da interface', 'reset-ui', 'settings', 'Não altera dados financeiros')}
-      </section>
-      <p class="m2-settings-status" role="status"></p>`);
+    const version = global.MobileV2?.version || 'mobile-v2';
+    const host = global.location?.host || 'meufin.duckdns.org';
+    root.querySelector('.m2-settings-body').innerHTML = shell('Sobre o MeuFin', 'Controle financeiro pessoal', `
+      <section class="m2-about-card">
+        <div class="m2-about-logo" aria-hidden="true">${icon('logo', icon('chart', 'M'))}</div>
+        <div>
+          <h3>MeuFin</h3>
+          <p>Um gestor financeiro pessoal para organizar lançamentos, cartões, renda, patrimônio, metas, calendário e Internet Banking em uma única experiência.</p>
+        </div>
+        <dl>
+          <div><dt>Versão</dt><dd>${escapeHtml(version)}</dd></div>
+          <div><dt>Plataforma</dt><dd>Web app / PWA</dd></div>
+          <div><dt>Ambiente</dt><dd>${escapeHtml(host)}</dd></div>
+        </dl>
+        <p class="m2-settings-note">Se precisar de ajuda, use o suporte combinado com o administrador do sistema.</p>
+      </section>`);
     root.querySelector('[data-profile-back]')?.addEventListener('click', () => renderHome(root));
-    bindActions(root);
   }
 
   function openRestoreImport() {
@@ -330,7 +336,7 @@
     global.triggerHapticFeedback?.('selection');
     if (action === 'edit-profile') return openProfileEditor();
     if (action === 'security') return openSecurity();
-    if (action === 'preferences') return openPreferencesLite();
+    if (action === 'about') return openAbout();
     if (action === 'restore') return openRestoreImport();
     if (action === 'widget') return openWidget();
     if (action === 'toggle-theme') {
@@ -338,17 +344,14 @@
       global.toggleThemePreference?.(next);
       return renderHome(ensureSheet());
     }
-    if (action === 'integrity') return global.runIntegrityCheck?.(true);
-    if (action === 'reset-ui') return global.resetUIState?.();
     if (action === 'tutorial') { close(); return global.MobileV2Onboarding?.openWelcome?.(); }
     close();
     setTimeout(() => {
       if (action === 'banking') return global.MobileV2?.openInternetBanking?.();
       if (action === 'backup') return global.createManualBackup?.();
-      if (action === 'about') return global.openHelpModal?.();
       if (action === 'logout') return global.logout?.();
     }, 100);
   }
 
-  global.MobileV2PerfilSheet = { ensureSheet, open, close, runAction, openProfileEditor, openWidget };
+  global.MobileV2PerfilSheet = { ensureSheet, open, close, runAction, openProfileEditor, openWidget, openAbout };
 })(window);

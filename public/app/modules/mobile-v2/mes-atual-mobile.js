@@ -204,12 +204,17 @@
     return `
       <header class="m2-header m2-page-header">
         <div>
-          <h2 class="m2-title">Controle dos meses</h2>
+          <h2 class="m2-title">Mês a mês</h2>
           <p class="m2-subtitle">Acompanhe seu planejamento mês a mês.</p>
         </div>
         <div class="m2-header-actions">
           <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${renderHeaderIcon('search', '⌕')}</button>
           <button class="m2-icon-btn" type="button" aria-label="Gerenciar cartões" onclick="window.openUnifiedCardModal && window.openUnifiedCardModal()">${renderHeaderIcon('card', '💳')}</button>
+          <div class="top-notifications m2-mobile-notifications" data-page-notifications="mobile-mes">
+            <button class="m2-icon-btn top-bell-btn" type="button" aria-label="Notificações" onclick="toggleNotificationsPopover(event)">${renderHeaderIcon('notification', '◌')}</button>
+            <span class="top-bell-badge" data-notification-badge style="display:none">0</span>
+            <div class="top-notifications-popover" data-notification-popover></div>
+          </div>
           <button class="m2-icon-btn" type="button" aria-label="Perfil" onclick="MobileV2PerfilSheet.open()">${renderHeaderIcon('user', '◯')}</button>
         </div>
       </header>
@@ -1217,6 +1222,7 @@
     `;
 
     attachListeners(target, month);
+    requestAnimationFrame(() => global.MesAtualNotifications?.renderNotificationBells?.());
     if (activeSubtab === 'gastos-metas') {
       requestAnimationFrame(() => {
         const panel = target.querySelector('[data-tab-panel="gastos-metas"]');

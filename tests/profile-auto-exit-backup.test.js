@@ -213,6 +213,35 @@ test('profile update accepts a compact validated avatar', () => {
   assert.equal(savedPatch.avatarDataUrl, avatarDataUrl);
 });
 
+test('profile update preserves existing avatar when payload omits it', () => {
+  let savedPatch = null;
+  const avatarDataUrl = `data:image/png;base64,${Buffer.from('avatar').toString('base64')}`;
+  const { app } = registerWithDeps({
+    getAuthenticatedUser: () => ({
+      id: 'u1',
+      displayName: 'Atual',
+      email: 'teste@example.com',
+      avatarDataUrl,
+      backupStats: {}
+    }),
+    updateUser: (_id, patch) => {
+      savedPatch = patch;
+      return { id: 'u1', ...patch };
+    },
+    buildPrivateProfile: (user) => user
+  });
+  const handler = app.routes.get('PUT /api/profile');
+  const req = createReq({
+    get: (name) => name === 'X-CSRF-Token' ? 'csrf-token' : '',
+    body: { displayName: 'Teste', email: 'teste@example.com' }
+  });
+  const res = createMockRes();
+  handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(savedPatch.avatarDataUrl, avatarDataUrl);
+  assert.equal(req.session.user.avatarDataUrl, avatarDataUrl);
+});
+
 test('profile update rejects unsafe avatar payload', () => {
   const { app } = registerWithDeps();
   const handler = app.routes.get('PUT /api/profile');

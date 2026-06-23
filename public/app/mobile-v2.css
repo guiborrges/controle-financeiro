@@ -923,7 +923,7 @@ html.mobile-v2 #mobileV2Root {
     box-shadow: none;
   }
   html.mobile-v2 .cal-day.has-items {
-    background: var(--surface-strong);
+    background: var(--m2-day-tone, var(--surface-strong));
     box-shadow: none;
   }
   html.mobile-v2 .cal-day:active {
@@ -3070,4 +3070,143 @@ html.mobile-v2 #mobileV2Root {
   html.mobile-v2 .m2-widget-actions button { min-height:44px; border:1px solid var(--border); border-radius:14px; background:transparent; color:var(--text1); font-weight:700; }
   html.mobile-v2 .m2-widget-actions button:first-child { border-color:var(--accent); background:var(--accent); color:#fff; }
   html.mobile-v2 .m2-widget-card ol { padding-left:20px; color:var(--text2); font-size:11px; line-height:1.7; }
+
+  html.mobile-v2 .m2-mobile-notifications {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  html.mobile-v2 .m2-mobile-notifications .top-bell-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #d64545;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 850;
+    line-height: 17px;
+    text-align: center;
+    box-shadow: 0 0 0 2px var(--bg);
+    z-index: 2;
+  }
+
+  html.mobile-v2 .m2-mobile-notifications .top-notifications-popover {
+    position: fixed;
+    width: min(342px, calc(100vw - 24px));
+    max-height: min(420px, calc(100dvh - 24px));
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface-strong);
+    box-shadow: 0 18px 50px rgba(15, 23, 42, .16);
+  }
+
+  html.mobile-v2 .m2-about-card {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    background: var(--surface-strong);
+  }
+
+  html.mobile-v2 .m2-about-logo {
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface2));
+    color: var(--accent);
+  }
+
+  html.mobile-v2 .m2-about-logo svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  html.mobile-v2 .m2-about-card h3 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -.03em;
+  }
+
+  html.mobile-v2 .m2-about-card p {
+    margin: 5px 0 0;
+    color: var(--text2);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  html.mobile-v2 .m2-about-card dl {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+  }
+
+  html.mobile-v2 .m2-about-card dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  html.mobile-v2 .m2-about-card dt {
+    color: var(--text3);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  html.mobile-v2 .m2-about-card dd {
+    margin: 0;
+    color: var(--text1);
+    font-size: 12px;
+    font-weight: 750;
+    text-align: right;
+  }
+
+  html[data-theme="dark"].mobile-v2 .m2-calendar-card,
+  html[data-theme="dark"].mobile-v2 .m2-calendar-daily-chart,
+  html[data-theme="dark"].mobile-v2 .m2-calendar-day-details {
+    border-color: rgba(148, 163, 184, .18);
+    background: #151b24;
+    color: #e8edf5;
+  }
+
+  html[data-theme="dark"].mobile-v2 .m2-calendar-summary-card,
+  html[data-theme="dark"].mobile-v2 .m2-calendar-actions .m2-chip-btn,
+  html[data-theme="dark"].mobile-v2 .cal-day {
+    border-color: rgba(148, 163, 184, .18);
+    background: #1b2330;
+    color: #e8edf5;
+  }
+
+  html[data-theme="dark"].mobile-v2 .cal-day.has-items {
+    background: color-mix(in srgb, var(--m2-day-tone, #315b86) 44%, #101722);
+  }
+
+  html[data-theme="dark"].mobile-v2 .cal-day-total,
+  html[data-theme="dark"].mobile-v2 .cal-month-title,
+  html[data-theme="dark"].mobile-v2 .m2-calendar-summary-value,
+  html[data-theme="dark"].mobile-v2 .m2-calendar-detail-row {
+    color: #edf3fb;
+  }
+
+  html[data-theme="dark"].mobile-v2 .cal-weekday,
+  html[data-theme="dark"].mobile-v2 .m2-calendar-section-head span,
+  html[data-theme="dark"].mobile-v2 .m2-calendar-summary-label {
+    color: #93a4b8;
+  }
+
+  html[data-theme="dark"].mobile-v2 .m2-calendar-bar > span {
+    background: color-mix(in srgb, var(--accent) 70%, #1b2330);
+  }
 }

@@ -112,7 +112,9 @@ function registerProfileRoutes(app, deps) {
         phone: String(req.body?.phone || '').trim(),
         email: String(req.body?.email || '').trim(),
         passwordHint: String(req.body?.passwordHint || '').trim(),
-        avatarDataUrl: String(req.body?.avatarDataUrl || '').trim()
+        avatarDataUrl: req.body?.avatarDataUrl !== undefined
+          ? String(req.body?.avatarDataUrl || '').trim()
+          : String(user.avatarDataUrl || '')
       };
       if (nextProfile.avatarDataUrl
         && (!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(nextProfile.avatarDataUrl)
@@ -131,6 +133,7 @@ function registerProfileRoutes(app, deps) {
       if (req.session?.user) {
         req.session.user.displayName = nextUser.displayName;
         req.session.user.fullName = nextUser.fullName || nextUser.displayName;
+        req.session.user.avatarDataUrl = String(nextUser.avatarDataUrl || '');
         req.session.user.legacyRecurrenceBackfillRestricted = !!nextUser.legacyRecurrenceBackfillRestricted;
       }
       res.json({

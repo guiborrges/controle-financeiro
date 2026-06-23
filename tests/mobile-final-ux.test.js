@@ -28,7 +28,10 @@ test('month mobile exposes direct-method tabs only from real month rows and sort
   assert.match(source, /function getDirectMethodTabs\(month\)/);
   assert.match(source, /outputKind \|\| ''\)\.toLowerCase\(\) === 'method'/);
   assert.match(source, /function sortViewsByDateDesc\(rows\)/);
+  assert.match(source, /<h2 class="m2-title">Mês a mês<\/h2>/);
   assert.match(source, /Acompanhe seu planejamento m\u00eas a m\u00eas/);
+  assert.match(source, /data-page-notifications="mobile-mes"/);
+  assert.match(source, /data-notification-badge/);
 });
 
 test('calendar mobile keeps daily chart and selected-day details visible', () => {
@@ -38,7 +41,7 @@ test('calendar mobile keeps daily chart and selected-day details visible', () =>
   assert.doesNotMatch(source, /> Gr\u00e1fico di\u00e1rio<\/button>/);
 });
 
-test('mobile settings separates profile, preferences, integrations and widget', () => {
+test('mobile settings separates profile, integrations, about and widget without stale preferences', () => {
   const source = read('modules', 'mobile-v2', 'perfil-mobile.js');
   assert.match(source, /<h2>Ajustes<\/h2>/);
   assert.match(source, /Editar perfil', 'edit-profile'/);
@@ -46,14 +49,34 @@ test('mobile settings separates profile, preferences, integrations and widget', 
   assert.match(source, /Restaurar ou importar', 'restore'/);
   assert.match(source, /toggleRow\('Modo noturno'/);
   assert.match(source, /Widget para iPhone', 'widget'/);
+  assert.match(source, /Sobre o MeuFin', 'about'/);
+  assert.match(source, /function openAbout/);
   assert.match(source, /async function openProfileEditor/);
   assert.match(source, /function openSecurity/);
   assert.match(source, /function openRestoreImport/);
   assert.match(source, /compressAvatar/);
   assert.match(source, /avatarDataUrl/);
   assert.match(source, /async function openWidget/);
+  assert.doesNotMatch(source, /Preferências do sistema/);
+  assert.doesNotMatch(source, /function openPreferencesLite/);
+  assert.doesNotMatch(source, /openHelpModal/);
   assert.doesNotMatch(source, /data-close-perfil[^>]*bottom-sheet-scrim/);
   assert.doesNotMatch(source, /Categorias e tags/);
+});
+
+test('historico mobile has no notification bell while month owns mobile notifications', () => {
+  const historico = read('modules', 'mobile-v2', 'historico-mobile.js');
+  const mes = read('modules', 'mobile-v2', 'mes-atual-mobile.js');
+  assert.doesNotMatch(historico, /toggleNotificationsPopover/);
+  assert.match(mes, /toggleNotificationsPopover/);
+});
+
+test('calendar mobile uses theme-aware intensity variables and dark-mode styling exists', () => {
+  const calendar = read('modules', 'mobile-v2', 'calendario-mobile.js');
+  const css = read('mobile-v2.css');
+  assert.match(calendar, /--m2-day-tone/);
+  assert.match(css, /html\[data-theme="dark"\]\.mobile-v2 \.m2-calendar-card/);
+  assert.match(css, /html\[data-theme="dark"\]\.mobile-v2 \.cal-day\.has-items/);
 });
 
 test('mobile outflow save closes without reopening the second edit screen and accepts flexible dates', () => {
