@@ -1,4 +1,4 @@
-﻿(function initMobileV2Mes(global) {
+(function initMobileV2Mes(global) {
   'use strict';
 
   const SUBTABS = [
@@ -626,20 +626,11 @@
     const total = rows.reduce((sum, row) => sum + Number(row.spent || 0), 0);
     if (!(total > 0)) return [];
 
-    const visibleRows = rows.slice(0, 7);
-    const extraTotal = rows.slice(7).reduce((sum, row) => sum + Number(row.spent || 0), 0);
-    const slices = visibleRows.map((row, index) => ({
+    const slices = rows.map((row, index) => ({
       category: row.category,
       spent: Number(row.spent || 0),
       color: GM_PIE_COLORS[index % GM_PIE_COLORS.length]
     }));
-    if (extraTotal > 0) {
-      slices.push({
-        category: 'Outras',
-        spent: Number(extraTotal.toFixed(2)),
-        color: GM_PIE_COLORS[slices.length % GM_PIE_COLORS.length]
-      });
-    }
     return slices.map((slice) => ({
       ...slice,
       percent: Math.round((slice.spent / total) * 100)

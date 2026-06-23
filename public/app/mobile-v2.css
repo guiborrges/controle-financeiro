@@ -3054,7 +3054,17 @@ html.mobile-v2 #mobileV2Root {
   html.mobile-v2 .m2-settings-form input { width:100%; min-height:46px; padding:0 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface-strong); color:var(--text1); font-size:16px; text-transform:none; letter-spacing:0; }
   html.mobile-v2 .m2-settings-primary { height:48px; border:0; border-radius:15px; background:var(--accent); color:#fff; font-weight:800; }
   html.mobile-v2 .m2-settings-status { min-height:18px; margin:0; color:var(--text2); font-size:11px; text-align:center; }
-  html.mobile-v2 .m2-widget-card { padding:18px; border:1px solid var(--border); border-radius:20px; background:var(--surface-strong); }
+  html.mobile-v2 .m2-settings-note { margin:0; color:var(--text3); font-size:11px; line-height:1.55; text-transform:none; letter-spacing:0; font-weight:500; }
+  html.mobile-v2 .m2-settings-toggle-row { grid-template-columns:32px minmax(0,1fr) 48px; }
+  html.mobile-v2 .m2-switch { width:46px; height:27px; padding:3px; border-radius:999px; background:var(--border); transition:background .18s ease; justify-self:end; }
+  html.mobile-v2 .m2-switch span { display:block; width:21px; height:21px; border-radius:50%; background:var(--surface-strong); box-shadow:0 2px 8px rgba(15,23,42,.14); transform:translateX(0); transition:transform .18s ease; }
+  html.mobile-v2 .m2-switch.on { background:var(--accent); }
+  html.mobile-v2 .m2-switch.on span { transform:translateX(19px); }
+  html.mobile-v2 .m2-import-drop { display:grid; gap:10px; padding:18px; border:1px dashed var(--border); border-radius:18px; background:var(--surface-strong); text-align:center; color:var(--text2); font-size:12px; }
+  html.mobile-v2 .m2-import-drop input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+  html.mobile-v2 .m2-import-drop span { display:inline-grid; place-items:center; min-height:42px; border-radius:14px; border:1px solid var(--border); color:var(--accent); font-weight:800; }
+  html.mobile-v2 .m2-widget-card,
+  html.mobile-v2 .m2-restore-card { padding:18px; border:1px solid var(--border); border-radius:20px; background:var(--surface-strong); }
   html.mobile-v2 .m2-widget-card > p { color:var(--text2); font-size:12px; }
   html.mobile-v2 .m2-widget-actions { display:grid; gap:8px; }
   html.mobile-v2 .m2-widget-actions button { min-height:44px; border:1px solid var(--border); border-radius:14px; background:transparent; color:var(--text1); font-weight:700; }

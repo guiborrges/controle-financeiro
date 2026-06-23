@@ -3,15 +3,27 @@
 
   let widgetToken = null;
 
+  function escapeHtml(value) {
+    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   function icon(name, fallback = '›') {
     return global.SystemIcons?.render ? (global.SystemIcons.render(name) || fallback) : fallback;
   }
 
   function row(label, action, iconName, detail = '') {
-    return `<button class="m2-settings-row" type="button" data-profile-action="${action}">
+    return `<button class="m2-settings-row" type="button" data-profile-action="${escapeHtml(action)}">
       <span class="m2-settings-icon" aria-hidden="true">${icon(iconName)}</span>
-      <span class="m2-settings-copy"><strong>${label}</strong>${detail ? `<small>${detail}</small>` : ''}</span>
+      <span class="m2-settings-copy"><strong>${escapeHtml(label)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}</span>
       <span class="m2-settings-chevron" aria-hidden="true">›</span>
+    </button>`;
+  }
+
+  function toggleRow(label, checked, action, iconName, detail = '') {
+    return `<button class="m2-settings-row m2-settings-toggle-row" type="button" data-profile-action="${escapeHtml(action)}">
+      <span class="m2-settings-icon" aria-hidden="true">${icon(iconName)}</span>
+      <span class="m2-settings-copy"><strong>${escapeHtml(label)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}</span>
+      <span class="m2-switch ${checked ? 'on' : ''}" aria-hidden="true"><span></span></span>
     </button>`;
   }
 
@@ -19,35 +31,60 @@
     return `<div class="m2-settings-subview">
       <header class="m2-settings-subview-head">
         <button class="m2-icon-btn" type="button" data-profile-back aria-label="Voltar">&lt;</button>
-        <div><h2>${title}</h2>${subtitle ? `<p>${subtitle}</p>` : ''}</div>
+        <div><h2>${escapeHtml(title)}</h2>${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}</div>
       </header>${body}
     </div>`;
   }
 
+  function getProfileSnapshot() {
+    return global.__APP_BOOTSTRAP__?.profile || {};
+  }
+
+  function getSessionSnapshot() {
+    return global.__APP_BOOTSTRAP__?.session || {};
+  }
+
   function renderHome(root) {
-    const session = global.__APP_BOOTSTRAP__?.session || {};
-    const profile = global.__APP_BOOTSTRAP__?.profile || {};
+    const session = getSessionSnapshot();
+    const profile = getProfileSnapshot();
     const name = String(profile.displayName || session.displayName || profile.fullName || session.fullName || 'Usuário');
     const email = String(profile.email || session.email || '');
     const initial = name.trim().slice(0, 1).toUpperCase() || 'U';
     const avatar = profile.avatarDataUrl
-      ? `<img class="m2-settings-avatar" src="${profile.avatarDataUrl}" alt="Foto do perfil">`
-      : `<span class="m2-settings-avatar">${initial}</span>`;
+      ? `<img class="m2-settings-avatar" src="${escapeHtml(profile.avatarDataUrl)}" alt="Foto do perfil">`
+      : `<span class="m2-settings-avatar">${escapeHtml(initial)}</span>`;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
     root.querySelector('.m2-settings-body').innerHTML = `
       <section class="m2-settings-identity">
         ${avatar}
-        <span><strong>${name}</strong><small>${email}</small></span>
+        <span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(email)}</small></span>
       </section>
       <h3 class="m2-settings-group-title">Conta</h3>
-      <section class="m2-settings-group">${row('Editar perfil', 'edit-profile', 'user', 'Nome, e-mail e dados pessoais')}${row('Segurança', 'security', 'lock', 'Senha e acesso')}</section>
+      <section class="m2-settings-group">
+        ${row('Editar perfil', 'edit-profile', 'user', 'Nome, foto, e-mail e dados pessoais')}
+        ${row('Segurança', 'security', 'lock', 'Alterar senha e conferir proteção')}
+      </section>
       <h3 class="m2-settings-group-title">Sistema</h3>
-      <section class="m2-settings-group">${row('Tema e interface', 'preferences', 'settings')}${row('Notificações', 'preferences', 'bell')}${row('Preferências', 'preferences', 'controls')}</section>
+      <section class="m2-settings-group">
+        ${toggleRow('Modo noturno', isDark, 'toggle-theme', 'moon', 'Alterna claro e escuro')}
+        ${row('Preferências do sistema', 'preferences', 'controls', 'Integridade e interface')}
+      </section>
       <h3 class="m2-settings-group-title">Integrações</h3>
-      <section class="m2-settings-group">${row('Internet Banking', 'banking', 'internetBanking')}${row('Widget para iPhone', 'widget', 'phone', 'Scriptable e token individual')}</section>
+      <section class="m2-settings-group">
+        ${row('Internet Banking', 'banking', 'internetBanking')}
+        ${row('Widget para iPhone', 'widget', 'phone', 'Scriptable e token individual')}
+      </section>
       <h3 class="m2-settings-group-title">Dados</h3>
-      <section class="m2-settings-group">${row('Criar backup', 'backup', 'download')}${row('Restaurar ou importar', 'restore', 'upload')}</section>
+      <section class="m2-settings-group">
+        ${row('Criar backup', 'backup', 'download')}
+        ${row('Restaurar ou importar', 'restore', 'upload')}
+      </section>
       <h3 class="m2-settings-group-title">Ajuda</h3>
-      <section class="m2-settings-group">${row('Tutorial inicial', 'tutorial', 'help')}${row('Sobre o Meufin', 'about', 'info')}</section>
+      <section class="m2-settings-group">
+        ${row('Tutorial inicial', 'tutorial', 'help')}
+        ${row('Sobre o Meufin', 'about', 'info')}
+      </section>
       <button class="m2-settings-logout" type="button" data-profile-action="logout">Sair da conta</button>`;
     bindActions(root);
   }
@@ -59,13 +96,14 @@
     root = document.createElement('div');
     root.id = 'mobileV2PerfilSheet';
     root.className = 'bottom-sheet m2-settings-sheet';
-    root.innerHTML = `<div class="bottom-sheet-scrim" data-close-perfil></div><div class="bottom-sheet-panel">
+    root.innerHTML = `<div class="bottom-sheet-scrim" aria-hidden="true"></div><div class="bottom-sheet-panel">
       <header class="m2-settings-main-head"><div><h2>Ajustes</h2><p>Conta, sistema e integrações</p></div><button class="m2-icon-btn" type="button" data-close-perfil aria-label="Fechar">&times;</button></header>
       <div class="m2-settings-body"></div></div>`;
     document.body.appendChild(root);
     root.setAttribute('hidden', 'hidden');
     root.style.display = 'none';
     root.querySelectorAll('[data-close-perfil]').forEach((el) => el.addEventListener('click', close));
+    root.querySelector('.bottom-sheet-panel')?.addEventListener('touchmove', (event) => event.stopPropagation(), { passive: true });
     return root;
   }
 
@@ -82,6 +120,7 @@
     root.style.display = '';
     root.removeAttribute('hidden');
     root.classList.add('open');
+    document.body.classList.add('mobile-v2-sheet-open');
     global.triggerHapticFeedback?.('light');
   }
 
@@ -91,16 +130,17 @@
     root.classList.remove('open');
     root.setAttribute('hidden', 'hidden');
     root.style.display = 'none';
+    document.body.classList.remove('mobile-v2-sheet-open');
   }
 
   async function openProfileEditor() {
     const root = ensureSheet();
-    let profile = global.__APP_BOOTSTRAP__?.profile || {};
+    let profile = getProfileSnapshot();
     try { profile = await global.loadProfile?.() || profile; } catch {}
     let editedAvatar = String(profile.avatarDataUrl || '');
     const avatarMarkup = editedAvatar
-      ? `<img class="m2-settings-avatar large" data-profile-avatar-preview src="${editedAvatar}" alt="Foto do perfil">`
-      : `<div class="m2-settings-avatar large" data-profile-avatar-preview>${String(profile.displayName || profile.fullName || 'U').slice(0, 1).toUpperCase()}</div>`;
+      ? `<img class="m2-settings-avatar large" data-profile-avatar-preview src="${escapeHtml(editedAvatar)}" alt="Foto do perfil">`
+      : `<div class="m2-settings-avatar large" data-profile-avatar-preview>${escapeHtml(String(profile.displayName || profile.fullName || 'U').slice(0, 1).toUpperCase())}</div>`;
     root.querySelector('.m2-settings-body').innerHTML = shell('Editar perfil', 'Seus dados pessoais', `
       <section class="m2-settings-form">
         ${avatarMarkup}
@@ -142,9 +182,11 @@
         const response = await fetch('/api/profile', { method: 'PUT', credentials: 'same-origin', headers: global.getCsrfHeaders?.({ 'Content-Type': 'application/json', Accept: 'application/json' }) || { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.message || 'Não foi possível salvar o perfil.');
-        global.__APP_BOOTSTRAP__ = { ...(global.__APP_BOOTSTRAP__ || {}), profile: result.profile || payload, session: { ...(global.__APP_BOOTSTRAP__?.session || {}), displayName: result.profile?.displayName || payload.displayName, email: result.profile?.email || payload.email } };
+        const profileResult = result.profile || payload;
+        global.__APP_BOOTSTRAP__ = { ...(global.__APP_BOOTSTRAP__ || {}), profile: profileResult, session: { ...(getSessionSnapshot()), displayName: profileResult.displayName || payload.displayName, email: profileResult.email || payload.email } };
         if (status) status.textContent = 'Perfil atualizado.';
         global.triggerHapticFeedback?.('success');
+        renderHome(root);
       } catch (error) {
         if (status) status.textContent = error.message;
         global.triggerHapticFeedback?.('error');
@@ -178,6 +220,74 @@
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  function openSecurity() {
+    const root = ensureSheet();
+    root.querySelector('.m2-settings-body').innerHTML = shell('Segurança', 'Senha e proteção da conta', `
+      <section class="m2-settings-form">
+        <label>Senha atual<input type="password" autocomplete="current-password" data-m2-security="currentPassword"></label>
+        <label>Nova senha<input type="password" autocomplete="new-password" data-m2-security="newPassword"></label>
+        <label>Confirmar nova senha<input type="password" autocomplete="new-password" data-m2-security="confirmPassword"></label>
+        <button class="m2-settings-primary" type="button" data-save-security>Alterar senha</button>
+        <p class="m2-settings-note">Use uma senha forte. O acesso é protegido por sessão e CSRF.</p>
+        <p class="m2-settings-status" role="status"></p>
+      </section>`);
+    root.querySelector('[data-profile-back]')?.addEventListener('click', () => renderHome(root));
+    root.querySelector('[data-save-security]')?.addEventListener('click', async () => {
+      const get = (name) => root.querySelector(`[data-m2-security="${name}"]`)?.value || '';
+      const status = root.querySelector('.m2-settings-status');
+      if (!get('currentPassword') || !get('newPassword') || get('newPassword') !== get('confirmPassword')) {
+        if (status) status.textContent = 'Preencha as senhas e confirme a nova senha corretamente.';
+        global.triggerHapticFeedback?.('error');
+        return;
+      }
+      try {
+        const response = await fetch('/api/profile/change-password', { method: 'POST', credentials: 'same-origin', headers: global.getCsrfHeaders?.({ 'Content-Type': 'application/json', Accept: 'application/json' }) || { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: get('currentPassword'), newPassword: get('newPassword'), confirmPassword: get('confirmPassword') }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.message || 'Não foi possível alterar a senha.');
+        root.querySelectorAll('[data-m2-security]').forEach((input) => { input.value = ''; });
+        if (status) status.textContent = 'Senha alterada com sucesso.';
+        global.triggerHapticFeedback?.('success');
+      } catch (error) {
+        if (status) status.textContent = error.message;
+        global.triggerHapticFeedback?.('error');
+      }
+    });
+  }
+
+  function openPreferencesLite() {
+    const root = ensureSheet();
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    root.querySelector('.m2-settings-body').innerHTML = shell('Preferências', 'Ajustes simples do sistema', `
+      <section class="m2-settings-group">
+        ${toggleRow('Modo noturno', isDark, 'toggle-theme', 'moon', 'Alterna claro e escuro')}
+        ${row('Verificar integridade', 'integrity', 'shield', 'Checa consistência local')}
+        ${row('Resetar preferências da interface', 'reset-ui', 'settings', 'Não altera dados financeiros')}
+      </section>
+      <p class="m2-settings-status" role="status"></p>`);
+    root.querySelector('[data-profile-back]')?.addEventListener('click', () => renderHome(root));
+    bindActions(root);
+  }
+
+  function openRestoreImport() {
+    const root = ensureSheet();
+    root.querySelector('.m2-settings-body').innerHTML = shell('Restaurar ou importar', 'Fluxos seguros de recuperação', `
+      <section class="m2-widget-card">
+        <p>Escolha um backup local para restaurar. O sistema pedirá confirmação antes de substituir seus dados.</p>
+        <div class="m2-widget-actions">
+          <button type="button" data-restore-import-file>Escolher arquivo</button>
+          <button type="button" data-restore-create-backup>Criar backup antes</button>
+        </div>
+        <p class="m2-settings-status" role="status"></p>
+      </section>`);
+    root.querySelector('[data-profile-back]')?.addEventListener('click', () => renderHome(root));
+    root.querySelector('[data-restore-import-file]')?.addEventListener('click', () => {
+      document.getElementById('importInput')?.click();
+      const status = root.querySelector('.m2-settings-status');
+      if (status) status.textContent = 'Selecione o arquivo de backup para continuar.';
+    });
+    root.querySelector('[data-restore-create-backup]')?.addEventListener('click', () => global.createManualBackup?.());
   }
 
   async function openWidget() {
@@ -219,22 +329,25 @@
   function runAction(action) {
     global.triggerHapticFeedback?.('selection');
     if (action === 'edit-profile') return openProfileEditor();
+    if (action === 'security') return openSecurity();
+    if (action === 'preferences') return openPreferencesLite();
+    if (action === 'restore') return openRestoreImport();
     if (action === 'widget') return openWidget();
+    if (action === 'toggle-theme') {
+      const next = document.documentElement.getAttribute('data-theme') !== 'dark';
+      global.toggleThemePreference?.(next);
+      return renderHome(ensureSheet());
+    }
+    if (action === 'integrity') return global.runIntegrityCheck?.(true);
+    if (action === 'reset-ui') return global.resetUIState?.();
     if (action === 'tutorial') { close(); return global.MobileV2Onboarding?.openWelcome?.(); }
     close();
     setTimeout(() => {
-      if (action === 'preferences') return global.openPreferences?.();
-      if (action === 'security') return global.openModal?.('modalRecovery');
       if (action === 'banking') return global.MobileV2?.openInternetBanking?.();
       if (action === 'backup') return global.createManualBackup?.();
-      if (action === 'restore') return document.getElementById('importInput')?.click();
       if (action === 'about') return global.openHelpModal?.();
       if (action === 'logout') return global.logout?.();
     }, 100);
-  }
-
-  function escapeHtml(value) {
-    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   global.MobileV2PerfilSheet = { ensureSheet, open, close, runAction, openProfileEditor, openWidget };

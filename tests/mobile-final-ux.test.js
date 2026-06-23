@@ -42,12 +42,46 @@ test('mobile settings separates profile, preferences, integrations and widget', 
   const source = read('modules', 'mobile-v2', 'perfil-mobile.js');
   assert.match(source, /<h2>Ajustes<\/h2>/);
   assert.match(source, /Editar perfil', 'edit-profile'/);
+  assert.match(source, /Segurança', 'security'/);
+  assert.match(source, /Restaurar ou importar', 'restore'/);
+  assert.match(source, /toggleRow\('Modo noturno'/);
   assert.match(source, /Widget para iPhone', 'widget'/);
   assert.match(source, /async function openProfileEditor/);
+  assert.match(source, /function openSecurity/);
+  assert.match(source, /function openRestoreImport/);
   assert.match(source, /compressAvatar/);
   assert.match(source, /avatarDataUrl/);
   assert.match(source, /async function openWidget/);
+  assert.doesNotMatch(source, /data-close-perfil[^>]*bottom-sheet-scrim/);
   assert.doesNotMatch(source, /Categorias e tags/);
+});
+
+test('mobile outflow save closes without reopening the second edit screen and accepts flexible dates', () => {
+  const source = read('modules', 'mobile-v2', 'outflow-form-mobile.js');
+  assert.match(source, /function resolveMobileDate\(rawValue\)/);
+  assert.match(source, /simpleDayMonthOffset:\s*1/);
+  assert.match(source, /placeholder="10 ou 10\/05\/26"/);
+  assert.match(source, /global\.saveUnifiedOutflow\(\)/);
+  assert.match(source, /global\.closeUnifiedOutflowModal\(\)/);
+  assert.doesNotMatch(source, /openUnifiedOutflowModal\(createdId/);
+});
+
+test('mobile month swipe navigation is disabled while pull refresh remains active', () => {
+  const source = read('mobile-v2-enhancements.js');
+  assert.match(source, /function attachPullToRefresh\(\)/);
+  assert.match(source, /function attachMonthSwipe\(\)/);
+  assert.match(source, /Intencionalmente desativado/);
+  assert.doesNotMatch(source, /api\?\.prevMonth\?\.\(\)/);
+  assert.doesNotMatch(source, /api\?\.nextMonth\?\.\(\)/);
+});
+
+test('mobile category charts do not inject artificial Outras buckets', () => {
+  const home = read('modules', 'mobile-v2', 'home-screen.js');
+  const mes = read('modules', 'mobile-v2', 'mes-atual-mobile.js');
+  assert.match(home, /return ordered\.map\(\(\[name, value\]\)/);
+  assert.match(mes, /const slices = rows\.map/);
+  assert.doesNotMatch(home, /name:\s*'Outras'/);
+  assert.doesNotMatch(mes, /name:\s*'Outras'/);
 });
 
 test('onboarding X persists full dismissal without erasing completed tasks', () => {

@@ -1,4 +1,4 @@
-﻿(function initMobileV2OutflowForm(global) {
+(function initMobileV2OutflowForm(global) {
   'use strict';
   const { escapeHtml } = global.MobileV2Data;
 
@@ -12,16 +12,35 @@
 
   function formatDateDefault() {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`;
   }
 
-  function toNativeDateValue(rawValue) {
+  function toDisplayDateValue(rawValue) {
     const value = String(rawValue || '').trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(2, 4)}`;
+    }
     const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
     if (!match) return formatDateDefault();
-    const year = match[3].length === 2 ? `20${match[3]}` : match[3];
-    return `${year}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
+    return `${String(match[1]).padStart(2, '0')}/${String(match[2]).padStart(2, '0')}/${String(match[3]).slice(-2)}`;
+  }
+
+  function resolveMobileDate(rawValue) {
+    const raw = String(rawValue || '').trim();
+    const month = getCurrentMonth();
+    if (!raw) return '';
+    if (global.DateUtils?.resolveDateFromInput) {
+      const resolved = global.DateUtils.resolveDateFromInput(raw, month, { simpleDayMonthOffset: 1 });
+      return String(resolved?.date || '').trim();
+    }
+    if (/^\d{1,2}$/.test(raw)) {
+      const now = new Date();
+      const target = new Date(now.getFullYear(), now.getMonth() + 1, Number(raw));
+      return `${String(target.getDate()).padStart(2, '0')}/${String(target.getMonth() + 1).padStart(2, '0')}/${String(target.getFullYear()).slice(-2)}`;
+    }
+    const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+    if (!match) return '';
+    return `${String(match[1]).padStart(2, '0')}/${String(match[2]).padStart(2, '0')}/${String(match[3]).slice(-2)}`;
   }
 
   function parseMoneyInput(rawValue) {
@@ -190,7 +209,7 @@
         </div>
         <div class="form-field" style="margin:0">
           <label class="form-label" for="mobileV2OutflowDate">Data</label>
-          <input id="mobileV2OutflowDate" class="form-input m2-native-date" type="date" value="${formatDateDefault()}">
+          <input id="mobileV2OutflowDate" class="form-input m2-native-date" type="text" inputmode="numeric" autocomplete="off" placeholder="10 ou 10/05/26" value="${formatDateDefault()}">
         </div>
       </div>
 
@@ -402,6 +421,11 @@
     }
 
     global.saveUnifiedOutflow();
+    if (typeof global.closeUnifiedOutflowModal === 'function') {
+      global.closeUnifiedOutflowModal();
+    } else if (typeof global.closeModal === 'function') {
+      global.closeModal('modalUnifiedOutflow');
+    }
     const month = getCurrentMonth();
     return (month?.outflows || []).find((item) => !payload.beforeIds?.has?.(String(item?.id || '')))?.id || '';
   }
@@ -410,7 +434,7 @@
     const description = String(document.getElementById('mobileV2OutflowDescription')?.value || '').trim();
     const category = String(document.getElementById('mobileV2OutflowCategory')?.value || '').trim();
     const amount = parseMoneyInput(document.getElementById('mobileV2OutflowAmount')?.value || '');
-    const date = String(document.getElementById('mobileV2OutflowDate')?.value || '').trim();
+    const date = resolveMobileDate(document.getElementById('mobileV2OutflowDate')?.value || '');
     const planning = document.getElementById('mobileV2PlanningToggle')?.checked === true;
 
     if (!description || !category || !(amount > 0) || !date) {
@@ -442,9 +466,6 @@
       global.MobileV2?.refresh?.();
       global.MobileV2Enhancements?.notifyDataChanged?.('outflow-save');
       global.triggerHapticFeedback?.('confirm');
-      if (!payload.editId && createdId && typeof global.openUnifiedOutflowModal === 'function') {
-        global.setTimeout(() => global.openUnifiedOutflowModal(createdId), 140);
-      }
       if (typeof global.showToast === 'function') global.showToast(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.');
       else if (typeof global.showAppStatus === 'function') global.showAppStatus(payload.editId ? 'Lançamento atualizado.' : 'Lançamento salvo.', 'Lançamento', 'ok');
     } catch (error) {
@@ -542,7 +563,7 @@
     };
     setValue('mobileV2OutflowDescription', source.description || source.nome || '');
     setValue('mobileV2OutflowAmount', Math.abs(Number(source.amount || source.valor || 0)) || '');
-    setValue('mobileV2OutflowDate', toNativeDateValue(source.date || source.data || ''));
+    setValue('mobileV2OutflowDate', toDisplayDateValue(source.date || source.data || ''));
     setValue('mobileV2OutflowCategory', source.category || source.categoria || '');
     if (source.outputKind === 'card' && source.outputRef) {
       setValue('mobileV2OutflowOutput', `card:${source.outputRef}`);

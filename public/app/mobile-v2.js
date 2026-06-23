@@ -1,4 +1,4 @@
-﻿(function initMobileV2(global) {
+(function initMobileV2(global) {
   'use strict';
 
   const MOBILE_BREAKPOINT = 900;
@@ -11,7 +11,7 @@
     hiddenAt: 0
   };
   const modulePromises = {};
-  const MOBILE_MODULE_VERSION = '2026-06-22-mobile-final-ux-v2';
+  const MOBILE_MODULE_VERSION = '2026-06-23-mobile-stability-v1';
 
   function closeLeakingMobileSheets() {
     [

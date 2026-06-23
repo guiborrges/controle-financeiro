@@ -323,29 +323,8 @@
   }
 
   function attachMonthSwipe() {
-    let startX = 0;
-    let startY = 0;
-    document.addEventListener('touchstart', (event) => {
-      if (!isMobileEnabled() || !event.touches?.length) return;
-      if (event.target?.closest?.('input, textarea, select, button, .bottom-sheet')) return;
-      startX = event.touches[0].clientX;
-      startY = event.touches[0].clientY;
-    }, { passive: true });
-    document.addEventListener('touchend', (event) => {
-      if (!startX) return;
-      const dx = (event.changedTouches?.[0]?.clientX || startX) - startX;
-      const dy = Math.abs((event.changedTouches?.[0]?.clientY || startY) - startY);
-      startX = 0;
-      if (Math.abs(dx) < 80 || dy > 60) return;
-      const active = document.querySelector('.mobile-v2-screen.active')?.getAttribute('data-mobile-v2-screen');
-      if (active !== 'mes' && active !== 'calendario') return;
-      const api = active === 'calendario' ? global.MobileV2Calendario : global.MobileV2MesAtual;
-      if (dx > 0) api?.prevMonth?.();
-      else api?.nextMonth?.();
-      const screen = document.querySelector('.mobile-v2-screen.active');
-      screen?.classList.add(dx > 0 ? 'swipe-from-left' : 'swipe-from-right');
-      window.setTimeout(() => screen?.classList.remove('swipe-from-left', 'swipe-from-right'), 260);
-    }, { passive: true });
+    // Intencionalmente desativado: mudança de mês por swipe horizontal gerava
+    // trocas acidentais durante scroll. A navegação de mês fica só nas setas.
   }
 
   function ensurePrivacyOverlay() {

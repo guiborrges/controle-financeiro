@@ -1,4 +1,4 @@
-﻿(function initMobileV2Home(global) {
+(function initMobileV2Home(global) {
   'use strict';
 
   const PERIODS = [
@@ -100,10 +100,7 @@
     const ordered = Array.from(totals.entries())
       .filter(([, value]) => Number(value || 0) > 0)
       .sort((a, b) => b[1] - a[1]);
-    const visible = ordered.slice(0, 7).map(([name, value]) => ({ name, value }));
-    const extra = ordered.slice(7).reduce((sum, [, value]) => sum + Number(value || 0), 0);
-    if (extra > 0) visible.push({ name: 'Outras', value: Number(extra.toFixed(2)) });
-    return visible;
+    return ordered.map(([name, value]) => ({ name, value }));
   }
 
   function easeInOutCubic(t) {
