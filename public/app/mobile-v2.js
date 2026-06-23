@@ -11,7 +11,7 @@
     hiddenAt: 0
   };
   const modulePromises = {};
-  const MOBILE_MODULE_VERSION = '2026-06-23-mobile-final-ux-v2';
+  const MOBILE_MODULE_VERSION = '2026-06-23-mobile-chart-legend-v1';
 
   function closeLeakingMobileSheets() {
     [
