@@ -1,0 +1,139 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
+const vm = require('node:vm');
+
+function loadCoreCategorySandbox() {
+  const sandbox = {
+    console,
+    data: [],
+    window: null,
+    addEventListener() {},
+    document: {
+      addEventListener() {},
+      getElementById() { return null; },
+      querySelector() { return null; },
+      querySelectorAll() { return []; }
+    },
+    SYSTEM_DEFAULT_CATEGORY_PRESETS: [
+      { name: 'Mercado', emoji: 'bag' },
+      { name: 'Casa', emoji: 'home' },
+      { name: 'Saúde', emoji: 'health' }
+    ],
+    categoryEmojiOverrides: {},
+    resolveCategoryName(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toUpperCase();
+    },
+    isNonRealCategoryLabel(value) {
+      const normalized = sandbox.resolveCategoryName(value);
+      return ['PIX', 'DEBITO', 'DINHEIRO', 'CARTAO', 'CARTAO DE CREDITO', 'CREDITO'].includes(normalized);
+    },
+    getCategoryEmoji(value) {
+      const normalized = sandbox.resolveCategoryName(value);
+      const map = new Map([
+        ['MERCADO', 'bag'],
+        ['CASA', 'home'],
+        ['SAUDE', 'health'],
+        ['VIAGEM', 'plane'],
+        ['ACADEMIA', 'gym']
+      ]);
+      return map.get(normalized) || '';
+    },
+    getMonthSortValue(month) {
+      return Number(month?.sort || 0);
+    },
+    getCurrentMonth() {
+      return sandbox.data[1];
+    }
+  };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  const corePath = path.join(__dirname, '..', 'public', 'app', 'core.js');
+  vm.runInContext(fs.readFileSync(corePath, 'utf8'), sandbox, { filename: corePath });
+  return sandbox;
+}
+
+test('month category options are the single ordered source for defaults, previous spent and current used categories', () => {
+  const sandbox = loadCoreCategorySandbox();
+  sandbox.data = [
+    {
+      id: 'maio_2026',
+      nome: 'MAIO 2026',
+      outflows: [
+        { category: 'Veterinário', amount: 120 },
+        { category: 'Faculdade', amount: 500 },
+        { category: 'Viagem', amount: 300 },
+        { category: 'IPTU', amount: 90 },
+        { category: 'Dentista', amount: 200 },
+        { category: 'Pix', amount: 1000 },
+        { category: 'Zerada', amount: 0 }
+      ]
+    },
+    {
+      id: 'junho_2026',
+      nome: 'JUNHO 2026',
+      outflows: [
+        { category: 'Academia', amount: 80 }
+      ]
+    },
+    {
+      id: 'julho_2026',
+      nome: 'JULHO 2026',
+      outflows: [
+        { category: 'Dentista', amount: 40 }
+      ]
+    }
+  ];
+
+  const names = Array.from(
+    sandbox.getMonthCategoryOptions('junho_2026', sandbox, { includeFallbackBase: false }),
+    entry => String(entry.name)
+  );
+
+  assert.deepEqual(names, [
+    'MERCADO',
+    'CASA',
+    'SAUDE',
+    'VETERINARIO',
+    'FACULDADE',
+    'VIAGEM',
+    'IPTU',
+    'DENTISTA',
+    'ACADEMIA'
+  ]);
+  assert.equal(names.includes('PIX'), false);
+  assert.equal(names.includes('ZERADA'), false);
+
+  const futureNames = Array.from(
+    sandbox.getMonthCategoryOptions('julho_2026', sandbox, { includeFallbackBase: false }),
+    entry => String(entry.name)
+  );
+
+  assert.deepEqual(futureNames, [
+    'MERCADO',
+    'CASA',
+    'SAUDE',
+    'ACADEMIA',
+    'DENTISTA'
+  ]);
+  assert.equal(futureNames.includes('VIAGEM'), false);
+});
+
+test('desktop and mobile category entry points depend on getMonthCategoryOptions', () => {
+  const desktop = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'mes-atual.js'), 'utf8');
+  const mobileForm = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'modules', 'mobile-v2', 'outflow-form-mobile.js'), 'utf8');
+  const mobileBanking = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'modules', 'mobile-v2', 'internet-banking-mobile.js'), 'utf8');
+  const pluggy = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'pluggy-banking.js'), 'utf8');
+
+  assert.match(desktop, /getMonthCategoryOptions\(month \|\| getCurrentMonth\(\), window/);
+  assert.match(mobileForm, /getMonthCategoryOptions\(month\?\.id \|\| month, global/);
+  assert.match(mobileBanking, /getMonthCategoryOptions\(month\?\.id \|\| month, global/);
+  assert.match(pluggy, /getMonthCategoryOptions\(month\?\.id \|\| month, global/);
+  assert.doesNotMatch(mobileForm, /ALIMENTA/);
+  assert.doesNotMatch(mobileBanking, /BillImportUtils\.getAllCategoriesFromUserData/);
+});

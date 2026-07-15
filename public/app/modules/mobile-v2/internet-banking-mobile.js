@@ -281,28 +281,8 @@
 
     if (typeof global.getMonthCategoryOptions === 'function') {
       try {
-        (global.getMonthCategoryOptions(month?.id, global) || []).forEach(pushEntry);
+        (global.getMonthCategoryOptions(month?.id || month, global, { includeFallbackBase: false }) || []).forEach(pushEntry);
       } catch {}
-    }
-
-    if (!entries.length && typeof global.getSelectableCategoryEntriesForMonth === 'function') {
-      try {
-        (global.getSelectableCategoryEntriesForMonth(month, { includeFallbackBase: false }) || []).forEach(pushEntry);
-      } catch {}
-    }
-
-    if (!entries.length && global.BillImportUtils?.getAllCategoriesFromUserData) {
-      try {
-        (global.BillImportUtils.getAllCategoriesFromUserData(global.data || [])?.list || []).forEach(pushEntry);
-      } catch {}
-    }
-
-    if (!entries.length && month?.categorias && typeof month.categorias === 'object') {
-      Object.keys(month.categorias).forEach(pushEntry);
-    }
-
-    if (!entries.length) {
-      ['ALIMENTAÇÃO', 'MERCADO', 'MORADIA', 'TRANSPORTE', 'SAÚDE', 'LAZER', 'OUTROS'].forEach(pushEntry);
     }
 
     return entries;

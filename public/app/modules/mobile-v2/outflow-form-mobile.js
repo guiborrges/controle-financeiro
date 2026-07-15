@@ -82,45 +82,20 @@
   function resolveCategories(month) {
     if (typeof global.getMonthCategoryOptions === 'function') {
       try {
-        const options = global.getMonthCategoryOptions(month?.id, global) || [];
-        if (Array.isArray(options) && options.length) {
-          return options.map((entry) => {
-            if (entry && typeof entry === 'object') {
-              return {
-                value: String(entry.value || entry.id || entry.name || ''),
-                label: String(entry.label || entry.name || entry.value || ''),
-                icon: String(entry.icon || entry.symbol || '')
-              };
-            }
-            return { value: String(entry), label: String(entry), icon: '' };
-          }).filter((entry) => entry.value && entry.label);
-        }
+        const options = global.getMonthCategoryOptions(month?.id || month, global, { includeFallbackBase: false }) || [];
+        return options.map((entry) => {
+          if (entry && typeof entry === 'object') {
+            return {
+              value: String(entry.value || entry.id || entry.name || ''),
+              label: String(entry.label || entry.name || entry.value || ''),
+              icon: String(entry.icon || entry.symbol || '')
+            };
+          }
+          return { value: String(entry), label: String(entry), icon: '' };
+        }).filter((entry) => entry.value && entry.label);
       } catch {}
     }
-
-    const fallback = [];
-    const monthCategories = month?.categorias && typeof month.categorias === 'object'
-      ? Object.keys(month.categorias)
-      : [];
-
-    monthCategories.forEach((category) => {
-      const resolved = String(global.resolveCategoryName ? global.resolveCategoryName(category) : category).trim();
-      if (!resolved) return;
-      if (fallback.some((entry) => entry.value === resolved)) return;
-      fallback.push({
-        value: resolved,
-        label: resolved,
-        icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(resolved) : ''
-      });
-    });
-
-    if (!fallback.length) {
-      ['ALIMENTAÇÃO', 'MERCADO', 'MORADIA', 'TRANSPORTE', 'SAÚDE', 'LAZER', 'OUTROS'].forEach((entry) => {
-        fallback.push({ value: entry, label: entry, icon: typeof global.getCategoryEmoji === 'function' ? global.getCategoryEmoji(entry) : '' });
-      });
-    }
-
-    return fallback;
+    return [];
   }
 
   function resolveOutputOptions(month) {

@@ -1169,21 +1169,12 @@ function getUnifiedSharedNoteHtml(item) {
 }
 
 function getUnifiedOutflowCategories(month) {
-  const categories = new Set();
-  const defaultCategories = Array.isArray(window.SYSTEM_DEFAULT_CATEGORY_PRESETS)
-    ? window.SYSTEM_DEFAULT_CATEGORY_PRESETS.map(item => resolveCategoryName(item?.name || 'OUTROS'))
-    : ['MORADIA', 'SERVIÇOS', 'ALIMENTAÇÃO', 'TRANSPORTE', 'COMPRAS', 'SAÚDE', 'LAZER', 'EDUCAÇÃO', 'FINANCEIRO', 'ASSINATURAS', 'TRABALHO', 'OUTROS'].map(resolveCategoryName);
-  defaultCategories.forEach(cat => categories.add(cat));
-  getAllCategories(month).forEach(cat => categories.add(resolveCategoryName(cat)));
-  (month?.outflows || []).forEach(item => categories.add(getUnifiedOutflowCategoryName(item, 'OUTROS')));
-  (month?.gastosVar || []).forEach(item => categories.add(resolveCategoryName(item?.categoria || 'OUTROS')));
-  (month?.despesas || []).forEach(item => categories.add(resolveCategoryName(item?.categoria || 'OUTROS')));
-  (month?.dailyCategorySeeds || []).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
-  Object.keys(month?.dailyGoals || {}).forEach(cat => categories.add(resolveCategoryName(cat || 'OUTROS')));
-  return Array.from(categories)
-    .filter(cat => !['DESPESA FIXA', 'DESPESA VARIÁVEL', 'DESPESA'].includes(cat))
-    .filter(cat => !(typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(cat)))
-    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  if (typeof getMonthCategoryOptions === 'function') {
+    return getMonthCategoryOptions(month || getCurrentMonth(), window, { includeFallbackBase: false })
+      .map(entry => entry.name)
+      .filter(Boolean);
+  }
+  return [];
 }
 
 function getUsedDailyGoalCategoriesFromMonth(month) {
@@ -2662,12 +2653,27 @@ function formatCategoryOptionLabel(category) {
   return resolved;
 }
 
+function formatCategoryOptionLabelFromEntry(entry) {
+  const resolved = resolveCategoryName(entry?.name || entry?.value || entry || 'OUTROS');
+  const symbol = getCategoryScalarText(entry?.symbol || entry?.icon || entry?.emoji || '');
+  return `${symbol ? `${symbol} ` : ''}${resolved}`;
+}
+
 function populateUnifiedOutflowCategoryOptions(month, selected = '') {
   const select = document.getElementById('unifiedOutflowCategory');
   if (!select) return;
-  const categories = getUnifiedOutflowCategories(month);
+  const categories = typeof getMonthCategoryOptions === 'function'
+    ? getMonthCategoryOptions(month || getCurrentMonth(), window, { includeFallbackBase: false })
+    : getUnifiedOutflowCategories(month).map(name => ({ name, symbol: '' }));
+  const normalizedSelected = selected ? resolveCategoryName(selected) : '';
+  if (normalizedSelected && !categories.some(entry => resolveCategoryName(entry?.name || entry?.value || '') === normalizedSelected)) {
+    categories.unshift({ name: normalizedSelected, symbol: typeof getCategoryEmoji === 'function' ? getCategoryEmoji(normalizedSelected) : '' });
+  }
   select.innerHTML = ['<option value="">Selecione</option>']
-    .concat(categories.map(category => `<option value="${category}" ${selected === category ? 'selected' : ''}>${escapeHtml(formatCategoryOptionLabel(category))}</option>`))
+    .concat(categories.map(entry => {
+      const value = resolveCategoryName(entry?.name || entry?.value || '');
+      return `<option value="${escapeHtml(value)}" ${normalizedSelected === value ? 'selected' : ''}>${escapeHtml(formatCategoryOptionLabelFromEntry(entry))}</option>`;
+    }))
     .concat('<option value="nova">+ Nova categoria</option>')
     .join('');
   renderUnifiedOutflowCategorySuggestionList('');

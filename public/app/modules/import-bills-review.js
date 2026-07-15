@@ -287,21 +287,31 @@
   }
 
   function buildCategoryOptions(item) {
-    const categories = reviewState.context?.categories?.list || [];
     const selected = normalizeText(item.category);
     const suggested = Array.isArray(item.suggestedCategories) ? item.suggestedCategories : [];
     const comparableFn = global.BillImportSchema?.normalizeComparableText || ((value) => String(value || '').toLowerCase());
     const selectedComparable = comparableFn(selected);
     const topSuggested = suggested.filter(Boolean).slice(0, 3);
     const base = ['<option value="">Selecionar categoria</option>'];
-    topSuggested.forEach(category => {
-      const comparable = comparableFn(category);
-      base.push(`<option value="${escapeHtml(category)}" ${comparable === selectedComparable ? 'selected' : ''}>Sugestão • ${escapeHtml(category)}</option>`);
-    });
-    categories.forEach(category => {
-      const comparable = comparableFn(category.name);
-      base.push(`<option value="${escapeHtml(category.name)}" ${comparable === selectedComparable ? 'selected' : ''}>${escapeHtml(category.name)}</option>`);
-    });
+    const seen = new Set();
+    const pushOption = (category, prefix = '', symbol = '') => {
+      const name = normalizeText(category);
+      if (!name) return;
+      const comparable = comparableFn(name);
+      if (seen.has(comparable)) return;
+      seen.add(comparable);
+      const label = `${prefix}${symbol ? `${symbol} ` : ''}${name}`;
+      base.push(`<option value="${escapeHtml(name)}" ${comparable === selectedComparable ? 'selected' : ''}>${escapeHtml(label)}</option>`);
+    };
+
+    topSuggested.forEach(category => pushOption(category, 'Sugestão • '));
+
+    const monthCategoryOptions = typeof global.getMonthCategoryOptions === 'function'
+      ? (global.getMonthCategoryOptions(item?.monthId, global, { includeFallbackBase: false }) || [])
+      : (reviewState.context?.categories?.list || []);
+    monthCategoryOptions.forEach(entry => pushOption(entry?.name || entry?.value || entry, '', entry?.symbol || entry?.icon || entry?.emoji || ''));
+
+    if (selected && !seen.has(selectedComparable)) pushOption(selected);
     return base.join('');
   }
 

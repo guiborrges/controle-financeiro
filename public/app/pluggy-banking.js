@@ -345,23 +345,16 @@
 
   function getAllCategoryEntries() {
     const month = typeof global.getCurrentMonthData === 'function' ? global.getCurrentMonthData() : null;
-    if (typeof global.getSelectableCategoryEntriesForMonth === 'function') {
-      const entries = global.getSelectableCategoryEntriesForMonth(month, { includeFallbackBase: false }) || [];
+    if (typeof global.getMonthCategoryOptions === 'function') {
+      const entries = global.getMonthCategoryOptions(month?.id || month, global, { includeFallbackBase: false }) || [];
       if (entries.length) {
         return entries.map((entry) => ({
-          name: stripLegacyCategoryIconPrefix(entry?.name || ''),
-          symbol: normalizeScalarText(entry?.symbol || '')
+          name: stripLegacyCategoryIconPrefix(entry?.name || entry?.value || ''),
+          symbol: normalizeScalarText(entry?.symbol || entry?.icon || entry?.emoji || '')
         })).filter((entry) => entry.name);
       }
     }
-    if (global.BillImportUtils?.getAllCategoriesFromUserData) {
-      const list = global.BillImportUtils.getAllCategoriesFromUserData(getDataRef()).list || [];
-      return list.map((item) => ({
-        name: stripLegacyCategoryIconPrefix(item?.name || item),
-        symbol: normalizeScalarText(item?.emoji || item?.symbol || item?.icon || item?.emojiId || ''),
-      })).filter((item) => item.name);
-    }
-    return getAllCategories().map((name) => ({ name: stripLegacyCategoryIconPrefix(name), symbol: '' }));
+    return [];
   }
 
   function getAllTags() {

@@ -23,7 +23,7 @@ function getInlineItem(table, row) {
 }
 
 function getInlineDespesaCategoryOptions(currentCat) {
-  const base = getSelectableCategoryNamesForMonth(getCurrentMonth(), { includeFallbackBase: false });
+  const base = getMonthCategoryNames(getCurrentMonth(), window, { includeFallbackBase: false });
   const current = resolveCategoryName(currentCat || 'OUTROS');
   if (!base.includes(current)) base.unshift(current);
   return Array.from(new Set(base));
@@ -202,15 +202,54 @@ function getSelectableCategoryEntriesForMonth(month, { includeFallbackBase = tru
     ['OUTROS', 'ALIMENTACAO', 'TRANSPORTE'].forEach(cat => addEntry(cat));
   }
 
-  return Array.from(byNorm.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  return Array.from(byNorm.values());
 }
 
 function getSelectableCategoryNamesForMonth(month, options = {}) {
   return getSelectableCategoryEntriesForMonth(month, options).map((entry) => entry.name);
 }
 
+function resolveMonthForCategoryOptions(monthOrId, context = window) {
+  if (monthOrId && typeof monthOrId === 'object') return monthOrId;
+  const monthId = String(monthOrId || '').trim();
+  const source = Array.isArray(context?.data)
+    ? context.data
+    : (Array.isArray(window?.data) ? window.data : []);
+  if (monthId && Array.isArray(source)) {
+    const found = source.find(month => String(month?.id || '') === monthId);
+    if (found) return found;
+  }
+  if (typeof getCurrentMonth === 'function') return getCurrentMonth();
+  return Array.isArray(source) && source.length ? source[source.length - 1] : {};
+}
+
+function getMonthCategoryOptions(monthOrId, context = window, options = {}) {
+  const month = resolveMonthForCategoryOptions(monthOrId, context);
+  const entries = getSelectableCategoryEntriesForMonth(month, {
+    includeFallbackBase: options.includeFallbackBase !== false
+  });
+  return entries.map((entry) => {
+    const name = resolveCategoryName(entry?.name || entry?.value || entry || '');
+    if (!name) return null;
+    const symbol = getCategoryScalarText(entry?.symbol || entry?.emoji || entry?.icon || '')
+      || (typeof getCategoryEmoji === 'function' ? getCategoryEmoji(name) : '');
+    return {
+      id: name,
+      value: name,
+      name,
+      label: name,
+      icon: symbol,
+      symbol
+    };
+  }).filter(Boolean);
+}
+
+function getMonthCategoryNames(monthOrId, context = window, options = {}) {
+  return getMonthCategoryOptions(monthOrId, context, options).map(entry => entry.name);
+}
+
 function getVariableCategoryOptions(m) {
-  return getSelectableCategoryNamesForMonth(m || getCurrentMonth(), { includeFallbackBase: false });
+  return getMonthCategoryNames(m || getCurrentMonth(), window, { includeFallbackBase: false });
 }
 
 function getInlineVarCategoryOptions(currentCat) {
