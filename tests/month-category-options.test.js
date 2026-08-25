@@ -77,6 +77,9 @@ test('month category options are the single ordered source for defaults, previou
     {
       id: 'junho_2026',
       nome: 'JUNHO 2026',
+      categorias: {
+        'IFOOD+BESTEIRAS': 0
+      },
       outflows: [
         { category: 'Academia', amount: 80 }
       ]
@@ -104,7 +107,8 @@ test('month category options are the single ordered source for defaults, previou
     'VIAGEM',
     'IPTU',
     'DENTISTA',
-    'ACADEMIA'
+    'ACADEMIA',
+    'IFOOD+BESTEIRAS'
   ]);
   assert.equal(names.includes('PIX'), false);
   assert.equal(names.includes('ZERADA'), false);
@@ -124,6 +128,26 @@ test('month category options are the single ordered source for defaults, previou
   assert.equal(futureNames.includes('VIAGEM'), false);
 });
 
+test('month category options keep materialized zero-value categories selectable in that month', () => {
+  const sandbox = loadCoreCategorySandbox();
+  sandbox.data = [
+    {
+      id: 'julho_2026',
+      nome: 'JULHO 2026',
+      categorias: {
+        'IFOOD+BESTEIRAS': 0,
+        OUTROS: 0
+      },
+      outflows: []
+    }
+  ];
+
+  const names = sandbox.getMonthCategoryNames('julho_2026', sandbox, { includeFallbackBase: false });
+
+  assert.equal(names.includes('IFOOD+BESTEIRAS'), true);
+  assert.equal(names.includes('OUTROS'), true);
+});
+
 test('desktop and mobile category entry points depend on getMonthCategoryOptions', () => {
   const desktop = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'mes-atual.js'), 'utf8');
   const mobileForm = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'modules', 'mobile-v2', 'outflow-form-mobile.js'), 'utf8');
@@ -134,6 +158,20 @@ test('desktop and mobile category entry points depend on getMonthCategoryOptions
   assert.match(mobileForm, /getMonthCategoryOptions\(month\?\.id \|\| month, global/);
   assert.match(mobileBanking, /getMonthCategoryOptions\(month\?\.id \|\| month, global/);
   assert.match(pluggy, /getMonthCategoryOptions\(month\?\.id \|\| month, global/);
+  assert.match(pluggy, /getSelectedMonthForCategories/);
+  assert.match(pluggy, /getCurrentMonth\(\)/);
   assert.doesNotMatch(mobileForm, /ALIMENTA/);
   assert.doesNotMatch(mobileBanking, /BillImportUtils\.getAllCategoriesFromUserData/);
+});
+
+test('native category selects do not render internal icon ids as visible labels', () => {
+  const desktop = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'mes-atual.js'), 'utf8');
+  const mobileForm = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'modules', 'mobile-v2', 'outflow-form-mobile.js'), 'utf8');
+  const importReview = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'modules', 'import-bills-review.js'), 'utf8');
+
+  assert.match(desktop, /getCategoryOptionDisplaySymbol/);
+  assert.match(desktop, /toVisualCategorySymbol/);
+  assert.match(mobileForm, /toVisualCategorySymbol/);
+  assert.match(importReview, /getVisibleSymbol/);
+  assert.match(importReview, /toVisualCategorySymbol/);
 });

@@ -294,13 +294,20 @@
     const topSuggested = suggested.filter(Boolean).slice(0, 3);
     const base = ['<option value="">Selecionar categoria</option>'];
     const seen = new Set();
+    const getVisibleSymbol = (symbol, name) => {
+      const raw = normalizeText(symbol);
+      if (!raw) return '';
+      if (global.PluggyBanking?.toVisualCategorySymbol) return global.PluggyBanking.toVisualCategorySymbol(raw, name || '');
+      return /[\u2190-\u2BFF\u{1F000}-\u{1FAFF}]/u.test(raw) ? raw : '';
+    };
     const pushOption = (category, prefix = '', symbol = '') => {
       const name = normalizeText(category);
       if (!name) return;
       const comparable = comparableFn(name);
       if (seen.has(comparable)) return;
       seen.add(comparable);
-      const label = `${prefix}${symbol ? `${symbol} ` : ''}${name}`;
+      const visualSymbol = getVisibleSymbol(symbol, name);
+      const label = `${prefix}${visualSymbol ? `${visualSymbol} ` : ''}${name}`;
       base.push(`<option value="${escapeHtml(name)}" ${comparable === selectedComparable ? 'selected' : ''}>${escapeHtml(label)}</option>`);
     };
 

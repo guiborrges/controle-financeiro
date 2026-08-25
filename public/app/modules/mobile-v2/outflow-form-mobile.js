@@ -85,10 +85,15 @@
         const options = global.getMonthCategoryOptions(month?.id || month, global, { includeFallbackBase: false }) || [];
         return options.map((entry) => {
           if (entry && typeof entry === 'object') {
+            const label = String(entry.label || entry.name || entry.value || '');
+            const rawIcon = String(entry.icon || entry.symbol || '');
+            const icon = global.PluggyBanking?.toVisualCategorySymbol
+              ? global.PluggyBanking.toVisualCategorySymbol(rawIcon, label)
+              : (/[\u2190-\u2BFF\u{1F000}-\u{1FAFF}]/u.test(rawIcon) ? rawIcon : '');
             return {
               value: String(entry.value || entry.id || entry.name || ''),
-              label: String(entry.label || entry.name || entry.value || ''),
-              icon: String(entry.icon || entry.symbol || '')
+              label,
+              icon
             };
           }
           return { value: String(entry), label: String(entry), icon: '' };

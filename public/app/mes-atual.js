@@ -2653,9 +2653,18 @@ function formatCategoryOptionLabel(category) {
   return resolved;
 }
 
+function getCategoryOptionDisplaySymbol(entry, categoryName) {
+  const rawSymbol = getCategoryScalarText(entry?.symbol || entry?.icon || entry?.emoji || '');
+  if (!rawSymbol) return '';
+  if (window.PluggyBanking?.toVisualCategorySymbol) {
+    return window.PluggyBanking.toVisualCategorySymbol(rawSymbol, categoryName || '');
+  }
+  return /[\u2190-\u2BFF\u{1F000}-\u{1FAFF}]/u.test(rawSymbol) ? rawSymbol : '';
+}
+
 function formatCategoryOptionLabelFromEntry(entry) {
   const resolved = resolveCategoryName(entry?.name || entry?.value || entry || 'OUTROS');
-  const symbol = getCategoryScalarText(entry?.symbol || entry?.icon || entry?.emoji || '');
+  const symbol = getCategoryOptionDisplaySymbol(entry, resolved);
   return `${symbol ? `${symbol} ` : ''}${resolved}`;
 }
 

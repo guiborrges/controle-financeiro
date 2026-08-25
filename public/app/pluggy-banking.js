@@ -343,8 +343,14 @@
     return [];
   }
 
+  function getSelectedMonthForCategories() {
+    if (typeof global.getCurrentMonthData === 'function') return global.getCurrentMonthData();
+    if (typeof global.getCurrentMonth === 'function') return global.getCurrentMonth();
+    return null;
+  }
+
   function getAllCategoryEntries() {
-    const month = typeof global.getCurrentMonthData === 'function' ? global.getCurrentMonthData() : null;
+    const month = getSelectedMonthForCategories();
     if (typeof global.getMonthCategoryOptions === 'function') {
       const entries = global.getMonthCategoryOptions(month?.id || month, global, { includeFallbackBase: false }) || [];
       if (entries.length) {
@@ -366,7 +372,7 @@
 
   function getCurrentMonthCategoriesUsage() {
     const usage = {};
-    const month = typeof global.getCurrentMonthData === 'function' ? global.getCurrentMonthData() : null;
+    const month = getSelectedMonthForCategories();
     const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
     outflows.forEach((item) => {
       const category = normalizeText(item?.category || '');
