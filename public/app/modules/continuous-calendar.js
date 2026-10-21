@@ -2,6 +2,7 @@
   'use strict';
 
   const VERSION = 1;
+  const RECURRENCE_REVISION = 2;
   const clone = value => JSON.parse(JSON.stringify(value));
   const stable = value => {
     if (Array.isArray(value)) return value.map(stable);
@@ -16,13 +17,17 @@
   function identity(collection, item) {
     if (collection === 'renda') return item.recurringGroupId || `income_${cleanName(item.fonte)}`;
     if (collection === 'projetos') return item.recurringGroupId || '';
-    return item.installmentsGroupId || item.recurringGroupId || '';
+    return item.installmentsGroupId || item.recurringGroupId || (isRecurring(collection, item)
+      ? `calendar_rec_${encodeURIComponent([cleanName(item.description), item.outputKind || 'method', item.outputRef || item.outputMethod || 'boleto', cleanName(item.category)].join('|'))}`
+      : '');
   }
 
   function isRecurring(collection, item) {
     if (collection === 'renda') return item.recurringFixed !== false && !!String(item.fonte || '').trim();
     if (collection === 'projetos') return item.recurringExtra === true;
-    return item.expenseRecurring === true || item.recurringSpend === true || Number(item.installmentsTotal) > 1;
+    return item.expenseRecurring === true || item.recurringSpend === true || item.launchRecurring === true
+      || !!String(item.recurringGroupId || '').trim() || Number(item.installmentsTotal) > 1
+      || !!String(item.installmentsGroupId || '').trim() || item.type === 'fixed';
   }
 
   function template(collection, item) {
@@ -55,6 +60,7 @@
     }
     const from = options.sort(month);
     const payload = template(collection, item);
+    if (collection === 'outflows' && !payload.recurringGroupId && !payload.installmentsGroupId) payload.recurringGroupId = key;
     const version = { from, sourceMonth: month.id, payload };
     const current = activeVersion(rule, from);
     // Monthly dates and installment positions are projected from their source month.
@@ -74,7 +80,7 @@
   }
 
   function createModel(months, options) {
-    const model = { version: VERSION, start: options.start, rules: [], settings: [] };
+    const model = { version: VERSION, recurrenceRevision: RECURRENCE_REVISION, start: options.start, rules: [], settings: [] };
     const ordered = months.slice().sort((a, b) => options.sort(a) - options.sort(b));
     ordered.forEach(month => {
       collections.forEach(collection => (month[collection] || []).forEach(item => {
@@ -86,7 +92,11 @@
       if (!last || !equal(last.payload, payload)) model.settings.push({ from: options.sort(month), payload });
       (month.recurringSeriesStops || []).forEach(key => {
         const rule = model.rules.find(entry => entry.key === key && entry.collection === 'outflows');
-        if (rule) rule.versions.push({ from: options.sort(month), stopped: true });
+        if (rule) {
+          const from = options.sort(month);
+          rule.versions = rule.versions.filter(version => version.from !== from);
+          rule.versions.push({ from, stopped: true });
+        }
       });
     });
     collections.forEach(collection => {
@@ -101,6 +111,30 @@
       });
     });
     return model;
+  }
+
+  function repairRecurringRules(model, months, options) {
+    if (model.recurrenceRevision >= RECURRENCE_REVISION) return false;
+    const ordered = months.slice().sort((a, b) => options.sort(a) - options.sort(b));
+    const anchor = ordered.filter(month => options.sort(month) <= options.start && (month.outflows || []).some(item => isRecurring('outflows', item))).pop();
+    const known = new Set(model.rules.map(rule => rule.id));
+    if (anchor) ordered.filter(month => options.sort(month) >= options.sort(anchor)).forEach(month => {
+      (month.outflows || []).forEach(item => {
+        if (!isRecurring('outflows', item)) return;
+        const key = identity('outflows', item);
+        if (!known.has(`outflows:${key}`)) putRule(model, 'outflows', item, month, options);
+      });
+      (month.recurringSeriesStops || []).forEach(key => {
+        if (known.has(`outflows:${key}`)) return;
+        const rule = model.rules.find(entry => entry.id === `outflows:${key}`);
+        if (!rule) return;
+        const from = options.sort(month);
+        rule.versions = rule.versions.filter(version => version.from !== from);
+        rule.versions.push({ from, stopped: true });
+      });
+    });
+    model.recurrenceRevision = RECURRENCE_REVISION;
+    return true;
   }
 
   function project(model, month, options) {
@@ -268,6 +302,6 @@
     return { hydrate, virtual, serialize, upsert, stop };
   }
 
-  global.ContinuousCalendar = { VERSION, createModel, createSession, project, identity, isRecurring };
+  global.ContinuousCalendar = { VERSION, RECURRENCE_REVISION, createModel, repairRecurringRules, createSession, project, identity, isRecurring };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.ContinuousCalendar;
 })(typeof window !== 'undefined' ? window : globalThis);

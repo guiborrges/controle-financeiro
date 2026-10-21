@@ -90,17 +90,22 @@ function stopContinuousCalendarRule(month, collection, key) {
 }
 
 async function migrateToContinuousCalendar() {
-  if (isContinuousCalendarEnabled()) return;
+  if (isContinuousCalendarEnabled() && continuousCalendarModel.recurrenceRevision >= window.ContinuousCalendar.RECURRENCE_REVISION) return;
   try {
     const response = await fetch('/api/backups/manual', {
       method: 'POST', credentials: 'same-origin',
       headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
-      body: JSON.stringify({ note: 'Antes da migracao para calendario continuo' })
+      body: JSON.stringify({ note: 'Antes da migracao ou reparo de recorrencias do calendario continuo' })
     });
     if (!response.ok) throw new Error(`Backup indisponivel (${response.status})`);
     data.forEach(month => { normalizeMonth(month); ensureUnifiedOutflowPilotMonth(month); });
-    const model = window.ContinuousCalendar.createModel(data, getContinuousCalendarOptions());
-    data = restoreContinuousCalendar(model, data);
+    const existing = isContinuousCalendarEnabled();
+    const storedMonths = existing ? serializeContinuousCalendarMonths() : data;
+    const model = existing
+      ? JSON.parse(JSON.stringify(continuousCalendarModel))
+      : window.ContinuousCalendar.createModel(data, getContinuousCalendarOptions());
+    if (existing) window.ContinuousCalendar.repairRecurringRules(model, data, getContinuousCalendarOptions());
+    data = restoreContinuousCalendar(model, storedMonths);
     ensureContinuousCalendarWindow();
     save(true);
     buildMonthSelect();

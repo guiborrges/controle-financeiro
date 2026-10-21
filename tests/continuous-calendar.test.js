@@ -45,6 +45,46 @@ test('all future months are projected directly without their predecessor being p
   assert.equal(december.outflows[0].paid, false);
 });
 
+test('legacy expenses recur by their series id even when modern boolean flags are false', () => {
+  const { engine, options } = setup();
+  const source = month(10);
+  source.outflows = ['Aluguel', 'Energia', 'Internet'].map((description, index) => ({
+    id: `legacy_${index}`, description, type: 'expense', amount: 100,
+    expenseRecurring: false, recurringSpend: false, launchRecurring: false,
+    recurringGroupId: `legacy_fixed_${description}`, installmentsTotal: 1, paid: true
+  }));
+  const model = engine.createModel([source], options);
+  const future = engine.project(model, month(24), options);
+  assert.equal(future.outflows.length, 3);
+  assert.equal(future.outflows.every(item => item.paid === false), true);
+});
+
+test('repair adds only missing legacy rules and preserves explicit stops and monthly exceptions', () => {
+  const { engine, options, model } = setup();
+  delete model.recurrenceRevision;
+  model.rules.find(rule => rule.key === 'rent').versions.push({ from: 11, stopped: true });
+  const source = month(10);
+  source.outflows = [{ id: 'legacy', description: 'Internet', type: 'expense', amount: 100, recurringGroupId: 'legacy_fixed_INTERNET', expenseRecurring: false }];
+  const count = model.rules.length;
+  assert.equal(engine.repairRecurringRules(model, [source], options), true);
+  assert.equal(model.rules.length, count + 1);
+  assert.equal(model.rules.find(rule => rule.key === 'rent').versions.at(-1).stopped, true);
+  assert.equal(engine.project(model, month(12), options).outflows.length, 1);
+  assert.equal(engine.repairRecurringRules(model, [source], options), false);
+  assert.equal(model.rules.length, count + 1);
+});
+
+test('a marked recurring expense without a series id gets one stable schedule', () => {
+  const { engine, options } = setup();
+  const source = month(10);
+  source.outflows = [{ id: 'one', description: 'Internet', amount: 100, expenseRecurring: true }];
+  const model = engine.createModel([source], options);
+  const session = engine.createSession(model, options);
+  assert.equal(model.rules.length, 1);
+  assert.equal(session.hydrate(source).outflows.length, 1);
+  assert.equal(session.virtual(month(11)).outflows.length, 1);
+});
+
 test('browsing two years does not add virtual months to stored data', () => {
   const { source, session } = setup();
   const history = session.hydrate(source);

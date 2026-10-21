@@ -709,7 +709,7 @@ function init() {
   }
   if (!(typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled()) && (data || []).some(month => month?.selectionVisibility?.version !== 2 || !(month?._incomeContinuityVersion >= 2))) {
     createSelectionVisibilityMigrationBackup();
-  } else if (typeof migrateToContinuousCalendar === 'function' && !isContinuousCalendarEnabled()) {
+  } else if (typeof migrateToContinuousCalendar === 'function') {
     migrateToContinuousCalendar();
   }
   metas = savedMetas || {};
