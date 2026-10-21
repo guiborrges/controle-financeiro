@@ -299,6 +299,7 @@ body {
   display: grid;
   place-items: center;
   padding: 28px;
+  overflow-y: auto;
   background: rgba(8, 17, 31, 0.42);
   backdrop-filter: blur(14px);
   z-index: 20;
@@ -306,6 +307,9 @@ body {
 
 .register-card {
   width: min(100%, 520px);
+  max-height: calc(100dvh - 56px);
+  overflow-y: auto;
+  margin: auto;
   padding: 32px 28px 26px;
   border-radius: 28px;
   border: 1px solid var(--glass-border);
@@ -397,6 +401,7 @@ body {
 
   .register-card {
     width: min(100%, 100%);
+    max-height: calc(100dvh - 36px);
     padding: 24px 20px 20px;
     border-radius: 24px;
   }

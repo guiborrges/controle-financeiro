@@ -77,6 +77,16 @@ function normalizePatrimonioAccount(account, idx = 0) {
   const color = String(account?.color || account?.cor || '').trim();
   const institution = String(account?.institution || account?.instituicao || '').trim().toLowerCase();
   const kind = String(account?.kind || account?.modo || '').trim().toLowerCase();
+  const reconciliationCheckpoints = (Array.isArray(account?.reconciliationCheckpoints)
+    ? account.reconciliationCheckpoints
+    : [])
+    .map((checkpoint, checkpointIndex) => ({
+      id: String(checkpoint?.id || patrimonioId(`checkpoint_${idx}_${checkpointIndex}`)),
+      date: String(checkpoint?.date || '').trim(),
+      balance: Number(checkpoint?.balance),
+      createdAt: String(checkpoint?.createdAt || account?.createdAt || '')
+    }))
+    .filter(checkpoint => checkpoint.date && Number.isFinite(checkpoint.balance));
   return {
     id: account?.id || patrimonioId(`account_${idx}`),
     nome: String(account?.nome || account?.name || '').trim() || `Conta ${idx + 1}`,
@@ -87,12 +97,13 @@ function normalizePatrimonioAccount(account, idx = 0) {
       : (PATRIMONIO_INSTITUTION_META[institution] ? 'institution' : 'custom'),
     institution: PATRIMONIO_INSTITUTION_META[institution] ? institution : '',
     color: /^#[0-9a-fA-F]{6}$/.test(color) ? color : '',
+    reconciliationCheckpoints,
     createdAt: account?.createdAt || new Date().toISOString()
   };
 }
 
 function normalizePatrimonioMovement(movement, idx = 0) {
-  const type = ['aporte', 'retirada', 'transferencia'].includes(movement?.type) ? movement.type : 'aporte';
+  const type = ['aporte', 'retirada', 'transferencia', 'atualizacao'].includes(movement?.type) ? movement.type : 'aporte';
   return {
     id: movement?.id || patrimonioId(`mov_${idx}`),
     type,
@@ -116,7 +127,7 @@ function ensurePatrimonioData() {
     search: String(patrimonioFilters?.search || '').trim(),
     period: ['all', '30', '90', '365'].includes(patrimonioFilters?.period) ? patrimonioFilters.period : 'all',
     sort: ['saldo_desc', 'saldo_asc', 'nome_asc', 'nome_desc'].includes(patrimonioFilters?.sort) ? patrimonioFilters.sort : 'saldo_desc',
-    movementType: ['all', 'aporte', 'retirada', 'transferencia'].includes(patrimonioFilters?.movementType) ? patrimonioFilters.movementType : 'all'
+    movementType: ['all', 'aporte', 'retirada', 'transferencia', 'atualizacao'].includes(patrimonioFilters?.movementType) ? patrimonioFilters.movementType : 'all'
   };
   if (patrimonioSelectedAccountId && !patrimonioAccounts.some(account => account.id === patrimonioSelectedAccountId)) {
     patrimonioSelectedAccountId = '';
@@ -145,9 +156,23 @@ function getPatrimonioAccountOptions(selectedId = '', includeBlank = true) {
   return options.join('');
 }
 
-function getPatrimonioBalanceForAccount(accountId) {
+function getPatrimonioLatestCheckpoint(account) {
+  return (account?.reconciliationCheckpoints || [])
+    .slice()
+    .sort((a, b) => parsePatrimonioDate(b.date) - parsePatrimonioDate(a.date) || b.createdAt.localeCompare(a.createdAt))[0] || null;
+}
+
+function getPatrimonioBalanceForAccount(accountId, movements = patrimonioMovements, excludedCheckpointId = '', throughTime = Infinity) {
   ensurePatrimonioData();
-  return Number(patrimonioMovements.reduce((acc, movement) => {
+  const account = patrimonioAccounts.find(item => item.id === accountId);
+  const checkpoint = getPatrimonioLatestCheckpoint({
+    reconciliationCheckpoints: (account?.reconciliationCheckpoints || []).filter(item => item.id !== excludedCheckpointId && parsePatrimonioDate(item.date) <= throughTime)
+  });
+  const checkpointTime = checkpoint ? parsePatrimonioDate(checkpoint.date) : 0;
+  const startingBalance = checkpoint ? checkpoint.balance : 0;
+  return Number(movements.reduce((acc, movement) => {
+    if (parsePatrimonioDate(movement.date) > throughTime) return acc;
+    if (checkpointTime && parsePatrimonioDate(movement.date) <= checkpointTime) return acc;
     if (movement.type === 'aporte' && movement.accountId === accountId) return acc + movement.value;
     if (movement.type === 'retirada' && movement.accountId === accountId) return acc - movement.value;
     if (movement.type === 'transferencia') {
@@ -155,7 +180,7 @@ function getPatrimonioBalanceForAccount(accountId) {
       if (movement.toAccountId === accountId) acc += movement.value;
     }
     return acc;
-  }, 0).toFixed(2));
+  }, startingBalance).toFixed(2));
 }
 
 function getPatrimonioFilteredAccounts() {
@@ -200,19 +225,15 @@ function getPatrimonioMovementImpact(movement) {
 }
 
 function getPatrimonioEvolutionSeries() {
-  const points = new Map();
-  patrimonioMovements
-    .slice()
-    .sort((a, b) => parsePatrimonioDate(a.date) - parsePatrimonioDate(b.date) || a.createdAt.localeCompare(b.createdAt))
-    .forEach(movement => {
-      const key = movement.date || todayIsoDate();
-      points.set(key, (points.get(key) || 0) + getPatrimonioMovementImpact(movement));
-    });
-  let running = 0;
-  return Array.from(points.entries()).map(([date, delta]) => {
-    running = Number((running + delta).toFixed(2));
-    return { date, total: running };
-  });
+  ensurePatrimonioData();
+  const dates = new Set(patrimonioMovements.map(movement => movement.date || todayIsoDate()));
+  patrimonioAccounts.forEach(account => account.reconciliationCheckpoints.forEach(checkpoint => dates.add(checkpoint.date)));
+  return Array.from(dates)
+    .sort((a, b) => parsePatrimonioDate(a) - parsePatrimonioDate(b))
+    .map(date => ({
+      date,
+      total: Number(patrimonioAccounts.reduce((sum, account) => sum + getPatrimonioBalanceForAccount(account.id, patrimonioMovements, '', parsePatrimonioDate(date)), 0).toFixed(2))
+    }));
 }
 
 function getPatrimonioDistributionSeries() {
@@ -704,7 +725,7 @@ function savePatrimonioMovement() {
     alert('Crie pelo menos uma conta patrimonial antes de lancar movimentacoes.');
     return;
   }
-  const id = document.getElementById('patrimonioMovementId').value;
+  let id = document.getElementById('patrimonioMovementId').value;
   const requestedType = document.getElementById('patrimonioMovementType').value;
   const inputValue = parsePatrimonioAmountInput(document.getElementById('patrimonioMovementValue').value);
   let description = document.getElementById('patrimonioMovementDescription').value.trim();
@@ -732,22 +753,34 @@ function savePatrimonioMovement() {
     return;
   }
   if (requestedType === 'atualizacao') {
-    const current = getPatrimonioBalanceForAccount(accountId);
-    const diff = Number((value - current).toFixed(2));
-    if (Math.abs(diff) < 0.005) {
-      alert('O saldo informado e igual ao saldo atual da conta. Nenhuma movimentacao foi criada.');
-      return;
-    }
-    type = diff > 0 ? 'aporte' : 'retirada';
-    value = Math.abs(diff);
+    type = 'atualizacao';
     if (!description) {
-      description = 'Atualizacao de saldo';
+      description = 'Saldo conciliado';
     }
   } else if (value <= 0) {
     alert('Informe um valor valido para a movimentacao.');
     return;
   }
   recordHistoryState();
+  const existingMovement = id ? patrimonioMovements.find(item => item.id === id) : null;
+  if (existingMovement?.type === 'atualizacao') {
+    const previousAccount = getPatrimonioAccountById(existingMovement.accountId);
+    if (previousAccount) {
+      previousAccount.reconciliationCheckpoints = (previousAccount.reconciliationCheckpoints || []).filter(checkpoint => checkpoint.id !== id);
+    }
+  }
+  if (type === 'atualizacao') {
+    const account = getPatrimonioAccountById(accountId);
+    const checkpointId = id || patrimonioId('mov');
+    account.reconciliationCheckpoints = (account.reconciliationCheckpoints || []).filter(checkpoint => checkpoint.id !== checkpointId);
+    account.reconciliationCheckpoints.push({
+      id: checkpointId,
+      date,
+      balance: value,
+      createdAt: new Date().toISOString()
+    });
+    if (!id) id = checkpointId;
+  }
   const payload = normalizePatrimonioMovement({
     id: id || patrimonioId('mov'),
     type,
@@ -762,6 +795,7 @@ function savePatrimonioMovement() {
   if (id) {
     const index = patrimonioMovements.findIndex(item => item.id === id);
     if (index >= 0) patrimonioMovements[index] = payload;
+    else patrimonioMovements.unshift(payload);
   } else {
     patrimonioMovements.unshift(payload);
   }
@@ -773,9 +807,18 @@ function savePatrimonioMovement() {
 }
 
 function deletePatrimonioMovement(movementId) {
-  if (!confirm('Excluir esta movimentacao?')) return;
   const movement = patrimonioMovements.find(item => item.id === movementId);
   if (!movement) return;
+  const affectedAccountIds = [movement.accountId, movement.fromAccountId, movement.toAccountId].filter(Boolean);
+  const remainingMovements = patrimonioMovements.filter(item => item.id !== movementId);
+  const balancePreview = affectedAccountIds.map(accountId => {
+    const account = getPatrimonioAccountById(accountId);
+    const before = getPatrimonioBalanceForAccount(accountId);
+    const after = getPatrimonioBalanceForAccount(accountId, remainingMovements, movement.type === 'atualizacao' ? movement.id : '');
+    return `${account?.nome || 'Conta'}: ${fmt(before)} -> ${fmt(after)}`;
+  });
+  if (!confirm(`Excluir esta movimentacao?\n\nImpacto no saldo atual:\n${balancePreview.join('\n')}`)) return;
+  recordHistoryState();
   if (movement.sourceType === 'financial-goal' && movement.sourceMonthId && movement.sourceGoalId) {
     const month = data.find(item => item.id === movement.sourceMonthId);
     const goal = month?.financialGoals?.find(item => item.id === movement.sourceGoalId);
@@ -784,7 +827,20 @@ function deletePatrimonioMovement(movementId) {
       goal.patrimonioMovementId = '';
     }
   }
-  recordHistoryState();
+  data.forEach(month => {
+    (month.renda || []).forEach(income => {
+      if (income.patrimonioMovementId === movementId) income.patrimonioMovementId = '';
+    });
+    (month.projetos || []).forEach(project => {
+      if (project.patrimonioMovementId === movementId) project.patrimonioMovementId = '';
+    });
+  });
+  if (movement.type === 'atualizacao') {
+    const account = getPatrimonioAccountById(movement.accountId);
+    if (account) {
+      account.reconciliationCheckpoints = (account.reconciliationCheckpoints || []).filter(checkpoint => checkpoint.id !== movement.id);
+    }
+  }
   patrimonioMovements = patrimonioMovements.filter(item => item.id !== movementId);
   savePatrimonioData();
   renderPatrimonio();
@@ -918,18 +974,24 @@ function renderPatrimonioAccounts() {
 
 function renderPatrimonioMovementRow(account, movement) {
   const isTransferOut = movement.type === 'transferencia' && movement.fromAccountId === account.id;
-  const rowType = movement.type === 'transferencia'
+  const rowType = movement.type === 'atualizacao'
+    ? 'neutral'
+    : movement.type === 'transferencia'
     ? 'transfer'
     : movement.type === 'retirada'
       ? 'expense'
       : 'income';
   const direction = movement.type === 'retirada' || isTransferOut ? -1 : 1;
-  const symbol = movement.type === 'transferencia'
+  const symbol = movement.type === 'atualizacao'
+    ? '='
+    : movement.type === 'transferencia'
     ? renderPatrimonioActionIcon('transfer')
     : movement.type === 'retirada'
       ? '-'
       : '+';
-  const movementTitle = movement.type === 'transferencia'
+  const movementTitle = movement.type === 'atualizacao'
+    ? 'Saldo conciliado'
+    : movement.type === 'transferencia'
     ? (isTransferOut ? 'Transferencia enviada' : 'Transferencia recebida')
     : movement.type === 'retirada'
       ? 'Retirada'
@@ -948,7 +1010,7 @@ function renderPatrimonioMovementRow(account, movement) {
           ${counterpart ? `<small>${escapeHtml(counterpart)}</small>` : ''}
         </div>
       </td>
-      <td class="amount ${direction >= 0 ? 'amount-pos' : 'amount-neg'}">${direction >= 0 ? fmt(movement.value) : `- ${fmt(movement.value)}`}</td>
+      <td class="amount ${movement.type === 'atualizacao' ? '' : (direction >= 0 ? 'amount-pos' : 'amount-neg')}">${movement.type === 'atualizacao' ? fmt(movement.value) : (direction >= 0 ? fmt(movement.value) : `- ${fmt(movement.value)}`)}</td>
       <td class="patrimonio-action-cell">
         ${movement.sourceType === 'financial-goal'
           ? '<span class="patrimonio-status-chip neutral">Meta</span>'
@@ -1006,6 +1068,15 @@ function renderPatrimonioDetail() {
       </table>
     </div>
   `;
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.__patrimonioTest = {
+    normalizePatrimonioAccount,
+    normalizePatrimonioMovement,
+    getPatrimonioLatestCheckpoint,
+    getPatrimonioBalanceForAccount
+  };
 }
 
 

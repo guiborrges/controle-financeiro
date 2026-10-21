@@ -131,6 +131,12 @@
       .trim();
   }
 
+  function isMemoryEligibleDescription(value) {
+    const key = normalizeDescriptionKey(value);
+    if (!key || key.split(' ').length < 2) return false;
+    return !/^(pix|ted|transferencia|pagamento|debito|credito)\b/.test(key);
+  }
+
   function money(value) {
     const amount = Number(value || 0);
     const safeAmount = Number.isFinite(amount) ? amount : 0;
@@ -364,6 +370,10 @@
   }
 
   function getAllTags() {
+    const month = getSelectedMonthForCategories();
+    if (typeof global.getMonthTagOptions === 'function') {
+      return global.getMonthTagOptions(month?.id || month, global);
+    }
     if (global.BillImportUtils?.getAllTagsFromUserData) {
       return global.BillImportUtils.getAllTagsFromUserData(getDataRef());
     }
@@ -659,17 +669,23 @@
   function applyMemoryFromOriginalDescription(tx, row) {
     const originalDescription = normalizeText(row?._ui?.originalDescription || tx?.descriptionRaw || tx?.description || '');
     const key = normalizeDescriptionKey(originalDescription);
-    if (!key) return;
+    if (!key || !isMemoryEligibleDescription(originalDescription)) return;
     const touched = row?._ui?.touched || {};
     const allCategories = getAllCategories();
     const allTags = getAllTags();
-    const memorizedCategory = normalizeText(STATE.userState.categoryMemory[key] || '');
-    const memorizedTag = normalizeText(STATE.userState.tagMemory[key] || '');
+    const memorizedCategory = getMemorySuggestion(STATE.userState.categoryMemory[key]);
+    const memorizedTag = getMemorySuggestion(STATE.userState.tagMemory[key]);
 
     const matchedCategory = findMatchingValue(allCategories, memorizedCategory);
-    if (!touched.category && matchedCategory) row._ui.category = matchedCategory;
+    if (!touched.category && matchedCategory) {
+      row._ui.category = matchedCategory;
+      row._ui.suggestedCategory = true;
+    }
     const matchedTag = findMatchingValue(allTags, memorizedTag);
-    if (!touched.tag && matchedTag) row._ui.tag = matchedTag;
+    if (!touched.tag && matchedTag) {
+      row._ui.tag = matchedTag;
+      row._ui.suggestedTag = true;
+    }
   }
 
   function ensurePending(account) {
@@ -713,6 +729,10 @@
     const target = rows.find(item => String(item.id) === String(txId));
     if (!target || !target._ui) return;
     target._ui[field] = value;
+    if ((field === 'category' && target._ui.suggestedCategory) || (field === 'tag' && target._ui.suggestedTag)) {
+      penalizeMemory(target._ui.originalDescription, field, value);
+      target._ui[field === 'category' ? 'suggestedCategory' : 'suggestedTag'] = false;
+    }
     if (!target._ui.touched) target._ui.touched = {};
     target._ui.touched[field] = true;
     target._ui.error = '';
@@ -943,27 +963,59 @@
     });
   }
 
-  function rememberCategory(description, category) {
-    const normCategory = normalizeText(category);
-    if (!normCategory) return;
-    const allCategories = getAllCategories();
-    const matchedCategory = findMatchingValue(allCategories, normCategory);
-    if (!matchedCategory) return;
+  function normalizeMemoryEntry(entry) {
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      return {
+        total: Math.max(0, Number(entry.total || 0) || 0),
+        values: entry.values && typeof entry.values === 'object' ? { ...entry.values } : {},
+        recent: Array.isArray(entry.recent) ? entry.recent.slice(-5).map(value => String(value || '').trim()) : []
+      };
+    }
+    const legacy = normalizeText(entry || '');
+    return legacy ? { total: 1, values: { [legacy]: 1 }, recent: [legacy] } : { total: 0, values: {}, recent: [] };
+  }
+
+  function getMemorySuggestion(entry) {
+    const memory = normalizeMemoryEntry(entry);
+    if (memory.total < 3 || memory.recent.length < 3) return '';
+    const votes = new Map();
+    memory.recent.forEach(value => {
+      if (value) votes.set(value, (votes.get(value) || 0) + 1);
+    });
+    const [winner = '', count = 0] = Array.from(votes.entries()).sort((a, b) => b[1] - a[1])[0] || [];
+    return winner && count / memory.recent.length >= 0.8 ? winner : '';
+  }
+
+  function rememberMemory(memoryName, description, value) {
     const key = normalizeDescriptionKey(description);
-    if (!key) return;
-    STATE.userState.categoryMemory[key] = matchedCategory;
-    persistUserState();
+    if (!key || !isMemoryEligibleDescription(description)) return;
+    const memory = normalizeMemoryEntry(STATE.userState[memoryName][key]);
+    const normalized = normalizeText(value || '');
+    memory.total += 1;
+    memory.recent.push(normalized);
+    memory.recent = memory.recent.slice(-5);
+    if (normalized) memory.values[normalized] = Number(memory.values[normalized] || 0) + 1;
+    STATE.userState[memoryName][key] = memory;
+  }
+
+  function rememberCategory(description, category) {
+    const matched = category ? findMatchingValue(getAllCategories(), normalizeText(category)) : '';
+    rememberMemory('categoryMemory', description, matched);
   }
 
   function rememberTag(description, tag) {
-    const normTag = normalizeText(tag);
-    if (!normTag) return;
-    const allTags = getAllTags();
-    const matchedTag = findMatchingValue(allTags, normTag);
-    if (!matchedTag) return;
+    const matched = tag ? findMatchingValue(getAllTags(), normalizeText(tag)) : '';
+    rememberMemory('tagMemory', description, matched);
+  }
+
+  function penalizeMemory(description, field, value) {
+    const memoryName = field === 'category' ? 'categoryMemory' : 'tagMemory';
     const key = normalizeDescriptionKey(description);
-    if (!key) return;
-    STATE.userState.tagMemory[key] = matchedTag;
+    if (!key || !isMemoryEligibleDescription(description) || !STATE.userState[memoryName]?.[key]) return;
+    const memory = normalizeMemoryEntry(STATE.userState[memoryName][key]);
+    memory.recent.push(normalizeText(value || ''));
+    memory.recent = memory.recent.slice(-5);
+    STATE.userState[memoryName][key] = memory;
     persistUserState();
   }
 
@@ -1564,11 +1616,13 @@
               <select class="pluggy-input pluggy-category-select" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','category',this.value)">
                 ${categoryOptions(tx._ui?.category || '')}
               </select>
+              ${tx._ui?.suggestedCategory ? '<small class="pluggy-suggestion-label">Sugerida</small>' : ''}
             </td>
             <td>
               <select class="pluggy-input" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','tag',this.value)">
                 ${tagOptions(tx._ui?.tag || '')}
               </select>
+              ${tx._ui?.suggestedTag ? '<small class="pluggy-suggestion-label">Sugerida</small>' : ''}
             </td>
             <td class="amount-neg">${escapeHtml(money(amountAbs))}</td>
             <td class="pluggy-actions-cell">
@@ -1919,6 +1973,9 @@
     dedupeLabel,
     stripLegacyCategoryIconPrefix,
     toVisualCategorySymbol,
+    normalizeMemoryEntry,
+    getMemorySuggestion,
+    isMemoryEligibleDescription,
     buildImportedCompositeKey,
     extractImportedKeysFromSavedData,
     mergeUserStates,

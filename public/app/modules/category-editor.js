@@ -117,6 +117,12 @@ function applyCategoryTransitionV2(sourceCategory, targetCategory) {
         delete selection[source];
       }
     }
+    if (month?.selectionVisibility?.categories && Object.prototype.hasOwnProperty.call(month.selectionVisibility.categories, source)) {
+      if (!Object.prototype.hasOwnProperty.call(month.selectionVisibility.categories, target)) {
+        month.selectionVisibility.categories[target] = month.selectionVisibility.categories[source];
+      }
+      delete month.selectionVisibility.categories[source];
+    }
     syncUnifiedOutflowLegacyData(month);
   });
 
@@ -297,8 +303,68 @@ function applyTagRename(sourceTag, targetTag) {
         item.tag = target;
       }
     });
+    const visibility = month?.selectionVisibility?.tags;
+    const sourceKey = source.toLocaleLowerCase('pt-BR');
+    const targetKey = target.toLocaleLowerCase('pt-BR');
+    if (visibility && Object.prototype.hasOwnProperty.call(visibility, sourceKey)) {
+      if (!Object.prototype.hasOwnProperty.call(visibility, targetKey)) visibility[targetKey] = visibility[sourceKey];
+      delete visibility[sourceKey];
+    }
   });
   return true;
+}
+
+function getVisibilityEditorMonth() {
+  return typeof getCurrentMonth === 'function' ? getCurrentMonth() : null;
+}
+
+function getMonthCategoryUsageCount(month, category) {
+  const resolved = resolveCategoryName(category || '');
+  if (!month || !resolved) return 0;
+  const matches = value => resolveCategoryName(value || 'OUTROS') === resolved;
+  return (month.outflows || []).filter(item => matches(item?.category || item?.categoria)).length
+    + (month.gastosVar || []).filter(item => matches(item?.categoria)).length
+    + (month.despesas || []).filter(item => matches(item?.categoria)).length;
+}
+
+function getMonthTagUsageCount(month, tag) {
+  const key = String(tag || '').trim().toLocaleLowerCase('pt-BR');
+  if (!month || !key) return 0;
+  return (month.outflows || []).filter(item => String(item?.tag || '').trim().toLocaleLowerCase('pt-BR') === key).length;
+}
+
+function toggleCategoryVisibilityForCurrentMonth(category, visible) {
+  const month = getVisibilityEditorMonth();
+  const resolved = resolveCategoryName(category || '');
+  if (!month || !resolved || !month.selectionVisibility) return;
+  if (!visible) {
+    const count = getMonthCategoryUsageCount(month, resolved);
+    if (count) {
+      alert(`Não é possível ocultar: há ${count} lançamentos nesta categoria neste mês.`);
+      renderCategoryEditorList();
+      return;
+    }
+  }
+  month.selectionVisibility.categories[resolved] = visible;
+  save(true);
+  renderCategoryEditorList();
+}
+
+function toggleTagVisibilityForCurrentMonth(tag, visible) {
+  const month = getVisibilityEditorMonth();
+  const key = String(tag || '').trim().toLocaleLowerCase('pt-BR');
+  if (!month || !key || !month.selectionVisibility) return;
+  if (!visible) {
+    const count = getMonthTagUsageCount(month, tag);
+    if (count) {
+      alert(`Não é possível ocultar: há ${count} lançamentos com esta tag neste mês.`);
+      renderTagEditorList();
+      return;
+    }
+  }
+  month.selectionVisibility.tags[key] = visible;
+  save(true);
+  renderTagEditorList();
 }
 
 function applyTagDelete(sourceTag) {
@@ -363,6 +429,8 @@ function renderTagEditorList() {
   container.innerHTML = entries.map(entry => {
     const escapedTag = categoryEditorEscapedValue(entry.tag);
     const expanded = !!expandedTagEditorGroups[entry.tag];
+    const month = getVisibilityEditorMonth();
+    const visible = month?.selectionVisibility?.tags?.[entry.tag.toLocaleLowerCase('pt-BR')] !== false;
     const launchesHtml = expanded
       ? `<table class="fin-table" style="margin-top:8px"><thead><tr><th>Mês</th><th>Descrição</th><th>Data</th><th>Valor</th><th></th></tr></thead><tbody>${(entry.items || []).map(launch => `
           <tr>
@@ -380,6 +448,7 @@ function renderTagEditorList() {
           <div class="category-editor-group-title" title="${escapeHtml(entry.tag)}">${escapeHtml(entry.tag)}</div>
           <div class="category-editor-meta">${entry.launches} lançamentos · ${fmt(entry.total)}</div>
           <div class="category-editor-inline-actions">
+            <label class="category-editor-toggle"><input type="checkbox" ${visible ? 'checked' : ''} onchange="toggleTagVisibilityForCurrentMonth('${escapedTag}', this.checked)"> Exibir neste mês</label>
             <button class="btn-icon" title="Editar tag" onclick="editTagFromEditor('${escapedTag}')">✎</button>
             <button class="btn-icon" title="Excluir tag" onclick="deleteTagFromEditor('${escapedTag}')">✕</button>
             <button class="btn btn-ghost category-editor-toggle" type="button" onclick="toggleTagEditorGroup('${escapedTag}')">${expanded ? 'Ocultar lançamentos' : 'Ver lançamentos'}</button>
@@ -402,6 +471,8 @@ function renderCategoryEditorList(entries = null) {
   container.innerHTML = safeEntries.map(entry => {
     const escapedCategory = categoryEditorEscapedValue(entry.category);
     const expanded = !!expandedCategoryEditorGroups[entry.category];
+    const month = getVisibilityEditorMonth();
+    const visible = month?.selectionVisibility?.categories?.[entry.category] !== false;
     const launchesHtml = expanded
       ? `<table class="fin-table" style="margin-top:8px"><thead><tr><th>Mês</th><th>Descrição</th><th>Data</th><th>Valor</th><th></th></tr></thead><tbody>${entry.launches.map(launch => `
           <tr>
@@ -419,6 +490,7 @@ function renderCategoryEditorList(entries = null) {
           <div class="category-editor-group-title" title="${escapeHtml(entry.category)}">${renderCategoryLabel(entry.category)}</div>
           <div class="category-editor-meta">${entry.launches.length} lançamentos · ${fmt(entry.total)}</div>
           <div class="category-editor-inline-actions">
+            <label class="category-editor-toggle"><input type="checkbox" ${visible ? 'checked' : ''} onchange="toggleCategoryVisibilityForCurrentMonth('${escapedCategory}', this.checked)"> Exibir neste mês</label>
             <button class="btn-icon" title="Editar categoria" onclick="openCategoryEditModal('${escapedCategory}')">✎</button>
             <button class="btn-icon" title="Excluir categoria" onclick="openCategoryDeleteModal('${escapedCategory}')">✕</button>
             <button class="btn btn-ghost category-editor-toggle" type="button" onclick="toggleCategoryEditorGroup('${escapedCategory}')">${expanded ? 'Ocultar lançamentos' : 'Ver lançamentos'}</button>

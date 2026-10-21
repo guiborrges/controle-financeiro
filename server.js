@@ -130,7 +130,7 @@ const SESSIONS_DATA_DIR = resolveStoragePath('data', 'sessions');
 const SESSION_SECRET_PATH = resolveStoragePath('auth', 'session-secret.txt');
 const rateLimitState = createPersistentRateLimitStore(resolveStoragePath('auth', 'rate-limit-state.json'));
 const REMEMBER_ME_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
-const MIN_USER_PASSWORD_LENGTH = Math.max(12, Number(process.env.FIN_MIN_USER_PASSWORD_LENGTH || 12));
+const MIN_USER_PASSWORD_LENGTH = Math.max(8, Number(process.env.FIN_MIN_USER_PASSWORD_LENGTH || 8));
 const MIN_DEVELOPER_PASSWORD_LENGTH = 8;
 const stateStore = createStateStore();
 const hasUserAppState = stateStore.hasUserAppState || hasUserAppStateFile;
@@ -527,7 +527,8 @@ registerProfileRoutes(app, {
   deleteUserAppState,
   deleteUser,
   consumeOperationToken,
-  MIN_USER_PASSWORD_LENGTH
+  MIN_USER_PASSWORD_LENGTH,
+  validateUserPassword
 });
 
 registerAppStateRoutes(app, {

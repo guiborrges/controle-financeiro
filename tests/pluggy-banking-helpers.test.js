@@ -52,6 +52,28 @@ test('normalizeDescriptionKey keeps compatible keys for same Pluggy merchant tex
   assert.equal(a, b);
 });
 
+test('memory only suggests a category after a stable recent pattern', () => {
+  const helpers = loadHelpers();
+  assert.equal(helpers.getMemorySuggestion('MERCADO'), '');
+  assert.equal(helpers.getMemorySuggestion({
+    total: 3,
+    values: { MERCADO: 3 },
+    recent: ['MERCADO', 'MERCADO', 'MERCADO']
+  }), 'MERCADO');
+  assert.equal(helpers.getMemorySuggestion({
+    total: 5,
+    values: { MERCADO: 4, LAZER: 1 },
+    recent: ['MERCADO', 'MERCADO', 'MERCADO', 'LAZER', '']
+  }), '');
+});
+
+test('memory skips generic transfer descriptions', () => {
+  const helpers = loadHelpers();
+  assert.equal(helpers.isMemoryEligibleDescription('PIX JOAO SILVA'), false);
+  assert.equal(helpers.isMemoryEligibleDescription('TRANSFERENCIA RECEBIDA'), false);
+  assert.equal(helpers.isMemoryEligibleDescription('MERCADO CENTRAL'), true);
+});
+
 test('stripLegacyCategoryIconPrefix removes leaked icon ids from category labels', () => {
   const helpers = loadHelpers();
   assert.equal(helpers.stripLegacyCategoryIconPrefix('food ALIMENTACAO'), 'ALIMENTACAO');

@@ -27,6 +27,7 @@ const STORAGE_KEYS = {
   pluggyBankingState: 'finPluggyBankingState',
   schemaVersion: 'finStateSchemaVersion',
   migrationVersion: 'finDataMigrationVersion',
+  selectionVisibilityMigrationVersion: 'finSelectionVisibilityMigrationVersion',
   titles: 'finTitles',
   resultMode: 'finResultMode'
 };

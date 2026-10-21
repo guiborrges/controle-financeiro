@@ -193,18 +193,18 @@
           const date = String(movement?.date || movement?.data || 'Sem data');
           const accountName = String(movement?.accountName || movement?.conta || movement?.originAccountName || '').trim();
           const signedValue = movementAmount(movement);
-          const icon = type === 'retirada'
+          const icon = type === 'atualizacao' ? '=' : type === 'retirada'
             ? '-'
             : (type === 'transferencia' ? actionIcon('transfer', '&lt;&gt;') : '+');
           return `
             <article class="m-item m-item-income">
               <div class="m-item-surface static">
-                <span class="m2-patr-movement-icon ${type === 'retirada' ? 'expense' : 'income'}">${icon}</span>
+                <span class="m2-patr-movement-icon ${type === 'atualizacao' ? '' : (type === 'retirada' ? 'expense' : 'income')}">${icon}</span>
                 <div class="m-item-info">
                   <span class="m-item-name">${escapeHtml(description)}</span>
                   <span class="m-item-meta m2-patr-movement-meta">${escapeHtml(formatDate(date))}${accountName ? ` · ${escapeHtml(accountName)}` : ''}</span>
                 </div>
-                <span class="m-item-value ${signedValue >= 0 ? 'income' : ''}">${formatMoney(signedValue)}</span>
+                <span class="m-item-value ${type !== 'atualizacao' && signedValue >= 0 ? 'income' : ''}">${formatMoney(signedValue)}</span>
                 ${movement?.id ? `<button class="m2-icon-mini" type="button" onclick="window.openPatrimonioMovementModal && window.openPatrimonioMovementModal({ movementId: '${movement.id}' })" aria-label="Editar movimentação">✎</button>` : ''}
               </div>
             </article>

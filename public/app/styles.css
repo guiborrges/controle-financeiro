@@ -4928,6 +4928,13 @@ body.mobile-ui {
   width: 100%;
 }
 
+.pluggy-suggestion-label {
+  display: block;
+  margin-top: 3px;
+  color: var(--text3);
+  font-size: 10px;
+}
+
 .pluggy-transactions-table {
   table-layout: fixed;
 }

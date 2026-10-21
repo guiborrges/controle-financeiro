@@ -1051,7 +1051,9 @@ function populateUnifiedOutflowTagOptions(selected = '') {
   const select = document.getElementById('unifiedOutflowTag');
   if (!select) return;
   const selectedTag = String(selected || '').trim();
-  const tags = getUnifiedOutflowTags();
+  const tags = typeof getMonthTagOptions === 'function'
+    ? getMonthTagOptions(getCurrentMonth(), window)
+    : getUnifiedOutflowTags();
   if (selectedTag && !tags.some(tag => String(tag || '').trim().toLowerCase() === selectedTag.toLowerCase())) {
     tags.push(selectedTag);
     tags.sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -1060,6 +1062,23 @@ function populateUnifiedOutflowTagOptions(selected = '') {
     .concat(tags.map(tag => `<option value="${escapeHtml(tag)}" ${selectedTag === tag ? 'selected' : ''}>${escapeHtml(tag)}</option>`))
     .concat('<option value="nova">+ Nova tag</option>')
     .join('');
+}
+
+function markUnifiedOutflowSelectionVisibleFromMonth(sourceMonth, category, tag) {
+  const sourceSort = getMonthSortValue(sourceMonth);
+  const resolvedCategory = resolveCategoryName(category || '');
+  const normalizedTag = String(tag || '').trim().toLocaleLowerCase('pt-BR');
+  (data || []).forEach(month => {
+    if (getMonthSortValue(month) < sourceSort || !month?.selectionVisibility) return;
+    if (resolvedCategory) {
+      month.selectionVisibility.categories ||= {};
+      month.selectionVisibility.categories[resolvedCategory] = true;
+    }
+    if (normalizedTag) {
+      month.selectionVisibility.tags ||= {};
+      month.selectionVisibility.tags[normalizedTag] = true;
+    }
+  });
 }
 
 function toggleUnifiedOutflowNewTag() {
@@ -3674,42 +3693,26 @@ function getRecurringIncomeChangedFields(previousItem, nextItem) {
   return Object.keys(after).filter(key => before[key] !== after[key]);
 }
 
-function applyRecurringIncomeForwardChanges(baseMonth, groupId, sourceIncome, changedFields = []) {
+function applyRecurringIncomeForwardChanges(baseMonth, groupId, sourceIncome, changedFields = [], previousSourceName = '') {
   const sourceSort = getMonthSortValue(baseMonth);
   const fields = Array.isArray(changedFields) ? changedFields : [];
-  const sourceNameKey = normalizeIncomeName(sourceIncome?.fonte || '');
   data.forEach(month => {
     if (getMonthSortValue(month) <= sourceSort) return;
     normalizeMonth(month);
-    const target = (month.renda || []).find(item => {
-      const sameGroup = getIncomeRecurringGroupId(item) === groupId;
-      const sameName = sourceNameKey && normalizeIncomeName(item?.fonte || '') === sourceNameKey;
-      return sameGroup || sameName;
-    });
+    const target = window.MesAtualIncomeRecurrence.getTargetIncome(
+      month.renda || [], groupId, previousSourceName, sourceIncome?.fonte || '',
+      { getGroupId: getIncomeRecurringGroupId, normalizeName: normalizeIncomeName }
+    );
     if (!target) {
-      const clone = {
-        fonte: String(sourceIncome?.fonte || '').trim(),
-        valor: Number(sourceIncome?.valor || 0) || 0,
-        paid: false,
-        includeInTotals: sourceIncome?.includeInTotals !== false,
-        patrimonioMovementId: '',
-        dataRecebimento: String(sourceIncome?.dataRecebimento || ''),
-        recurringFixed: sourceIncome?.recurringFixed !== false,
-        recurringGroupId: groupId
-      };
-      month.renda.push(clone);
+      month.renda.push(window.MesAtualIncomeRecurrence.cloneRecurringIncome(sourceIncome, groupId));
       recalcTotals(month);
       return;
     }
-    fields.forEach(field => {
-      if (field === 'paid') {
-        target.paid = false;
-        return;
-      }
-      target[field] = sourceIncome[field];
-    });
-    target.recurringGroupId = groupId;
-    if (target.recurringFixed === undefined) target.recurringFixed = true;
+    window.MesAtualIncomeRecurrence.applyRecurringIncomeChanges(target, sourceIncome, fields);
+    if (target.paid !== true) {
+      target.recurringGroupId = groupId;
+      if (target.recurringFixed === undefined) target.recurringFixed = true;
+    }
     recalcTotals(month);
   });
 }
@@ -3830,6 +3833,12 @@ function buildUnifiedPilotMonthFromPrevious(prev, newMonthName) {
   });
   month.dailyCategorySeeds = getUsedDailyGoalCategoriesFromMonth(prev);
   month.dailyGoals = {};
+  inheritMonthSelectionVisibility(month, prev);
+  month.renda = (prev.renda || [])
+    .filter(item => item?.recurringFixed !== false)
+    .map(item => window.MesAtualIncomeRecurrence.cloneRecurringIncome(
+      item, getIncomeRecurringGroupId(item, item?.fonte || 'RENDA')
+    ));
   ensureUnifiedOutflowPilotMonth(month);
   return month;
 }
@@ -4014,6 +4023,9 @@ function saveUnifiedOutflow() {
 
   const persistOutflowSave = (applyForward) => {
     recordHistoryState();
+    const isNewCategory = document.getElementById('unifiedOutflowCategory').value === 'nova';
+    const isNewTag = tag && !getUnifiedOutflowTags().some(existing => existing.toLocaleLowerCase('pt-BR') === tag.toLocaleLowerCase('pt-BR'));
+    markUnifiedOutflowSelectionVisibleFromMonth(month, isNewCategory ? category : '', isNewTag ? tag : '');
     if (existingIndex >= 0) month.outflows[existingIndex] = baseItem;
     else month.outflows.push(baseItem);
     if (seriesKey) clearRecurringSeriesStopFromMonth(month, seriesKey);
@@ -4804,7 +4816,7 @@ function saveItem() {
       includeInTotals,
       patrimonioMovementId: previousMovementId,
       dataRecebimento,
-      recurringFixed: true,
+      recurringFixed: previousItem?.recurringFixed !== false,
       recurringGroupId: getIncomeRecurringGroupId(previousItem, nome)
     };
     const normalizedPreviousFonte = normalizeIncomeName(previousFonte);
@@ -4823,9 +4835,9 @@ function saveItem() {
       if (editingItem !== null) m.renda[editingItem] = obj;
       else m.renda.push(obj);
       if (applyForward && canPropagateRecurringFromMonth(m)) {
-        applyRecurringIncomeForwardChanges(m, obj.recurringGroupId, obj, changedFields);
+        applyRecurringIncomeForwardChanges(m, obj.recurringGroupId, obj, changedFields, previousFonte);
       } else if (!previousItem && canPropagateRecurringFromMonth(m)) {
-        applyRecurringIncomeForwardChanges(m, obj.recurringGroupId, obj, ['fonte', 'valor', 'dataRecebimento', 'includeInTotals', 'recurringFixed']);
+        applyRecurringIncomeForwardChanges(m, obj.recurringGroupId, obj, ['fonte', 'valor', 'dataRecebimento', 'includeInTotals', 'recurringFixed'], previousFonte);
       }
       if (paid && shouldSendToPatrimonio) {
         setTimeout(() => openRendaPatrimonioModalPreset(nome, valor), 20);
@@ -4991,7 +5003,7 @@ function commitInlineEdit(rawValue) {
       applyIncomeNameRenameMapUpdate(original?.fonte, next?.fonte);
       Object.assign(item, next);
       if (applyForward && changedFields.length && canPropagateRecurringFromMonth(m)) {
-        applyRecurringIncomeForwardChanges(m, next.recurringGroupId, item, changedFields);
+        applyRecurringIncomeForwardChanges(m, next.recurringGroupId, item, changedFields, original?.fonte || '');
       }
       recalcTotals(m);
       save();

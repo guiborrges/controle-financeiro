@@ -166,8 +166,11 @@ function registerProfileRoutes(app, deps) {
     if (!verifyPassword(currentPassword, user.passwordHash)) {
       return res.status(401).json({ message: 'Senha atual incorreta.' });
     }
-    if (String(newPassword).length < deps.MIN_USER_PASSWORD_LENGTH) {
-      return res.status(400).json({ message: `A nova senha precisa ter pelo menos ${deps.MIN_USER_PASSWORD_LENGTH} caracteres.` });
+    const passwordValidation = typeof deps.validateUserPassword === 'function'
+      ? deps.validateUserPassword(newPassword)
+      : { ok: String(newPassword).length >= deps.MIN_USER_PASSWORD_LENGTH };
+    if (!passwordValidation.ok) {
+      return res.status(400).json({ message: passwordValidation.message || `A nova senha precisa ter pelo menos ${deps.MIN_USER_PASSWORD_LENGTH} caracteres.` });
     }
     if (newPassword !== confirmPassword) {
       return res.status(400).json({ message: 'A confirmação da senha nao confere.' });

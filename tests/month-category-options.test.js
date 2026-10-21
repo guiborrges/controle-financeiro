@@ -58,6 +58,14 @@ function loadCoreCategorySandbox() {
   return sandbox;
 }
 
+test('tag options read canonical lexical data even when window.data is absent', () => {
+  const sandbox = loadCoreCategorySandbox();
+  delete sandbox.data;
+  vm.runInContext("let data = [{ id: 'junho_2026', outflows: [{ tag: 'Viagem' }] }];", sandbox);
+  const tags = sandbox.getMonthTagOptions({ id: 'junho_2026' }, sandbox);
+  assert.deepEqual(Array.from(tags), ['Viagem']);
+});
+
 test('month category options are the single ordered source for defaults, previous spent and current used categories', () => {
   const sandbox = loadCoreCategorySandbox();
   sandbox.data = [
@@ -146,6 +154,29 @@ test('month category options keep materialized zero-value categories selectable 
 
   assert.equal(names.includes('IFOOD+BESTEIRAS'), true);
   assert.equal(names.includes('OUTROS'), true);
+});
+
+test('month category and tag options respect per-month visibility without changing launches', () => {
+  const sandbox = loadCoreCategorySandbox();
+  sandbox.data = [{
+    id: 'julho_2026',
+    nome: 'JULHO 2026',
+    selectionVisibility: {
+      version: 1,
+      categories: { MERCADO: true, CASA: false, SAUDE: true },
+      tags: { fixa: true, oculta: false }
+    },
+    outflows: [
+      { category: 'Casa', amount: 900, tag: 'Oculta' },
+      { category: 'Mercado', amount: 120, tag: 'Fixa' }
+    ]
+  }];
+
+  const categories = sandbox.getMonthCategoryNames('julho_2026', sandbox, { includeFallbackBase: false });
+  assert.equal(categories.includes('CASA'), false);
+  assert.equal(categories.includes('MERCADO'), true);
+  assert.deepEqual(Array.from(sandbox.getMonthTagOptions('julho_2026', sandbox)), ['Fixa']);
+  assert.equal(sandbox.data[0].outflows[0].category, 'Casa');
 });
 
 test('desktop and mobile category entry points depend on getMonthCategoryOptions', () => {

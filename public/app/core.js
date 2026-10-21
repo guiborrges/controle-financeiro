@@ -120,7 +120,7 @@ function getMonthSpentCategorySet(month) {
   return set;
 }
 
-function getSelectableCategoryEntriesForMonth(month, { includeFallbackBase = true } = {}) {
+function getSelectableCategoryEntriesForMonth(month, { includeFallbackBase = true, ignoreVisibility = false } = {}) {
   const m = month || getCurrentMonth?.() || {};
   const byNorm = new Map();
   const symbolByNorm = new Map();
@@ -202,7 +202,10 @@ function getSelectableCategoryEntriesForMonth(month, { includeFallbackBase = tru
     ['OUTROS', 'ALIMENTACAO', 'TRANSPORTE'].forEach(cat => addEntry(cat));
   }
 
-  return Array.from(byNorm.values());
+  const entries = Array.from(byNorm.values());
+  const visibility = !ignoreVisibility && m?.selectionVisibility?.categories;
+  if (!visibility || typeof visibility !== 'object') return entries;
+  return entries.filter(entry => visibility[resolveCategoryName(entry.name)] !== false);
 }
 
 function getSelectableCategoryNamesForMonth(month, options = {}) {
@@ -214,7 +217,7 @@ function resolveMonthForCategoryOptions(monthOrId, context = window) {
   const monthId = String(monthOrId || '').trim();
   const source = Array.isArray(context?.data)
     ? context.data
-    : (Array.isArray(window?.data) ? window.data : []);
+    : (typeof data !== 'undefined' && Array.isArray(data) ? data : (Array.isArray(window?.data) ? window.data : []));
   if (monthId && Array.isArray(source)) {
     const found = source.find(month => String(month?.id || '') === monthId);
     if (found) return found;
@@ -246,6 +249,40 @@ function getMonthCategoryOptions(monthOrId, context = window, options = {}) {
 
 function getMonthCategoryNames(monthOrId, context = window, options = {}) {
   return getMonthCategoryOptions(monthOrId, context, options).map(entry => entry.name);
+}
+
+function getMonthTagOptions(monthOrId, context = window) {
+  const month = resolveMonthForCategoryOptions(monthOrId, context);
+  const source = Array.isArray(context?.data) ? context.data : (typeof data !== 'undefined' && Array.isArray(data) ? data : (Array.isArray(window?.data) ? window.data : []));
+  const tags = new Map();
+  source.forEach(entry => (entry?.outflows || []).forEach(item => {
+    const tag = String(item?.tag || '').trim();
+    if (tag) tags.set(tag.toLocaleLowerCase('pt-BR'), tag);
+  }));
+  const visibility = month?.selectionVisibility?.tags;
+  return Array.from(tags.values())
+    .filter(tag => !visibility || visibility[tag.toLocaleLowerCase('pt-BR')] !== false)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+function migrateMonthSelectionVisibility(month, source = data) {
+  if (!month || month.selectionVisibility?.version === 1) return false;
+  const categories = {};
+  getSelectableCategoryEntriesForMonth(month, { includeFallbackBase: false, ignoreVisibility: true })
+    .forEach(entry => { categories[resolveCategoryName(entry.name)] = true; });
+  const tags = {};
+  (source || []).forEach(entry => (entry?.outflows || []).forEach(item => {
+    const tag = String(item?.tag || '').trim();
+    if (tag) tags[tag.toLocaleLowerCase('pt-BR')] = true;
+  }));
+  month.selectionVisibility = { version: 1, categories, tags };
+  return true;
+}
+
+function inheritMonthSelectionVisibility(month, previousMonth) {
+  if (!previousMonth?.selectionVisibility) return false;
+  month.selectionVisibility = JSON.parse(JSON.stringify(previousMonth.selectionVisibility));
+  return true;
 }
 
 function getVariableCategoryOptions(m) {

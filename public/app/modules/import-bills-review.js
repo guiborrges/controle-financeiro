@@ -322,8 +322,11 @@
     return base.join('');
   }
 
-  function buildTagOptions(selectedTag = '') {
-    const tags = getContextTagsList();
+  function buildTagOptions(selectedTag = '', monthId = '') {
+    const month = getMonthById(monthId);
+    const tags = month && typeof global.getMonthTagOptions === 'function'
+      ? global.getMonthTagOptions(month, global)
+      : getContextTagsList();
     const normalizedSelected = normalizeText(selectedTag);
     const options = ['<option value="">Sem tag</option>'];
     tags.forEach(tag => {
@@ -371,7 +374,7 @@
             </td>
             <td>
               <select class="bill-import-input" onchange="BillImportReview.updateField('${item.id}','tag', this.value)">
-                ${buildTagOptions(item.tag || '')}
+                ${buildTagOptions(item.tag || '', item.monthId || '')}
               </select>
             </td>
             <td>

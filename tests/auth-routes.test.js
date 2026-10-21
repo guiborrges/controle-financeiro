@@ -120,6 +120,32 @@ test('auth login rejects invalid credentials', () => {
   assert.match(String(res.payload?.message || ''), /inv/i);
 });
 
+test('auth registration accepts an 8-character password and rejects a shorter one', async () => {
+  const app = createMockApp();
+  registerAuthRoutes(app, createBaseDeps({
+    validateUserPassword: password => ({ ok: String(password).length >= 8 })
+  }));
+  const handler = app.routes.get('POST /api/auth/register');
+  const baseBody = {
+    fullName: 'Teste de Cadastro',
+    email: 'cadastro@test.local',
+    phone: '11999999999',
+    birthDate: '01/01/1990',
+    passwordHint: ''
+  };
+
+  const tooShort = createMockRes();
+  await handler({ body: { ...baseBody, password: 'abc1234' }, session: {} }, tooShort, () => {});
+  assert.equal(tooShort.statusCode, 400);
+
+  const valid = createMockRes();
+  await handler({
+    body: { ...baseBody, password: 'abc12345' },
+    session: { regenerate(callback) { callback(null); } }
+  }, valid, () => {});
+  assert.equal(valid.statusCode, 201);
+});
+
 test('auth login success populates authenticated session payload', async () => {
   const app = createMockApp();
   const user = {

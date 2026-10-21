@@ -46,7 +46,10 @@
   }
 
   function getTagOptions() {
-    const tags = typeof global.getUnifiedOutflowTags === 'function'
+    const month = getViewMonthSafe();
+    const tags = typeof global.getMonthTagOptions === 'function'
+      ? global.getMonthTagOptions(month, global)
+      : typeof global.getUnifiedOutflowTags === 'function'
       ? global.getUnifiedOutflowTags()
       : [];
     return Array.from(new Set((tags || []).map(tag => String(tag || '').trim()).filter(Boolean)))

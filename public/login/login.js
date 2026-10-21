@@ -334,6 +334,11 @@ async function submitRegistration(event) {
     document.getElementById('registerBirthDate').focus();
     return;
   }
+  if (payload.password.length < 8 || !/\d/.test(payload.password)) {
+    errorEl.textContent = 'A senha precisa ter pelo menos 8 caracteres e incluir 1 número.';
+    document.getElementById('registerPassword').focus();
+    return;
+  }
   submitButton.disabled = true;
   submitButton.textContent = 'Criando...';
 
