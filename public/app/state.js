@@ -703,7 +703,7 @@ function init() {
   if (STORAGE_KEYS.schemaVersion) {
     Storage.setText(STORAGE_KEYS.schemaVersion, STATE_SCHEMA_VERSION);
   }
-  if ((data || []).some(month => month?.selectionVisibility?.version !== 2 || !(month?._incomeContinuityVersion >= 1))) {
+  if ((data || []).some(month => month?.selectionVisibility?.version !== 2 || !(month?._incomeContinuityVersion >= 2))) {
     createSelectionVisibilityMigrationBackup();
   }
   metas = savedMetas || {};
@@ -809,7 +809,7 @@ async function createSelectionVisibilityMigrationBackup() {
     });
     if (window.MesAtualIncomeRecurrence.repairExistingMonths(data, {
       getMonthSortValue,
-      startSort: getMonthSortValue({ id: getCurrentRealMonthId(false) }),
+      startSort: getRealCurrentMonthSortValue(),
       getGroupId: getIncomeRecurringGroupId,
       normalizeName: normalizeIncomeName,
       getReceiveDay: getRecurringIncomeReceiveDay

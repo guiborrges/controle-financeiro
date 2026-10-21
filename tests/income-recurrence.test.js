@@ -46,7 +46,7 @@ test('repair fills existing current and future months once without changing hist
   const received = { fonte: 'Salario', valor: 1500, paid: true };
   const months = [
     { sort: 1, renda: [{ fonte: 'Salario', valor: 1000, recurringFixed: true, paid: true }, { fonte: 'Bonus', valor: 200, recurringFixed: false }] },
-    { sort: 2, renda: [] },
+    { sort: 2, renda: [], _incomeContinuityVersion: 1 },
     { sort: 3, renda: [received] },
     { sort: 4, renda: [] }
   ];
@@ -55,10 +55,20 @@ test('repair fills existing current and future months once without changing hist
   assert.equal(months[0].renda.length, 2);
   assert.equal(months[1].renda.length, 1);
   assert.equal(months[1].renda[0].paid, false);
+  assert.equal(months[1]._incomeContinuityVersion, 2);
   assert.equal(months[2].renda[0], received);
   assert.equal(months[3].renda[0].valor, 1500);
   assert.equal(months[3].renda[0].paid, false);
   months[1].renda = [];
   assert.equal(recurrence.repairExistingMonths(months, options), false);
   assert.equal(months[1].renda.length, 0);
+});
+
+test('invalid start month cannot mark income repair complete', () => {
+  const recurrence = loadIncomeRecurrence();
+  const months = [{ sort: 1, renda: [] }];
+  assert.throws(() => recurrence.repairExistingMonths(months, {
+    startSort: NaN, getMonthSortValue: month => month.sort
+  }), /Mes inicial invalido/);
+  assert.equal(months[0]._incomeContinuityVersion, undefined);
 });

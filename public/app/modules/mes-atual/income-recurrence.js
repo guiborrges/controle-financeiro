@@ -37,10 +37,11 @@
   }
 
   function repairExistingMonths(months, options = {}) {
+    if (!Number.isFinite(options.startSort)) throw new Error('Mes inicial invalido para continuidade de renda.');
     const ordered = (months || []).slice().sort((a, b) => options.getMonthSortValue(a) - options.getMonthSortValue(b));
     let changed = false;
     ordered.forEach((month, index) => {
-      if (month._incomeContinuityVersion >= 1) return;
+      if (month._incomeContinuityVersion >= 2) return;
       if (options.getMonthSortValue(month) >= options.startSort && index > 0) {
         const previous = ordered[index - 1];
         if (!Array.isArray(month.renda)) month.renda = [];
@@ -53,7 +54,7 @@
           month.renda.push(clone);
         });
       }
-      month._incomeContinuityVersion = 1;
+      month._incomeContinuityVersion = 2;
       changed = true;
     });
     return changed;
