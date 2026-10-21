@@ -36,5 +36,28 @@
     return fields.some(field => field !== 'paid' && field !== 'patrimonioMovementId');
   }
 
-  global.MesAtualIncomeRecurrence = { getTargetIncome, cloneRecurringIncome, applyRecurringIncomeChanges };
+  function repairExistingMonths(months, options = {}) {
+    const ordered = (months || []).slice().sort((a, b) => options.getMonthSortValue(a) - options.getMonthSortValue(b));
+    let changed = false;
+    ordered.forEach((month, index) => {
+      if (month._incomeContinuityVersion >= 1) return;
+      if (options.getMonthSortValue(month) >= options.startSort && index > 0) {
+        const previous = ordered[index - 1];
+        if (!Array.isArray(month.renda)) month.renda = [];
+        (previous.renda || []).forEach(income => {
+          if (!income || income.recurringFixed === false || !String(income.fonte || '').trim()) return;
+          const groupId = options.getGroupId(income);
+          if (getTargetIncome(month.renda, groupId, income.fonte, income.fonte, options)) return;
+          const clone = cloneRecurringIncome(income, groupId);
+          if (options.getReceiveDay) clone.dataRecebimento = options.getReceiveDay(income.dataRecebimento) || '';
+          month.renda.push(clone);
+        });
+      }
+      month._incomeContinuityVersion = 1;
+      changed = true;
+    });
+    return changed;
+  }
+
+  global.MesAtualIncomeRecurrence = { getTargetIncome, cloneRecurringIncome, applyRecurringIncomeChanges, repairExistingMonths };
 })(window);

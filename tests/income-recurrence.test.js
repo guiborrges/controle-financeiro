@@ -40,3 +40,25 @@ test('recurring income clones reset payment and retain recurrence metadata', () 
     patrimonioMovementId: '', dataRecebimento: '15', recurringFixed: true, recurringGroupId: 'rin_freela'
   });
 });
+
+test('repair fills existing current and future months once without changing history or received entries', () => {
+  const recurrence = loadIncomeRecurrence();
+  const received = { fonte: 'Salario', valor: 1500, paid: true };
+  const months = [
+    { sort: 1, renda: [{ fonte: 'Salario', valor: 1000, recurringFixed: true, paid: true }, { fonte: 'Bonus', valor: 200, recurringFixed: false }] },
+    { sort: 2, renda: [] },
+    { sort: 3, renda: [received] },
+    { sort: 4, renda: [] }
+  ];
+  const options = { getMonthSortValue: month => month.sort, startSort: 2, getGroupId: item => item.recurringGroupId || item.fonte };
+  assert.equal(recurrence.repairExistingMonths(months, options), true);
+  assert.equal(months[0].renda.length, 2);
+  assert.equal(months[1].renda.length, 1);
+  assert.equal(months[1].renda[0].paid, false);
+  assert.equal(months[2].renda[0], received);
+  assert.equal(months[3].renda[0].valor, 1500);
+  assert.equal(months[3].renda[0].paid, false);
+  months[1].renda = [];
+  assert.equal(recurrence.repairExistingMonths(months, options), false);
+  assert.equal(months[1].renda.length, 0);
+});

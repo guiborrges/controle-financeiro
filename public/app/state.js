@@ -703,7 +703,7 @@ function init() {
   if (STORAGE_KEYS.schemaVersion) {
     Storage.setText(STORAGE_KEYS.schemaVersion, STATE_SCHEMA_VERSION);
   }
-  if ((data || []).some(month => month?.selectionVisibility?.version !== 2)) {
+  if ((data || []).some(month => month?.selectionVisibility?.version !== 2 || !(month?._incomeContinuityVersion >= 1))) {
     createSelectionVisibilityMigrationBackup();
   }
   metas = savedMetas || {};
@@ -800,13 +800,23 @@ async function createSelectionVisibilityMigrationBackup() {
       method: 'POST',
       credentials: 'same-origin',
       headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
-      body: JSON.stringify({ note: 'Antes da migração de visibilidade mensal de categorias e tags' })
+      body: JSON.stringify({ note: 'Antes da correção de continuidade de rendas e visibilidade mensal' })
     });
     if (!response.ok) return;
     let changed = false;
     (data || []).forEach(month => {
       if (migrateMonthSelectionVisibility(month, data)) changed = true;
     });
+    if (window.MesAtualIncomeRecurrence.repairExistingMonths(data, {
+      getMonthSortValue,
+      startSort: getMonthSortValue({ id: getCurrentRealMonthId(false) }),
+      getGroupId: getIncomeRecurringGroupId,
+      normalizeName: normalizeIncomeName,
+      getReceiveDay: getRecurringIncomeReceiveDay
+    })) {
+      changed = true;
+      data.forEach(month => recalcTotals(month));
+    }
     Storage.setText(STORAGE_KEYS.selectionVisibilityMigrationVersion, '2');
     if (changed) {
       save(true);
