@@ -23,6 +23,17 @@ function loadMesAtualContext() {
   return context;
 }
 
+test('legacy migration preserves an explicitly assigned subscription card', () => {
+  const ctx = loadMesAtualContext();
+  const cards = [{ id: 'xp', name: 'XP' }, { id: 'inter', name: 'INTER' }];
+  const month = { outflowCards: cards, outflows: [{
+    id: 'calendar_subscription', type: 'spend', category: 'ASSINATURAS',
+    recurringGroupId: 'legacy_signature_abril_2026_2', outputKind: 'card', outputRef: 'xp'
+  }] };
+  assert.equal(ctx.reconcileGuilhermeLegacySpendOutputs(month, { isGuilherme: true }, new Map(cards.map(card => [card.name, card]))), false);
+  assert.equal(month.outflows[0].outputRef, 'xp');
+});
+
 test('reconcileUnifiedCardBillsWithCards keeps legacy cardId values mapped by card name', () => {
   const ctx = loadMesAtualContext();
   const month = {

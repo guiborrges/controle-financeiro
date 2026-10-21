@@ -159,3 +159,23 @@ test('finite installment schedules stop on the last installment', () => {
   assert.equal(engine.project(model, month(12), options).outflows[0].installmentIndex, 3);
   assert.equal(engine.project(model, month(13), options).outflows.length, 0);
 });
+
+test('legacy future card copies cannot undo current card assignments during repair', () => {
+  const { engine, options } = setup();
+  const current = month(10);
+  current.outflows = [{ id: 'current', description: 'Streaming', recurringGroupId: 'legacy_signature_old_2', outputKind: 'card', outputRef: 'xp', amount: 20 }];
+  const future = month(11);
+  future.outflows = [{ ...current.outflows[0], id: 'future', outputRef: 'inter', amount: 25 }];
+  const paid = month(12);
+  paid.outflows = [{ ...future.outflows[0], paid: true }];
+  const model = engine.createModel([current, future, paid], options);
+  assert.equal(engine.repairLegacyCardOutputs(model, [current, future, paid], options), true);
+  assert.equal(future.outflows[0].outputRef, 'xp');
+  assert.equal(future.outflows[0].amount, 25);
+  assert.equal(paid.outflows[0].outputRef, 'inter');
+  assert.equal(engine.project(model, month(24), options).outflows[0].outputRef, 'xp');
+  const session = engine.createSession(model, options);
+  const stored = session.serialize([session.hydrate(future)]);
+  assert.equal(engine.createSession(model, options).hydrate(stored[0]).outflows[0].outputRef, 'xp');
+  assert.equal(engine.repairLegacyCardOutputs(model, [current, future], options), false);
+});

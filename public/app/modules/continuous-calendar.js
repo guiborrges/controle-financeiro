@@ -137,6 +137,32 @@
     return true;
   }
 
+  function repairLegacyCardOutputs(model, months, options) {
+    if (model.cardOutputRevision >= 1) return false;
+    const anchor = months.filter(month => options.sort(month) <= options.start)
+      .sort((a, b) => options.sort(a) - options.sort(b)).pop();
+    (anchor?.outflows || []).forEach(item => {
+      if (item.outputKind !== 'card' || !String(item.recurringGroupId || '').startsWith('legacy_signature_')) return;
+      const rule = model.rules.find(entry => entry.id === `outflows:${identity('outflows', item)}`);
+      if (!rule) return;
+      const staleCards = new Set();
+      rule.versions.forEach(version => {
+        if (version.from <= options.start || !version.payload || version.payload.outputKind !== 'card') return;
+        if (version.payload.outputRef === item.outputRef) return;
+        staleCards.add(version.payload.outputRef);
+        version.payload.outputRef = item.outputRef;
+      });
+      months.filter(month => options.sort(month) > options.start).forEach(month => {
+        (month.outflows || []).forEach(row => {
+          if (identity('outflows', row) !== rule.key || row.paid === true || row.outputKind !== 'card' || !staleCards.has(row.outputRef)) return;
+          row.outputRef = item.outputRef;
+        });
+      });
+    });
+    model.cardOutputRevision = 1;
+    return true;
+  }
+
   function project(model, month, options) {
     const result = options.blank(month);
     const ordinal = options.sort(month);
@@ -302,6 +328,6 @@
     return { hydrate, virtual, serialize, upsert, stop };
   }
 
-  global.ContinuousCalendar = { VERSION, RECURRENCE_REVISION, createModel, repairRecurringRules, createSession, project, identity, isRecurring };
+  global.ContinuousCalendar = { VERSION, RECURRENCE_REVISION, createModel, repairRecurringRules, repairLegacyCardOutputs, createSession, project, identity, isRecurring };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.ContinuousCalendar;
 })(typeof window !== 'undefined' ? window : globalThis);

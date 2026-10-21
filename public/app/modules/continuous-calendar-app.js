@@ -90,7 +90,7 @@ function stopContinuousCalendarRule(month, collection, key) {
 }
 
 async function migrateToContinuousCalendar() {
-  if (isContinuousCalendarEnabled() && continuousCalendarModel.recurrenceRevision >= window.ContinuousCalendar.RECURRENCE_REVISION) return;
+  if (isContinuousCalendarEnabled() && continuousCalendarModel.recurrenceRevision >= window.ContinuousCalendar.RECURRENCE_REVISION && continuousCalendarModel.cardOutputRevision >= 1) return;
   try {
     const response = await fetch('/api/backups/manual', {
       method: 'POST', credentials: 'same-origin',
@@ -105,6 +105,8 @@ async function migrateToContinuousCalendar() {
       ? JSON.parse(JSON.stringify(continuousCalendarModel))
       : window.ContinuousCalendar.createModel(data, getContinuousCalendarOptions());
     if (existing) window.ContinuousCalendar.repairRecurringRules(model, data, getContinuousCalendarOptions());
+    window.ContinuousCalendar.repairLegacyCardOutputs(JSON.parse(JSON.stringify(model)), storedMonths, getContinuousCalendarOptions());
+    window.ContinuousCalendar.repairLegacyCardOutputs(model, data, getContinuousCalendarOptions());
     data = restoreContinuousCalendar(model, storedMonths);
     ensureContinuousCalendarWindow();
     save(true);

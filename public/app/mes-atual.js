@@ -543,6 +543,8 @@ function reconcileGuilhermeLegacySpendOutputs(month, profile, cardsByName) {
     const itemId = String(item.id || '');
     const isLegacySpend = itemId.startsWith('legacy_spend_') || itemId.startsWith('legacy_card_fixed_') || String(item.recurringGroupId || '').startsWith('legacy_signature_');
     if (!isLegacySpend) return;
+    // Legacy defaults must never replace an existing user or schedule assignment.
+    if (item.outputRef && (month.outflowCards || []).some(card => card.id === item.outputRef)) return;
   const category = getUnifiedOutflowCategoryName(item, 'OUTROS');
     const isSignatureFamily = category === 'ASSINATURAS' || String(item.recurringGroupId || '').startsWith('legacy_signature_');
     const targetCardId = isSignatureFamily ? interCard?.id : xpCard?.id;
