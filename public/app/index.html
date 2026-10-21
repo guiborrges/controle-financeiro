@@ -1089,9 +1089,9 @@
   <div class="month-calendar-modal">
     <div class="month-calendar-card">
       <div class="month-calendar-yearbar">
-        <button class="month-calendar-arrow" type="button" onclick="shiftMonthCalendarYear(-1)">‹</button>
+        <button id="monthCalendarPreviousYear" class="month-calendar-arrow" type="button" aria-label="Ano anterior" onclick="shiftMonthCalendarYear(-1)">‹</button>
         <strong id="monthCalendarYearLabel">2026</strong>
-        <button class="month-calendar-arrow" type="button" onclick="shiftMonthCalendarYear(1)">›</button>
+        <button id="monthCalendarNextYear" class="month-calendar-arrow" type="button" aria-label="Proximo ano" onclick="shiftMonthCalendarYear(1)">›</button>
       </div>
       <div id="monthCalendarGrid" class="month-calendar-grid"></div>
       <div class="month-calendar-actions">
@@ -1810,6 +1810,8 @@
   <script defer src="/app-assets/modules/mes-atual/totals.js"></script>
   <script defer src="/app-assets/modules/mes-atual/recurrence.js"></script>
   <script defer src="/app-assets/modules/mes-atual/income-recurrence.js"></script>
+  <script defer src="/app-assets/modules/continuous-calendar.js"></script>
+  <script defer src="/app-assets/modules/continuous-calendar-app.js"></script>
   <script defer src="/app-assets/modules/mes-atual/notifications.js"></script>
   <script defer src="/app-assets/modules/mes-atual/modals.js"></script>
   <script defer src="/app-assets/modules/mes-atual/metric-title-editor.js"></script>

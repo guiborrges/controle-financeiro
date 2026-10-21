@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
   incomeNameRenameMap: 'finIncomeNameRenameMap',
   esoData: 'finEsoData',
   data: 'finData',
+  calendarModel: 'finCalendarModel',
   patrimonioAccounts: 'finPatrimonioAccounts',
   patrimonioMovements: 'finPatrimonioMovements',
   metas: 'finMetas',
@@ -34,6 +35,7 @@ const STORAGE_KEYS = {
 
 const ENCRYPTED_STORAGE_KEYS = new Set([
   STORAGE_KEYS.data,
+  STORAGE_KEYS.calendarModel,
   STORAGE_KEYS.patrimonioAccounts,
   STORAGE_KEYS.patrimonioMovements,
   STORAGE_KEYS.metas,

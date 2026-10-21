@@ -530,6 +530,7 @@ function normalizeMonth(m) {
     recurringGroupId: String(r?.recurringGroupId || '').trim() || `rin_${normalizeIncomeName(r?.fonte || 'RENDA').replace(/[^A-Z0-9]+/g, '_')}`
   }));
   m.projetos = (m.projetos || []).map(p => ({
+    ...p,
     nome: String(p?.nome || '').trim(),
     valor: Number(p?.valor || 0) || 0,
     paid: p?.paid === true,
@@ -665,6 +666,12 @@ function ensureMonthExists(monthName, year) {
   const id = getMonthIdFromParts(monthName, year);
   const existing = data.find(m => m.id === id);
   if (existing) return existing;
+  if (typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled()) {
+    const projected = continuousCalendarSession.virtual(buildBlankMonth(new Date(Number(year), MONTH_INDEX[monthName] ?? 0, 1)));
+    data.push(projected);
+    sortDataChronologically();
+    return projected;
+  }
   recordHistoryState();
   const created = typeof buildSmartMonthForSelection === 'function'
     ? buildSmartMonthForSelection(monthName, year)
@@ -702,6 +709,12 @@ function renderMonthCalendar() {
   const yearLabel = document.getElementById('monthCalendarYearLabel');
   const grid = document.getElementById('monthCalendarGrid');
   if (yearLabel) yearLabel.textContent = String(monthCalendarYear);
+  const nowYear = new Date().getFullYear();
+  const firstYear = Math.min(nowYear, ...data.map(month => Number(getYear(month))).filter(Number.isFinite));
+  const previousYear = document.getElementById('monthCalendarPreviousYear');
+  const nextYear = document.getElementById('monthCalendarNextYear');
+  if (previousYear) previousYear.disabled = monthCalendarYear <= firstYear;
+  if (nextYear) nextYear.disabled = monthCalendarYear >= nowYear + 1;
   if (!grid) return;
   const current = getCurrentMonth();
   const selectedMonthName = getMonthName(current);
@@ -709,13 +722,12 @@ function renderMonthCalendar() {
   const now = new Date();
   grid.innerHTML = Object.keys(MONTH_INDEX).map((monthName, index) => {
     const id = getMonthIdFromParts(monthName, monthCalendarYear);
-    const exists = data.some(m => m.id === id);
     const isSelected = selectedMonthName === monthName && selectedYear === monthCalendarYear;
     const isCurrentReal = now.getFullYear() === monthCalendarYear && now.getMonth() === index;
     return `
       <button
         type="button"
-        class="month-calendar-cell ${exists ? 'is-existing' : ''} ${isSelected ? 'is-selected' : ''} ${isCurrentReal ? 'is-current-real' : ''}"
+        class="month-calendar-cell ${isSelected ? 'is-selected' : ''} ${isCurrentReal ? 'is-current-real' : ''}"
         onclick="selectCalendarMonth('${monthName}', ${monthCalendarYear})"
       >${MONTH_LABELS_SHORT[index]}</button>
     `;
@@ -732,7 +744,9 @@ function openMonthCalendar() {
 }
 
 function shiftMonthCalendarYear(delta) {
-  monthCalendarYear += Number(delta) || 0;
+  const currentYear = new Date().getFullYear();
+  const firstYear = Math.min(currentYear, ...data.map(month => Number(getYear(month))).filter(Number.isFinite));
+  monthCalendarYear = Math.max(firstYear, Math.min(currentYear + 1, monthCalendarYear + (Number(delta) || 0)));
   renderMonthCalendar();
   requestAnimationFrame(positionMonthCalendarNearTrigger);
 }
@@ -766,6 +780,7 @@ function positionMonthCalendarNearTrigger() {
 }
 
 function buildMonthSelect() {
+  if (typeof ensureContinuousCalendarWindow === 'function') ensureContinuousCalendarWindow();
   const sel = document.getElementById('monthSelect');
   if (!sel) return;
   sel.innerHTML = '';

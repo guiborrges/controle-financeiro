@@ -80,6 +80,7 @@ test('app-state writer stores state as partitioned bundle', () => {
       ],
       finPatrimonioAccounts: [{ id: 'acc1', saldo: 100 }],
       finEsoData: [{ id: 'eso1' }],
+      finCalendarModel: { version: 1, rules: [{ id: 'renda:salary', versions: [{ from: 24321, payload: { valor: 3000 } }] }] },
       finCategoryEmojis: { MERCADO: '🛒' }
     };
     writeUserAppState('u_partition', state, key);
@@ -104,7 +105,8 @@ test('app-state writer stores state as partitioned bundle', () => {
       monthCount: loaded.state.finData.length,
       monthOrder: loaded.state.finData.map(m => m.id).join('|'),
       accountId: loaded.state.finPatrimonioAccounts[0].id,
-      emoji: loaded.state.finCategoryEmojis.MERCADO
+      emoji: loaded.state.finCategoryEmojis.MERCADO,
+      calendarRule: loaded.state.finCalendarModel.rules[0].id
     }));
   `;
   const out = runNodeScript(script, { FIN_STORAGE_DIR: tempRoot });
@@ -121,6 +123,7 @@ test('app-state writer stores state as partitioned bundle', () => {
   assert.equal(out.monthCount, 3);
   assert.equal(out.monthOrder, 'janeiro_2026|fevereiro_2026|janeiro_2027');
   assert.equal(out.accountId, 'acc1');
+  assert.equal(out.calendarRule, 'renda:salary');
   assert.equal(out.emoji, '🛒');
 });
 

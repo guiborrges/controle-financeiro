@@ -7,7 +7,8 @@ function getBackupSessionUserId() {
 
 function buildBackupStateSnapshotFromRuntime() {
   return {
-    [STORAGE_KEYS.data]: data,
+    [STORAGE_KEYS.data]: typeof serializeContinuousCalendarMonths === 'function' ? serializeContinuousCalendarMonths() : data,
+    [STORAGE_KEYS.calendarModel]: typeof continuousCalendarModel !== 'undefined' ? continuousCalendarModel : null,
     [STORAGE_KEYS.patrimonioAccounts]: patrimonioAccounts,
     [STORAGE_KEYS.patrimonioMovements]: patrimonioMovements,
     [STORAGE_KEYS.metas]: metas,
@@ -119,13 +120,18 @@ function applyImportedBackupState(appState) {
     ? appState[STORAGE_KEYS.incomeNameRenameMap]
     : {};
 
+  if (typeof restoreContinuousCalendar === 'function') {
+    data = restoreContinuousCalendar(appState[STORAGE_KEYS.calendarModel], data);
+    ensureContinuousCalendarWindow();
+  }
+
   sortDataChronologically();
   data.forEach(m => {
     normalizeMonth(m);
     recalcTotals(m);
   });
   if (typeof ensurePatrimonioData === 'function') ensurePatrimonioData();
-  currentMonthId = data[data.length - 1]?.id || getDefaultMonthId();
+  currentMonthId = typeof getCurrentRealMonthId === 'function' ? getCurrentRealMonthId(false) : getDefaultMonthId();
   periodFilter = sanitizePeriodFilter({
     ...periodFilter,
     month: currentMonthId,

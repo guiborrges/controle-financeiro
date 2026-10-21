@@ -274,12 +274,16 @@ body {
   gap: 6px 4px;
   padding: 10px 10px 8px;
 }
+.month-calendar-arrow:disabled {
+  opacity: .35;
+  cursor: default;
+}
 .month-calendar-cell {
   padding: 8px 4px;
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: rgba(255,255,255,.26);
+  color: rgba(255,255,255,.96);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: .07em;

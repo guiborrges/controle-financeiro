@@ -641,6 +641,10 @@ function init() {
   const mergedMissingMonths = allowBundledData && !boot.shouldStartEmpty ? mergeMissingHistoricalMonths() : false;
   sortDataChronologically();
   data.forEach(m => normalizeMonth(m));
+  if (typeof restoreContinuousCalendar === 'function') {
+    data = restoreContinuousCalendar(Storage.getJSON(STORAGE_KEYS.calendarModel, null), data);
+    ensureContinuousCalendarWindow();
+  }
   const dedupedMonths = dedupeMonthsByIdKeepingMostComplete();
   if (dedupedMonths) {
     sortDataChronologically();
@@ -703,8 +707,10 @@ function init() {
   if (STORAGE_KEYS.schemaVersion) {
     Storage.setText(STORAGE_KEYS.schemaVersion, STATE_SCHEMA_VERSION);
   }
-  if ((data || []).some(month => month?.selectionVisibility?.version !== 2 || !(month?._incomeContinuityVersion >= 2))) {
+  if (!(typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled()) && (data || []).some(month => month?.selectionVisibility?.version !== 2 || !(month?._incomeContinuityVersion >= 2))) {
     createSelectionVisibilityMigrationBackup();
+  } else if (typeof migrateToContinuousCalendar === 'function' && !isContinuousCalendarEnabled()) {
+    migrateToContinuousCalendar();
   }
   metas = savedMetas || {};
   const savedTitles = Storage.getJSON(STORAGE_KEYS.titles, null);
@@ -823,6 +829,7 @@ async function createSelectionVisibilityMigrationBackup() {
       if (typeof renderMes === 'function') renderMes();
       if (window.MobileV2?.isEnabled?.()) window.MobileV2.refresh();
     }
+    if (typeof migrateToContinuousCalendar === 'function') await migrateToContinuousCalendar();
   } catch (error) {
     console.warn('[migration] Backup para visibilidade mensal não foi criado:', error?.message || error);
   }
@@ -873,7 +880,8 @@ function resolveStartupMonthId(restoredMonthId) {
 
 function save(forceFlush = false) {
   invalidateCategoryNormalizationCache();
-  Storage.setJSON(STORAGE_KEYS.data, data);
+  Storage.setJSON(STORAGE_KEYS.data, typeof serializeContinuousCalendarMonths === 'function' ? serializeContinuousCalendarMonths() : data);
+  if (typeof continuousCalendarModel !== 'undefined') Storage.setJSON(STORAGE_KEYS.calendarModel, continuousCalendarModel);
   Storage.setJSON(STORAGE_KEYS.patrimonioAccounts, patrimonioAccounts);
   Storage.setJSON(STORAGE_KEYS.patrimonioMovements, patrimonioMovements);
   if (forceFlush) flushServerStorage(true);
@@ -987,7 +995,8 @@ function applyCompatibilityPreferences(preferences) {
 
 function createHistorySnapshot() {
   return JSON.stringify({
-    data,
+    data: typeof serializeContinuousCalendarMonths === 'function' ? serializeContinuousCalendarMonths() : data,
+    calendarModel: typeof continuousCalendarModel !== 'undefined' ? continuousCalendarModel : null,
     patrimonioAccounts,
     patrimonioMovements,
     metas,
@@ -1040,6 +1049,10 @@ function restoreHistorySnapshot(snapshot) {
   expenseNameRenameMap = state.expenseNameRenameMap || {};
   expensePaymentDateRules = state.expensePaymentDateRules || {};
   incomeNameRenameMap = state.incomeNameRenameMap || {};
+  if (typeof restoreContinuousCalendar === 'function') {
+    data = restoreContinuousCalendar(state.calendarModel, data);
+    ensureContinuousCalendarWindow();
+  }
   esoData = Array.isArray(state.esoData)
     ? state.esoData.map((entry, idx) => normalizeEsoEntry(entry, idx))
     : ((window.__APP_BOOTSTRAP__?.permissions?.canAccessESO || canUseBundledFinanceData()) ? getDefaultEsoData() : []);

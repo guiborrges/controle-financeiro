@@ -20,6 +20,7 @@ const STATE_PARTITIONS = {
   patrimonio: ['finPatrimonioAccounts', 'finPatrimonioMovements'],
   eso: ['finEsoData'],
   rules: [
+    'finCalendarModel',
     'finCategoryRenameMap',
     'finExpenseCategoryRules',
     'finExpenseNameRenameMap',

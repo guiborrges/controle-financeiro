@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { resolveStoragePath } = require('./paths');
 const { writeJsonFileAtomic } = require('./fs-atomic');
+const { getProjectedCalendarMonth } = require('./calendar-projection');
 
 const WIDGET_SNAPSHOT_DIR = resolveStoragePath('data', 'widget-snapshots');
 
@@ -39,7 +40,7 @@ function buildWidgetSnapshot(userId, state) {
   const now = new Date();
   const currentMonthId = getCurrentMonthId(now);
   const fallbackMonth = finData.length ? finData[finData.length - 1] : null;
-  const month = finData.find(item => String(item?.id || '').trim() === currentMonthId) || fallbackMonth || {};
+  const month = getProjectedCalendarMonth(state, currentMonthId) || fallbackMonth || {};
 
   const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
   const cardBills = Array.isArray(month?.cardBills) ? month.cardBills : [];

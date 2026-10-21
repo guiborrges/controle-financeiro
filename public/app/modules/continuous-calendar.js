@@ -1,0 +1,273 @@
+(function initContinuousCalendar(global) {
+  'use strict';
+
+  const VERSION = 1;
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const stable = value => {
+    if (Array.isArray(value)) return value.map(stable);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.keys(value).filter(key => key !== '_calendarRule' && key !== 'createdAt').sort().map(key => [key, stable(value[key])]));
+  };
+  const equal = (a, b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+  const collections = ['renda', 'outflows', 'projetos'];
+  const settingsKeys = ['outflowCards', 'selectionVisibility', 'dailyGoals', 'dailyGoalTarget', 'dailyGoalManualCats', 'dailyCategorySeeds'];
+  const cleanName = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+
+  function identity(collection, item) {
+    if (collection === 'renda') return item.recurringGroupId || `income_${cleanName(item.fonte)}`;
+    if (collection === 'projetos') return item.recurringGroupId || '';
+    return item.installmentsGroupId || item.recurringGroupId || '';
+  }
+
+  function isRecurring(collection, item) {
+    if (collection === 'renda') return item.recurringFixed !== false && !!String(item.fonte || '').trim();
+    if (collection === 'projetos') return item.recurringExtra === true;
+    return item.expenseRecurring === true || item.recurringSpend === true || Number(item.installmentsTotal) > 1;
+  }
+
+  function template(collection, item) {
+    const result = clone(item);
+    delete result.id;
+    delete result.createdAt;
+    delete result._calendarRule;
+    result.paid = false;
+    result.patrimonioMovementId = '';
+    if (collection === 'outflows') {
+      result.status = 'planned';
+      result.sharedParticipants = (result.sharedParticipants || []).map(person => ({ ...person, paid: false }));
+    }
+    return result;
+  }
+
+  function activeVersion(rule, ordinal) {
+    return (rule.versions || []).filter(version => version.from <= ordinal)
+      .sort((a, b) => b.from - a.from)[0] || null;
+  }
+
+  function putRule(model, collection, item, month, options) {
+    const key = identity(collection, item);
+    if (!key) return null;
+    const id = `${collection}:${key}`;
+    let rule = model.rules.find(entry => entry.id === id);
+    if (!rule) {
+      rule = { id, collection, key, versions: [] };
+      model.rules.push(rule);
+    }
+    const from = options.sort(month);
+    const payload = template(collection, item);
+    const version = { from, sourceMonth: month.id, payload };
+    const current = activeVersion(rule, from);
+    // Monthly dates and installment positions are projected from their source month.
+    const comparable = value => {
+      if (!value) return value;
+      const result = clone(value);
+      if (collection === 'outflows') result.date = String(result.date || '').split('/')[0];
+      delete result.installmentIndex;
+      delete result.recurringInstallmentIndex;
+      return result;
+    };
+    if (!current || current.stopped || !equal(comparable(current.payload), comparable(payload))) {
+      rule.versions = rule.versions.filter(entry => entry.from !== from);
+      rule.versions.push(version);
+    }
+    return rule;
+  }
+
+  function createModel(months, options) {
+    const model = { version: VERSION, start: options.start, rules: [], settings: [] };
+    const ordered = months.slice().sort((a, b) => options.sort(a) - options.sort(b));
+    ordered.forEach(month => {
+      collections.forEach(collection => (month[collection] || []).forEach(item => {
+        if (isRecurring(collection, item)) putRule(model, collection, item, month, options);
+      }));
+      const payload = {};
+      settingsKeys.forEach(key => { if (month[key] !== undefined) payload[key] = clone(month[key]); });
+      const last = model.settings[model.settings.length - 1];
+      if (!last || !equal(last.payload, payload)) model.settings.push({ from: options.sort(month), payload });
+      (month.recurringSeriesStops || []).forEach(key => {
+        const rule = model.rules.find(entry => entry.key === key && entry.collection === 'outflows');
+        if (rule) rule.versions.push({ from: options.sort(month), stopped: true });
+      });
+    });
+    collections.forEach(collection => {
+      const anchor = ordered.filter(month => options.sort(month) <= options.start && (month[collection] || []).some(item => isRecurring(collection, item))).pop();
+      if (!anchor) return;
+      const active = new Set((anchor[collection] || []).filter(item => isRecurring(collection, item)).map(item => identity(collection, item)));
+      model.rules.filter(rule => rule.collection === collection).forEach(rule => {
+        const last = activeVersion(rule, options.start);
+        if (!last || last.stopped || active.has(rule.key)) return;
+        if (rule.versions.some(version => version.from > options.start)) return;
+        rule.versions.push({ from: options.start, stopped: true });
+      });
+    });
+    return model;
+  }
+
+  function project(model, month, options) {
+    const result = options.blank(month);
+    const ordinal = options.sort(month);
+    const settings = model.settings.filter(entry => entry.from <= ordinal).sort((a, b) => b.from - a.from)[0];
+    if (settings) Object.assign(result, clone(settings.payload));
+    collections.forEach(collection => { result[collection] = []; });
+    if (ordinal < model.start) return result;
+    model.rules.forEach(rule => {
+      const version = activeVersion(rule, ordinal);
+      if (!version || version.stopped) return;
+      const source = options.month(version.sourceMonth);
+      const offset = ordinal - version.from;
+      const total = rule.collection === 'projetos'
+        ? Number(version.payload.recurringInstallmentsTotal || 1)
+        : Number(version.payload.installmentsTotal || 1);
+      const position = rule.collection === 'projetos'
+        ? Number(version.payload.recurringInstallmentIndex || 1)
+        : Number(version.payload.installmentIndex || 1);
+      if ((rule.collection === 'projetos' || total > 1) && position + offset > total) return;
+      const item = options.occurrence(rule.collection, clone(version.payload), month, source, offset);
+      item._calendarRule = rule.id;
+      if (rule.collection === 'outflows') {
+        item.id = `calendar_${encodeURIComponent(rule.id)}_${month.id}`;
+        item.createdAt = new Date(Date.UTC(Math.floor(ordinal / 12), ordinal % 12, 1)).toISOString();
+      }
+      result[rule.collection].push(item);
+    });
+    if (result.selectionVisibility?.version >= 2) {
+      result.selectionVisibility.categories ||= {};
+      result.selectionVisibility.tags ||= {};
+      result.outflows.forEach(item => {
+        if (item.category) result.selectionVisibility.categories[item.category] = true;
+        const tag = String(item.tag || '').trim().toLocaleLowerCase('pt-BR');
+        if (tag) result.selectionVisibility.tags[tag] = true;
+      });
+    }
+    return result;
+  }
+
+  function rowKey(collection, item) {
+    return collection === 'outflows' ? item.id : (identity(collection, item) || cleanName(item.nome));
+  }
+
+  function createSession(model, options) {
+    const baselines = new Map();
+
+    function remember(month, projected, virtual) {
+      const expected = clone(projected);
+      options.normalize(expected);
+      baselines.set(month.id, { projected: expected, baseline: clone(month), virtual });
+    }
+
+    function hydrate(saved) {
+      const generated = project(model, saved, options);
+      const result = saved._calendarSparse ? { ...generated, ...clone(saved) } : clone(saved);
+      collections.forEach(collection => {
+        const rows = result[collection] || [];
+        const hidden = saved._calendarHidden?.[collection] || [];
+        generated[collection].forEach(item => {
+          const key = rowKey(collection, item);
+          if (hidden.includes(key)) return;
+          const match = rows.some(row => rowKey(collection, row) === key || identity(collection, row) === identity(collection, item));
+          if (!match) rows.push(item);
+        });
+        result[collection] = rows;
+      });
+      delete result._calendarHidden;
+      delete result._calendarSparse;
+      options.normalize(result);
+      remember(result, generated, saved._calendarVirtual === true);
+      return result;
+    }
+
+    function virtual(month) {
+      const projected = project(model, month, options);
+      projected._calendarVirtual = true;
+      options.normalize(projected);
+      remember(projected, projected, true);
+      return projected;
+    }
+
+    function meaningful(month) {
+      const result = {};
+      [...collections, ...settingsKeys, 'financialGoals', 'calendarEvents', 'patrimonioTransfers', 'obs', 'cardBills'].forEach(key => {
+        result[key] = month[key];
+      });
+      return result;
+    }
+
+    function serialize(months) {
+      const saved = [];
+      months.forEach(month => {
+        const baseline = baselines.get(month.id);
+        if (!baseline) { saved.push(clone(month)); return; }
+        if (baseline.virtual && equal(meaningful(month), meaningful(baseline.projected))) return;
+        const packed = clone(month);
+        packed._calendarSparse = true;
+        packed._calendarHidden = {};
+        collections.forEach(collection => {
+          const projected = baseline.projected[collection] || [];
+          const generated = baseline.projected[collection] || [];
+          const generatedKeys = new Set(generated.map(item => rowKey(collection, item)));
+          packed[collection] = (month[collection] || []).filter(item => {
+            if (!generatedKeys.has(rowKey(collection, item))) return true;
+            const original = projected.find(row => rowKey(collection, row) === rowKey(collection, item));
+            return !equal(item, original);
+          });
+          packed._calendarHidden[collection] = generated
+            .filter(item => !(month[collection] || []).some(row => rowKey(collection, row) === rowKey(collection, item) || identity(collection, row) === identity(collection, item)))
+            .map(item => rowKey(collection, item));
+        });
+        // Legacy months retain every original row; only generated occurrences are compacted.
+        saved.push(packed);
+      });
+      return saved;
+    }
+
+    function refresh(months, ruleId, from) {
+      months.forEach(month => {
+        if (options.sort(month) <= from) return;
+        const baseline = baselines.get(month.id);
+        if (!baseline) return;
+        const fresh = project(model, month, options);
+        collections.forEach(collection => {
+          const old = (baseline.virtual ? baseline.projected : baseline.baseline)[collection] || [];
+          const rows = month[collection] || [];
+          const expected = fresh[collection].find(item => item._calendarRule === ruleId);
+          const index = rows.findIndex(item => item._calendarRule === ruleId || `${collection}:${identity(collection, item)}` === ruleId);
+          if (index >= 0) {
+            if (rows[index].paid === true) return;
+            const prior = old.find(item => rowKey(collection, item) === rowKey(collection, rows[index]));
+            if (prior && !equal(rows[index], prior)) return;
+            if (expected) rows[index] = expected;
+            else rows.splice(index, 1);
+          } else if (expected) {
+            const previouslyProjected = (baseline.projected[collection] || []).some(item => `${collection}:${identity(collection, item)}` === ruleId);
+            if (!previouslyProjected) rows.push(expected);
+          }
+          month[collection] = rows;
+        });
+        options.normalize(month);
+        remember(month, fresh, baseline.virtual);
+      });
+    }
+
+    function upsert(months, month, collection, item) {
+      const id = `${collection}:${identity(collection, item)}`;
+      const previous = model.rules.find(entry => entry.id === id);
+      if (previous) previous.versions = previous.versions.filter(version => version.from < options.sort(month));
+      const rule = putRule(model, collection, item, month, options);
+      if (rule) refresh(months, rule.id, options.sort(month));
+    }
+
+    function stop(months, month, collection, key) {
+      const rule = model.rules.find(entry => entry.id === `${collection}:${key}`);
+      if (!rule) return;
+      const from = options.sort(month);
+      rule.versions = rule.versions.filter(entry => entry.from < from);
+      rule.versions.push({ from, stopped: true });
+      refresh(months, rule.id, from);
+    }
+
+    return { hydrate, virtual, serialize, upsert, stop };
+  }
+
+  global.ContinuousCalendar = { VERSION, createModel, createSession, project, identity, isRecurring };
+  if (typeof module !== 'undefined' && module.exports) module.exports = global.ContinuousCalendar;
+})(typeof window !== 'undefined' ? window : globalThis);

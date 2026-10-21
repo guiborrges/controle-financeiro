@@ -301,6 +301,7 @@ function normalizeFlexibleDateInput(rawValue, month, options = {}) {
 
 function applyRecurringForwardChanges(month, seriesKey, sourceItem, changedFields, matchItem = null) {
   if (!seriesKey || !Array.isArray(changedFields) || !changedFields.length) return;
+  if (typeof updateContinuousCalendarRule === 'function' && updateContinuousCalendarRule(month, 'outflows', sourceItem)) return;
   clearRecurringSeriesStopFromMonth(month, seriesKey);
   const currentSort = getMonthSortValue(month);
   const fallbackIdentity = getRecurringSeriesIdentity(matchItem || sourceItem);
@@ -368,6 +369,7 @@ function clearRecurringSeriesStopFromMonth(month, seriesKey) {
 }
 
 function ensureUnifiedRecurringFutureCoverage() {
+  if (typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled()) return;
   if (unifiedRecurringSweepInProgress) return;
   unifiedRecurringSweepInProgress = true;
   try {
@@ -1210,6 +1212,7 @@ function getUsedDailyGoalCategoriesFromMonth(month) {
 }
 
 function ensureInheritedDailyGoalCategories(month) {
+  if (typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled()) return false;
   if (!month?.id) return false;
   const prev = getPreviousMonthFor(month);
   if (!prev) return false;
@@ -2532,9 +2535,11 @@ function deleteUnifiedOutflow(outflowId) {
     month.outflows = (month.outflows || []).filter(entry => entry.id !== outflowId);
     if (seriesKey && applyForward && canPropagateRecurringFromMonth(month)) {
       markRecurringSeriesStopFromMonth(month, seriesKey);
+      if (typeof stopContinuousCalendarRule === 'function') stopContinuousCalendarRule(month, 'outflows', seriesKey);
       const currentSort = getMonthSortValue(month);
       data.forEach(otherMonth => {
         if (otherMonth.id === month.id || getMonthSortValue(otherMonth) < currentSort) return;
+        if (typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled()) return;
         ensureUnifiedOutflowPilotMonth(otherMonth);
         otherMonth.outflows = (otherMonth.outflows || []).filter(entry => (entry.installmentsGroupId || entry.recurringGroupId || '') !== seriesKey);
         syncUnifiedOutflowLegacyData(otherMonth);
@@ -3694,6 +3699,7 @@ function getRecurringIncomeChangedFields(previousItem, nextItem) {
 }
 
 function applyRecurringIncomeForwardChanges(baseMonth, groupId, sourceIncome, changedFields = [], previousSourceName = '') {
+  if (typeof updateContinuousCalendarRule === 'function' && updateContinuousCalendarRule(baseMonth, 'renda', sourceIncome)) return;
   const sourceSort = getMonthSortValue(baseMonth);
   const fields = Array.isArray(changedFields) ? changedFields : [];
   data.forEach(month => {
@@ -3718,6 +3724,7 @@ function applyRecurringIncomeForwardChanges(baseMonth, groupId, sourceIncome, ch
 }
 
 function removeRecurringIncomeForward(baseMonth, groupId, sourceName = '') {
+  if (typeof stopContinuousCalendarRule === 'function' && stopContinuousCalendarRule(baseMonth, 'renda', groupId)) return;
   const sourceSort = getMonthSortValue(baseMonth);
   const sourceNameKey = normalizeIncomeName(sourceName);
   data.forEach(month => {
@@ -3855,6 +3862,7 @@ function getMonthNameFromDate(date) {
 }
 
 function ensureUnifiedMonthByDate(targetDate) {
+  if (typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled()) return ensureMonthExists(getMonthNameFromDate(targetDate), targetDate.getFullYear());
   const monthName = getMonthNameFromDate(targetDate);
   const monthId = getMonthIdFromParts(monthName, targetDate.getFullYear());
   let month = (data || []).find(entry => entry?.id === monthId);
@@ -3886,6 +3894,7 @@ function cloneProjetoRecurringForMonth(sourceProject, targetDate, installmentInd
 }
 
 function removeProjetoRecurringForward(baseMonth, groupId) {
+  if (typeof stopContinuousCalendarRule === 'function' && stopContinuousCalendarRule(baseMonth, 'projetos', groupId)) return;
   const sourceSort = getMonthSortValue(baseMonth);
   data.forEach(month => {
     if (getMonthSortValue(month) <= sourceSort) return;
@@ -3896,6 +3905,7 @@ function removeProjetoRecurringForward(baseMonth, groupId) {
 }
 
 function applyProjetoRecurringForwardChanges(baseMonth, sourceProject) {
+  if (typeof updateContinuousCalendarRule === 'function' && updateContinuousCalendarRule(baseMonth, 'projetos', sourceProject)) return;
   const groupId = getProjetoRecurringGroupId(sourceProject, sourceProject?.nome || 'RENDA_EXTRA');
   const total = Math.max(2, Number(sourceProject?.recurringInstallmentsTotal || 2) || 2);
   removeProjetoRecurringForward(baseMonth, groupId);
@@ -4029,12 +4039,13 @@ function saveUnifiedOutflow() {
     if (existingIndex >= 0) month.outflows[existingIndex] = baseItem;
     else month.outflows.push(baseItem);
     if (seriesKey) clearRecurringSeriesStopFromMonth(month, seriesKey);
+    if (!editingUnifiedOutflowId && seriesKey && typeof updateContinuousCalendarRule === 'function') updateContinuousCalendarRule(month, 'outflows', baseItem);
 
     if (editingUnifiedOutflowId && seriesKey && applyForward && changedFields.length && canPropagateRecurringFromMonth(month)) {
       applyRecurringForwardChanges(month, seriesKey, baseItem, changedFields, previousItem || baseItem);
     }
 
-    if (!editingUnifiedOutflowId && installmentsTotal > 1) {
+    if (!editingUnifiedOutflowId && installmentsTotal > 1 && !(typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled())) {
       for (let offset = 1; offset < installmentsTotal; offset += 1) {
         const futureDate = addMonthsToMonthObject(month, offset);
         const futureId = getMonthIdFromParts(Object.keys(MONTH_INDEX)[futureDate.getMonth()], futureDate.getFullYear());
@@ -4044,7 +4055,7 @@ function saveUnifiedOutflow() {
         futureMonth.outflows.push(cloneUnifiedOutflowForMonth({ ...baseItem, installmentIndex: offset }, futureDate, month));
       }
     }
-    if (!editingUnifiedOutflowId && (expenseRecurring || recurringSpend) && installmentsTotal <= 1) {
+    if (!editingUnifiedOutflowId && (expenseRecurring || recurringSpend) && installmentsTotal <= 1 && !(typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled())) {
       const currentSort = getMonthSortValue(month);
       data.forEach(otherMonth => {
         if (getMonthSortValue(otherMonth) <= currentSort) return;
