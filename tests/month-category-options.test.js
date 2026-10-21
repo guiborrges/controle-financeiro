@@ -66,6 +66,23 @@ test('tag options read canonical lexical data even when window.data is absent', 
   assert.deepEqual(Array.from(tags), ['Viagem']);
 });
 
+test('one-time visibility repair keeps each month independent and exposes manually checked categories', () => {
+  const sandbox = loadCoreCategorySandbox();
+  const first = { id: 'maio_2026', dailyCategorySeeds: ['Casa', 'Mercado'], categorias: { CASA: 0, MERCADO: 0 }, outflows: [{ category: 'Viagem', tag: 'Ferias' }], selectionVisibility: { version: 1, categories: { CASA: true, MERCADO: true }, tags: { trabalho: true } } };
+  const second = { id: 'junho_2026', outflows: [{ category: 'Academia', tag: 'Saude' }] };
+  sandbox.data = [first, second];
+  assert.equal(sandbox.migrateMonthSelectionVisibility(first, sandbox.data), true);
+  assert.equal(sandbox.migrateMonthSelectionVisibility(second, sandbox.data), true);
+  assert.deepEqual(Array.from(sandbox.getMonthCategoryNames(first, sandbox)), ['VIAGEM']);
+  assert.deepEqual(Array.from(sandbox.getMonthTagOptions(first, sandbox)), ['Ferias']);
+  assert.deepEqual(Array.from(sandbox.getMonthCategoryNames(second, sandbox)), ['ACADEMIA']);
+  first.selectionVisibility.categories.CASA = true;
+  assert.equal(sandbox.getMonthCategoryNames(first, sandbox).includes('CASA'), true);
+  const before = JSON.stringify(first);
+  assert.equal(sandbox.migrateMonthSelectionVisibility(first, sandbox.data), false);
+  assert.equal(JSON.stringify(first), before);
+});
+
 test('month category options are the single ordered source for defaults, previous spent and current used categories', () => {
   const sandbox = loadCoreCategorySandbox();
   sandbox.data = [

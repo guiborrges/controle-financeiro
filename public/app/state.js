@@ -626,7 +626,6 @@ function init() {
   const savedPatrimonioAccounts = Storage.getJSON(STORAGE_KEYS.patrimonioAccounts, null);
   const savedPatrimonioMovements = Storage.getJSON(STORAGE_KEYS.patrimonioMovements, null);
   const savedMigrationVersion = parseInt(Storage.getText(STORAGE_KEYS.migrationVersion, '0') || '0', 10);
-  const savedSelectionVisibilityMigrationVersion = parseInt(Storage.getText(STORAGE_KEYS.selectionVisibilityMigrationVersion, '0') || '0', 10);
   if (savedCategoryRenameMap) categoryRenameMap = savedCategoryRenameMap;
   if (savedExpenseCategoryRules) expenseCategoryRules = savedExpenseCategoryRules;
   if (savedExpenseNameRenameMap) expenseNameRenameMap = savedExpenseNameRenameMap;
@@ -704,7 +703,7 @@ function init() {
   if (STORAGE_KEYS.schemaVersion) {
     Storage.setText(STORAGE_KEYS.schemaVersion, STATE_SCHEMA_VERSION);
   }
-  if (savedSelectionVisibilityMigrationVersion < 1) {
+  if ((data || []).some(month => month?.selectionVisibility?.version !== 2)) {
     createSelectionVisibilityMigrationBackup();
   }
   metas = savedMetas || {};
@@ -808,8 +807,12 @@ async function createSelectionVisibilityMigrationBackup() {
     (data || []).forEach(month => {
       if (migrateMonthSelectionVisibility(month, data)) changed = true;
     });
-    Storage.setText(STORAGE_KEYS.selectionVisibilityMigrationVersion, '1');
-    if (changed) save(true);
+    Storage.setText(STORAGE_KEYS.selectionVisibilityMigrationVersion, '2');
+    if (changed) {
+      save(true);
+      if (typeof renderMes === 'function') renderMes();
+      if (window.MobileV2?.isEnabled?.()) window.MobileV2.refresh();
+    }
   } catch (error) {
     console.warn('[migration] Backup para visibilidade mensal não foi criado:', error?.message || error);
   }

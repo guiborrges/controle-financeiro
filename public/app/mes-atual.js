@@ -2137,7 +2137,7 @@ function getUnifiedSpendCategorySummary(month, rows = null) {
     : [];
   const spendCategories = items.map(item => resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS')));
   const categories = Array.from(new Set([
-    ...inheritedPrevCategories,
+    ...(month?.selectionVisibility?.version >= 2 ? getUnifiedOutflowCategories(month) : inheritedPrevCategories),
     ...spendCategories
   ]));
   const categoryRows = buildUnifiedSpendCategoryRows(month, items, { forcedCategories: categories });

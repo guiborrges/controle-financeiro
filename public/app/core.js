@@ -197,6 +197,9 @@ function getSelectableCategoryEntriesForMonth(month, { includeFallbackBase = tru
   Object.keys(m?.dailyGoals || {}).forEach(cat => addEntry(cat));
   Object.keys(m?.categorias || {}).forEach(cat => addEntry(cat));
   Object.keys(m?._catOrig || {}).forEach(cat => addEntry(cat));
+  Object.entries(m?.selectionVisibility?.categories || {}).forEach(([cat, visible]) => {
+    if (visible === true) addEntry(cat);
+  });
 
   if (includeFallbackBase && byNorm.size === 0) {
     ['OUTROS', 'ALIMENTACAO', 'TRANSPORTE'].forEach(cat => addEntry(cat));
@@ -205,7 +208,9 @@ function getSelectableCategoryEntriesForMonth(month, { includeFallbackBase = tru
   const entries = Array.from(byNorm.values());
   const visibility = !ignoreVisibility && m?.selectionVisibility?.categories;
   if (!visibility || typeof visibility !== 'object') return entries;
-  return entries.filter(entry => visibility[resolveCategoryName(entry.name)] !== false);
+  return entries.filter(entry => m?.selectionVisibility?.version >= 2
+    ? visibility[resolveCategoryName(entry.name)] === true
+    : visibility[resolveCategoryName(entry.name)] !== false);
 }
 
 function getSelectableCategoryNamesForMonth(month, options = {}) {
@@ -260,22 +265,44 @@ function getMonthTagOptions(monthOrId, context = window) {
     if (tag) tags.set(tag.toLocaleLowerCase('pt-BR'), tag);
   }));
   const visibility = month?.selectionVisibility?.tags;
+  Object.entries(visibility || {}).forEach(([tag, visible]) => {
+    if (visible === true && !tags.has(tag)) tags.set(tag, tag);
+  });
   return Array.from(tags.values())
-    .filter(tag => !visibility || visibility[tag.toLocaleLowerCase('pt-BR')] !== false)
+    .filter(tag => !visibility || (month?.selectionVisibility?.version >= 2
+      ? visibility[tag.toLocaleLowerCase('pt-BR')] === true
+      : visibility[tag.toLocaleLowerCase('pt-BR')] !== false))
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
 
 function migrateMonthSelectionVisibility(month, source = data) {
-  if (!month || month.selectionVisibility?.version === 1) return false;
+  if (!month || month.selectionVisibility?.version >= 2) return false;
   const categories = {};
-  getSelectableCategoryEntriesForMonth(month, { includeFallbackBase: false, ignoreVisibility: true })
-    .forEach(entry => { categories[resolveCategoryName(entry.name)] = true; });
   const tags = {};
-  (source || []).forEach(entry => (entry?.outflows || []).forEach(item => {
+  const addCategory = value => {
+    const category = resolveCategoryName(stripLegacyCategoryIconPrefix(value || ''));
+    if (category && !(typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(category))) categories[category] = true;
+  };
+  (month.outflows || []).forEach(item => {
+    addCategory(item?.category || item?.categoria || 'OUTROS');
     const tag = String(item?.tag || '').trim();
     if (tag) tags[tag.toLocaleLowerCase('pt-BR')] = true;
-  }));
-  month.selectionVisibility = { version: 1, categories, tags };
+  });
+  (month.gastosVar || []).forEach(item => addCategory(item?.categoria || 'OUTROS'));
+  (month.despesas || []).forEach(item => addCategory(item?.categoria || 'OUTROS'));
+  const automaticDefaults = new Set((Array.isArray(window.SYSTEM_DEFAULT_CATEGORY_PRESETS) ? window.SYSTEM_DEFAULT_CATEGORY_PRESETS : [])
+    .map(item => resolveCategoryName(item?.name || '')));
+  (month.dailyCategorySeeds || []).forEach(category => {
+    if (!automaticDefaults.has(resolveCategoryName(category || ''))) addCategory(category);
+  });
+  Object.keys(month.dailyGoals || {}).forEach(addCategory);
+  Object.entries(month.categorias || {}).forEach(([category, value]) => {
+    if (Number(value) > 0) addCategory(category);
+  });
+  Object.entries(month._catOrig || {}).forEach(([category, value]) => {
+    if (Number(value) > 0) addCategory(category);
+  });
+  month.selectionVisibility = { version: 2, categories, tags };
   return true;
 }
 

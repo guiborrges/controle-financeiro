@@ -347,6 +347,8 @@ function toggleCategoryVisibilityForCurrentMonth(category, visible) {
   }
   month.selectionVisibility.categories[resolved] = visible;
   save(true);
+  if (typeof renderMes === 'function') renderMes();
+  if (window.MobileV2?.isEnabled?.()) window.MobileV2.refresh();
   renderCategoryEditorList();
 }
 
@@ -364,6 +366,8 @@ function toggleTagVisibilityForCurrentMonth(tag, visible) {
   }
   month.selectionVisibility.tags[key] = visible;
   save(true);
+  if (typeof renderMes === 'function') renderMes();
+  if (window.MobileV2?.isEnabled?.()) window.MobileV2.refresh();
   renderTagEditorList();
 }
 
@@ -430,7 +434,9 @@ function renderTagEditorList() {
     const escapedTag = categoryEditorEscapedValue(entry.tag);
     const expanded = !!expandedTagEditorGroups[entry.tag];
     const month = getVisibilityEditorMonth();
-    const visible = month?.selectionVisibility?.tags?.[entry.tag.toLocaleLowerCase('pt-BR')] !== false;
+    const visible = month?.selectionVisibility?.version >= 2
+      ? month.selectionVisibility.tags?.[entry.tag.toLocaleLowerCase('pt-BR')] === true
+      : month?.selectionVisibility?.tags?.[entry.tag.toLocaleLowerCase('pt-BR')] !== false;
     const launchesHtml = expanded
       ? `<table class="fin-table" style="margin-top:8px"><thead><tr><th>Mês</th><th>Descrição</th><th>Data</th><th>Valor</th><th></th></tr></thead><tbody>${(entry.items || []).map(launch => `
           <tr>
@@ -472,7 +478,9 @@ function renderCategoryEditorList(entries = null) {
     const escapedCategory = categoryEditorEscapedValue(entry.category);
     const expanded = !!expandedCategoryEditorGroups[entry.category];
     const month = getVisibilityEditorMonth();
-    const visible = month?.selectionVisibility?.categories?.[entry.category] !== false;
+    const visible = month?.selectionVisibility?.version >= 2
+      ? month.selectionVisibility.categories?.[entry.category] === true
+      : month?.selectionVisibility?.categories?.[entry.category] !== false;
     const launchesHtml = expanded
       ? `<table class="fin-table" style="margin-top:8px"><thead><tr><th>Mês</th><th>Descrição</th><th>Data</th><th>Valor</th><th></th></tr></thead><tbody>${entry.launches.map(launch => `
           <tr>
