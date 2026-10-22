@@ -28,3 +28,7 @@ Nao foi realizada uma importacao bancaria real: as contas ficticias nao possuem 
 - O teste local usou sessoes em memoria para contornar a falha de permissao do Windows. Essa adaptacao ficou somente no processo de teste; nao foi incluida no aplicativo publicado.
 
 Os relatorios anteriores continuam sendo o registro historico da auditoria, anterior a estas correcoes. Os testes dispensados pelo usuario nao foram apresentados como aprovados.
+
+## Dependencias da publicacao
+
+A primeira tentativa de publicacao foi bloqueada por uma vulnerabilidade critica no pacote proxy-addr. Foram aplicadas atualizacoes compativeis das dependencias, sem desativar a verificacao de seguranca. A verificacao deixou de apontar vulnerabilidades criticas. Ainda ha um alerta de gravidade alta no Nodemailer; ele nao faz parte dos erros funcionais desta auditoria e exige acompanhamento separado.
