@@ -12,7 +12,7 @@
   }
 
   function formatMoney(value) {
-    if (typeof global.fmt === 'function') return global.fmt(Number(value || 0));
+    if (typeof global.fmt === 'function') return `${Number(value) < 0 ? '- ' : ''}${global.fmt(Number(value || 0))}`;
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
@@ -54,7 +54,7 @@
       renda,
       lancamentos,
       despesas: lancamentos,
-      resultado: renda - lancamentos
+      resultado: renda - lancamentos - Number(getTotals(month).totalFinancialGoals || 0)
     };
   }
 

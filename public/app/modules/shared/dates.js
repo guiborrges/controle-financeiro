@@ -30,6 +30,9 @@
     const fullYear = parseInt(match[3], 10);
     if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(fullYear)) return null;
     if (day < 1 || day > 31 || month < 1 || month > 12) return null;
+    const year = fullYear < 100 ? 2000 + fullYear : fullYear;
+    const actual = new Date(year, month - 1, day);
+    if (actual.getFullYear() !== year || actual.getMonth() !== month - 1 || actual.getDate() !== day) return null;
     const shortYear = String(fullYear).slice(-2).padStart(2, '0');
     return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${shortYear}`;
   }
@@ -90,6 +93,7 @@
       };
     }
     if (/^\d{1,2}$/.test(raw)) {
+      if (Number(raw) < 1 || Number(raw) > 31) return { date: '', mode: 'invalid', hasExplicitMonthYear: false, warning: 'invalid-date' };
       const base = getMonthDateFromContext(monthRef);
       const offset = Number.isFinite(Number(options.simpleDayMonthOffset))
         ? Math.trunc(Number(options.simpleDayMonthOffset))

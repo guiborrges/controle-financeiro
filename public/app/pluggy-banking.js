@@ -1062,10 +1062,8 @@
     }
 
     const { dateBr } = formatDateAndTime(tx.date);
-    const monthId = global.BillImportSchema?.getMonthIdFromDate ? global.BillImportSchema.getMonthIdFromDate(dateBr) : '';
-    let month = getDataRef().find(item => String(item.id) === String(monthId));
-    if (!month) month = ensureMonthFromDate(dateBr);
-    if (!month) throw new Error('Nao foi possivel identificar o mes da transacao.');
+    const month = getSelectedMonthForCategories();
+    if (!month) throw new Error('Selecione o mes de destino antes de adicionar a compra.');
 
     const transacao_valor_raw = Number(tx.amount || 0);
     const amount = Math.abs(transacao_valor_raw);

@@ -47,7 +47,7 @@
       shortLabel,
       renda: income,
       gastos: expenses,
-      resultado: income - expenses
+      resultado: income - expenses - Number(global.MobileV2Data?.getTotals(month)?.totalFinancialGoals || 0)
     };
   }
 
@@ -360,7 +360,7 @@
     if (!months.length) return;
     const totalIncome = months.reduce((sum, month) => sum + month.renda, 0);
     const totalExpenses = months.reduce((sum, month) => sum + month.gastos, 0);
-    const totalResult = totalIncome - totalExpenses;
+    const totalResult = months.reduce((sum, month) => sum + month.resultado, 0);
     const canvas = document.createElement('canvas');
     canvas.width = 1080;
     canvas.height = 1350;
@@ -435,7 +435,7 @@
 
     const totalIncome = months.reduce((sum, month) => sum + month.renda, 0);
     const totalExpenses = months.reduce((sum, month) => sum + month.gastos, 0);
-    const totalResult = totalIncome - totalExpenses;
+    const totalResult = months.reduce((sum, month) => sum + month.resultado, 0);
     const categories = buildCategoryTotals(months);
 
     target.innerHTML = `

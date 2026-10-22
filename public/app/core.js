@@ -522,9 +522,9 @@ function normalizeMonth(m) {
     includeInTotals: r?.includeInTotals !== false,
     patrimonioMovementId: String(r?.patrimonioMovementId || '').trim(),
     dataRecebimento: (r?.recurringFixed !== false)
-      ? (typeof getRecurringIncomeReceiveDay === 'function'
+      ? (normalizeVarDate(String(r?.dataRecebimento || '').trim()) || (typeof getRecurringIncomeReceiveDay === 'function'
         ? getRecurringIncomeReceiveDay(r?.dataRecebimento || '')
-        : String(r?.dataRecebimento || '').trim())
+        : String(r?.dataRecebimento || '').trim()))
       : (normalizeVarDate(String(r?.dataRecebimento || '').trim()) || ''),
     recurringFixed: r?.recurringFixed !== false,
     recurringGroupId: String(r?.recurringGroupId || '').trim() || `rin_${normalizeIncomeName(r?.fonte || 'RENDA').replace(/[^A-Z0-9]+/g, '_')}`
@@ -860,7 +860,9 @@ function getTotals(m) {
   ensureProjetos(m);
   const totalVar = getCountedVarTotal(m);
   const totalFixas = (m.despesas || []).reduce((a,d)=>a+d.valor,0);
-  const totalGastos = totalFixas + totalVar;
+  const totalGastos = typeof calculateUnifiedPlanningTotal === 'function' && typeof isUnifiedMonthPilotEnabled === 'function' && isUnifiedMonthPilotEnabled()
+    ? calculateUnifiedPlanningTotal(m)
+    : totalFixas + totalVar;
   const rendaFixa = (m.renda || []).reduce((a,r)=>a+(isIncomeIncludedInTotals(r) ? r.valor : 0),0);
   const totalFinancialGoals = (m.financialGoals || []).reduce((a, goal) => a + (isFinancialGoalIncludedInTotals(goal) ? (goal.valor || 0) : 0), 0);
   const totalProj = (m.projetos || []).reduce((a,p)=>a+(isProjectIncludedInTotals(p) ? p.valor : 0),0);
@@ -914,7 +916,9 @@ function getEffectiveTotalsForMes(m) {
   const totals = getTotals(m);
   const totalFixas = getSelectedDespesaTotal(m);
   const totalVar = getCountedVarTotal(m);
-  const totalGastos = totalFixas + totalVar;
+  const totalGastos = typeof calculateUnifiedPlanningTotal === 'function' && typeof isUnifiedMonthPilotEnabled === 'function' && isUnifiedMonthPilotEnabled()
+    ? totals.totalGastos
+    : totalFixas + totalVar;
   const dinheiroVal = 0;
   const activeMode = isPrimaryUserEnvironment() ? resultMode : 'simples';
   return {

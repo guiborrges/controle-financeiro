@@ -99,6 +99,7 @@
         <p class="modal-subcopy">
           Esses dados vieram do Pluggy e ainda nao foram inseridos automaticamente no seu sistema financeiro.
         </p>
+        <p id="internetBankingDestination" class="modal-subcopy" role="status"></p>
         <div id="internetBankingPreviewStatus" class="internet-banking-preview-status text-muted"></div>
         <div id="internetBankingPreviewWorkspace" class="internet-banking-preview-workspace"></div>
         <div class="form-actions internet-banking-preview-actions">
@@ -112,6 +113,11 @@
 
   function renderInternetBankingPreview() {
     ensureInternetBankingModal();
+    const destination = document.getElementById('internetBankingDestination');
+    const selectedMonth = global.getCurrentMonth?.();
+    if (destination) destination.textContent = selectedMonth
+      ? `Compras no cartao: mes de destino ${selectedMonth.nome}. A data da compra e o fechamento nao mudam o mes escolhido.`
+      : 'Selecione o mes de destino antes de adicionar compras no cartao.';
     const statusNode = document.getElementById('internetBankingPreviewStatus');
     const workspaceNode = document.getElementById('internetBankingPreviewWorkspace');
     if (!statusNode || !workspaceNode) return;

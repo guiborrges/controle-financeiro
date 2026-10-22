@@ -40,7 +40,9 @@ function getContinuousCalendarOptions() {
     occurrence: (collection, payload, month, source, offset) => {
       if (collection === 'renda') {
         return window.MesAtualIncomeRecurrence.cloneRecurringIncome({
-          ...payload, dataRecebimento: getRecurringIncomeReceiveDay(payload.dataRecebimento)
+          ...payload, dataRecebimento: /[\/-]/.test(String(payload.dataRecebimento || ''))
+            ? getUnifiedCardDateForMonth(payload.dataRecebimento, source, month)
+            : getRecurringIncomeReceiveDay(payload.dataRecebimento)
         }, payload.recurringGroupId || getIncomeRecurringGroupId(payload));
       }
       if (collection === 'projetos') {

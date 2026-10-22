@@ -492,11 +492,13 @@
       || state.filters.tag.size > 0
       || state.filters.method.size > 0;
     const shouldSumVisibleRows = isSearchMode || hasDetailFilter;
+    const visibleBills = new Set(results.filter(entry => entry.item.source === 'card_bill')
+      .map(entry => `${entry.item.monthId}::${entry.item.cardId}`));
     const totals = results.reduce((acc, entry) => {
-      if (!shouldSumVisibleRows && entry.item.countInTotals === false) return acc;
-      const direction = shouldSumVisibleRows
-        ? Number(entry.item.visualSign || entry.item.signedAmount || 0)
-        : Number(entry.item.signedAmount || 0);
+      const isCardPurchase = entry.item.source === 'outflow' && entry.item.method === 'card';
+      if (isCardPurchase && visibleBills.has(`${entry.item.monthId}::${entry.item.cardId}`)) return acc;
+      if (entry.item.countInTotals === false && !(shouldSumVisibleRows && isCardPurchase)) return acc;
+      const direction = shouldSumVisibleRows ? Number(entry.item.visualSign || entry.item.signedAmount || 0) : Number(entry.item.signedAmount || 0);
       if (direction >= 0) acc.income += Number(entry.item.amount || 0);
       else acc.expense += Number(entry.item.amount || 0);
       return acc;

@@ -59,6 +59,54 @@ let flushSequence = 0;
 let pendingFlushReason = 'unknown';
 let storageSyncEventsBound = false;
 let storageDirtyKeys = new Set();
+let storageSyncPending = false;
+let pendingRecoverySnapshot = null;
+
+async function protectPendingStorage() {
+  storageSyncPending = true;
+  const snapshot = { state: cloneStateValue(serverStorageCache), baseRevision: serverStateRevision, dirtyKeys: Array.from(storageDirtyKeys) };
+  let protectedLocally = false;
+  try { protectedLocally = await window.PendingSync?.save(scopedStorageNamespace, snapshot) === true; } catch {}
+  if (typeof window.showAppStatus === 'function') window.showAppStatus(
+    protectedLocally
+      ? 'Ainda nao foi salvo no servidor. Uma copia protegida ficou neste navegador; vamos tentar novamente quando a conexao voltar.'
+      : 'Nao foi possivel salvar. Mantenha esta aba aberta e tente novamente quando a conexao voltar.',
+    'Salvamento pendente', 'warn');
+}
+
+async function restorePendingStorage() {
+  let snapshot = null;
+  try { snapshot = await window.PendingSync?.read(scopedStorageNamespace); } catch {}
+  if (!snapshot?.state || typeof snapshot.state !== 'object') return;
+  storageSyncPending = true;
+  if (String(snapshot.baseRevision || '') !== serverStateRevision) {
+    pendingRecoverySnapshot = snapshot;
+    pauseAutosaveWithConflict('Existe um rascunho protegido, mas os dados do servidor mudaram. Baixe a copia pendente antes de continuar.');
+    const message = typeof document !== 'undefined' ? document.getElementById('appStatusMessage') : null;
+    if (message) {
+      const button = document.createElement('button');
+      button.className = 'btn btn-ghost';
+      button.textContent = 'Baixar copia pendente';
+      button.addEventListener('click', downloadPendingStorageRecovery);
+      message.appendChild(document.createElement('br'));
+      message.appendChild(button);
+    }
+    return;
+  }
+  serverStorageCache = cloneStateValue(snapshot.state);
+  storageDirtyKeys = new Set(snapshot.dirtyKeys || Object.keys(snapshot.state));
+}
+
+function downloadPendingStorageRecovery() {
+  if (!pendingRecoverySnapshot) return;
+  const payload = { format: 'fin_backup_v2', userId: scopedStorageNamespace, exportedAt: new Date().toISOString(), appState: pendingRecoverySnapshot.state };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'meufin-pendente.json';
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 const STORAGE_FLUSH_FAST_MS = 2000;
 const STORAGE_FLUSH_SLOW_MS = 8000;
 const FAST_FLUSH_KEYS = new Set([
@@ -152,6 +200,14 @@ function emitRevisionToOtherTabs(nextRevision) {
 function bindCrossTabRevisionSync() {
   if (storageSyncEventsBound) return;
   storageSyncEventsBound = true;
+  window.addEventListener('online', () => {
+    if (storageSyncPending && !storageWriteConflictDetected) flushServerStorage(true, 'online-retry');
+  });
+  window.addEventListener('beforeunload', event => {
+    if (!storageSyncPending && !storageDirtyKeys.size) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
   window.addEventListener('storage', (event) => {
     if (event.key !== getCrossTabRevisionStorageKey()) return;
     if (!event.newValue || storageWriteConflictDetected) return;
@@ -329,6 +385,15 @@ async function flushServerStorage(force = false, reason = 'unknown') {
           if (JSON.stringify(serverStorageCache[key]) === JSON.stringify(payload.state[key])) storageDirtyKeys.delete(key);
         });
         emitRevisionToOtherTabs(serverStateRevision);
+        if (storageSyncPending) {
+          if (storageDirtyKeys.size) {
+            await protectPendingStorage();
+          } else {
+            try { await window.PendingSync?.clear(scopedStorageNamespace); } catch {}
+            storageSyncPending = false;
+            if (typeof window.showAppStatus === 'function') window.showAppStatus('Seus lancamentos pendentes foram salvos.', 'Sincronizado', 'ok');
+          }
+        }
         if (shouldLogStorageSync()) {
           console.log('[storage][flush:ok]', {
             flushId,
@@ -342,6 +407,7 @@ async function flushServerStorage(force = false, reason = 'unknown') {
       }
       
       if (response.status === 409 || body?.conflict) {
+        await protectPendingStorage();
         pauseAutosaveWithConflict(
           'Detectamos alteracoes em outra aba/dispositivo. Recarregue para evitar sobrescrita de dados.',
           {
@@ -372,10 +438,12 @@ async function flushServerStorage(force = false, reason = 'unknown') {
         status: response.status,
         message: String(body?.message || 'Falha desconhecida')
       });
+      await protectPendingStorage();
       return false;
     })
-    .catch((error) => {
+    .catch(async (error) => {
       console.error('[storage] Erro na comunicação com o servidor:', error);
+      await protectPendingStorage();
       return false;
     });
 
@@ -478,6 +546,9 @@ async function initializeServerStorage(options = {}) {
     : {};
   serverStateRevision = String(payload.stateRevision || '');
   storageWriteConflictDetected = false;
+  storageDirtyKeys = new Set();
+  await restorePendingStorage();
+  payload.appState = cloneStateValue(serverStorageCache);
   isFlushing = false;
   flushSequence = 0;
   pendingFlushReason = 'bootstrap';
@@ -512,6 +583,7 @@ async function initializeServerStorage(options = {}) {
     LegacyStorage.remove(key);
     ScopedLocalStorage.remove(key);
   });
+  if (storageSyncPending && !storageWriteConflictDetected) scheduleServerStorageFlush('pending-recovery');
   return payload;
 }
 

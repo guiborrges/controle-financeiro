@@ -45,6 +45,20 @@ test('all future months are projected directly without their predecessor being p
   assert.equal(december.outflows[0].paid, false);
 });
 
+test('stopping a series removes unpaid future exceptions and stale saved copies after reload', () => {
+  const { engine, options, source, model, session } = setup();
+  const current = session.hydrate(source);
+  const future = session.virtual(month(11));
+  future.outflows[0].amount = 999;
+  const stale = JSON.parse(JSON.stringify(future));
+  session.stop([current, future], current, 'outflows', 'rent');
+  assert.equal(future.outflows.length, 0);
+  const reload = engine.createSession(JSON.parse(JSON.stringify(model)), options);
+  assert.equal(reload.hydrate(stale).outflows.length, 0);
+  assert.equal(reload.virtual(month(12)).outflows.length, 0);
+  assert.equal(current.outflows.length, 1, 'caller owns removal of current occurrence');
+});
+
 test('legacy expenses recur by their series id even when modern boolean flags are false', () => {
   const { engine, options } = setup();
   const source = month(10);

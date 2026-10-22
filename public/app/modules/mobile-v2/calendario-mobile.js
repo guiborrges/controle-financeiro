@@ -95,6 +95,8 @@
   function renderSelectedDay(month, day, dayMap) {
     const ledger = dayMap.get(day) || { outflows: 0, launches: [] };
     const launches = Array.isArray(ledger?.launches) ? ledger.launches : [];
+    const payments = Array.isArray(ledger?.paymentItems) ? ledger.paymentItems : [];
+    const receipts = Array.isArray(ledger?.receivingItems) ? ledger.receivingItems : [];
     const events = getEventsForDay(month, day);
     return `
       <section class="m2-calendar-day-details">
@@ -110,12 +112,16 @@
             <b>${escapeHtml(formatMoney(amount))}</b>
           </button>`;
         }).join('')}
+        ${payments.length ? '<h4>Pagamentos do dia</h4>' : ''}
+        ${payments.map(item => `<div class="m2-calendar-detail-row"><span><strong>${escapeHtml(item.description)}</strong><small>Pagamento previsto</small></span><b>${escapeHtml(formatMoney(item.amount))}</b></div>`).join('')}
+        ${receipts.length ? '<h4>Entradas do dia</h4>' : ''}
+        ${receipts.map(item => `<div class="m2-calendar-detail-row"><span><strong>${escapeHtml(item.description)}</strong><small>Recebimento</small></span><b>${escapeHtml(formatMoney(item.amount))}</b></div>`).join('')}
         ${events.map((event) => `<button type="button" class="m2-calendar-detail-row" data-calendar-event="${escapeHtml(String(event?.id || ''))}">
           <span class="m-item-cat-icon" style="background:${escapeHtml(String(event?.color || '#9b88f7'))};color:#fff">•</span>
           <span><strong>${escapeHtml(String(event?.name || 'Evento financeiro'))}</strong><small>Evento</small></span>
           <b>${Number(event?.budget || 0) > 0 ? escapeHtml(formatMoney(event.budget)) : ''}</b>
         </button>`).join('')}
-        ${!launches.length && !events.length ? '<div class="m2-empty">Sem lançamentos ou eventos neste dia.</div>' : ''}
+        ${!launches.length && !events.length && !payments.length && !receipts.length ? '<div class="m2-empty">Sem lançamentos ou eventos neste dia.</div>' : ''}
       </section>`;
   }
 
@@ -228,7 +234,7 @@
     const intensities = typeof global.FinanceCalendarUtils?.computeIntensitiesFromTotals === 'function'
       ? global.FinanceCalendarUtils.computeIntensitiesFromTotals(totalsByDay, month)
       : {};
-    const daysWithLaunches = Array.from(dayMap.values()).filter((ledger) => Array.isArray(ledger?.launches) && ledger.launches.length).length;
+    const daysWithLaunches = Array.from(dayMap.values()).filter(ledger => ledger?.launches?.length || ledger?.paymentItems?.length || ledger?.receivingItems?.length).length;
     const totalOutflows = Array.from(dayMap.values()).reduce((sum, ledger) => sum + Number(ledger?.outflows || 0), 0);
     const totalEvents = Array.isArray(month?.calendarEvents) ? month.calendarEvents.length : 0;
     const monthKey = String(month?.id || monthTitle(month));
@@ -274,7 +280,7 @@
           ${cells.map((day) => {
             if (!day) return '<div class="cal-day-empty"></div>';
             const ledger = dayMap.get(day) || { outflows: 0, launches: [] };
-            const items = ledger?.launches || [];
+            const items = [...(ledger?.launches || []), ...(ledger?.paymentItems || []), ...(ledger?.receivingItems || [])];
             const total = Number(ledger?.outflows || 0);
             const intensity = Number(intensities?.[day] || 0);
             const tone = typeof global.FinanceCalendarUtils?.getDayIntensityColor === 'function'

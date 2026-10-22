@@ -90,7 +90,8 @@
   function getNotificationItemsForToday() {
     const todayKey = getTodayDayKey();
     const items = [];
-    (global.data || []).forEach(month => {
+    const months = typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []);
+    (months || []).forEach(month => {
       (month?.outflows || []).forEach(item => {
         const normalizedType = String(item?.type || '').toLowerCase();
         const isRelevant = ((normalizedType === 'expense' || normalizedType === 'fixed') || item?.recurringSpend === true) && item?.outputKind !== 'card';

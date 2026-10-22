@@ -276,7 +276,11 @@
       const generated = project(model, saved, options);
       const result = saved._calendarSparse ? { ...generated, ...clone(saved) } : clone(saved);
       collections.forEach(collection => {
-        const rows = result[collection] || [];
+        const rows = (result[collection] || []).filter(item => {
+          const id = item._calendarRule || `${collection}:${identity(collection, item)}`;
+          const rule = model.rules.find(entry => entry.id === id);
+          return !rule || !activeVersion(rule, options.sort(result))?.stopped || item.paid === true;
+        });
         const hidden = saved._calendarHidden?.[collection] || [];
         generated[collection].forEach(item => {
           const key = rowKey(collection, item);
@@ -351,7 +355,7 @@
           if (index >= 0) {
             if (rows[index].paid === true) return;
             const prior = old.find(item => rowKey(collection, item) === rowKey(collection, rows[index]));
-            if (prior && !equal(rows[index], prior)) return;
+            if (expected && prior && !equal(rows[index], prior)) return;
             if (expected) rows[index] = expected;
             else rows.splice(index, 1);
           } else if (expected) {

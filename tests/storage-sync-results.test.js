@@ -23,6 +23,27 @@ test('storage reports HTTP errors and network failures rather than successful pe
   assert.equal(await ctx.flushServerStorage(true), false);
 });
 
+test('failed network writes protect a pending copy and notify instead of announcing persistence', async () => {
+  const ctx = context(async () => { throw new Error('offline'); });
+  let copy;
+  const messages = [];
+  ctx.window.PendingSync = { save: async (user, snapshot) => { copy = snapshot; return true; } };
+  ctx.window.showAppStatus = message => messages.push(message);
+  assert.equal(await ctx.flushServerStorage(true), false);
+  assert.equal(copy.state.finData[0], 1);
+  assert.match(messages[0], /Ainda nao foi salvo/);
+});
+
+test('pending recovery restores only the matching server revision and never overwrites a conflict', async () => {
+  for (const matching of [true, false]) {
+    const ctx = context(async () => ({ ok: true, json: async () => ({}) }));
+    ctx.window.PendingSync = { read: async () => ({ baseRevision: matching ? '' : 'old', state: { finData: ['pending'] }, dirtyKeys: ['finData'] }) };
+    await ctx.restorePendingStorage();
+    assert.equal(vm.runInContext('serverStorageCache.finData[0]', ctx), matching ? 'pending' : 1);
+    assert.equal(vm.runInContext('storageWriteConflictDetected', ctx), !matching);
+  }
+});
+
 test('forced storage flush waits for its queued snapshot, not only the preceding write', async () => {
   const requests = [];
   const ctx = context((url, options) => new Promise(resolve => requests.push({ resolve, payload: JSON.parse(options.body) })));

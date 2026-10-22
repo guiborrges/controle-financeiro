@@ -917,7 +917,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
     recurringSpend,
     expenseRecurring,
     status: item?.status === 'done' ? 'done' : 'planned',
-    paid: hasPaidFlag ? item?.paid === true : isDirectRealOutflow,
+    paid: hasPaidFlag ? item?.paid === true : shouldAutoPayUnifiedOutflow({ ...item, outputKind, outputMethod }),
     recurringGroupId: String(item?.recurringGroupId || '').trim(),
     installmentsGroupId: String(item?.installmentsGroupId || '').trim(),
     installmentsTotal,
@@ -983,6 +983,18 @@ function ensureRecurringIncomeNextMonthScheduleAcrossData() {
     if (harmonizeRecurringIncomeReceiveDays(month)) changed = true;
   });
   if (changed) save(true);
+}
+
+function shouldAutoPayUnifiedOutflow(item) {
+  if (item?.outputKind !== 'method' || !['pix', 'dinheiro', 'debito'].includes(item?.outputMethod)) return false;
+  const raw = String(item.date || '').trim();
+  if (!raw) return true;
+  const normalized = normalizeVarDate(raw);
+  if (!normalized) return false;
+  const [day, month, year] = normalized.split('/').map(Number);
+  const today = new Date();
+  const date = new Date(year < 100 ? 2000 + year : year, month - 1, day);
+  return date.getTime() <= new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 }
 
 function normalizeUnifiedOutflowSpendDateInput(rawValue, month) {
@@ -1320,7 +1332,7 @@ function pruneDailyGoalsWithoutSpendValue(month) {
 function syncUnifiedOutflowLegacyData(month) {
   if (!month) return;
   syncUnifiedCardAutoAmounts(month);
-  const fixedItems = (month.outflows || []).filter(item => isUnifiedExpenseType(item));
+  const fixedItems = (month.outflows || []).filter(item => isUnifiedExpenseType(item) && item.outputKind !== 'card');
   const spendItems = (month.outflows || []).filter(item => {
     if (typeof isUnifiedLaunchOfType === 'function') return isUnifiedLaunchOfType(item, 'spend');
     return String(item?.type || '').toLowerCase() === 'spend';
@@ -1388,7 +1400,7 @@ function ensureUnifiedOutflowPilotMonth(month) {
     const isDirectMethod = item?.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(item?.outputMethod);
     const hasExplicitPaidFlag = item && Object.prototype.hasOwnProperty.call(item, 'paid') && typeof item.paid === 'boolean';
     if (isDirectMethod && !hasExplicitPaidFlag) {
-      item.paid = true;
+      item.paid = shouldAutoPayUnifiedOutflow(item);
       defaultsChanged = true;
     }
   });
@@ -1671,7 +1683,7 @@ function calculateUnifiedPlanningTotal(month) {
   const regularRows = [];
   rows.forEach(row => {
     if (!row?.item) return;
-    if (row?.kind === 'outflow' && row?.item?.outputKind === 'card' && row?.item?.recurringSpend === true) {
+    if (row?.kind === 'outflow' && row?.item?.outputKind === 'card') {
       // Esses lançamentos já entram no valor da fatura/cartão e não podem duplicar no total.
       return;
     }
@@ -1757,7 +1769,7 @@ function renderUnifiedFixedRows(month, rows) {
   const recurringCardRowsByCardId = new Map();
   const regularRows = [];
   rows.forEach(row => {
-    if (row?.kind === 'outflow' && row?.item?.outputKind === 'card' && row?.item?.recurringSpend === true) {
+    if (row?.kind === 'outflow' && row?.item?.outputKind === 'card') {
       const cardId = String(row?.item?.outputRef || '').trim();
       if (!recurringCardRowsByCardId.has(cardId)) recurringCardRowsByCardId.set(cardId, []);
       recurringCardRowsByCardId.get(cardId).push(row);
@@ -1904,7 +1916,7 @@ function renderUnifiedFixedRows(month, rows) {
               const recurringItem = entry.item;
               const details = `${escapeHtml(String(recurringItem?.description || 'Lançamento recorrente'))}${recurringItem?.tag ? `<div class="text-muted" style="margin-top:4px;font-size:11px">Tag • ${escapeHtml(recurringItem.tag)}</div>` : ''}`;
               const recurringCategory = escapeHtml(String(recurringItem?.category || 'Sem categoria'));
-              const labelHtml = index === 0 ? '<div class="unified-card-recurring-detail-label">Recorrentes do cartão</div>' : '';
+              const labelHtml = index === 0 ? '<div class="unified-card-recurring-detail-label">Lançamentos do cartão</div>' : '';
               const rowClasses = [
                 'unified-card-recurring-detail-row',
                 index === 0 ? 'is-first' : '',
@@ -3770,11 +3782,10 @@ function addMonthsToMonthObject(month, offset) {
 }
 
 function cloneUnifiedOutflowForMonth(item, targetDate, sourceMonth = null) {
-  const isDirectRealOutflow = item?.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(item?.outputMethod);
   const clone = normalizeUnifiedOutflowItem({
     ...item,
     id: '',
-    paid: isDirectRealOutflow,
+    paid: shouldAutoPayUnifiedOutflow(item),
     status: ((typeof isUnifiedLaunchOfType === 'function'
       ? isUnifiedLaunchOfType(item, 'spend')
       : String(item?.type || '').toLowerCase() === 'spend') ? item.status : 'planned'),
@@ -3802,6 +3813,7 @@ function cloneUnifiedOutflowForMonth(item, targetDate, sourceMonth = null) {
       clone.date = `${String(nextDay).padStart(2, '0')}/${String(targetDate.getMonth() + 1).padStart(2, '0')}/${String(targetDate.getFullYear()).slice(-2)}`;
     }
   }
+  clone.paid = shouldAutoPayUnifiedOutflow(clone);
   return clone;
 }
 
@@ -3979,6 +3991,10 @@ function saveUnifiedOutflow() {
   const date = usesBillingDay
     ? resolvedExpenseDate
     : normalizeUnifiedOutflowSpendDateInput(rawDateValue, month);
+  if (!date) {
+    alert('Informe uma data valida para o lancamento.');
+    return;
+  }
   const status = usesBillingDay ? 'planned' : 'done';
   const isInstallment = document.getElementById('unifiedOutflowInstallmentsToggle').checked;
   const installmentsTotal = isInstallment ? Math.max(2, Number(document.getElementById('unifiedOutflowInstallmentsCount').value || 2)) : 1;
@@ -4014,7 +4030,7 @@ function saveUnifiedOutflow() {
     status,
     paid: editingUnifiedOutflowId
       ? ((month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId)?.paid === true)
-      : isDirectRealOutflow,
+      : shouldAutoPayUnifiedOutflow({ ...output, date }),
     installmentsTotal,
     installmentIndex: editingUnifiedOutflowId ? ((month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId)?.installmentIndex || 1) : 1,
     installmentsGroupId: editingUnifiedOutflowId ? ((month.outflows || []).find(entry => entry.id === editingUnifiedOutflowId)?.installmentsGroupId || '') : (installmentsTotal > 1 ? `inst_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : ''),
@@ -4202,7 +4218,7 @@ function renderMes() {
 
   // Resultado precisa usar a mesma base exibida em "Despesas do mês"
   // para evitar divergência visual e lógica no topo.
-  const monthlyResultUnified = totalIncome - Number(unifiedPlanningTotal || 0);
+  const monthlyResultUnified = totalIncome - Number(unifiedPlanningTotal || 0) - Number(totalGoals || 0);
   const previousMonth = getPreviousMonthFor(m);
   const previousUnifiedMetrics = unifiedPilotEnabled && previousMonth ? getUnifiedMonthPilotMetrics(previousMonth) : null;
   const previousPlanningTotal = unifiedPilotEnabled && previousMonth ? calculateUnifiedPlanningTotal(previousMonth) : 0;
@@ -4234,9 +4250,9 @@ function renderMes() {
     </div>`,
     projetos: unifiedPilotEnabled ? `
     <div class="metric-card ${monthlyResultUnified >= 0 ? 'month-result-pos' : 'month-result-neg'}" draggable="true" data-metric-key="projetos" ondragstart="onMonthMetricDragStart(event,'projetos')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'projetos')">
-      ${renderStaticMonthMetricLabel('Resultado', 'Renda total menos despesas do mês.')}
+      ${renderStaticMonthMetricLabel('Resultado', 'Renda total menos despesas do mês e metas financeiras.')}
       <div class="mc-value">${fmtSigned(monthlyResultUnified)}</div>
-      <div class="mc-note">Renda total menos despesas do mês.</div>
+      <div class="mc-note">Depois das despesas e do valor reservado em metas.</div>
     </div>` : '',
     metas: unifiedPilotEnabled ? '' : `
     <div class="metric-card month-goals" draggable="true" data-metric-key="metas" ondragstart="onMonthMetricDragStart(event,'metas')" ondragend="onMonthMetricDragEnd()" ondragover="onMonthMetricDragOver(event)" ondragleave="onMonthMetricDragLeave(event)" ondrop="onMonthMetricDrop(event,'metas')">
@@ -4291,7 +4307,7 @@ function renderMes() {
       <tr>
         <td style="padding-left:22px"><input type="checkbox" ${isIncomeIncludedInTotals(r) ? 'checked' : ''} onchange="toggleRendaIncludeInTotals(${realIdx}, this.checked)"></td>
         ${renderInlineCell({ table:'renda', row:realIdx, field:'fonte', kind:'text', value:r.fonte, displayValue:escapeHtml(r.fonte), style:'padding-left:22px' })}
-        ${renderInlineCell({ table:'renda', row:realIdx, field:'dataRecebimento', kind:'var-date', value:getRecurringIncomeReceiveDay(r.dataRecebimento || ''), displayValue:escapeHtml(getIncomeReceiveDateLabel(r, m)), className:'text-muted' })}
+        ${renderInlineCell({ table:'renda', row:realIdx, field:'dataRecebimento', kind:'var-date', value:r.dataRecebimento || '', displayValue:escapeHtml(getIncomeReceiveDateLabel(r, m)), className:'text-muted' })}
         ${renderInlineCell({ table:'renda', row:realIdx, field:'valor', kind:'number', value:r.valor, displayValue:fmt(r.valor), className:'amount amount-pos' })}
         <td><label class="unified-paid-toggle"><input type="checkbox" ${r.paid ? 'checked' : ''} onchange="toggleRendaPaidStatus(${realIdx}, this.checked)"><span>Pago</span></label></td>
         <td>
