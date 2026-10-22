@@ -32,6 +32,8 @@
       txState: {}
     }
   };
+  const stagedCommits = new Set();
+  let commitInFlight = false;
 
   function escapeHtml(value) {
     return String(value || '')
@@ -285,7 +287,7 @@
   function persistUserState() {
     const state = sanitizeUserState(STATE.userState);
     STATE.userState = state;
-    localStorage.setItem(storageKey(), JSON.stringify(state));
+    if (!stagedCommits.size) localStorage.setItem(storageKey(), JSON.stringify(state));
     if (typeof Storage !== 'undefined' && typeof Storage.setJSON === 'function') {
       Storage.setJSON(getCanonicalStorageKey(), state);
     }
@@ -695,7 +697,7 @@
 
     const categories = getAllCategories();
     const rows = (account.transactions || [])
-      .filter(tx => !shouldSkipTx(account, tx))
+      .filter(tx => stagedCommits.has(`${accountId}::${tx.id}`) || !shouldSkipTx(account, tx))
       .map(tx => {
         const txType = String(tx?.type || '').toUpperCase();
         const txKey = String(tx?.id || '');
@@ -725,6 +727,10 @@
   }
 
   function updatePendingField(accountId, txId, field, value) {
+    if (commitInFlight || stagedCommits.has(`${accountId}::${txId}`)) {
+      showStatus('Confirme o salvamento pendente antes de editar este lancamento.', 'warn');
+      return;
+    }
     const rows = STATE.pendingByAccount[String(accountId)] || [];
     const target = rows.find(item => String(item.id) === String(txId));
     if (!target || !target._ui) return;
@@ -1051,6 +1057,8 @@
   }
 
   function commitCreditTransaction(accountId, txId) {
+    const stageKey = `${accountId}::${txId}`;
+    if (stagedCommits.has(stageKey)) return;
     const account = getAccountById(accountId);
     if (!account) throw new Error('Conta Pluggy nao encontrada.');
     const tx = ensurePending(account).find(item => String(item.id) === String(txId));
@@ -1071,8 +1079,6 @@
     if (!dateBr || !description || !(amount > 0)) throw new Error('Dados invalidos na transacao.');
 
     if (dedupeCredit(tx, month, linkedCardId, dateBr, amount, description)) {
-      removePendingTx(accountId, txId);
-      showStatus('Transacao duplicada ignorada.', 'warning');
       return;
     }
 
@@ -1121,12 +1127,14 @@
     rememberTag(originalPluggyDescription, base.tag);
     propagateMemoryToPendingRows(tx, base.category, base.tag);
     recordImportedMarker(account, tx);
+    stagedCommits.add(stageKey);
     persistUserState();
-    global.save(true);
-    removePendingTx(accountId, txId);
+    global.save();
   }
 
   function commitBankTransaction(accountId, txId) {
+    const stageKey = `${accountId}::${txId}`;
+    if (stagedCommits.has(stageKey)) return;
     const account = getAccountById(accountId);
     if (!account) throw new Error('Conta Pluggy nao encontrada.');
     const tx = ensurePending(account).find(item => String(item.id) === String(txId));
@@ -1144,8 +1152,6 @@
     if (!dateIso || !description || !(value > 0)) throw new Error('Dados invalidos na transacao.');
 
     if (dedupeBank(tx, linkedAccountId, value, description, dateIso)) {
-      removePendingTx(accountId, txId);
-      showStatus('Movimentacao duplicada ignorada.', 'warning');
       return;
     }
 
@@ -1166,11 +1172,11 @@
     const updatedMovements = [movement].concat(getPatrimonioMovementsRef());
     setPatrimonioMovementsRef(updatedMovements);
     recordImportedMarker(account, tx);
+    stagedCommits.add(stageKey);
     persistUserState();
-    global.save(true);
+    global.save();
     if (typeof global.renderPatrimonioMetrics === 'function') global.renderPatrimonioMetrics();
     if (typeof global.renderPatrimonioAccounts === 'function') global.renderPatrimonioAccounts();
-    removePendingTx(accountId, txId);
   }
 
   function categoryOptions(selected) {
@@ -1772,9 +1778,11 @@
     }
   }
 
-  function addOne(accountId, txId) {
-    setRowError(accountId, txId, '');
+  async function addOne(accountId, txId) {
+    if (commitInFlight) return { status: 'pending' };
+    commitInFlight = true;
     try {
+      setRowError(accountId, txId, '');
       const account = getAccountById(accountId);
       if (!account) return;
       const linked = ensureLinkedId(account);
@@ -1786,8 +1794,15 @@
       }
       if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, txId);
       else commitBankTransaction(accountId, txId);
+      if (await global.save(true) !== true) {
+        showStatus('Salvamento pendente. O lancamento continua nesta lista; tente novamente sem importar outra vez.', 'warn');
+        return { status: 'pending' };
+      }
+      stagedCommits.delete(`${accountId}::${txId}`);
+      removePendingTx(accountId, txId);
       if (!removeRowFromDom(accountId, txId)) renderWorkspace();
       showStatus('Lancamento adicionado com sucesso.', 'ok');
+      return { status: 'saved' };
     } catch (error) {
       const message = error?.message || 'Falha ao adicionar lançamento.';
       setRowError(accountId, txId, message);
@@ -1804,10 +1819,14 @@
         renderWorkspace();
       }
       showStatus(message, 'error');
+      return { status: 'failed' };
+    } finally {
+      commitInFlight = false;
     }
   }
 
-  function addAll(accountId) {
+  async function addAll(accountId) {
+    if (commitInFlight) return { status: 'pending' };
     const account = getAccountById(accountId);
     if (!account) return;
     const linked = ensureLinkedId(account);
@@ -1819,27 +1838,50 @@
     let ok = 0;
     let errors = 0;
     let blockedByCategory = 0;
-    rows.forEach(tx => {
-      try {
-        if (String(account.accountType || '').toUpperCase() === 'CREDIT' && !isCreditRowValid(tx)) {
-          blockedByCategory += 1;
-          return;
+    const completed = [];
+    commitInFlight = true;
+    try {
+      rows.forEach(tx => {
+        try {
+          if (String(account.accountType || '').toUpperCase() === 'CREDIT' && !isCreditRowValid(tx)) {
+            blockedByCategory += 1;
+            return;
+          }
+          if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, tx.id);
+          else commitBankTransaction(accountId, tx.id);
+          ok += 1;
+          completed.push(tx.id);
+        } catch (_err) {
+          errors += 1;
         }
-        if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, tx.id);
-        else commitBankTransaction(accountId, tx.id);
-        ok += 1;
-      } catch (_err) {
-        errors += 1;
+      });
+      if (completed.length && await global.save(true) !== true) {
+        showStatus('Salvamento pendente. Os itens continuam na revisao; tente novamente para confirmar o envio.', 'warn');
+        return { status: 'pending' };
       }
-    });
-    renderWorkspace();
-    const parts = [`${ok} lancamento(s) adicionado(s)`];
-    if (blockedByCategory) parts.push(`${blockedByCategory} sem categoria`);
-    if (errors) parts.push(`${errors} com erro`);
-    showStatus(parts.join(', ') + '.', (errors || blockedByCategory) ? 'warning' : 'ok');
+      completed.forEach(id => {
+        stagedCommits.delete(`${accountId}::${id}`);
+        removePendingTx(accountId, id);
+      });
+      renderWorkspace();
+      const parts = [`${ok} lancamento(s) adicionado(s)`];
+      if (blockedByCategory) parts.push(`${blockedByCategory} sem categoria`);
+      if (errors) parts.push(`${errors} com erro`);
+      showStatus(parts.join(', ') + '.', (errors || blockedByCategory) ? 'warning' : 'ok');
+      return { status: errors || blockedByCategory ? 'invalid' : 'saved', savedCount: ok };
+    } catch (error) {
+      showStatus(error?.message || 'Nao foi possivel confirmar o salvamento.', 'error');
+      return { status: 'failed' };
+    } finally {
+      commitInFlight = false;
+    }
   }
 
   function dismiss(accountId, txId) {
+    if (commitInFlight || stagedCommits.has(`${accountId}::${txId}`)) {
+      showStatus('Confirme o salvamento pendente antes de remover este item da revisao.', 'warn');
+      return;
+    }
     removePendingTx(accountId, txId);
     if (!removeRowFromDom(accountId, txId)) renderWorkspace();
   }
@@ -1911,8 +1953,10 @@
   }
 
   async function getMobileSnapshot(forceReload = false) {
-    loadUserState();
-    STATE.pendingByAccount = {};
+    if (!stagedCommits.size) {
+      loadUserState();
+      STATE.pendingByAccount = {};
+    }
     if (forceReload || !STATE.rawData) {
       await loadData();
     }
@@ -1926,8 +1970,10 @@
 
   async function renderPage(forceReload = false, mountId = 'internetBankingWorkspace') {
     STATE.mountId = String(mountId || 'internetBankingWorkspace');
-    loadUserState();
-    STATE.pendingByAccount = {};
+    if (!stagedCommits.size) {
+      loadUserState();
+      STATE.pendingByAccount = {};
+    }
     if (forceReload || !STATE.rawData) await loadData();
     else {
       resetCollapsedGroupsToClosed();

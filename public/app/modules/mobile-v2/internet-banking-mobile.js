@@ -534,7 +534,11 @@
       });
       groupNode.querySelector('[data-action="all"]')?.addEventListener('click', async () => {
         try {
-          await global.PluggyBanking.addAll(accountId);
+          const result = await global.PluggyBanking.addAll(accountId);
+          if (result?.status !== 'saved') {
+            if (result?.savedCount) await refresh(false);
+            return;
+          }
           await refresh(false);
           global.triggerHapticFeedback?.('successStrong');
         } catch (error) {
@@ -552,7 +556,8 @@
         });
         rowNode.querySelector('[data-action="ok"]')?.addEventListener('click', async () => {
           try {
-            await global.PluggyBanking.addOne(accountId, txId);
+            const result = await global.PluggyBanking.addOne(accountId, txId);
+            if (result?.status !== 'saved') return;
             await refresh(false);
             global.triggerHapticFeedback?.('confirm');
           } catch (error) {

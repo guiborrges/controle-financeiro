@@ -335,12 +335,22 @@
     }
   }
 
+  let reviewImportInFlight = false;
+
   async function runImportFromReview() {
+    if (reviewImportInFlight) return { status: 'pending' };
     if (!state.activeJobId) {
       showStatus('Selecione uma fatura processada antes de importar.', 'error');
-      return;
+      return { status: 'invalid' };
     }
+    reviewImportInFlight = true;
+    const button = document.getElementById('billImportApplyBtn');
+    if (button) button.disabled = true;
     try {
+      if (typeof global.flushServerStorage !== 'function' || await global.flushServerStorage(true, 'before-invoice-import') !== true) {
+        showStatus('Ha alteracoes locais pendentes. Confirme o salvamento antes de importar esta fatura.', 'warn');
+        return { status: 'pending' };
+      }
       const payload = typeof global.BillImportReview?.exportPayload === 'function'
         ? global.BillImportReview.exportPayload()
         : null;
@@ -354,14 +364,19 @@
         })
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result?.message || 'Falha ao importar lançamentos.');
-      if (typeof global.closeModal === 'function') global.closeModal('modalBillImportReview');
+      if (!response.ok || result?.ok !== true) throw new Error(result?.message || 'Falha ao importar lançamentos.');
       await refreshStatus();
       if (typeof global.loadAppBootstrapData === 'function') await global.loadAppBootstrapData();
       if (typeof global.renderMes === 'function') global.renderMes();
+      if (typeof global.closeModal === 'function') global.closeModal('modalBillImportReview');
       showStatus(`Importação concluída. ${Number(result.imported || 0)} lançamento(s) inserido(s).`, 'ok', 'Importação concluída', 3000);
+      return { status: 'saved' };
     } catch (error) {
       showStatus(error.message, 'error');
+      return { status: 'failed' };
+    } finally {
+      reviewImportInFlight = false;
+      if (button) button.disabled = false;
     }
   }
 

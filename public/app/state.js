@@ -884,7 +884,7 @@ function save(forceFlush = false) {
   if (typeof continuousCalendarModel !== 'undefined') Storage.setJSON(STORAGE_KEYS.calendarModel, continuousCalendarModel);
   Storage.setJSON(STORAGE_KEYS.patrimonioAccounts, patrimonioAccounts);
   Storage.setJSON(STORAGE_KEYS.patrimonioMovements, patrimonioMovements);
-  if (forceFlush) flushServerStorage(true);
+  if (forceFlush) return flushServerStorage(true);
 }
 
 function saveMetas() {

@@ -3948,7 +3948,17 @@ function buildSmartMonthForSelection(monthName, year) {
   return buildUnifiedPilotMonthFromPrevious(prev, targetName);
 }
 
-function saveUnifiedOutflow() {
+let unifiedOutflowSaveInFlight = null;
+
+function saveUnifiedOutflow(options = {}) {
+  if (unifiedOutflowSaveInFlight) return unifiedOutflowSaveInFlight;
+  const result = performUnifiedOutflowSave(options);
+  if (!result?.then) return result;
+  unifiedOutflowSaveInFlight = result.finally(() => { unifiedOutflowSaveInFlight = null; });
+  return unifiedOutflowSaveInFlight;
+}
+
+function performUnifiedOutflowSave(options = {}) {
   const month = getCurrentMonth();
   ensureUnifiedOutflowPilotMonth(month);
   const wasEditing = Boolean(editingUnifiedOutflowId);
@@ -3984,7 +3994,7 @@ function saveUnifiedOutflow() {
     const date = resolveUnifiedExpenseDateInput(rawDateValue, month);
     if (!date) {
       alert('Informe a data da cobrança como dia (1 a 31) ou data completa (dd/mm/aa).');
-      return;
+      return { status: 'invalid' };
     }
     resolvedExpenseDate = date;
   }
@@ -3993,7 +4003,7 @@ function saveUnifiedOutflow() {
     : normalizeUnifiedOutflowSpendDateInput(rawDateValue, month);
   if (!date) {
     alert('Informe uma data valida para o lancamento.');
-    return;
+    return { status: 'invalid' };
   }
   const status = usesBillingDay ? 'planned' : 'done';
   const isInstallment = document.getElementById('unifiedOutflowInstallmentsToggle').checked;
@@ -4001,7 +4011,7 @@ function saveUnifiedOutflow() {
   const isDirectRealOutflow = output.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(output.outputMethod);
   if (!description || !category || !(amount > 0)) {
     alert('Preencha descrição, categoria e valor corretamente.');
-    return;
+    return { status: 'invalid' };
   }
   let sharedState = {
     enabled: false,
@@ -4014,9 +4024,9 @@ function saveUnifiedOutflow() {
     sharedState = collectUnifiedOutflowSharedFromForm(amount);
   } catch (error) {
     alert(error?.message || 'Não foi possível validar a divisão do gasto compartilhado.');
-    return;
+    return { status: 'invalid' };
   }
-  const baseItem = normalizeUnifiedOutflowItem({
+  let baseItem = normalizeUnifiedOutflowItem({
     id: editingUnifiedOutflowId || '',
     description,
     type,
@@ -4045,6 +4055,19 @@ function saveUnifiedOutflow() {
     sharedParticipants: sharedState.participants,
     showInMonthPlanning: recurringToggleChecked ? true : planningToggleChecked
   });
+  if (options.preserveSemantics && previousItem) {
+    baseItem = {
+      ...previousItem, description, category, date, ...output,
+      amount: baseItem.amount,
+      showInMonthPlanning: baseItem.showInMonthPlanning,
+      sharedOriginalAmount: sharedState.enabled ? baseItem.sharedOriginalAmount : previousItem.sharedOriginalAmount,
+      sharedOthersAmount: sharedState.enabled ? baseItem.sharedOthersAmount : previousItem.sharedOthersAmount,
+      sharedParticipants: sharedState.enabled ? sharedState.participants.map((participant, index) => ({
+        ...previousItem.sharedParticipants?.[index],
+        amount: participant.amount
+      })) : previousItem.sharedParticipants
+    };
+  }
   const existingIndex = (month.outflows || []).findIndex(entry => entry.id === baseItem.id);
   const previousSeriesKey = previousItem?.installmentsGroupId || previousItem?.recurringGroupId || '';
   const recurrenceDisabled = Boolean(previousSeriesKey) && !baseItem.installmentsGroupId
@@ -4052,7 +4075,7 @@ function saveUnifiedOutflow() {
   const seriesKey = baseItem.installmentsGroupId || baseItem.recurringGroupId || previousSeriesKey;
   const changedFields = previousItem ? getRecurringChangedFields(previousItem, baseItem) : [];
 
-  const persistOutflowSave = (applyForward) => {
+  const persistOutflowSave = async (applyForward) => {
     recordHistoryState();
     const isNewCategory = document.getElementById('unifiedOutflowCategory').value === 'nova';
     const isNewTag = tag && !getUnifiedOutflowTags().some(existing => existing.toLocaleLowerCase('pt-BR') === tag.toLocaleLowerCase('pt-BR'));
@@ -4105,9 +4128,14 @@ function saveUnifiedOutflow() {
 
     syncUnifiedCardBillForecastAmounts(month);
     syncUnifiedOutflowLegacyData(month);
-    save(true);
+    const persistence = save(true);
     preserveCurrentScroll(() => renderMes());
     renderUnifiedOutflowModalRecentList();
+    const confirmed = await persistence === true;
+    if (!confirmed) {
+      if (!wasEditing && !editingUnifiedOutflowId) editingUnifiedOutflowId = baseItem.id;
+      return { status: 'pending', id: baseItem.id };
+    }
     const savedLabel = String(baseItem?.name || '').trim() || 'Lançamento';
     showUnifiedOutflowQuickToast(
       editingUnifiedOutflowId
@@ -4126,21 +4154,20 @@ function saveUnifiedOutflow() {
       closeUnifiedOutflowModal();
       editingUnifiedOutflowId = '';
     }
+    return { status: 'saved', id: baseItem.id };
   };
 
   if (editingUnifiedOutflowId && seriesKey && (recurrenceDisabled || changedFields.length) && canPropagateRecurringFromMonth(month)) {
-    openRecurringChangeScopeModal({
-      onThisMonth: () => persistOutflowSave(false),
-      onForward: () => persistOutflowSave(true),
-      onCancel: () => {}
+    return new Promise((resolve, reject) => {
+      openRecurringChangeScopeModal({
+        onThisMonth: () => persistOutflowSave(false).then(resolve, reject),
+        onForward: () => persistOutflowSave(true).then(resolve, reject),
+        onCancel: () => resolve({ status: 'cancelled' })
+      });
     });
-    return;
   }
 
-  persistOutflowSave(false);
-  if (!editingUnifiedOutflowId) {
-    document.getElementById('modalUnifiedOutflowTitle').textContent = 'Adicionar lançamento';
-  }
+  return persistOutflowSave(false);
 }
 
 

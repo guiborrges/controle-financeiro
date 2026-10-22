@@ -81,6 +81,57 @@ function editRecurrenceOff(ctx, elements) {
   return item.id;
 }
 
+test('mobile description edit preserves recurrence, payment, participants and original metadata', async () => {
+  const { ctx, elements } = setup();
+  const item = ctx.getCurrentMonth().outflows[0];
+  Object.assign(item, { paid: true, tag: 'KEEP', createdAt: '2026-01-01', sharedExpense: true,
+    sharedOriginalAmount: 200, sharedOthersAmount: 100,
+    sharedParticipants: [{ id: 'owner', isOwner: true, name: 'Owner', amount: 100, paid: true },
+      { id: 'guest', isOwner: false, name: 'Guest', amount: 100, paid: true }] });
+  const before = JSON.parse(JSON.stringify(item));
+  ctx.editId = item.id;
+  vm.runInContext('editingUnifiedOutflowId = editId;', ctx);
+  for (const [id, value] of Object.entries({ Description: 'Renamed', Type: 'launch', Category: item.category,
+    Tag: item.tag, Amount: '200', Output: 'old', Date: item.date })) elements[`unifiedOutflow${id}`] = { value };
+  elements.unifiedOutflowRecurringToggle = { checked: true };
+  elements.unifiedOutflowPlanningToggle = { checked: true };
+  ctx.collectUnifiedOutflowSharedFromForm = () => ({ enabled: true, ownerShare: 100, othersShare: 100, mode: 'equal',
+    participants: before.sharedParticipants.map(p => ({ ...p, id: 'new', paid: false })) });
+  ctx.save = async () => true;
+  const promise = ctx.saveUnifiedOutflow({ preserveSemantics: true });
+  assert.equal(ctx.getCurrentMonth().outflows[0].description, before.description, 'scope must be decided before mutation');
+  ctx.scope.onThisMonth();
+  assert.equal((await promise).status, 'saved');
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.getCurrentMonth().outflows[0])), { ...before, description: 'Renamed' });
+});
+
+test('cancelled scope resolves without changing the month or confirming a save', async () => {
+  const { ctx, elements } = setup();
+  const before = JSON.stringify(ctx.data);
+  editRecurrenceOff(ctx, elements);
+  const promise = ctx.saveUnifiedOutflow();
+  ctx.scope.onCancel();
+  assert.equal((await promise).status, 'cancelled');
+  assert.equal(JSON.stringify(ctx.data), before);
+});
+
+test('outflow save confirms only after the matching persistence promise resolves', async () => {
+  for (const confirmed of [false, true]) {
+    const { ctx, elements } = setup();
+    let resolve;
+    let toasts = 0;
+    ctx.save = () => new Promise(done => { resolve = done; });
+    ctx.showUnifiedOutflowQuickToast = () => { toasts++; };
+    editRecurrenceOff(ctx, elements);
+    const promise = ctx.saveUnifiedOutflow();
+    ctx.scope.onThisMonth();
+    assert.equal(toasts, 0);
+    resolve(confirmed);
+    assert.equal((await promise).status, confirmed ? 'saved' : 'pending');
+    assert.equal(toasts, confirmed ? 1 : 0);
+  }
+});
+
 test('explicit planning flags survive repeated real normalization', () => {
   const { ctx } = setup();
   for (const flags of [{ showInMonthPlanning: true }, { includeInMonthPlanning: true },

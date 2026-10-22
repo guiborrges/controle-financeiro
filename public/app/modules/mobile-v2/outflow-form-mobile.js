@@ -1,6 +1,9 @@
 (function initMobileV2OutflowForm(global) {
   'use strict';
   const { escapeHtml } = global.MobileV2Data;
+  let submitting = false;
+  let pendingSave = null;
+  let returnFocus = null;
 
   const MODE_LABEL = {
     launch: 'Lançamento',
@@ -54,7 +57,7 @@
     if (hasComma && lastDot > lastComma) {
       return Number.parseFloat(cleaned.replace(/,/g, '')) || 0;
     }
-    return Number.parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+    return Number.parseFloat(hasComma ? cleaned.replace(/\./g, '').replace(',', '.') : cleaned) || 0;
   }
 
   function bindMoneyMask() {
@@ -327,7 +330,7 @@
     }));
   }
 
-  function applyToUnifiedModal(mode, payload) {
+  async function applyToUnifiedModal(mode, payload) {
     if (typeof global.openUnifiedOutflowModal !== 'function' || typeof global.saveUnifiedOutflow !== 'function') {
       throw new Error('Fluxo de lançamento indisponível no momento.');
     }
@@ -364,23 +367,25 @@
     const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
     const incomeToggle = document.getElementById('unifiedOutflowIncomeToggle');
 
-    if (recurringToggle) recurringToggle.checked = mode === 'recurring';
-    if (installmentsToggle) installmentsToggle.checked = mode === 'installment';
-    if (sharedToggle) sharedToggle.checked = mode === 'shared';
+    if (!payload.editId) {
+      if (recurringToggle) recurringToggle.checked = mode === 'recurring';
+      if (installmentsToggle) installmentsToggle.checked = mode === 'installment';
+      if (sharedToggle) sharedToggle.checked = mode === 'shared';
+      if (incomeToggle) incomeToggle.checked = mode === 'renda';
+    }
     if (planningToggle) planningToggle.checked = payload.planning || mode === 'recurring';
-    if (incomeToggle) incomeToggle.checked = mode === 'renda';
 
-    if (typeof global.toggleUnifiedOutflowInstallments === 'function') {
+    if (!payload.editId && typeof global.toggleUnifiedOutflowInstallments === 'function') {
       global.toggleUnifiedOutflowInstallments();
-    } else if (typeof global.handleUnifiedOutflowTypeChange === 'function') {
+    } else if (!payload.editId && typeof global.handleUnifiedOutflowTypeChange === 'function') {
       global.handleUnifiedOutflowTypeChange();
     }
 
-    if (mode === 'installment') {
+    if (!payload.editId && mode === 'installment') {
       setValue('unifiedOutflowInstallmentsCount', String(payload.installmentsCount));
     }
 
-    if (mode === 'shared') {
+    if (!payload.editId && mode === 'shared') {
       setValue('unifiedOutflowSharedPeopleCount', String(payload.sharedPeopleCount));
       setValue('unifiedOutflowSharedMode', payload.sharedMode);
       if (typeof global.toggleUnifiedOutflowShared === 'function') {
@@ -400,17 +405,20 @@
       });
     }
 
-    global.saveUnifiedOutflow();
+    const saveResult = global.saveUnifiedOutflow({ preserveSemantics: !!payload.editId });
+    global.closeModal?.('modalUnifiedOutflow');
+    const result = await saveResult;
+    if (result?.status !== 'saved') return result || { status: 'invalid' };
     if (typeof global.closeUnifiedOutflowModal === 'function') {
       global.closeUnifiedOutflowModal();
     } else if (typeof global.closeModal === 'function') {
       global.closeModal('modalUnifiedOutflow');
     }
-    const month = getCurrentMonth();
-    return (month?.outflows || []).find((item) => !payload.beforeIds?.has?.(String(item?.id || '')))?.id || '';
+    return result;
   }
 
-  function submitForm(mode) {
+  async function submitForm(mode) {
+    if (submitting) return;
     const description = String(document.getElementById('mobileV2OutflowDescription')?.value || '').trim();
     const category = String(document.getElementById('mobileV2OutflowCategory')?.value || '').trim();
     const amount = parseMoneyInput(document.getElementById('mobileV2OutflowAmount')?.value || '');
@@ -440,7 +448,25 @@
     };
 
     try {
-      const createdId = applyToUnifiedModal(mode, payload);
+      submitting = true;
+      const button = document.getElementById('mobileV2OutflowSubmit');
+      document.querySelectorAll('#mobileV2OutflowFormBody input, #mobileV2OutflowFormBody select, #mobileV2OutflowFormBody button').forEach(el => { el.disabled = true; });
+      const result = pendingSave
+        ? { status: await global.flushServerStorage(true, 'mobile-retry') === true ? 'saved' : 'pending', id: pendingSave.id }
+        : await applyToUnifiedModal(mode, payload);
+      if (result?.status === 'pending') {
+        pendingSave = result;
+        document.querySelectorAll('#mobileV2OutflowFormBody input, #mobileV2OutflowFormBody select').forEach(el => { el.disabled = true; });
+        if (button) button.textContent = 'Tentar salvar novamente';
+        const cancel = document.getElementById('mobileV2OutflowCancel');
+        if (cancel) cancel.textContent = 'Fechar';
+        const back = document.getElementById('mobileV2OutflowBack');
+        if (back) back.hidden = true;
+        return;
+      }
+      if (result?.status !== 'saved') return;
+      pendingSave = null;
+      submitting = false;
       close();
       global.MobileV2?.setTab?.('mes');
       global.MobileV2?.refresh?.();
@@ -452,6 +478,11 @@
       global.triggerHapticFeedback?.('error');
       if (typeof global.showAppStatus === 'function') global.showAppStatus(error?.message || 'Não foi possível adicionar o lançamento.', 'Lançamento', 'error');
       else global.alert?.(error?.message || 'Não foi possível adicionar o lançamento.');
+    } finally {
+      submitting = false;
+      document.querySelectorAll('#mobileV2OutflowFormBody input, #mobileV2OutflowFormBody select, #mobileV2OutflowFormBody button').forEach(el => {
+        el.disabled = !!pendingSave && el.tagName !== 'BUTTON';
+      });
     }
   }
 
@@ -515,6 +546,8 @@
     global.MobileV2?.closeFabMenu?.({ instant: true });
     const sheet = ensureSheet();
     if (!sheet) return;
+    returnFocus = document.activeElement;
+    pendingSave = null;
     sheet.setAttribute('data-mobile-v2-mode', mode);
     sheet.removeAttribute('data-mobile-v2-edit-id');
     renderForm(mode);
@@ -529,12 +562,20 @@
     global.MobileV2?.closeFabMenu?.({ instant: true });
     if (!source) return open('launch');
     const sheet = ensureSheet();
+    if (!sheet) return;
+    returnFocus = document.activeElement;
+    pendingSave = null;
     sheet.setAttribute('data-mobile-v2-mode', 'launch');
     sheet.setAttribute('data-mobile-v2-edit-id', String(source.id || ''));
     renderForm('launch');
+    const back = document.getElementById('mobileV2OutflowBack');
+    if (back) back.hidden = true;
     const setValue = (id, value) => {
       const el = document.getElementById(id);
       if (!el) return;
+      if (el.tagName === 'SELECT' && value && !Array.from(el.options).some(option => option.value === String(value))) {
+        el.add(new Option(String(value), String(value)));
+      }
       el.value = value == null ? '' : String(value);
       try {
         el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -542,7 +583,8 @@
       } catch {}
     };
     setValue('mobileV2OutflowDescription', source.description || source.nome || '');
-    setValue('mobileV2OutflowAmount', Math.abs(Number(source.amount || source.valor || 0)) || '');
+    const editAmount = Math.abs(Number(source.sharedExpense ? source.sharedOriginalAmount : (source.amount || source.valor || 0)));
+    setValue('mobileV2OutflowAmount', editAmount > 0 ? editAmount.toFixed(2).replace('.', ',') : '');
     setValue('mobileV2OutflowDate', toDisplayDateValue(source.date || source.data || ''));
     setValue('mobileV2OutflowCategory', source.category || source.categoria || '');
     if (source.outputKind === 'card' && source.outputRef) {
@@ -551,7 +593,9 @@
       setValue('mobileV2OutflowOutput', `method:${source.outputMethod}`);
     }
     const planning = document.getElementById('mobileV2PlanningToggle');
-    if (planning) planning.checked = source.showInMonthPlanning === true || String(source.type || '').toLowerCase() === 'expense';
+    if (planning) planning.checked = typeof source.showInMonthPlanning === 'boolean'
+      ? source.showInMonthPlanning
+      : String(source.type || '').toLowerCase() === 'expense';
     const submit = document.getElementById('mobileV2OutflowSubmit');
     if (submit) submit.textContent = 'Salvar';
     const title = document.querySelector('#mobileV2OutflowFormBody .form-title');
@@ -560,9 +604,11 @@
     sheet.removeAttribute('hidden');
     sheet.classList.add('open');
     document.body.classList.add('mobile-v2-sheet-open');
+    global.requestAnimationFrame?.(() => document.getElementById('mobileV2OutflowDescription')?.focus());
   }
 
   function close() {
+    if (submitting) return;
     const sheet = document.getElementById('mobileV2OutflowSheet');
     if (!sheet) return;
     sheet.classList.remove('open');
@@ -570,7 +616,16 @@
     sheet.style.display = 'none';
     sheet.classList.remove('m2-banking-sheet');
     document.body.classList.remove('mobile-v2-sheet-open');
-    global.requestAnimationFrame?.(() => global.MobileV2?.refresh?.());
+    const editedId = sheet.getAttribute('data-mobile-v2-edit-id');
+    global.requestAnimationFrame?.(() => {
+      global.MobileV2?.refresh?.();
+      const row = editedId && Array.from(document.querySelectorAll('[data-action="edit"]'))
+        .find(node => node.getAttribute('data-id') === editedId && node.getClientRects().length);
+      if (row) {
+        row.tabIndex = -1;
+        row.focus({ preventScroll: true });
+      } else if (returnFocus?.isConnected) returnFocus.focus?.({ preventScroll: true });
+    });
   }
 
   global.MobileV2OutflowForm = {

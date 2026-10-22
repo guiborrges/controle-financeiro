@@ -688,7 +688,38 @@
     });
   }
 
-  function applyImport() {
+  let pendingImportCount = 0;
+  let importInFlight = false;
+
+  async function applyImport() {
+    if (importInFlight) return { status: 'pending' };
+    importInFlight = true;
+    try {
+      if (!pendingImportCount) {
+        const applied = stageImport();
+        if (!applied) return { status: 'invalid' };
+        pendingImportCount = applied;
+      }
+      if (typeof global.save !== 'function' || await global.save(true) !== true) {
+        global.showAppStatus?.('Salvamento pendente. A revisao foi mantida; tente novamente para confirmar o envio.', 'Importacao por fatura', 'warn');
+        return { status: 'pending' };
+      }
+      const count = pendingImportCount;
+      pendingImportCount = 0;
+      global.closeModal?.('modalBillImportReview');
+      global.closeBillImportModal?.();
+      if (typeof global.showAppStatus === 'function') global.showAppStatus(`${count} lancamento(s) salvo(s) no servidor.`, 'Importacao por fatura', 'ok');
+      else global.showStatusMessage?.(`${count} lancamento(s) salvo(s) no servidor.`, 'ok');
+      return { status: 'saved', count };
+    } catch (error) {
+      global.showAppStatus?.(error?.message || 'Nao foi possivel confirmar o salvamento.', 'Importacao por fatura', 'error');
+      return { status: 'failed' };
+    } finally {
+      importInFlight = false;
+    }
+  }
+
+  function stageImport() {
     recalculateAllStatuses();
     const selected = reviewState.items.filter(item => item.include);
     const blocking = selected.filter(item => item.status === 'error' || item.status === 'needs_review');
@@ -772,23 +803,20 @@
       if (month.billImportHistory.length > 30) month.billImportHistory = month.billImportHistory.slice(-30);
     });
 
-    if (typeof global.save === 'function') global.save(true);
+    if (typeof global.save === 'function') global.save();
     if (typeof global.renderMes === 'function') {
       global.preserveCurrentScroll ? global.preserveCurrentScroll(() => global.renderMes()) : global.renderMes();
     }
-    if (typeof global.closeModal === 'function') global.closeModal('modalBillImportReview');
-    if (typeof global.closeBillImportModal === 'function') global.closeBillImportModal();
-    if (typeof global.showAppStatus === 'function') {
-      global.showAppStatus('Gastos adicionados ao sistema.', 'Importação por fatura', 'ok');
-      return;
-    }
-    if (typeof global.showStatusMessage === 'function') {
-      global.showStatusMessage(`${selected.length} lançamento(s) importado(s) com sucesso.`, 'ok');
-    }
+    return importedCount;
   }
 
   const api = {
     setReviewData(payload) {
+      if (pendingImportCount || importInFlight) {
+        global.showAppStatus?.('Confirme o envio pendente antes de iniciar outra importacao.', 'Importacao por fatura', 'warn');
+        global.openModal?.('modalBillImportReview');
+        return false;
+      }
       reviewState.sourceFileName = payload?.sourceFileName || '';
       reviewState.context = payload?.context || null;
       reviewState.rawPayload = payload?.rawPayload || null;
@@ -808,6 +836,7 @@
       if (typeof global.openModal === 'function') global.openModal('modalBillImportReview');
     },
     updateField(itemId, field, value) {
+      if (pendingImportCount || importInFlight) return;
       const item = reviewState.items.find(entry => entry.id === itemId);
       if (!item) return;
       if (field === 'amount') {
@@ -834,12 +863,14 @@
       renderReview();
     },
     toggleInclude(itemId, checked) {
+      if (pendingImportCount || importInFlight) return;
       const item = reviewState.items.find(entry => entry.id === itemId);
       if (!item) return;
       item.include = checked === true;
       renderReview();
     },
     removeItem(itemId) {
+      if (pendingImportCount || importInFlight) return;
       reviewState.items = reviewState.items.filter(item => item.id !== itemId);
       renderReview();
     },
