@@ -200,7 +200,8 @@ function importData(e) {
       redoStack = [];
       persistImportedBackupState(importedAppState);
       if (typeof flushServerStorage === 'function') {
-        await flushServerStorage(true);
+        const persisted = await flushServerStorage(true, 'backup-import');
+        if (!persisted) throw new Error('O servidor nao confirmou a gravacao. Nao recarregue antes de guardar um backup dos dados importados.');
       }
       if (typeof registerBackupRestoreUndoSnapshot === 'function' && snapshotBeforeImport) {
         registerBackupRestoreUndoSnapshot(snapshotBeforeImport);

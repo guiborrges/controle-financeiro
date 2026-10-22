@@ -161,3 +161,16 @@ test('app-state writer blocks oversized payload', () => {
   assert.equal(out.blocked, true);
   assert.match(out.message, /limite de armazenamento/i);
 });
+
+test('consecutive writes always publish distinct revisions even with a frozen clock', t => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-state-revisions-'));
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+  const out = runNodeScript(`
+    const { writeUserAppState } = require('./server/app-state-store.js');
+    Date.now = () => 1790000000000;
+    const first = writeUserAppState('revision-test', { finData: [] });
+    const second = writeUserAppState('revision-test', { finData: [] });
+    console.log(JSON.stringify({ first: first.updatedAt, second: second.updatedAt }));
+  `, { FIN_STORAGE_DIR: tempRoot });
+  assert.ok(Date.parse(out.second) > Date.parse(out.first));
+});

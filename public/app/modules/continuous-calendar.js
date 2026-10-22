@@ -49,6 +49,10 @@
       .sort((a, b) => b.from - a.from)[0] || null;
   }
 
+  function settingsSource(settings, options) {
+    return settings?.cardsSourceMonth ? options.month(settings.cardsSourceMonth) : options.monthAtOrdinal?.(settings?.from);
+  }
+
   function putRule(model, collection, item, month, options) {
     const key = identity(collection, item);
     if (!key) return null;
@@ -89,7 +93,7 @@
       const payload = {};
       settingsKeys.forEach(key => { if (month[key] !== undefined) payload[key] = clone(month[key]); });
       const last = model.settings[model.settings.length - 1];
-      if (!last || !equal(last.payload, payload)) model.settings.push({ from: options.sort(month), payload });
+      if (!last || !equal(last.payload, payload)) model.settings.push({ from: options.sort(month), cardsSourceMonth: month.id, payload });
       (month.recurringSeriesStops || []).forEach(key => {
         const rule = model.rules.find(entry => entry.key === key && entry.collection === 'outflows');
         if (rule) {
@@ -167,7 +171,12 @@
     const result = options.blank(month);
     const ordinal = options.sort(month);
     const settings = model.settings.filter(entry => entry.from <= ordinal).sort((a, b) => b.from - a.from)[0];
-    if (settings) Object.assign(result, clone(settings.payload));
+    if (settings) {
+      const payload = clone(settings.payload);
+      const source = settingsSource(settings, options);
+      if (options.projectSettings && source) options.projectSettings(payload, month, source);
+      Object.assign(result, payload);
+    }
     collections.forEach(collection => { result[collection] = []; });
     if (ordinal < model.start) return result;
     model.rules.forEach(rule => {
@@ -204,6 +213,54 @@
 
   function rowKey(collection, item) {
     return collection === 'outflows' ? item.id : (identity(collection, item) || cleanName(item.nome));
+  }
+
+  function updateCards(model, month, options, cardId = '') {
+    const from = options.sort(month);
+    const previous = model.settings.filter(entry => entry.from <= from).sort((a, b) => b.from - a.from)[0];
+    const existing = model.settings.find(entry => entry.from === from);
+    const version = existing || { from, cardsSourceMonth: settingsSource(previous, options)?.id, payload: clone(previous?.payload || {}) };
+    const cards = clone(month.outflowCards || []);
+    const priorPayload = clone(previous?.payload || {});
+    const previousSource = settingsSource(previous, options);
+    if (options.projectSettings && previousSource) options.projectSettings(priorPayload, month, previousSource);
+    const priorCards = priorPayload.outflowCards || [];
+    const changed = cards.filter(card => cardId ? card.id === cardId : !equal(card, priorCards.find(prior => prior.id === card.id)));
+    const removed = new Set(priorCards.filter(card => (!cardId || card.id === cardId) && !cards.some(next => next.id === card.id)).map(card => card.id));
+    if (cardId && !cards.some(card => card.id === cardId)) removed.add(cardId);
+    if (!existing) model.settings.push(version);
+    model.settings.filter(entry => entry.from >= from).forEach(entry => {
+      const payload = clone(entry.payload);
+      const source = settingsSource(entry, options);
+      if (options.projectSettings && source) options.projectSettings(payload, month, source);
+      const unchanged = (payload.outflowCards || []).filter(card => !removed.has(card.id) && !changed.some(next => next.id === card.id));
+      entry.payload.outflowCards = [...unchanged, ...clone(changed)];
+      entry.cardsSourceMonth = month.id;
+    });
+  }
+
+  function changeCard(model, month, cardId, targetCardId, options) {
+    const from = options.sort(month);
+    const matches = version => version?.payload?.outputKind === 'card' && version.payload.outputRef === cardId;
+    const change = version => targetCardId
+      ? { ...clone(version), payload: { ...clone(version.payload), outputRef: targetCardId } }
+      : { from: version.from, stopped: true };
+    model.rules.filter(rule => rule.collection === 'outflows').forEach(rule => {
+      const active = activeVersion(rule, from);
+      if (matches(active) && !rule.versions.some(version => version.from === from)) {
+        // Keep the source date/position offset when introducing a transfer version.
+        const replacement = change(active);
+        if (targetCardId) {
+          const projected = project({ ...model, rules: [rule] }, month, options).outflows[0];
+          if (!projected) return;
+          replacement.payload = template('outflows', { ...projected, outputRef: targetCardId });
+          replacement.sourceMonth = month.id;
+        }
+        replacement.from = from;
+        rule.versions.push(replacement);
+      }
+      rule.versions = rule.versions.map(version => version.from >= from && matches(version) ? change(version) : version);
+    });
   }
 
   function createSession(model, options) {
@@ -287,7 +344,7 @@
         if (!baseline) return;
         const fresh = project(model, month, options);
         collections.forEach(collection => {
-          const old = (baseline.virtual ? baseline.projected : baseline.baseline)[collection] || [];
+          const old = baseline.projected[collection] || [];
           const rows = month[collection] || [];
           const expected = fresh[collection].find(item => item._calendarRule === ruleId);
           const index = rows.findIndex(item => item._calendarRule === ruleId || `${collection}:${identity(collection, item)}` === ruleId);
@@ -328,6 +385,6 @@
     return { hydrate, virtual, serialize, upsert, stop };
   }
 
-  global.ContinuousCalendar = { VERSION, RECURRENCE_REVISION, createModel, repairRecurringRules, repairLegacyCardOutputs, createSession, project, identity, isRecurring };
+  global.ContinuousCalendar = { VERSION, RECURRENCE_REVISION, createModel, repairRecurringRules, repairLegacyCardOutputs, updateCards, changeCard, createSession, project, identity, isRecurring };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.ContinuousCalendar;
 })(typeof window !== 'undefined' ? window : globalThis);

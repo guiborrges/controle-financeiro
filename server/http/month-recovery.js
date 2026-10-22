@@ -71,6 +71,10 @@ function recoverMissingMonthsFromLegacyBackups(userId, state, usersDataDir) {
   if (!state || typeof state !== 'object' || !Array.isArray(state.finData)) {
     return { changed: false, state };
   }
+  // Sparse months and continuous calendars are authoritative, not data loss.
+  if (state.finData.length > 0 || state.finCalendarModel) {
+    return { changed: false, state };
+  }
 
   const nextState = JSON.parse(JSON.stringify(state));
   let changed = false;

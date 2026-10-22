@@ -16,6 +16,70 @@ function runNodeScript(code, env) {
   return JSON.parse(String(result.stdout || '{}'));
 }
 
+for (const format of ['plain', 'encrypted', 'partitioned']) {
+  test(`restore publishes a fresh revision and blocks stale tabs: ${format}`, t => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-restore-revision-'));
+    t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+    const out = runNodeScript(`
+      const assert = require('node:assert/strict');
+      const fs = require('fs');
+      const { createUser } = require('./server/user-store');
+      const store = require('./server/app-state-store');
+      const backups = require('./server/backup-store');
+      const { encryptDataWithKey } = require('./server/data-crypto');
+      const { registerAppStateRoutes } = require('./server/http/routes/app-state');
+      const user = createUser({ id: 'restore_rev', username: 'restore_rev', passwordHash: 'hash' });
+      const key = Buffer.alloc(32, 1).toString('base64');
+      const state = { finStateSchemaVersion: '3', finData: [{ id: 'abril_2026', nome: 'ABRIL 2026' }] };
+      const file = store.getUserDataPath(user.id);
+      store.writeUserAppState(user.id, state, key);
+      const original = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const oldRevision = '2099-01-01T00:00:00.000Z';
+      const beforeRevision = '2099-01-01T00:00:00.001Z';
+      const format = ${JSON.stringify(format)};
+      const manifest = format === 'partitioned' ? original : {
+        userId: user.id, schemaVersion: '3', monthCount: 1,
+        encrypted: format === 'encrypted',
+        state: format === 'encrypted' ? encryptDataWithKey(state, key) : state
+      };
+      fs.writeFileSync(file, JSON.stringify({ ...manifest, updatedAt: oldRevision }));
+      store.clearUserAppStateCache(user.id);
+      const backup = backups.createUserBackup(user.id);
+      const backupFile = backups.listUserBackups(user.id).find(b => b.id === backup.id).path;
+      const backupBytes = fs.readFileSync(backupFile, 'utf8');
+      store.writeUserAppState(user.id, { finData: [{ id: 'maio_2026' }] }, key);
+      const current = JSON.parse(fs.readFileSync(file, 'utf8'));
+      fs.writeFileSync(file, JSON.stringify({ ...current, updatedAt: beforeRevision }));
+      store.clearUserAppStateCache(user.id);
+      store.readUserAppState(user.id, key);
+      const restored = backups.restoreUserBackup(user.id, backup.id);
+      const loaded = store.readUserAppState(user.id, format === 'plain' ? '' : key);
+      assert.equal(loaded.updatedAt, restored.restoredAt);
+      assert.ok(Date.parse(loaded.updatedAt) > Date.parse(beforeRevision));
+      assert.deepEqual(loaded.state, state);
+      assert.equal(loaded.encrypted, format !== 'plain');
+      assert.equal(fs.readFileSync(backupFile, 'utf8'), backupBytes);
+      const routes = new Map();
+      const app = Object.fromEntries(['get', 'put', 'post'].map(method => [method,
+        (url, ...handlers) => routes.set(method + ' ' + url, handlers.at(-1))]));
+      registerAppStateRoutes(app, {
+        getAuthenticatedUser: () => user,
+        readUserAppState: store.readUserAppState,
+        writeUserAppState: () => { throw new Error('stale write reached storage'); }
+      });
+      for (const revision of [oldRevision, beforeRevision]) {
+        const res = { status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
+        routes.get('put /api/app-state')({ session: { dataEncryptionKey: key },
+          body: { state, baseRevision: revision } }, res);
+        assert.equal(res.code, 409);
+        assert.equal(res.body.currentRevision, loaded.updatedAt);
+      }
+      console.log(JSON.stringify({ ok: true }));
+    `, { FIN_STORAGE_DIR: tempRoot });
+    assert.equal(out.ok, true);
+  });
+}
+
 test('backup create/list/restore keeps strict per-user ownership isolation', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fin-backup-iso-'));
   const script = `

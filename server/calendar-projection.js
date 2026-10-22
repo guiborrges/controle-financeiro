@@ -26,8 +26,16 @@ function getProjectedCalendarMonth(state, monthId) {
   const options = {
     sort: month => monthFromId(month.id).ordinal,
     month: monthFromId,
+    monthAtOrdinal: ordinal => Number.isFinite(ordinal) ? monthFromId(`${MONTHS[ordinal % 12]}_${Math.floor(ordinal / 12)}`) : null,
     blank: month => ({ ...monthFromId(month.id), renda: [], outflows: [], projetos: [], cardBills: [] }),
     normalize() {},
+    projectSettings(payload, target, source) {
+      payload.outflowCards = (payload.outflowCards || []).map(card => ({
+        ...card,
+        closingDate: occurrenceDate(card.closingDate, source, monthFromId(target.id)),
+        paymentDate: occurrenceDate(card.paymentDate, source, monthFromId(target.id))
+      }));
+    },
     occurrence(collection, payload, month, source, offset) {
       const result = { ...payload, paid: false, patrimonioMovementId: '' };
       if (collection === 'outflows') {

@@ -78,7 +78,9 @@ function getUnifiedOutflowCategoryName(item, fallback = 'OUTROS') {
 }
 
 function resolveUnifiedLaunchFlags(item, resolvedType, recurringSpend, expenseRecurring, installmentsTotal, sharedExpense) {
-  const explicitPlanning = item?.includeInMonthPlanning === true;
+  const explicitPlanning = typeof item?.showInMonthPlanning === 'boolean'
+    ? item.showInMonthPlanning
+    : (typeof item?.includeInMonthPlanning === 'boolean' ? item.includeInMonthPlanning : null);
   const recurring = recurringSpend === true || expenseRecurring === true;
   const installment = Math.max(1, Number(installmentsTotal || 1) || 1) > 1;
   return {
@@ -86,7 +88,7 @@ function resolveUnifiedLaunchFlags(item, resolvedType, recurringSpend, expenseRe
     launchRecurring: recurring,
     launchInstallment: installment,
     launchShared: sharedExpense === true,
-    showInMonthPlanning: explicitPlanning || recurring
+    showInMonthPlanning: explicitPlanning ?? recurring
   };
 }
 
@@ -160,6 +162,7 @@ function getRecurringComparableSnapshot(item) {
     countsInPrimaryTotals: item?.countsInPrimaryTotals !== false,
     recurringSpend: item?.recurringSpend === true,
     expenseRecurring: item?.expenseRecurring === true,
+    showInMonthPlanning: item?.showInMonthPlanning === true,
     status: String(item?.status || '')
   };
 }
@@ -679,7 +682,6 @@ function migrateUnifiedOutflowMonth(month, profile = getUnifiedMigrationProfile(
     }
     const recurring = item?.recurringSpend === true || item?.expenseRecurring === true;
     const installment = Math.max(1, Number(item?.installmentsTotal || 1) || 1) > 1;
-    const manualPlanning = item?.includeInMonthPlanning === true;
     if (item?.entryKind !== 'launch') {
       item.entryKind = 'launch';
       changed = true;
@@ -695,11 +697,6 @@ function migrateUnifiedOutflowMonth(month, profile = getUnifiedMigrationProfile(
     const launchShared = item?.sharedExpense === true;
     if (item?.launchShared !== launchShared) {
       item.launchShared = launchShared;
-      changed = true;
-    }
-    const nextPlanning = manualPlanning || recurring;
-    if (item?.showInMonthPlanning !== nextPlanning) {
-      item.showInMonthPlanning = nextPlanning;
       changed = true;
     }
     if (isUnifiedExpenseType(item) && item.outputKind === 'card') {
@@ -859,10 +856,8 @@ function harmonizeUnifiedFixedBillingDates(month) {
     if (!isUnifiedExpenseType(item) || item?.outputKind === 'card') return;
     const normalized = normalizeVarDate(item?.date || '');
     if (!normalized) return;
-    const [day] = normalized.split('/');
-    const expected = buildUnifiedFixedBillingDate(String(Number(day || 1)), month);
-    if (item.date !== expected) {
-      item.date = expected;
+    if (item.date !== normalized) {
+      item.date = normalized;
       changed = true;
     }
   });
@@ -3200,6 +3195,9 @@ function confirmUnifiedCardDelete() {
   const targetCardModel = transferTarget
     ? ((currentMonth?.outflowCards || []).find(card => card.id === transferTarget) || null)
     : null;
+  if (typeof changeContinuousCalendarCard === 'function') {
+    changeContinuousCalendarCard(month, cardId, deleteMode ? '' : transferTarget);
+  }
   data.forEach(targetMonth => {
     if (getMonthSortValue(targetMonth) < currentSort) return;
     ensureUnifiedOutflowPilotMonth(targetMonth);
@@ -3242,6 +3240,7 @@ function confirmUnifiedCardDelete() {
     targetMonth.outflowCards = (targetMonth.outflowCards || []).filter(card => card.id !== cardId);
     syncUnifiedOutflowLegacyData(targetMonth);
   });
+  if (typeof updateContinuousCalendarCards === 'function') updateContinuousCalendarCards(month, cardId);
   deletingUnifiedCardId = '';
   save(true);
   closeModal('modalUnifiedCardDelete');
@@ -3318,6 +3317,7 @@ function saveUnifiedCard() {
     syncUnifiedCardAutoAmounts(otherMonth);
     syncUnifiedOutflowLegacyData(otherMonth);
   });
+  if (typeof updateContinuousCalendarCards === 'function') updateContinuousCalendarCards(month, nextCard.id);
   ensureUnifiedOutflowPilotMonth(month);
   const existingBill = getUnifiedCardBill(month, nextCard.id);
   if (!existingBill) {
@@ -4030,7 +4030,10 @@ function saveUnifiedOutflow() {
     showInMonthPlanning: recurringToggleChecked ? true : planningToggleChecked
   });
   const existingIndex = (month.outflows || []).findIndex(entry => entry.id === baseItem.id);
-  const seriesKey = baseItem.installmentsGroupId || baseItem.recurringGroupId;
+  const previousSeriesKey = previousItem?.installmentsGroupId || previousItem?.recurringGroupId || '';
+  const recurrenceDisabled = Boolean(previousSeriesKey) && !baseItem.installmentsGroupId
+    && !baseItem.recurringGroupId;
+  const seriesKey = baseItem.installmentsGroupId || baseItem.recurringGroupId || previousSeriesKey;
   const changedFields = previousItem ? getRecurringChangedFields(previousItem, baseItem) : [];
 
   const persistOutflowSave = (applyForward) => {
@@ -4040,11 +4043,26 @@ function saveUnifiedOutflow() {
     markUnifiedOutflowSelectionVisibleFromMonth(month, isNewCategory ? category : '', isNewTag ? tag : '');
     if (existingIndex >= 0) month.outflows[existingIndex] = baseItem;
     else month.outflows.push(baseItem);
-    if (seriesKey) clearRecurringSeriesStopFromMonth(month, seriesKey);
+    if (seriesKey && !recurrenceDisabled) clearRecurringSeriesStopFromMonth(month, seriesKey);
     if (!editingUnifiedOutflowId && seriesKey && typeof updateContinuousCalendarRule === 'function') updateContinuousCalendarRule(month, 'outflows', baseItem);
 
-    if (editingUnifiedOutflowId && seriesKey && applyForward && changedFields.length && canPropagateRecurringFromMonth(month)) {
-      applyRecurringForwardChanges(month, seriesKey, baseItem, changedFields, previousItem || baseItem);
+    if (editingUnifiedOutflowId && seriesKey && applyForward && (recurrenceDisabled || changedFields.length) && canPropagateRecurringFromMonth(month)) {
+      if (recurrenceDisabled) {
+        markRecurringSeriesStopFromMonth(month, seriesKey);
+        const stopped = typeof stopContinuousCalendarRule === 'function'
+          && stopContinuousCalendarRule(month, 'outflows', seriesKey);
+        if (!stopped) {
+          data.forEach(otherMonth => {
+            if (getMonthSortValue(otherMonth) <= getMonthSortValue(month)) return;
+            ensureUnifiedOutflowPilotMonth(otherMonth);
+            otherMonth.outflows = (otherMonth.outflows || []).filter(item =>
+              (item.installmentsGroupId || item.recurringGroupId || '') !== seriesKey);
+            syncUnifiedOutflowLegacyData(otherMonth);
+          });
+        }
+      } else {
+        applyRecurringForwardChanges(month, seriesKey, baseItem, changedFields, previousItem || baseItem);
+      }
     }
 
     if (!editingUnifiedOutflowId && installmentsTotal > 1 && !(typeof isContinuousCalendarEnabled === 'function' && isContinuousCalendarEnabled())) {
@@ -4094,7 +4112,7 @@ function saveUnifiedOutflow() {
     }
   };
 
-  if (editingUnifiedOutflowId && seriesKey && changedFields.length && canPropagateRecurringFromMonth(month)) {
+  if (editingUnifiedOutflowId && seriesKey && (recurrenceDisabled || changedFields.length) && canPropagateRecurringFromMonth(month)) {
     openRecurringChangeScopeModal({
       onThisMonth: () => persistOutflowSave(false),
       onForward: () => persistOutflowSave(true),

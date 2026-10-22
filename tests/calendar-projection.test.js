@@ -23,3 +23,15 @@ test('server and widget resolve income rules when the current month has no store
   state.finData = [{ id, _calendarSparse: true, _calendarVirtual: true, renda: [], outflows: [], projetos: [], _calendarHidden: { renda: ['salary'] } }];
   assert.equal(buildWidgetSnapshot('test-user', state).monthlyIncome, 0);
 });
+
+test('projected card settings retain the source date offset in future months', () => {
+  const state = { finData: [], finCalendarModel: {
+    version: calendar.VERSION, start: 2026 * 12 + 9, rules: [],
+    settings: [{ from: 2026 * 12 + 9, cardsSourceMonth: 'outubro_2026', payload: {
+      outflowCards: [{ id: 'xp', closingDate: '31/10/26', paymentDate: '10/11/26' }]
+    } }]
+  } };
+  const month = getProjectedCalendarMonth(state, 'fevereiro_2027');
+  assert.equal(month.outflowCards[0].closingDate, '28/02/27');
+  assert.equal(month.outflowCards[0].paymentDate, '10/03/27');
+});

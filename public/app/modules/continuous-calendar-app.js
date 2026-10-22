@@ -16,7 +16,15 @@ function getContinuousCalendarOptions() {
     start: getRealCurrentMonthSortValue(),
     sort: getMonthSortValue,
     month: fromId,
+    monthAtOrdinal: ordinal => Number.isFinite(ordinal) ? fromId(getMonthIdFromParts(monthNames[ordinal % 12], Math.floor(ordinal / 12))) : null,
     blank: month => buildBlankMonth(getMonthDateFromMonthObject(month)),
+    projectSettings: (payload, month, source) => {
+      payload.outflowCards = (payload.outflowCards || []).map(card => ({
+        ...card,
+        closingDate: getUnifiedCardDateForMonth(card.closingDate, source, month),
+        paymentDate: getUnifiedCardDateForMonth(card.paymentDate, source, month)
+      }));
+    },
     normalize: month => {
       normalizeMonth(month);
       ensureUnifiedOutflowPilotMonth(month);
@@ -86,6 +94,18 @@ function updateContinuousCalendarRule(month, collection, item) {
 function stopContinuousCalendarRule(month, collection, key) {
   if (!isContinuousCalendarEnabled()) return false;
   continuousCalendarSession.stop(data, month, collection, key);
+  return true;
+}
+
+function updateContinuousCalendarCards(month, cardId = '') {
+  if (!isContinuousCalendarEnabled()) return false;
+  window.ContinuousCalendar.updateCards(continuousCalendarModel, month, getContinuousCalendarOptions(), cardId);
+  return true;
+}
+
+function changeContinuousCalendarCard(month, cardId, targetCardId = '') {
+  if (!isContinuousCalendarEnabled()) return false;
+  window.ContinuousCalendar.changeCard(continuousCalendarModel, month, cardId, targetCardId, getContinuousCalendarOptions());
   return true;
 }
 

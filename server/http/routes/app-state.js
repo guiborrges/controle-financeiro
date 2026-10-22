@@ -17,7 +17,6 @@ function registerAppStateRoutes(app, deps) {
     saveWidgetSnapshot
   } = deps;
 
-  // Constantes para tolerância de conflito (2 segundos)
   const DEBUG_APP_STATE = String(process.env.FIN_APP_STATE_DEBUG || '').trim() === '1';
   function buildRequestContext(req, userId = '') {
     const headers = req && typeof req === 'object' && req.headers && typeof req.headers === 'object'
@@ -33,12 +32,12 @@ function registerAppStateRoutes(app, deps) {
   }
 
   /**
-   * Verifica se há um conflito REAL comparando timestamps com tolerância
+   * Compare the exact revision, including an empty first-save revision.
    */
   function hasRevisionConflict(baseRevisionStr, currentRevisionStr) {
     const base = String(baseRevisionStr || '').trim();
     const current = String(currentRevisionStr || '').trim();
-    if (!base || !current) return false;
+    if (!current) return false;
     return base !== current;
   }
 
@@ -157,39 +156,32 @@ function registerAppStateRoutes(app, deps) {
     }
     
     try {
-      // ✅ NOVO: Validar conflito APENAS se baseRevision não estiver vazio
-      let currentState = null;
-      if (baseRevision) {
-        currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
-        const currentRevision = String(currentState?.updatedAt || '').trim();
+      const currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
+      const currentRevision = String(currentState?.updatedAt || '').trim();
         
-        if (DEBUG_APP_STATE) {
-          console.log('[app-state][put-check]', {
-            ...buildRequestContext(req, user.id),
-            userId: user.id,
-            baseRevision,
-            currentRevision
-          });
-        }
-
-        if (currentRevision && hasRevisionConflict(baseRevision, currentRevision)) {
-          console.warn('[app-state] Conflito real detectado - bloqueando write', {
-            ...buildRequestContext(req, user.id),
-            userId: user.id,
-            baseRevision,
-            currentRevision
-          });
-          return res.status(409).json({
-            message: 'O estado foi alterado em outra aba/dispositivo. Recarregue para evitar perda de dados.',
-            conflict: true,
-            currentRevision
-          });
-        }
+      if (DEBUG_APP_STATE) {
+        console.log('[app-state][put-check]', {
+          ...buildRequestContext(req, user.id),
+          userId: user.id,
+          baseRevision,
+          currentRevision
+        });
       }
 
-      if (!currentState) {
-        currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
+      if (hasRevisionConflict(baseRevision, currentRevision)) {
+        console.warn('[app-state] Conflito real detectado - bloqueando write', {
+          ...buildRequestContext(req, user.id),
+          userId: user.id,
+          baseRevision,
+          currentRevision
+        });
+        return res.status(409).json({
+          message: 'O estado foi alterado em outra aba/dispositivo. Recarregue para evitar perda de dados.',
+          conflict: true,
+          currentRevision
+        });
       }
+
       if (hasDangerousMonthDrop(currentState?.state, state)) {
         const previousCount = getFinDataCount(currentState?.state);
         const nextCount = getFinDataCount(state);

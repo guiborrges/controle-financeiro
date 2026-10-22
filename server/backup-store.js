@@ -607,6 +607,7 @@ function restoreUserBackup(userId, backupId) {
   });
 
   const targetFile = getUserDataPath(user.id);
+  const previousRevision = readJsonSafe(targetFile, null)?.updatedAt;
   fs.mkdirSync(path.dirname(targetFile), { recursive: true });
   copyStateBundle(sourceFile, targetFile);
   if (typeof clearUserAppStateCache === 'function') clearUserAppStateCache(user.id);
@@ -618,7 +619,16 @@ function restoreUserBackup(userId, backupId) {
     throw new Error('Checksum divergente apos restauracao do backup.');
   }
 
-  const restoredAt = new Date().toISOString();
+  // Restore has no session key. Change only the manifest metadata through the
+  // atomic JSON writer; encrypted payloads and partition checksums stay intact.
+  const restoredManifest = readJsonSafe(targetFile, null);
+  const restoredAt = new Date(Math.max(
+    Date.now(),
+    (Date.parse(previousRevision || '') || 0) + 1,
+    (Date.parse(restoredManifest.updatedAt || '') || 0) + 1
+  )).toISOString();
+  writeJsonFileAtomic(targetFile, { ...restoredManifest, updatedAt: restoredAt });
+  if (typeof clearUserAppStateCache === 'function') clearUserAppStateCache(user.id);
   const index = readBackupIndex(user);
   index.backups = index.backups.map(item => item.id === safeBackupId ? {
     ...item,

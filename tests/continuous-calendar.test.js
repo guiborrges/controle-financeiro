@@ -179,3 +179,87 @@ test('legacy future card copies cannot undo current card assignments during repa
   assert.equal(engine.createSession(model, options).hydrate(stored[0]).outflows[0].outputRef, 'xp');
   assert.equal(engine.repairLegacyCardOutputs(model, [current, future], options), false);
 });
+
+test('forward changes preserve a monthly exception after saving and reloading', () => {
+  const { engine, options, model, session } = setup();
+  const future = session.virtual(month(12));
+  future.renda[0].valor = 3500;
+  future.outflows[0].amount = 950;
+  const saved = session.serialize([future]);
+  const restored = engine.createSession(model, options);
+  const months = saved.map(item => restored.hydrate(item));
+  restored.upsert(months, month(10), 'renda', { fonte: 'Salario', valor: 4000, recurringGroupId: 'salary' });
+  restored.upsert(months, month(10), 'outflows', { description: 'Aluguel', amount: 1000, recurringGroupId: 'rent' });
+  assert.equal(months[0].renda[0].valor, 3500);
+  assert.equal(months[0].outflows[0].amount, 950);
+  const reloaded = engine.createSession(model, options).hydrate(restored.serialize(months)[0]);
+  assert.equal(reloaded.renda[0].valor, 3500);
+  assert.equal(reloaded.outflows[0].amount, 950);
+});
+
+test('card settings changes persist beyond loaded months without resetting other settings', () => {
+  const { engine, options, model } = setup();
+  model.settings[0].payload.dailyGoalTarget = 200;
+  model.settings[0].payload.outflowCards = [{ id: 'old' }];
+  model.settings.push({ from: 12, payload: { dailyGoalTarget: 300, outflowCards: [{ id: 'old' }, { id: 'future-only' }] } });
+  const source = month(11);
+  source.outflowCards = [{ id: 'new', name: 'Renamed' }];
+  engine.updateCards(model, source, options);
+  const future = engine.project(JSON.parse(JSON.stringify(model)), month(40), options);
+  assert.equal(future.outflowCards.find(card => card.id === 'new').name, 'Renamed');
+  assert.equal(future.dailyGoalTarget, 300);
+  assert.ok(future.outflowCards.some(card => card.id === 'future-only'));
+  assert.equal(engine.project(model, month(10), options).dailyGoalTarget, 200);
+  source.outflowCards = [];
+  engine.updateCards(model, source, options);
+  assert.equal(engine.project(model, month(40), options).outflowCards.length, 1);
+  assert.equal(engine.project(model, month(40), options).outflowCards[0].id, 'future-only');
+});
+
+test('editing one card preserves scheduled changes for unrelated future cards', () => {
+  const { engine, options, model } = setup();
+  model.settings[0].payload.outflowCards = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }];
+  model.settings.push({ from: 12, payload: { outflowCards: [{ id: 'a', name: 'A' }, { id: 'b', name: 'Future B' }] } });
+  const edited = month(11);
+  edited.outflowCards = [{ id: 'a', name: 'Updated A' }, { id: 'b', name: 'B' }];
+  engine.updateCards(model, edited, options, 'a');
+  const future = engine.project(model, month(30), options);
+  assert.equal(future.outflowCards.find(card => card.id === 'a').name, 'Updated A');
+  assert.equal(future.outflowCards.find(card => card.id === 'b').name, 'Future B');
+});
+
+test('an unrelated card keeps its explicit date offset when a new settings version is created', () => {
+  const { engine, options, model } = setup();
+  options.monthAtOrdinal = month;
+  options.projectSettings = (payload, target, source) => {
+    payload.outflowCards.forEach(card => {
+      const [day, monthNumber, year] = card.paymentDate.split('/').map(Number);
+      const date = new Date(Date.UTC(2000 + year, monthNumber - 1 + target.ordinal - source.ordinal, day));
+      card.paymentDate = `${String(date.getUTCDate()).padStart(2, '0')}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCFullYear()).slice(-2)}`;
+    });
+  };
+  model.settings[0].payload.outflowCards = [{ id: 'a', name: 'A', paymentDate: '10/11/26' }, { id: 'b', name: 'B', paymentDate: '15/11/26' }];
+  const edited = month(11);
+  edited.outflowCards = [{ id: 'a', name: 'Updated', paymentDate: '10/12/26' }, { id: 'b', name: 'B', paymentDate: '15/12/26' }];
+  engine.updateCards(model, edited, options, 'a');
+  const projected = engine.project(model, month(12), options);
+  assert.equal(projected.outflowCards.find(card => card.id === 'b').paymentDate, '15/01/27');
+});
+
+test('card transfer and deletion update future rules without changing history or installment positions', () => {
+  const { engine, options } = setup();
+  const source = month(10);
+  source.outflows = [{ id: 'purchase', description: 'Purchase', outputKind: 'card', outputRef: 'old', installmentsGroupId: 'purchase', installmentsTotal: 6, installmentIndex: 1 }];
+  const model = engine.createModel([source], options);
+  engine.changeCard(model, month(12), 'old', 'new', options);
+  assert.equal(engine.project(model, month(11), options).outflows[0].outputRef, 'old');
+  const projected = engine.project(model, month(13), options).outflows[0];
+  assert.equal(projected.outputRef, 'new');
+  assert.equal(projected.installmentIndex, 4);
+  assert.equal(engine.project(model, month(16), options).outflows.length, 0);
+  const finished = JSON.parse(JSON.stringify(model));
+  engine.changeCard(finished, month(20), 'new', 'third', options);
+  assert.equal(engine.project(finished, month(21), options).outflows.length, 0);
+  engine.changeCard(model, month(14), 'new', '', options);
+  assert.equal(engine.project(model, month(15), options).outflows.length, 0);
+});

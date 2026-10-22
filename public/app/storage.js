@@ -49,12 +49,12 @@ const DASHBOARD_LAYOUT_VERSION = 2;
 let serverStorageCache = {};
 let storageFlushTimer = null;
 let storageFlushPromise = Promise.resolve();
+let storageFlushingState = null;
 let storageInitialized = false;
 let scopedStorageNamespace = 'anonymous';
 let serverStateRevision = '';
 let storageWriteConflictDetected = false;
 let isFlushing = false;
-let needsFlushAgain = false;
 let flushSequence = 0;
 let pendingFlushReason = 'unknown';
 let storageSyncEventsBound = false;
@@ -283,17 +283,18 @@ function materializeLegacyStateSnapshot(snapshot) {
 }
 
 async function flushServerStorage(force = false, reason = 'unknown') {
-  if (!storageInitialized) return;
-  if (storageWriteConflictDetected) return;
+  if (!storageInitialized) return false;
+  if (storageWriteConflictDetected) return false;
   if (isFlushing) {
-    needsFlushAgain = true;
-    pendingFlushReason = String(reason || pendingFlushReason || 'queued');
-    return;
+    const hasNewSnapshot = JSON.stringify(serverStorageCache) !== JSON.stringify(storageFlushingState);
+    const saved = await storageFlushPromise;
+    if (!force || !hasNewSnapshot || !saved) return saved;
+    if (storageWriteConflictDetected) return false;
+    return flushServerStorage(true, reason);
   }
   if (!force && storageFlushTimer) return;
 
   isFlushing = true;
-  needsFlushAgain = false;
   const flushReason = String(reason || pendingFlushReason || 'unknown');
   pendingFlushReason = 'unknown';
   const flushId = ++flushSequence;
@@ -302,6 +303,7 @@ async function flushServerStorage(force = false, reason = 'unknown') {
     state: cloneStateValue(serverStorageCache),
     baseRevision: serverStateRevision || ''
   };
+  storageFlushingState = payload.state;
   if (shouldLogStorageSync()) {
     console.log('[storage][flush:start]', {
       flushId,
@@ -323,7 +325,9 @@ async function flushServerStorage(force = false, reason = 'unknown') {
       
       if (response.ok) {
         serverStateRevision = String(body?.updatedAt || serverStateRevision || '');
-        dirtyKeysSnapshot.forEach(key => storageDirtyKeys.delete(key));
+        dirtyKeysSnapshot.forEach(key => {
+          if (JSON.stringify(serverStorageCache[key]) === JSON.stringify(payload.state[key])) storageDirtyKeys.delete(key);
+        });
         emitRevisionToOtherTabs(serverStateRevision);
         if (shouldLogStorageSync()) {
           console.log('[storage][flush:ok]', {
@@ -334,7 +338,7 @@ async function flushServerStorage(force = false, reason = 'unknown') {
             dirtyKeys: dirtyKeysSnapshot
           });
         }
-        return;
+        return true;
       }
       
       if (response.status === 409 || body?.conflict) {
@@ -360,7 +364,7 @@ async function flushServerStorage(force = false, reason = 'unknown') {
           expectedRevision: payload.baseRevision || '(vazio)',
           currentRevision: String(body?.currentRevision || '').trim() || '(desconhecida)'
         });
-        return;
+        return false;
       }
       console.error('[storage] Falha ao salvar app-state', {
         flushId,
@@ -368,19 +372,17 @@ async function flushServerStorage(force = false, reason = 'unknown') {
         status: response.status,
         message: String(body?.message || 'Falha desconhecida')
       });
+      return false;
     })
     .catch((error) => {
       console.error('[storage] Erro na comunicação com o servidor:', error);
+      return false;
     });
 
   storageFlushPromise = storageFlushPromise.finally(() => {
     isFlushing = false;
-    if (needsFlushAgain && !storageWriteConflictDetected) {
-      const nextReason = pendingFlushReason || `${flushReason}:queued`;
-      window.setTimeout(() => flushServerStorage(true, nextReason), 100);
-    }
   });
-  await storageFlushPromise;
+  return await storageFlushPromise;
 }
 
 function scheduleServerStorageFlush(reason = 'unknown') {
@@ -477,7 +479,6 @@ async function initializeServerStorage(options = {}) {
   serverStateRevision = String(payload.stateRevision || '');
   storageWriteConflictDetected = false;
   isFlushing = false;
-  needsFlushAgain = false;
   flushSequence = 0;
   pendingFlushReason = 'bootstrap';
   bindCrossTabRevisionSync();
@@ -491,15 +492,19 @@ async function initializeServerStorage(options = {}) {
 
   if (!payload.hasServerState && payload.session?.username === 'guilherme' && hasLegacyAppData()) {
     const legacyState = materializeLegacyStateSnapshot(captureLegacyAppState());
-    await fetch('/api/app-state/migrate-legacy', {
+    const migrationResponse = await fetch('/api/app-state/migrate-legacy', {
       method: 'POST',
       credentials: 'same-origin',
       headers: getCsrfHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
       body: JSON.stringify({ state: legacyState })
-    }).catch(() => null);
-    serverStorageCache = legacyState;
-    payload.appState = cloneStateValue(legacyState);
-    payload.hasServerState = true;
+    });
+    if (!migrationResponse.ok) throw new Error('Nao foi possivel migrar os dados locais com seguranca.');
+    const refreshedResponse = await fetchBootstrapAttempt();
+    if (!refreshedResponse.ok) throw new Error('Nao foi possivel confirmar os dados migrados. Recarregue a pagina.');
+    payload = await refreshedResponse.json();
+    window.__APP_BOOTSTRAP__ = payload;
+    serverStorageCache = cloneStateValue(payload.appState || {});
+    serverStateRevision = String(payload.stateRevision || '');
   }
 
   storageInitialized = true;

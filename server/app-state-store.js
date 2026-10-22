@@ -682,9 +682,10 @@ function writeUserAppState(userId, state, encryptionKey = '') {
   const sanitizedState = sanitizeStateForStorage(state);
   const monthCount = Array.isArray(sanitizedState?.finData) ? sanitizedState.finData.length : 0;
   const schemaVersion = resolveSchemaVersion(sanitizedState?.finStateSchemaVersion || sanitizedState?.schemaVersion);
+  const previousRevision = Date.parse(safeReadJson(filePath)?.updatedAt || '') || 0;
   const payload = {
     userId,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date(Math.max(Date.now(), previousRevision + 1)).toISOString(),
     monthCount,
     schemaVersion,
     encrypted: !!encryptionKey,

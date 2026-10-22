@@ -241,3 +241,37 @@ test('put app-state blocks second rapid save with stale revision', () => {
   assert.equal(resB.statusCode, 409);
   assert.equal(writes.length, 1);
 });
+
+for (const baseRevision of [undefined, '', '   ']) {
+  test(`put rejects absent first-save revision ${JSON.stringify(baseRevision)} when state exists`, () => {
+    let writes = 0;
+    const { app } = registerWithDeps({ writeUserAppState: () => { writes += 1; } });
+    const res = createMockRes();
+    app.routes.get('PUT /api/app-state')({ body: { state: { finData: [] }, baseRevision } }, res);
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.payload.currentRevision, '2026-04-18T00:00:00.000Z');
+    assert.equal(writes, 0);
+  });
+}
+
+test('two empty-store tabs cannot both perform the first save', () => {
+  let persisted = null;
+  let writes = 0;
+  const { app } = registerWithDeps({
+    readUserAppState: () => persisted,
+    writeUserAppState: (_id, state) => {
+      writes += 1;
+      persisted = { state, updatedAt: '2026-04-18T10:31:00.000Z' };
+      return persisted;
+    }
+  });
+  const handler = app.routes.get('PUT /api/app-state');
+  const first = createMockRes();
+  const second = createMockRes();
+  handler({ body: { state: { finData: [{ id: 'first' }] }, baseRevision: '' } }, first);
+  handler({ body: { state: { finData: [{ id: 'stale' }] }, baseRevision: '' } }, second);
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 409);
+  assert.equal(writes, 1);
+  assert.equal(persisted.state.finData[0].id, 'first');
+});
