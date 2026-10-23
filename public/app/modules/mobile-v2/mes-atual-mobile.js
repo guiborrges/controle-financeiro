@@ -208,6 +208,7 @@
           <p class="m2-subtitle">Acompanhe seu planejamento mês a mês.</p>
         </div>
         <div class="m2-header-actions">
+          <button class="m2-icon-btn" type="button" aria-label="Recorrencias" title="Recorrencias" onclick="openRecurrenceInspector()">${renderHeaderIcon('calendar', '&#8635;')}</button>
           <button class="m2-icon-btn" type="button" aria-label="Buscador universal" onclick="MobileV2.openUniversalSearch()">${renderHeaderIcon('search', '⌕')}</button>
           <button class="m2-icon-btn" type="button" aria-label="Gerenciar cartões" onclick="window.openUnifiedCardModal && window.openUnifiedCardModal()">${renderHeaderIcon('card', '💳')}</button>
           <div class="top-notifications m2-mobile-notifications" data-page-notifications="mobile-mes">

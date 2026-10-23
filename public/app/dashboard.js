@@ -22,6 +22,13 @@
   `;
 }
 
+let dashboardCategoryBasis = 'commitments';
+
+function setDashboardCategoryBasis(value) {
+  dashboardCategoryBasis = value === 'consumption' ? 'consumption' : 'commitments';
+  renderDashboard();
+}
+
 function isGenericDashboardUser() {
   return !isPrimaryUserEnvironment();
 }
@@ -337,7 +344,7 @@ function renderDashboard() {
   const totalGoals = filtered.reduce((acc, month) => acc + ((month.financialGoals || []).reduce((sum, goal) => sum + (goal.valor || 0), 0)), 0);
   const dashInsights = document.getElementById('dashInsights');
   if (dashInsights) {
-    const resultValue = isGenericDashboardUser() ? resCur : resTotal;
+    const resultValue = resTotal;
     const goalsShare = totalRendaFixaSum > 0 ? (totalGoals / totalRendaFixaSum) * 100 : 0;
     dashInsights.innerHTML = `
       <div class="insight-card ${resultValue >= 0 ? 'is-positive' : 'is-negative'}">
@@ -358,22 +365,22 @@ function renderDashboard() {
   dashboardWidgetLayout = sanitizeDashboardWidgetLayout(dashboardWidgetLayout);
   const metricCards = {
     resultado: `
-      <div class="metric-card ${(isGenericDashboardUser() ? resCur : resTotal) >= 0 ? 'green' : 'red'}" draggable="true" data-metric-key="resultado" ondragstart="onDashMetricDragStart(event,'resultado')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'resultado')">
-        <div class="mc-label">${isGenericDashboardUser() ? 'Resultado do mês' : 'Resultado no período'}</div>
-        <div class="mc-value">${fmtSigned(isGenericDashboardUser() ? resCur : resTotal)}</div>
+      <div class="metric-card ${resTotal >= 0 ? 'green' : 'red'}" draggable="true" data-metric-key="resultado" ondragstart="onDashMetricDragStart(event,'resultado')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'resultado')">
+        <div class="mc-label">Saldo previsto no período</div>
+        <div class="mc-value">${fmtSigned(resTotal)}</div>
         <div class="mc-note">${pLabel}</div>
       </div>
     `,
     gastos: `
       <div class="metric-card month-spent" draggable="true" data-metric-key="gastos" ondragstart="onDashMetricDragStart(event,'gastos')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'gastos')">
-        <div class="mc-label">${isGenericDashboardUser() ? 'Saiu no mês' : 'Saiu no período'}</div>
+        <div class="mc-label">Saídas comprometidas no período</div>
         <div class="mc-value">${fmt(totalGastos)}</div>
-        <div class="mc-note">Tudo o que já saiu nesse recorte.</div>
+        <div class="mc-note">Compromissos pagos e pendentes.</div>
       </div>
     `,
     ganhos: `
       <div class="metric-card green" draggable="true" data-metric-key="ganhos" ondragstart="onDashMetricDragStart(event,'ganhos')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'ganhos')">
-        <div class="mc-label">${isGenericDashboardUser() ? 'Entrou no mês' : 'Entrou no período'}</div>
+        <div class="mc-label">Entradas previstas no período</div>
         <div class="mc-value">${fmt(filtered.reduce((a,m)=>a+getTotals(m).rendaTotal,0))}</div>
         <div class="mc-note">Renda fixa e demais entradas do período.</div>
       </div>
@@ -418,7 +425,8 @@ function renderDashboard() {
         <div class="section">
           <div class="section-head">
             <div class="dashboard-widget-head">
-              <h3 id="title-catdash">Categorias</h3>
+              <h3 id="title-catdash">${dashboardCategoryBasis === 'consumption' ? 'Consumo por categoria' : 'Compromissos por categoria'}</h3>
+              <select class="btn" aria-label="Base das categorias" onchange="setDashboardCategoryBasis(this.value)"><option value="commitments" ${dashboardCategoryBasis === 'commitments' ? 'selected' : ''}>Compromissos</option><option value="consumption" ${dashboardCategoryBasis === 'consumption' ? 'selected' : ''}>Consumo</option></select>
               <span class="dashboard-widget-grip" onmousedown="startDashboardWidgetDrag(event,'categories')">Mover</span>
             </div>
           </div>
@@ -519,7 +527,7 @@ function renderDashboard() {
   });
 
   const catEl = document.getElementById('catCards');
-  const catRaw = getCatTotalsPeriod(filtered);
+  const catRaw = getCatTotalsPeriod(filtered, dashboardCategoryBasis);
   const catFilteredEntries = Object.entries(catRaw)
     .filter(([name, value]) => Number(value || 0) > 0 && !isTypeLikeCategoryLabel(name) && !(typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(name)));
   const totalRaw = catFilteredEntries.reduce((acc, [, value]) => acc + Number(value || 0), 0);

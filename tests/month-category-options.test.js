@@ -66,6 +66,27 @@ test('tag options read canonical lexical data even when window.data is absent', 
   assert.deepEqual(Array.from(tags), ['Viagem']);
 });
 
+test('history can query hidden categories and tags without offering them for new entries', () => {
+  const sandbox = loadCoreCategorySandbox();
+  const month = { id: 'junho_2026', outflows: [{ category: 'Casa', tag: 'Férias' }],
+    selectionVisibility: { version: 2, categories: { CASA: false }, tags: { 'férias': false } } };
+  sandbox.data = [month];
+  const before = JSON.stringify(month);
+  assert.equal(sandbox.getMonthCategoryOptions(month, sandbox).length, 0);
+  assert.equal(sandbox.getMonthTagOptions(month, sandbox).length, 0);
+  assert.equal(sandbox.getMonthCategoryOptions(month, sandbox, { purpose: 'history' }).some(entry => entry.name === 'CASA'), true);
+  assert.deepEqual(Array.from(sandbox.getMonthTagOptions(month, sandbox, { purpose: 'history' })), ['Férias']);
+  assert.equal(JSON.stringify(month), before);
+});
+
+test('tag visibility canonicalizes case and Unicode without losing accents or duplicating options', () => {
+  const sandbox = loadCoreCategorySandbox();
+  const month = { id: 'junho_2026', outflows: [{ tag: 'Fe\u0301rias' }],
+    selectionVisibility: { version: 2, tags: { 'FÉRIAS': true, 'Trabalho': true } } };
+  sandbox.data = [month];
+  assert.deepEqual(Array.from(sandbox.getMonthTagOptions(month, sandbox)), ['Férias', 'Trabalho']);
+});
+
 test('one-time visibility repair keeps each month independent and exposes manually checked categories', () => {
   const sandbox = loadCoreCategorySandbox();
   const first = { id: 'maio_2026', dailyCategorySeeds: ['Casa', 'Mercado'], categorias: { CASA: 0, MERCADO: 0 }, outflows: [{ category: 'Viagem', tag: 'Ferias' }], selectionVisibility: { version: 1, categories: { CASA: true, MERCADO: true }, tags: { trabalho: true } } };

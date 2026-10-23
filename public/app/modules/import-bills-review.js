@@ -211,7 +211,9 @@
     const cardName = getCardNameById(item.cardId);
     const category = normalizeText(item.category);
     const comparableFn = global.BillImportSchema?.normalizeComparableText || ((value) => String(value || '').toLowerCase());
-    const categoryAllowed = !!reviewState.context?.categoryIndex?.byNormalized?.get(comparableFn(category));
+    const categoryAllowed = typeof global.getMonthCategoryOptions === 'function'
+      ? global.getMonthCategoryOptions(item.monthId, global, { includeFallbackBase: false }).some(entry => comparableFn(entry.name) === comparableFn(category))
+      : !!reviewState.context?.categoryIndex?.byNormalized?.get(comparableFn(category));
 
     if (!normalizedDate) errors.push('Data inválida.');
     if (!description) errors.push('Descrição ausente.');
@@ -226,6 +228,10 @@
       errors.push('Categoria fora da lista existente.');
     }
     if (item.tag) warnings.push('Tag definida manualmente na revisão.');
+    if (item.tag && typeof global.getMonthTagOptions === 'function') {
+      const key = value => String(value || '').normalize('NFC').trim().toLocaleLowerCase('pt-BR');
+      if (!global.getMonthTagOptions(item.monthId, global).some(tag => key(tag) === key(item.tag))) errors.push('Tag indisponivel neste mes.');
+    }
     if (item.duplicateMatch?.kind === 'candidate') {
       warnings.push(item.duplicateMatch.reason);
       duplicateReview = item.duplicateDecision !== 'new';
@@ -335,14 +341,14 @@
       base.push(`<option value="${escapeHtml(name)}" ${comparable === selectedComparable ? 'selected' : ''}>${escapeHtml(label)}</option>`);
     };
 
-    topSuggested.forEach(category => pushOption(category, 'Sugestão • '));
-
     const monthCategoryOptions = typeof global.getMonthCategoryOptions === 'function'
       ? (global.getMonthCategoryOptions(item?.monthId, global, { includeFallbackBase: false }) || [])
       : (reviewState.context?.categories?.list || []);
+    const permitted = new Set(monthCategoryOptions.map(entry => comparableFn(entry?.name || entry?.value || entry)));
+    topSuggested.filter(category => permitted.has(comparableFn(category))).forEach(category => pushOption(category, 'Sugestão • '));
     monthCategoryOptions.forEach(entry => pushOption(entry?.name || entry?.value || entry, '', entry?.symbol || entry?.icon || entry?.emoji || ''));
 
-    if (selected && !seen.has(selectedComparable)) pushOption(selected);
+    if (selected && !seen.has(selectedComparable)) base.push('<option value="" selected>Categoria indisponivel neste mes</option>');
     return base.join('');
   }
 
@@ -358,9 +364,6 @@
       if (!safeTag) return;
       options.push(`<option value="${escapeHtml(safeTag)}" ${safeTag === normalizedSelected ? 'selected' : ''}>${escapeHtml(safeTag)}</option>`);
     });
-    if (normalizedSelected && !tags.includes(normalizedSelected)) {
-      options.push(`<option value="${escapeHtml(normalizedSelected)}" selected>${escapeHtml(normalizedSelected)}</option>`);
-    }
     return options.join('');
   }
 

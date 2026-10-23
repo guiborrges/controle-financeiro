@@ -211,6 +211,14 @@
         </select>
       </div>
 
+      <div class="form-field">
+        <label class="form-label" for="mobileV2OutflowTag">Tag</label>
+        <select id="mobileV2OutflowTag" class="form-input">
+          <option value="">Sem tag</option>
+          ${(global.getMonthTagOptions?.(month, global) || []).map(tag => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`).join('')}
+        </select>
+      </div>
+
       <input id="mobileV2RecurringToggle" type="checkbox" ${showRecurring ? 'checked' : ''} hidden>
 
       <div class="form-row-2" ${showInstallments ? '' : 'style="display:none"'}>
@@ -351,6 +359,7 @@
     setValue('unifiedOutflowAmount', String(payload.amount));
     setValue('unifiedOutflowDate', payload.date);
     setValue('unifiedOutflowCategory', payload.category);
+    setValue('unifiedOutflowTag', payload.tag);
 
     const outputSelect = document.getElementById('unifiedOutflowOutput');
     if (outputSelect) {
@@ -436,6 +445,7 @@
       editId: String(document.getElementById('mobileV2OutflowSheet')?.getAttribute('data-mobile-v2-edit-id') || ''),
       description,
       category,
+      tag: String(document.getElementById('mobileV2OutflowTag')?.value || ''),
       amount,
       date,
       output: String(document.getElementById('mobileV2OutflowOutput')?.value || 'method:debito'),
@@ -587,6 +597,7 @@
     setValue('mobileV2OutflowAmount', editAmount > 0 ? editAmount.toFixed(2).replace('.', ',') : '');
     setValue('mobileV2OutflowDate', toDisplayDateValue(source.date || source.data || ''));
     setValue('mobileV2OutflowCategory', source.category || source.categoria || '');
+    setValue('mobileV2OutflowTag', source.tag || '');
     if (source.outputKind === 'card' && source.outputRef) {
       setValue('mobileV2OutflowOutput', `card:${source.outputRef}`);
     } else if (source.outputMethod) {

@@ -10,6 +10,7 @@
   ];
 
   let activePeriod = 6;
+  let categoryBasis = 'commitments';
   let resizeObserver = null;
   let previousChartState = null;
   let chartAnimationFrame = 0;
@@ -53,7 +54,8 @@
 
   function getMonthsForPeriod(value) {
     const liveMonths = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []);
-    const allMonths = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
+    const source = liveMonths.length ? liveMonths : (global.MobileV2Enhancements?.getCachedFinanceMonths?.() || []);
+    const allMonths = typeof global.getDashboardEligibleMonths === 'function' ? global.getDashboardEligibleMonths(source) : source;
     if (!allMonths.length) return [];
     if (Number(value) === 1) {
       const currentMonth = global.MobileV2Data?.getCurrentMonth
@@ -78,6 +80,12 @@
     const totals = new Map();
     months.forEach((month) => {
       const rawMonth = (global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : [])).find((m) => m?.id === month.id);
+      if (rawMonth && typeof global.getFinancialMonthQuery === 'function') {
+        global.getFinancialMonthQuery(rawMonth, { basis: categoryBasis }).categories.forEach(row => {
+          totals.set(row.category, (totals.get(row.category) || 0) + row.amountCents / 100);
+        });
+        return;
+      }
       const summary = rawMonth && global.MobileV2Data?.getSpendCategorySummary
         ? global.MobileV2Data.getSpendCategorySummary(rawMonth)
         : (rawMonth && typeof global.getUnifiedSpendCategorySummary === 'function' ? global.getUnifiedSpendCategorySummary(rawMonth) : null);
@@ -297,6 +305,15 @@
     const rows = [];
     allMonths.forEach((month) => {
       if (!allowed.has(String(month?.id || ''))) return;
+      if (typeof global.getFinancialMonthQuery === 'function') {
+        global.getFinancialMonthQuery(month, { basis: categoryBasis }).expenseRows
+          .filter(row => row.category === categoryName && row.cents > 0).forEach(row => rows.push({
+            id: row.kind === 'bill' ? '' : row.sourceId,
+            date: row.date, description: row.description, amount: row.cents / 100,
+            output: row.kind === 'bill' ? 'Fatura' : 'Lancamento', tag: row.tag
+          }));
+        return;
+      }
       const outflows = global.MobileV2Data?.getOutflowRows
         ? global.MobileV2Data.getOutflowRows(month)
         : (month?.outflows || []);
@@ -334,7 +351,7 @@
     `).join('') : '<div class="m2-empty">Sem lançamentos nessa categoria no período.</div>';
     global.MobileV2OutflowForm?.openInlineSheet?.({
       title: `Categoria: ${categoryName}`,
-      subtitle: `${rows.length} lançamento(s)`,
+      subtitle: `${rows.length} lançamento(s) · ${formatMoney(rows.reduce((sum, row) => sum + row.amount, 0))}`,
       body
     });
     requestAnimationFrame(() => {
@@ -482,7 +499,7 @@
       </section>
 
       <section class="dash-section">
-        <div class="dash-section-header"><span>Lançamentos por categoria</span></div>
+        <div class="dash-section-header"><span>${categoryBasis === 'consumption' ? 'Consumo por categoria' : 'Compromissos por categoria'}</span><select class="form-input" style="width:auto;max-width:48%" aria-label="Base das categorias" data-m2-category-basis><option value="commitments" ${categoryBasis === 'commitments' ? 'selected' : ''}>Compromissos</option><option value="consumption" ${categoryBasis === 'consumption' ? 'selected' : ''}>Consumo</option></select></div>
         <div class="dash-pie-row">
           <canvas id="mobileV2PieChart" class="pie-canvas"></canvas>
           <div class="pie-legend">
@@ -504,6 +521,10 @@
     `;
 
     bindPeriodButtons(target);
+    target.querySelector('[data-m2-category-basis]')?.addEventListener('change', event => {
+      categoryBasis = event.target.value === 'consumption' ? 'consumption' : 'commitments';
+      render(target);
+    });
     target.querySelector('[data-m2-share-dashboard]')?.addEventListener('click', () => {
       shareDashboardSnapshot().catch(() => {
         if (typeof global.showToast === 'function') global.showToast('Não foi possível compartilhar agora.');

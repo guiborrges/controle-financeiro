@@ -156,6 +156,23 @@ test('invoice context uses live calendar months and authenticated bootstrap with
   assert.equal(context.categoryIndex, categories);
 });
 
+test('invoice review rejects categories and tags hidden in the selected month even when globally known', () => {
+  const month = { id: 'outubro_2026', outflowCards: [{ id: 'c', name: 'Card' }], outflows: [] };
+  const ctx = load('modules/import-bills-review.js', {
+    getAllFinanceMonths: () => [month], getCurrentMonth: () => month,
+    getMonthCategoryOptions: () => [{ name: 'CASA' }], getMonthTagOptions: () => ['Férias'],
+    BillImportSchema: { normalizeImportDate: value => value }
+  });
+  ctx.BillImportReview.setReviewData({ context: { cards: month.outflowCards,
+    categoryIndex: { byNormalized: new Map([['casa', 'CASA'], ['oculta', 'OCULTA']]) } },
+    items: [{ id: 'x', monthId: month.id, cardId: 'c', category: 'OCULTA', tag: 'Oculta', date: '10/10/26', description: 'Teste', amount: 50 }] });
+  assert.equal(ctx.BillImportReview.exportPayload().items[0].status, 'error');
+  ctx.BillImportReview.updateField('x', 'category', 'CASA');
+  assert.equal(ctx.BillImportReview.exportPayload().items[0].status, 'error');
+  ctx.BillImportReview.updateField('x', 'tag', 'Fe\u0301rias');
+  assert.notEqual(ctx.BillImportReview.exportPayload().items[0].status, 'error');
+});
+
 test('review consumes a legacy candidate once, exposes the decision and never imports it silently', async () => {
   const month = { id: 'outubro_2026', outflowCards: [{ id: 'c', name: 'Card' }],
     outflows: [{ outputKind: 'card', outputRef: 'c', date: '10/10/26', amount: 50, description: 'Padaria' }] };

@@ -126,6 +126,7 @@ function applyCategoryTransitionV2(sourceCategory, targetCategory) {
     syncUnifiedOutflowLegacyData(month);
   });
 
+  if (typeof renameContinuousCalendarSelection === 'function') renameContinuousCalendarSelection('category', source, target);
   if (categoryEmojiOverrides[source] && !categoryEmojiOverrides[target]) {
     categoryEmojiOverrides[target] = categoryEmojiOverrides[source];
   }
@@ -299,18 +300,19 @@ function applyTagRename(sourceTag, targetTag) {
   if (!source || !target || source === target) return false;
   (data || []).forEach(month => {
     (month?.outflows || []).forEach(item => {
-      if (String(item?.tag || '').trim().toLocaleLowerCase('pt-BR') === source.toLocaleLowerCase('pt-BR')) {
+      if (String(item?.tag || '').normalize('NFC').trim().toLocaleLowerCase('pt-BR') === source.normalize('NFC').toLocaleLowerCase('pt-BR')) {
         item.tag = target;
       }
     });
     const visibility = month?.selectionVisibility?.tags;
-    const sourceKey = source.toLocaleLowerCase('pt-BR');
-    const targetKey = target.toLocaleLowerCase('pt-BR');
+    const sourceKey = source.normalize('NFC').toLocaleLowerCase('pt-BR');
+    const targetKey = target.normalize('NFC').toLocaleLowerCase('pt-BR');
     if (visibility && Object.prototype.hasOwnProperty.call(visibility, sourceKey)) {
       if (!Object.prototype.hasOwnProperty.call(visibility, targetKey)) visibility[targetKey] = visibility[sourceKey];
       delete visibility[sourceKey];
     }
   });
+  if (typeof renameContinuousCalendarSelection === 'function') renameContinuousCalendarSelection('tag', source, target);
   return true;
 }
 

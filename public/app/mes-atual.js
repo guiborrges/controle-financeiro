@@ -1679,54 +1679,7 @@ function getUnifiedFixedSelectionIndex(month, row) {
 function calculateUnifiedPlanningTotal(month) {
   if (!month) return 0;
   ensureUnifiedOutflowPilotMonth(month);
-  const rows = getUnifiedFilterRows(month, 'expense', '', '');
-  const groupedDirectMethods = new Map();
-  const regularRows = [];
-  rows.forEach(row => {
-    if (!row?.item) return;
-    if (row?.kind === 'outflow' && row?.item?.outputKind === 'card') {
-      // Esses lançamentos já entram no valor da fatura/cartão e não podem duplicar no total.
-      return;
-    }
-    if (!isUnifiedDirectMethodSummaryRow(row)) {
-      regularRows.push(row);
-      return;
-    }
-    const method = String(row.item?.outputMethod || '').toLowerCase();
-    const category = method ? String(method).toUpperCase() : getUnifiedDirectMethodCategoryLabel(month, row.item);
-    const groupKey = method ? `method::${method}` : `category::${category}`;
-    if (!groupedDirectMethods.has(groupKey)) {
-      groupedDirectMethods.set(groupKey, {
-        kind: 'methodGroup',
-        item: {
-          groupKey,
-          amount: 0,
-          included: true
-        }
-      });
-    }
-    const groupRow = groupedDirectMethods.get(groupKey);
-    groupRow.item.amount += getUnifiedEffectiveOutflowAmount(row.item);
-    groupRow.item.included = groupRow.item.included && row.item?.countsInPrimaryTotals !== false;
-  });
-
-  const unifiedRows = [
-    ...regularRows,
-    ...Array.from(groupedDirectMethods.values())
-  ];
-
-  return unifiedRows.reduce((acc, row) => {
-    if (!row?.item) return acc;
-    if (row.kind === 'methodGroup') {
-      return acc + (row.item?.included !== false ? Number(row.item?.amount || 0) : 0);
-    }
-    const selectionIdx = getUnifiedFixedSelectionIndex(month, row);
-    const selected = selectionIdx === -1 ? true : isDespesaSelected(month.id, selectionIdx);
-    if (!selected) return acc;
-    if (row.kind === 'bill') return acc + Number(getUnifiedCardBillEffectiveAmount(month, row.item) || 0);
-    if (row.kind === 'outflow') return acc + getUnifiedEffectiveOutflowAmount(row.item);
-    return acc;
-  }, 0);
+  return getFinancialMonthQuery(month).expenseCents / 100;
 }
 
 function isUnifiedDirectMethodSummaryRow(row) {
@@ -4059,7 +4012,7 @@ function performUnifiedOutflowSave(options = {}) {
   });
   if (options.preserveSemantics && previousItem) {
     baseItem = {
-      ...previousItem, description, category, date, ...output,
+      ...previousItem, description, category, tag, date, ...output,
       amount: baseItem.amount,
       showInMonthPlanning: baseItem.showInMonthPlanning,
       sharedOriginalAmount: sharedState.enabled ? baseItem.sharedOriginalAmount : previousItem.sharedOriginalAmount,

@@ -36,6 +36,57 @@ function setup() {
   return { engine, options, source, model, session };
 }
 
+test('read-only inspector equals navigation, preserves paid/local/removed exceptions and never materializes months', () => {
+  const { engine, options, source, model, session } = setup();
+  options.monthAtOrdinal = month;
+  const loaded = [session.hydrate(source), session.virtual(month(11)), session.virtual(month(12))];
+  loaded[1].outflows[0].amount = 1234;
+  loaded[2].outflows = [];
+  const before = JSON.stringify({ model, loaded, stored: session.serialize(loaded) });
+  const rent = engine.inspect(model, loaded[0], loaded, options).find(entry => entry.id === 'outflows:rent');
+  assert.deepEqual(Array.from(rent.occurrences, entry => entry.month.ordinal), [10, 11, 13]);
+  assert.equal(rent.occurrences[0].exception, 'paid');
+  assert.equal(rent.occurrences[1].exception, 'local');
+  assert.equal(rent.exceptions.some(entry => entry.month === 'm_12' && entry.kind === 'removed'), true);
+  assert.equal(JSON.stringify(rent.occurrences[2].item), JSON.stringify(session.virtual(month(13)).outflows[0]));
+  assert.equal(JSON.stringify({ model, loaded, stored: session.serialize(loaded) }), before);
+});
+
+test('inspector respects stops, last installment and future card reassignment', () => {
+  const { engine, options, model } = setup();
+  options.monthAtOrdinal = month;
+  const rule = model.rules.find(entry => entry.id === 'outflows:rent');
+  rule.versions[0].payload.installmentsTotal = 2;
+  rule.versions[0].payload.installmentIndex = 1;
+  rule.versions[0].payload.outputKind = 'card';
+  rule.versions[0].payload.outputRef = 'xp';
+  rule.versions.push({ from: 11, sourceMonth: 'm_11', payload: { ...rule.versions[0].payload, installmentIndex: 2, outputRef: 'inter' } });
+  let inspected = engine.inspect(model, month(10), [], options).find(entry => entry.id === rule.id);
+  assert.deepEqual(Array.from(inspected.occurrences, entry => entry.item.outputRef), ['xp', 'inter']);
+  rule.versions.push({ from: 11, stopped: true });
+  rule.versions = rule.versions.filter(entry => entry.from !== 11 || entry.stopped);
+  inspected = engine.inspect(model, month(11), [], options).find(entry => entry.id === rule.id);
+  assert.equal(inspected.stopped, true);
+  assert.equal(inspected.occurrences.length, 0);
+});
+
+test('category merge and accented tag rename also update sparse future rules and settings', () => {
+  const { engine, options, model } = setup();
+  const rule = model.rules.find(entry => entry.id === 'outflows:rent');
+  rule.versions[0].payload.category = 'CASA';
+  rule.versions[0].payload.tag = 'Fe\u0301rias';
+  model.settings[0].payload.selectionVisibility = { version: 2, categories: { CASA: true, MORADIA: false }, tags: { 'férias': true } };
+  model.settings[0].payload.dailyGoals = { CASA: 20, MORADIA: 30 };
+  engine.renameSelection(model, 'category', 'CASA', 'MORADIA', value => String(value || '').toUpperCase());
+  engine.renameSelection(model, 'tag', 'Férias', 'Viagem');
+  const projected = engine.project(model, month(30), options);
+  assert.equal(projected.outflows[0].category, 'MORADIA');
+  assert.equal(projected.outflows[0].tag, 'Viagem');
+  assert.equal(projected.dailyGoals.MORADIA, 50);
+  assert.equal(projected.selectionVisibility.categories.CASA, undefined);
+  assert.equal(projected.selectionVisibility.tags.viagem, true);
+});
+
 test('all future months are projected directly without their predecessor being present', () => {
   const { session } = setup();
   const december = session.virtual(month(24));

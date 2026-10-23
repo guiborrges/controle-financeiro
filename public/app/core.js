@@ -234,7 +234,8 @@ function resolveMonthForCategoryOptions(monthOrId, context = window) {
 function getMonthCategoryOptions(monthOrId, context = window, options = {}) {
   const month = resolveMonthForCategoryOptions(monthOrId, context);
   const entries = getSelectableCategoryEntriesForMonth(month, {
-    includeFallbackBase: options.includeFallbackBase !== false
+    includeFallbackBase: options.includeFallbackBase !== false,
+    ignoreVisibility: options.purpose === 'history'
   });
   return entries.map((entry) => {
     const name = resolveCategoryName(entry?.name || entry?.value || entry || '');
@@ -256,22 +257,24 @@ function getMonthCategoryNames(monthOrId, context = window, options = {}) {
   return getMonthCategoryOptions(monthOrId, context, options).map(entry => entry.name);
 }
 
-function getMonthTagOptions(monthOrId, context = window) {
+function getMonthTagOptions(monthOrId, context = window, options = {}) {
   const month = resolveMonthForCategoryOptions(monthOrId, context);
   const source = Array.isArray(context?.data) ? context.data : (typeof data !== 'undefined' && Array.isArray(data) ? data : (Array.isArray(window?.data) ? window.data : []));
   const tags = new Map();
   source.forEach(entry => (entry?.outflows || []).forEach(item => {
     const tag = String(item?.tag || '').trim();
-    if (tag) tags.set(tag.toLocaleLowerCase('pt-BR'), tag);
+    if (tag) tags.set(tag.normalize('NFC').toLocaleLowerCase('pt-BR'), tag.normalize('NFC'));
   }));
   const visibility = month?.selectionVisibility?.tags;
+  const normalizedVisibility = Object.fromEntries(Object.entries(visibility || {}).map(([tag, visible]) => [tag.normalize('NFC').trim().toLocaleLowerCase('pt-BR'), visible]));
   Object.entries(visibility || {}).forEach(([tag, visible]) => {
-    if (visible === true && !tags.has(tag)) tags.set(tag, tag);
+    const key = tag.normalize('NFC').trim().toLocaleLowerCase('pt-BR');
+    if (visible === true && !tags.has(key)) tags.set(key, tag.normalize('NFC').trim());
   });
   return Array.from(tags.values())
-    .filter(tag => !visibility || (month?.selectionVisibility?.version >= 2
-      ? visibility[tag.toLocaleLowerCase('pt-BR')] === true
-      : visibility[tag.toLocaleLowerCase('pt-BR')] !== false))
+    .filter(tag => options.purpose === 'history' || !visibility || (month?.selectionVisibility?.version >= 2
+      ? normalizedVisibility[tag.normalize('NFC').toLocaleLowerCase('pt-BR')] === true
+      : normalizedVisibility[tag.normalize('NFC').toLocaleLowerCase('pt-BR')] !== false))
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
 
@@ -858,29 +861,15 @@ function getTotals(m) {
     ensureUnifiedOutflowPilotMonth(m);
   }
   ensureProjetos(m);
-  const totalVar = getCountedVarTotal(m);
-  const totalFixas = (m.despesas || []).reduce((a,d)=>a+d.valor,0);
-  const totalGastos = typeof calculateUnifiedPlanningTotal === 'function' && typeof isUnifiedMonthPilotEnabled === 'function' && isUnifiedMonthPilotEnabled()
-    ? calculateUnifiedPlanningTotal(m)
-    : totalFixas + totalVar;
-  const rendaFixa = (m.renda || []).reduce((a,r)=>a+(isIncomeIncludedInTotals(r) ? r.valor : 0),0);
-  const totalFinancialGoals = (m.financialGoals || []).reduce((a, goal) => a + (isFinancialGoalIncludedInTotals(goal) ? (goal.valor || 0) : 0), 0);
-  const totalProj = (m.projetos || []).reduce((a,p)=>a+(isProjectIncludedInTotals(p) ? p.valor : 0),0);
-  const rendaTotal = rendaFixa + totalProj;
-  const catTotals = getCategoryTotals(m);
-  const dinheiroVal = 0;
-  return {
-    totalVar,
-    totalFixas,
-    totalGastos,
-    rendaFixa,
-    totalFinancialGoals,
-    totalProj,
-    rendaTotal,
-    availableForVariableSpending: rendaTotal - totalFixas - totalFinancialGoals,
-    catTotals,
-    dinheiroVal
-  };
+  return window.FinancialQuery.totals(m, getFinancialQueryOptions(m));
+}
+
+function getFinancialQueryOptions(month, options = {}) {
+  return { resolveCategory: resolveCategoryName, isSelected: index => isDespesaSelected(month.id, index), ...options };
+}
+
+function getFinancialMonthQuery(month, options = {}) {
+  return window.FinancialQuery.query(month, getFinancialQueryOptions(month, options));
 }
 
 function ensureDespSelectionState(m) {
@@ -913,32 +902,12 @@ function getSelectedDespesaTotal(m) {
 }
 
 function getEffectiveTotalsForMes(m) {
-  const totals = getTotals(m);
-  const totalFixas = getSelectedDespesaTotal(m);
-  const totalVar = getCountedVarTotal(m);
-  const totalGastos = typeof calculateUnifiedPlanningTotal === 'function' && typeof isUnifiedMonthPilotEnabled === 'function' && isUnifiedMonthPilotEnabled()
-    ? totals.totalGastos
-    : totalFixas + totalVar;
-  const dinheiroVal = 0;
-  const activeMode = isPrimaryUserEnvironment() ? resultMode : 'simples';
-  return {
-    ...totals,
-    totalFixas,
-    totalVar,
-    totalGastos,
-    rendaTotal: totals.rendaFixa + totals.totalProj,
-    availableForVariableSpending: (totals.rendaFixa + totals.totalProj) - totalFixas - totals.totalFinancialGoals,
-    resultadoMes: computeResultWithTotals({ ...totals, totalFixas, totalGastos, rendaTotal: totals.rendaFixa + totals.totalProj, dinheiroVal }, activeMode)
-  };
+  return getTotals(m);
 }
 
 function computeResultWithTotals(totals, mode) {
-  const hasDin = totals.dinheiroVal > 0;
-  const effectiveMode = (mode === 'final' && !hasDin) ? 'fixo' : mode;
-  const totalGoals = Number(totals.totalFinancialGoals || 0);
-  if (effectiveMode === 'simples') return totals.rendaTotal - totals.totalGastos - totalGoals;
-  if (effectiveMode === 'fixo') return totals.rendaFixa - totals.totalGastos - totalGoals;
-  return totals.rendaFixa - (totals.totalGastos - totals.dinheiroVal) - totalGoals;
+  return (window.FinancialQuery.cents(totals.rendaTotal) - window.FinancialQuery.cents(totals.totalGastos)
+    - window.FinancialQuery.cents(totals.totalFinancialGoals)) / 100;
 }
 
 function computeResult(m, mode) {
@@ -1038,43 +1007,14 @@ function getFilteredData() {
   return list;
 }
 
-function getCatTotalsPeriod(list) {
+function getCatTotalsPeriod(list, basis = 'commitments') {
   const totals = {};
   list.forEach(m => {
-    // Build category totals from current valid transactional state only.
-    // This avoids stale/"ghost" categories that may remain in cached aggregates.
-    const hasUnifiedOutflows = Array.isArray(m?.outflows) && m.outflows.length > 0;
-    if (hasUnifiedOutflows) {
-      (m.outflows || []).forEach(item => {
-        const amount = Number(item?.amount || 0);
-        if (!(amount > 0)) return;
-        const category = resolveCategoryName(item?.category || 'OUTROS');
-        if (typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(category)) return;
-        if (!category) return;
-        totals[category] = (totals[category] || 0) + amount;
-      });
-      return;
-    }
-
-    (m.despesas || []).forEach(item => {
-      const amount = Number(item?.valor || 0);
-      if (!(amount > 0)) return;
-      const category = resolveCategoryName(item?.categoria || 'OUTROS');
-      if (typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(category)) return;
-      if (!category) return;
-      totals[category] = (totals[category] || 0) + amount;
-    });
-    (m.gastosVar || []).forEach(item => {
-      if (item?.incluirNoTotal === false) return;
-      const amount = Number(item?.valor || 0);
-      if (!(amount > 0)) return;
-      const category = resolveCategoryName(item?.categoria || 'OUTROS');
-      if (typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(category)) return;
-      if (!category) return;
-      totals[category] = (totals[category] || 0) + amount;
+    getFinancialMonthQuery(m, { basis }).categories.forEach(row => {
+      totals[row.category] = (totals[row.category] || 0) + row.amountCents;
     });
   });
-  return totals;
+  return Object.fromEntries(Object.entries(totals).map(([category, amount]) => [category, amount / 100]));
 }
 
 function changeResultMode(val) {

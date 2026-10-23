@@ -34,8 +34,10 @@ test('normalizing a recurring salary preserves the explicit full date over repea
 });
 
 test('month planning counts card bills once, never their installments again', () => {
-  const ctx = load(['mes-atual.js']);
-  const month = { id: 'outubro_2026', despesas: [] };
+  const ctx = load(['modules/shared/outflow-amounts.js', 'modules/shared/financial-query.js', 'mes-atual.js']);
+  const month = { id: 'outubro_2026', despesas: [], outflows: [1800, 150, 320.45].map(amount => ({ type: 'expense', amount, outputKind: 'method' })), cardBills: [{ amount: 249.9 }] };
+  month.outflows.push({ type: 'spend', amount: 200, outputKind: 'card', installmentsTotal: 6 }, { type: 'spend', amount: 49.9, outputKind: 'card', recurringSpend: true });
+  ctx.getFinancialMonthQuery = month => ctx.FinancialQuery.query(month);
   ctx.ensureUnifiedOutflowPilotMonth = () => {};
   ctx.isUnifiedDirectMethodSummaryRow = () => false;
   ctx.getUnifiedEffectiveOutflowAmount = item => item.amount;
@@ -50,7 +52,7 @@ test('month planning counts card bills once, never their installments again', ()
 });
 
 test('core total and result use unified expenses and subtract only included goals', () => {
-  const ctx = load(['core.js']);
+  const ctx = load(['modules/shared/outflow-amounts.js', 'modules/shared/financial-query.js', 'core.js']);
   ctx.isUnifiedMonthPilotEnabled = () => true;
   ctx.ensureUnifiedOutflowPilotMonth = () => {};
   ctx.ensureProjetos = () => {};
@@ -59,6 +61,8 @@ test('core total and result use unified expenses and subtract only included goal
   ctx.despSelectionState = {};
   ctx.isPrimaryUserEnvironment = () => false;
   const month = { id: 'm', despesas: [{ valor: 249.9 }], gastosVar: [{ valor: 2520.35 }], renda: [{ valor: 6500 }], projetos: [], financialGoals: [{ valor: 100 }, { valor: 500, includeInTotals: false }] };
+  month.outflows = [{ type: 'expense', amount: 2270.45 }];
+  month.cardBills = [{ amount: 249.9 }];
   assert.equal(ctx.getTotals(month).totalGastos, 2520.35);
   assert.equal(ctx.getEffectiveTotalsForMes(month).resultadoMes, 3879.65);
 });

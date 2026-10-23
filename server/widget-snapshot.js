@@ -3,6 +3,7 @@ const path = require('path');
 const { resolveStoragePath } = require('./paths');
 const { writeJsonFileAtomic } = require('./fs-atomic');
 const { getProjectedCalendarMonth } = require('./calendar-projection');
+const financial = require('../public/app/modules/shared/financial-query');
 
 const WIDGET_SNAPSHOT_DIR = resolveStoragePath('data', 'widget-snapshots');
 
@@ -42,33 +43,18 @@ function buildWidgetSnapshot(userId, state) {
   const fallbackMonth = finData.length ? finData[finData.length - 1] : null;
   const month = getProjectedCalendarMonth(state, currentMonthId) || fallbackMonth || {};
 
-  const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
-  const cardBills = Array.isArray(month?.cardBills) ? month.cardBills : [];
-  const renda = Array.isArray(month?.renda) ? month.renda : [];
-  const projetos = Array.isArray(month?.projetos) ? month.projetos : [];
-
-  const nonCardOutflows = outflows
-    .filter(item => item && item.countsInPrimaryTotals !== false)
-    .filter(item => {
-      const type = String(item?.type || '').toLowerCase();
-      const outputKind = String(item?.outputKind || '').toLowerCase();
-      return type === 'expense' || (type === 'spend' && outputKind !== 'card');
-    })
-    .reduce((sum, item) => sum + safeNumber(item?.amount), 0);
-
-  const totalCardBills = cardBills.reduce((sum, bill) => sum + safeNumber(bill?.amount), 0);
-  const monthlyExpenses = round2(nonCardOutflows + totalCardBills);
-
-  const rendaTotal = renda
-    .filter(item => item && (item.paid === true || item.includeInTotals !== false))
-    .reduce((sum, item) => sum + safeNumber(item?.valor), 0);
-
-  const projetosTotal = projetos
-    .filter(item => item && (item.paid === true || item.includeInTotals !== false))
-    .reduce((sum, item) => sum + safeNumber(item?.valor), 0);
-
-  const monthlyIncome = round2(rendaTotal + projetosTotal);
-  const result = round2(monthlyIncome - monthlyExpenses);
+  const resolveCategory = value => {
+    let name = String(value || 'OUTROS');
+    const aliases = state?.finCategoryRenameMap || {};
+    const visited = new Set();
+    while (aliases[name] && !visited.has(name)) { visited.add(name); name = aliases[name]; }
+    return name;
+  };
+  const query = financial.query(month, { resolveCategory });
+  const consumption = financial.query(month, { basis: 'consumption', resolveCategory });
+  const monthlyExpenses = query.expenseCents / 100;
+  const monthlyIncome = query.incomeCents / 100;
+  const result = query.resultCents / 100;
 
   const dailyGoals = month?.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
   const categoryEmojis = state?.finCategoryEmojis && typeof state.finCategoryEmojis === 'object'
@@ -79,9 +65,7 @@ function buildWidgetSnapshot(userId, state) {
     .map(([category, rawGoal]) => {
       const goal = safeNumber(rawGoal);
       if (!(goal > 0)) return null;
-      const spent = outflows
-        .filter(item => item && item.countsInPrimaryTotals !== false && String(item?.category || '') === String(category))
-        .reduce((sum, item) => sum + safeNumber(item?.amount), 0);
+      const spent = (consumption.categories.find(row => row.category === resolveCategory(category))?.amountCents || 0) / 100;
       const percentage = goal > 0 ? Math.round((spent / goal) * 100) : 0;
       return {
         category: String(category),
@@ -100,6 +84,8 @@ function buildWidgetSnapshot(userId, state) {
     monthlyExpenses,
     monthlyIncome,
     result,
+    reservedGoals: query.reserveCents / 100,
+    basis: 'commitments',
     currency: 'BRL',
     goals
   };
