@@ -84,10 +84,10 @@ test('mobile outflow save closes without reopening the second edit screen and ac
   assert.match(source, /function resolveMobileDate\(rawValue\)/);
   assert.match(source, /simpleDayMonthOffset:\s*1/);
   assert.match(source, /placeholder="10 ou 10\/05\/26"/);
-  assert.match(source, /global\.saveUnifiedOutflow\(\{ preserveSemantics: !!payload\.editId \}\)/);
-  assert.match(source, /const result = await saveResult/);
-  assert.match(source, /global\.closeUnifiedOutflowModal\(\)/);
-  assert.doesNotMatch(source, /openUnifiedOutflowModal\(createdId/);
+  assert.match(source, /return await global\.saveMobileUnifiedOutflow\(mode, payload\)/);
+  assert.match(source, /await applyOutflowCommand\(mode, payload\)/);
+  assert.doesNotMatch(source, /global\.closeUnifiedOutflowModal/);
+  assert.doesNotMatch(source, /openUnifiedOutflowModal/);
 });
 
 test('mobile month swipe navigation is disabled while pull refresh remains active', () => {

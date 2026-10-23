@@ -21,7 +21,7 @@ function setup({ legacy = false } = {}) {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
-  for (const file of ['modules/shared/outflow-amounts.js', 'modules/continuous-calendar.js', 'modules/continuous-calendar-app.js', 'modules/mes-atual/cards.js', 'modules/mes-atual/outflow-expense-date.js', 'mes-atual.js']) {
+  for (const file of ['modules/shared/outflow-amounts.js', 'modules/continuous-calendar.js', 'modules/continuous-calendar-app.js', 'modules/mes-atual/cards.js', 'modules/mes-atual/shared-expense.js', 'modules/mes-atual/outflow-commands.js', 'modules/mes-atual/outflow-expense-date.js', 'mes-atual.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/app', file), 'utf8'), ctx);
   }
   const options = {
@@ -60,6 +60,7 @@ function setup({ legacy = false } = {}) {
   ctx.canPropagateRecurringFromMonth = () => true;
   ctx.getUnifiedOutflowTags = () => [];
   ctx.getOwnerDisplayName = () => 'Owner';
+  ctx.fmt = value => `R$ ${value}`;
   ctx.collectUnifiedOutflowSharedFromForm = amount => ({ enabled: false, ownerShare: amount, othersShare: 0, participants: [] });
   ctx.resolveUnifiedExpenseDateInput = value => value;
   ctx.normalizeUnifiedOutflowSpendDateInput = value => value;
@@ -79,6 +80,82 @@ function editRecurrenceOff(ctx, elements) {
   ctx.saveUnifiedOutflow();
   assert.ok(ctx.scope, 'removing recurrence must ask for scope');
   return item.id;
+}
+
+test('3C new launch validates before mutation and failed persistence retries the same item', async () => {
+  const { ctx, elements } = setup();
+  ctx.save = async () => false;
+  for (const [id, value] of Object.entries({ Description: '', Type: 'launch', Category: 'HOME',
+    Tag: '', Amount: '100', Output: 'old', Date: '05/11/26' })) elements[`unifiedOutflow${id}`] = { value };
+  const before = JSON.stringify(ctx.data);
+  ctx.alert = message => { ctx.invalidMessage = message; };
+  assert.equal(ctx.saveUnifiedOutflow().status, 'invalid');
+  assert.equal(JSON.stringify(ctx.data), before);
+  elements.unifiedOutflowDescription.value = 'New launch';
+  const count = ctx.getCurrentMonth().outflows.length;
+  const result = await ctx.saveUnifiedOutflow();
+  assert.equal(result.status, 'pending');
+  assert.equal(ctx.getCurrentMonth().outflows.length, count + 1);
+  ctx.save = async () => true;
+  const retry = ctx.saveUnifiedOutflow();
+  if (ctx.scope) ctx.scope.onThisMonth();
+  assert.equal((await retry).status, 'saved');
+  assert.equal(ctx.getCurrentMonth().outflows.length, count + 1);
+  assert.equal(ctx.getCurrentMonth().outflows.at(-1).id, result.id);
+});
+
+for (const scope of ['cancel', 'this', 'forward']) {
+  test(`3C deleting a recurring launch preserves the chosen ${scope} scope`, () => {
+    const { ctx } = setup();
+    const before = JSON.stringify(ctx.data);
+    const item = ctx.getCurrentMonth().outflows[0];
+    ctx.deleteUnifiedOutflow(item.id);
+    assert.equal(JSON.stringify(ctx.data), before);
+    if (scope === 'cancel') {
+      ctx.scope.onCancel();
+      assert.equal(JSON.stringify(ctx.data), before);
+    } else {
+      ctx.scope[scope === 'forward' ? 'onForward' : 'onThisMonth']();
+      assert.equal(ctx.getCurrentMonth().outflows.length, 0);
+      assert.equal(ctx.data[2].outflows.length, scope === 'forward' ? 0 : 1);
+    }
+  });
+}
+
+for (const splitMode of ['equal', 'manual']) {
+  test(`3C direct Mobile edit preserves recurring metadata and ${splitMode} participant identities without Desktop DOM`, async () => {
+    const { ctx } = setup();
+    const item = ctx.getCurrentMonth().outflows[0];
+    Object.assign(item, { paid: true, sharedExpense: true, sharedSplitMode: splitMode,
+      sharedOriginalAmount: 200, sharedOthersAmount: 100, createdAt: '2026-01-01',
+      importSource: 'synthetic', sharedParticipants: [
+        { id: 'owner', isOwner: true, name: 'Owner', amount: 100, paid: true },
+        { id: 'guest', isOwner: false, name: 'Guest', amount: 100, paid: true }
+      ] });
+    const before = JSON.stringify(item);
+    ctx.save = async () => true;
+    ctx.collectUnifiedOutflowSharedFromForm = () => { throw new Error('Desktop collector must not run'); };
+    ctx.document.getElementById = () => { throw new Error('Desktop DOM must not be read'); };
+    const result = ctx.saveMobileUnifiedOutflow('launch', {
+      editId: item.id, description: 'Renamed', category: item.category, tag: item.tag,
+      amount: 300, date: item.date, output: 'card:old', planning: true
+    });
+    assert.equal(JSON.stringify(item), before, 'scope precedes mutation');
+    ctx.scope.onThisMonth();
+    assert.equal((await result).status, 'saved');
+    const saved = ctx.getCurrentMonth().outflows[0];
+    assert.equal(saved.description, 'Renamed');
+    assert.equal(saved.sharedOriginalAmount, 300);
+    assert.equal(saved.amount, splitMode === 'equal' ? 150 : 100);
+    assert.equal(saved.sharedOthersAmount, splitMode === 'equal' ? 150 : 200);
+    assert.equal(saved.recurringGroupId, 'rent');
+    assert.equal(saved.expenseRecurring, item.expenseRecurring);
+    assert.equal(saved.paid, true);
+    assert.equal(saved.createdAt, '2026-01-01');
+    assert.equal(saved.importSource, 'synthetic');
+    assert.deepEqual(Array.from(saved.sharedParticipants, row => [row.id, row.name, row.paid]),
+      [['owner', 'Owner', true], ['guest', 'Guest', true]]);
+  });
 }
 
 test('mobile description edit preserves recurrence, payment, participants and original metadata', async () => {
@@ -103,6 +180,38 @@ test('mobile description edit preserves recurrence, payment, participants and or
   ctx.scope.onThisMonth();
   assert.equal((await promise).status, 'saved');
   assert.deepEqual(JSON.parse(JSON.stringify(ctx.getCurrentMonth().outflows[0])), { ...before, description: 'Renamed' });
+});
+
+test('3C Mobile installment edit keeps its group, installment index and paid state', async () => {
+  const { ctx } = setup();
+  const item = ctx.getCurrentMonth().outflows[0];
+  Object.assign(item, { installmentsTotal: 4, installmentIndex: 2, installmentsGroupId: 'inst-test',
+    recurringGroupId: '', expenseRecurring: false, paid: true });
+  ctx.save = async () => true;
+  const promise = ctx.saveMobileUnifiedOutflow('launch', { editId: item.id, description: 'Updated installment',
+    amount: item.amount, category: item.category, date: item.date, output: 'card:old', planning: true });
+  if (ctx.scope) ctx.scope.onThisMonth();
+  assert.equal((await promise).status, 'saved');
+  const saved = ctx.getCurrentMonth().outflows[0];
+  assert.equal(saved.installmentsTotal, 4);
+  assert.equal(saved.installmentIndex, 2);
+  assert.equal(saved.installmentsGroupId, 'inst-test');
+  assert.equal(saved.paid, true);
+});
+
+test('3C concurrent Mobile submissions share one persistence operation', async () => {
+  const { ctx } = setup();
+  let resolve;
+  let writes = 0;
+  ctx.save = () => { writes++; return new Promise(done => { resolve = done; }); };
+  const payload = { description: 'New mobile', category: 'HOME', amount: 25, date: '05/11/26', output: 'card:old' };
+  const first = ctx.saveMobileUnifiedOutflow('launch', payload);
+  const second = ctx.saveMobileUnifiedOutflow('launch', payload);
+  assert.equal(first, second);
+  assert.equal(writes, 1);
+  resolve(true);
+  assert.equal((await first).status, 'saved');
+  assert.equal(ctx.getCurrentMonth().outflows.filter(item => item.description === 'New mobile').length, 1);
 });
 
 test('cancelled scope resolves without changing the month or confirming a save', async () => {

@@ -88,6 +88,12 @@ capturas, dados pessoais, pastas temporarias ou alteracoes funcionais.
 Essa autorizacao nao inicia a etapa 2B nem a fase 3.
 # Atualizacao da etapa 3A
 
+Atualizacao 3C: validacao/processamento de saidas extraidos para
+MesAtualOutflowCommands. Desktop e Mobile enviam dados explicitos ao mesmo
+comando; Mobile nao preenche mais o formulario Desktop oculto. Exclusao e
+divisao compartilhada tambem extraidas. 28 testes novos e dois cenarios browser
+adicionais, conforme documento 14. Sem migracao ou mudanca de formato financeiro.
+
 Atualizacao posterior: 3A publicada no commit a6ef665. A 3B foi implementada
 com regras mensais e simbolos no modulo MonthSelectionCatalog, mantendo as
 fachadas. Seis novos testes; seletores reais Desktop/Mobile conferidos no smoke.

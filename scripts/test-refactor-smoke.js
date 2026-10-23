@@ -164,6 +164,69 @@ async function main() {
       assert.equal(await primary.evaluate(() => getTotals(getAllFinanceMonths().find(month => month.id === 'outubro_2026')).resultadoMes), 890);
       assert.equal(await primary.locator('#financialDrilldown').count(), 0);
     });
+    await check('Desktop command creates, edits and deletes through real forms with synthetic persistence', async () => {
+      const page = await open('a');
+      await page.evaluate(() => { save = async () => true; });
+      await page.locator('.nav-item[data-page="mes"]').click();
+      const before = await financeSnapshot(page);
+      await page.locator('#page-mes button[onclick="openUnifiedOutflowModal()"]').click();
+      await page.locator('#unifiedOutflowDescription').fill('3C Desktop fixture');
+      await page.locator('#unifiedOutflowAmount').fill('123.45');
+      await page.locator('#unifiedOutflowDate').fill('23/10/26');
+      await page.locator('#unifiedOutflowCategory').selectOption({ index: 1 });
+      await page.locator('#unifiedOutflowOutput').selectOption('method:debito');
+      await page.locator('#unifiedOutflowSubmitBtn').click();
+      await page.waitForFunction(() => getCurrentMonth().outflows.some(item => item.description === '3C Desktop fixture'));
+      const item = await page.evaluate(() => getCurrentMonth().outflows.find(item => item.description === '3C Desktop fixture'));
+      assert.equal(item.amount, 123.45);
+      assert.equal(item.paid, true);
+      await page.evaluate(id => openUnifiedOutflowModal(id), item.id);
+      await page.locator('#unifiedOutflowAmount').fill('125.55');
+      await page.locator('#unifiedOutflowSubmitBtn').click();
+      await page.waitForFunction(id => getCurrentMonth().outflows.find(item => item.id === id)?.amount === 125.55, item.id);
+      await page.evaluate(id => { closeUnifiedOutflowModal(); deleteUnifiedOutflow(id); }, item.id);
+      await page.locator('#modalYesNoQuestion button[onclick="resolveYesNoQuestion(true)"]').click();
+      assert.equal(await financeSnapshot(page), before);
+      await page.context().close();
+    });
+    await check('Mobile command retries pending save without duplication and edits without Desktop form', async () => {
+      const page = await open('a', true);
+      await page.evaluate(() => {
+        openUnifiedOutflowModal = () => { throw new Error('Hidden Desktop form must not open'); };
+        MobileV2OutflowForm.open('launch');
+      });
+      await page.locator('#mobileV2OutflowDescription').fill('3C Mobile fixture');
+      await page.locator('#mobileV2OutflowAmount').fill('13,45');
+      await page.locator('#mobileV2OutflowDate').click();
+      await page.locator('#mobileV2DatePickerSheet [data-date-part="day"]').selectOption('23');
+      await page.locator('#mobileV2DatePickerSheet [data-date-part="month"]').selectOption('10');
+      await page.locator('#mobileV2DatePickerSheet [data-date-part="year"]').selectOption('2026');
+      await page.locator('#mobileV2DatePickerSheet [data-date-picker-apply]').click();
+      await page.locator('#mobileV2OutflowCategory').selectOption({ index: 1 });
+      await page.locator('#mobileV2OutflowOutput').selectOption('method:debito');
+      await page.locator('#mobileV2OutflowSubmit').click();
+      await page.getByRole('button', { name: 'Tentar salvar novamente', exact: true }).waitFor();
+      assert.equal(await page.evaluate(() => getCurrentMonth().outflows.filter(item => item.description === '3C Mobile fixture').length), 1);
+      await page.evaluate(() => { flushServerStorage = async () => true; save = async () => true; });
+      await page.getByRole('button', { name: 'Tentar salvar novamente', exact: true }).click();
+      await page.locator('#mobileV2OutflowSheet').waitFor({ state: 'hidden' });
+      const item = await page.evaluate(() => getCurrentMonth().outflows.find(item => item.description === '3C Mobile fixture'));
+      assert.equal(item.amount, 13.45);
+      assert.equal(item.paid, true);
+      await page.evaluate(id => MobileV2OutflowForm.openEdit(getCurrentMonth().outflows.find(item => item.id === id)), item.id);
+      await page.locator('#mobileV2OutflowAmount').fill('14,55');
+      await page.locator('#mobileV2OutflowSubmit').click();
+      await page.locator('#mobileV2OutflowSheet').waitFor({ state: 'hidden' });
+      const rows = await page.evaluate(() => getCurrentMonth().outflows.filter(item => item.description === '3C Mobile fixture'));
+      assert.equal(rows.length, 1, JSON.stringify(await page.evaluate(() => ({
+        current: getCurrentMonth().id, rows: getAllFinanceMonths().map(month => ({ id: month.id,
+          rows: month.outflows.map(row => ({ id: row.id, description: row.description, amount: row.amount })) }))
+      }))));
+      assert.equal(rows[0].id, item.id);
+      assert.equal(rows[0].amount, 14.55);
+      assert.equal(rows[0].paid, true);
+      await page.context().close();
+    });
     assert.deepEqual(errors, []);
     assert.equal(fixture.unchanged(), true);
     assert.equal(fixture.requests.writes, 0);

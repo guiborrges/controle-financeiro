@@ -59,6 +59,10 @@ os achados da auditoria ou validar todas as integracoes. Detalhes e comandos
 reproduziveis no documento 10. Aguardando autorizacao para a etapa seguinte.
 # Atualizacao da etapa 3A
 
+Atualizacao 3C: suite com 413 testes e smoke ampliado para 10 cenarios,
+incluindo criar/editar/excluir Desktop e falha/retry/edicao Mobile com persistencia
+simulada. Fontes de dados reais intocadas; detalhes e limites no documento 14.
+
 Atualizacao posterior: 3A publicada. Para a 3B, seis novos testes de catalogo e
 conferencia dos seletores reais Desktop/Mobile acrescentados; detalhes, comandos
 e limites no documento 13. As demais secoes registram etapas passadas.

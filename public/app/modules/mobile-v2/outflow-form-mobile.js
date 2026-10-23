@@ -338,92 +338,11 @@
     }));
   }
 
-  async function applyToUnifiedModal(mode, payload) {
-    if (typeof global.openUnifiedOutflowModal !== 'function' || typeof global.saveUnifiedOutflow !== 'function') {
+  async function applyOutflowCommand(mode, payload) {
+    if (typeof global.saveMobileUnifiedOutflow !== 'function') {
       throw new Error('Fluxo de lançamento indisponível no momento.');
     }
-
-    global.openUnifiedOutflowModal(payload.editId || '', {});
-
-    const setValue = (id, value) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.value = value;
-      try {
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      } catch {}
-    };
-
-    setValue('unifiedOutflowDescription', payload.description);
-    setValue('unifiedOutflowAmount', String(payload.amount));
-    setValue('unifiedOutflowDate', payload.date);
-    setValue('unifiedOutflowCategory', payload.category);
-    setValue('unifiedOutflowTag', payload.tag);
-
-    const outputSelect = document.getElementById('unifiedOutflowOutput');
-    if (outputSelect) {
-      const preferredOutput = String(payload.output || '').trim();
-      const preferredOption = preferredOutput ? outputSelect.querySelector(`option[value="${preferredOutput}"]`) : null;
-      const firstMethod = outputSelect.querySelector('option[value^="method:"]')?.value || 'method:debito';
-      outputSelect.value = preferredOption ? preferredOutput : firstMethod;
-      outputSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    const recurringToggle = document.getElementById('unifiedOutflowRecurringToggle');
-    const installmentsToggle = document.getElementById('unifiedOutflowInstallmentsToggle');
-    const sharedToggle = document.getElementById('unifiedOutflowSharedToggle');
-    const planningToggle = document.getElementById('unifiedOutflowPlanningToggle');
-    const incomeToggle = document.getElementById('unifiedOutflowIncomeToggle');
-
-    if (!payload.editId) {
-      if (recurringToggle) recurringToggle.checked = mode === 'recurring';
-      if (installmentsToggle) installmentsToggle.checked = mode === 'installment';
-      if (sharedToggle) sharedToggle.checked = mode === 'shared';
-      if (incomeToggle) incomeToggle.checked = mode === 'renda';
-    }
-    if (planningToggle) planningToggle.checked = payload.planning || mode === 'recurring';
-
-    if (!payload.editId && typeof global.toggleUnifiedOutflowInstallments === 'function') {
-      global.toggleUnifiedOutflowInstallments();
-    } else if (!payload.editId && typeof global.handleUnifiedOutflowTypeChange === 'function') {
-      global.handleUnifiedOutflowTypeChange();
-    }
-
-    if (!payload.editId && mode === 'installment') {
-      setValue('unifiedOutflowInstallmentsCount', String(payload.installmentsCount));
-    }
-
-    if (!payload.editId && mode === 'shared') {
-      setValue('unifiedOutflowSharedPeopleCount', String(payload.sharedPeopleCount));
-      setValue('unifiedOutflowSharedMode', payload.sharedMode);
-      if (typeof global.toggleUnifiedOutflowShared === 'function') {
-        global.toggleUnifiedOutflowShared();
-      }
-      if (typeof global.renderUnifiedOutflowSharedPeople === 'function') {
-        global.renderUnifiedOutflowSharedPeople();
-      }
-      const participantRows = Array.from(document.querySelectorAll('#unifiedOutflowSharedPeopleList .form-row'));
-      (payload.sharedParticipants || []).forEach((participant, index) => {
-        const row = participantRows[index];
-        if (!row) return;
-        const nameInput = row.querySelector('.unified-shared-name');
-        const amountInput = row.querySelector('.unified-shared-amount');
-        if (nameInput && !participant.isOwner) nameInput.value = participant.name || '';
-        if (amountInput) amountInput.value = String(participant.amount || 0);
-      });
-    }
-
-    const saveResult = global.saveUnifiedOutflow({ preserveSemantics: !!payload.editId });
-    global.closeModal?.('modalUnifiedOutflow');
-    const result = await saveResult;
-    if (result?.status !== 'saved') return result || { status: 'invalid' };
-    if (typeof global.closeUnifiedOutflowModal === 'function') {
-      global.closeUnifiedOutflowModal();
-    } else if (typeof global.closeModal === 'function') {
-      global.closeModal('modalUnifiedOutflow');
-    }
-    return result;
+    return await global.saveMobileUnifiedOutflow(mode, payload);
   }
 
   async function submitForm(mode) {
@@ -463,7 +382,7 @@
       document.querySelectorAll('#mobileV2OutflowFormBody input, #mobileV2OutflowFormBody select, #mobileV2OutflowFormBody button').forEach(el => { el.disabled = true; });
       const result = pendingSave
         ? { status: await global.flushServerStorage(true, 'mobile-retry') === true ? 'saved' : 'pending', id: pendingSave.id }
-        : await applyToUnifiedModal(mode, payload);
+        : await applyOutflowCommand(mode, payload);
       if (result?.status === 'pending') {
         pendingSave = result;
         document.querySelectorAll('#mobileV2OutflowFormBody input, #mobileV2OutflowFormBody select').forEach(el => { el.disabled = true; });
