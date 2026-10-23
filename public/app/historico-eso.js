@@ -97,12 +97,19 @@ function renderHistorico() {
   tbody.innerHTML = sortedRows.map(({ month: m, totals: t, resultado: res }) => {
     return `<tr>
       <td style="padding-left:22px;font-weight:500">${m.nome}</td>
-      <td class="amount-neg">${fmt(t.totalGastos)}</td>
-      <td class="amount-pos">${fmt(t.rendaTotal)}</td>
-      <td style="color:var(--blue)">${fmt(t.totalProj)}</td>
-      <td><span class="badge ${res>=0?'badge-pos':'badge-neg'}">${fmtSigned(res)}</span></td>
+      <td class="amount-neg" data-history-metric="expenses">${fmt(t.totalGastos)}</td>
+      <td class="amount-pos" data-history-metric="income">${fmt(t.rendaTotal)}</td>
+      <td style="color:var(--blue)" data-history-metric="projects">${fmt(t.totalProj)}</td>
+      <td data-history-metric="result"><span class="badge ${res>=0?'badge-pos':'badge-neg'}">${fmtSigned(res)}</span></td>
     </tr>`;
   }).join('');
+  tbody.querySelectorAll('tr').forEach((row, index) => {
+    const { month, totals, resultado } = sortedRows[index];
+    const expected = { expenses: totals.totalGastos, income: totals.rendaTotal, projects: totals.totalProj, result: resultado };
+    row.querySelectorAll('[data-history-metric]').forEach(cell => FinancialDrilldown.bindValue(cell.querySelector('.badge') || cell, [month], {
+      metric: cell.dataset.historyMetric, expectedCents: Math.round(expected[cell.dataset.historyMetric] * 100)
+    }));
+  });
   const tabela = document.getElementById('hist-tabela');
   const grafico = document.getElementById('hist-grafico');
   const buttons = document.querySelectorAll('.tab-btn');
@@ -138,6 +145,8 @@ function buildHistCharts() {
   destroyChart('histChart1');
   destroyChart('histChart2');
   const list = getHistoricoEligibleData();
+  FinancialDrilldown.bindChartKeyboard(document.getElementById('histChart1'), list, { metric: 'expenses' });
+  FinancialDrilldown.bindChartKeyboard(document.getElementById('histChart2'), list, { metric: 'result' });
   const ctx1 = document.getElementById('histChart1').getContext('2d');
   charts['histChart1'] = new Chart(ctx1, {
     type: 'bar',
@@ -148,7 +157,9 @@ function buildHistCharts() {
         { label:'Renda', data: list.map(m=>getTotals(m).rendaTotal), backgroundColor:'rgba(39,174,96,.7)' }
       ]
     },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:true}},
+    options: { responsive:true, maintainAspectRatio:false,
+      onClick: (event, points, chart) => FinancialDrilldown.chart(event, points, chart, list, (dataset, point) => point.datasetIndex === 0 ? 'expenses' : 'income'),
+      plugins:{legend:{display:true}},
       scales:{ x:{ticks:{font:{size:10},maxRotation:45,autoSkip:true}}, y:{ticks:{callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,.05)'}} } }
   });
 
@@ -159,7 +170,9 @@ function buildHistCharts() {
       labels: list.map(m=>m.nome.split(' ').map((w,i)=>i===0?w.slice(0,3):w).join('/')),
       datasets: [{ data: list.map(m=>computeResult(m,resultMode)), backgroundColor: list.map(m=>computeResult(m,resultMode)>=0?'rgba(39,174,96,.75)':'rgba(192,57,43,.7)') }]
     },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+    options: { responsive:true, maintainAspectRatio:false,
+      onClick: (event, points, chart) => FinancialDrilldown.chart(event, points, chart, list, 'result'),
+      plugins:{legend:{display:false}},
       scales:{ x:{ticks:{font:{size:10},maxRotation:45,autoSkip:true}}, y:{ticks:{callback:v=>(v<0?'-':'')+'R$'+(Math.abs(v)/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,.05)'}} } }
   });
 }

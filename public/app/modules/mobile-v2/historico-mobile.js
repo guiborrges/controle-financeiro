@@ -19,10 +19,11 @@
         ? Number(global.calculateUnifiedPlanningTotal(month) || 0)
         : Number(totals?.totalGastos || 0));
     return {
+      id: month.id,
       name: String(month?.nome || month?.id || 'Mês'),
       income,
       expenses,
-      result: income - expenses
+      result: Number(metrics?.resultado ?? totals?.resultadoMes ?? (income - expenses - Number(totals?.totalFinancialGoals || 0)))
     };
   }
 
@@ -47,13 +48,20 @@
           <article class="m2-recent-item m2-history-row-plain">
             <span>
               <p class="m2-row-title">${escapeHtml(row.name)}</p>
-              <span class="m2-row-meta">Lançamentos ${formatMoney(row.expenses)} · Renda ${formatMoney(row.income)}</span>
+              <span class="m2-row-meta"><span data-history-expenses>Lançamentos ${formatMoney(row.expenses)}</span> · <span data-history-income>Renda ${formatMoney(row.income)}</span></span>
             </span>
             <span class="m2-row-amount ${row.result >= 0 ? 'positive' : 'negative'}">${formatMoney(row.result)}</span>
           </article>
         `).join('') : '<p style="color:var(--text3);font-size:12px">Sem histórico disponível.</p>'}
       </section>
     `;
+    target.querySelectorAll('.m2-history-row-plain').forEach((article, index) => {
+      const row = rows[index];
+      const month = months.find(month => month.id === row.id);
+      for (const [selector, metric, value] of [['.m2-row-amount', 'result', row.result], ['[data-history-expenses]', 'expenses', row.expenses], ['[data-history-income]', 'income', row.income]]) {
+        global.FinancialDrilldown.bindValue(article.querySelector(selector), [month], { metric, expectedCents: Math.round(value * 100) });
+      }
+    });
 
   }
 
