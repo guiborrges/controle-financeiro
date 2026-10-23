@@ -12,8 +12,24 @@ function expectedAmount(bill, nanAsZero) {
     ? raw : Math.max(0, number(bill.forecastAmount));
 }
 
-test('3A bill consumers preserve precedence and coercion across the complete input matrix', () => {
+test('bill consumers preserve fixed expected values and the complete coercion matrix', () => {
   const ctx = browserSandbox();
+  // Fixed business expectations remain independent of the exhaustive reference formula.
+  for (const [name, bill, amount] of [
+    ['manual zero', { amount: 0, manualAmountSet: true, forecastAmount: 90 }, 0],
+    ['manual nonzero', { amount: 25.35, manualAmountSet: true, source: 'forecast', forecastAmount: 90 }, 25.35],
+    ['imported amount', { amount: 25.35, source: 'import', forecastAmount: 90 }, 25.35],
+    ['forecast ignores old amount', { amount: 25, source: 'forecast', forecastAmount: 90 }, 90],
+    ['missing forecast', { amount: 25, source: 'forecast' }, 0],
+    ['negative forecast', { forecastAmount: -20, source: 'forecast' }, 0],
+    ['negative manual', { amount: -20, manualAmountSet: true, forecastAmount: 90 }, 0],
+    ['numeric string', { amount: '12.34', source: 'import' }, 12.34],
+    ['empty bill', {}, 0]
+  ]) {
+    Object.freeze(bill);
+    assert.equal(financial.billAmount(bill), amount, name);
+    assert.equal(ctx.MesAtualCards.getUnifiedCardBillEffectiveAmount({}, bill), amount, name);
+  }
   const values = [undefined, null, '', 0, -1, 12.345, '12.34', 'invalid', NaN, Infinity, -Infinity];
   let cases = 0;
   for (const amount of values) for (const forecastAmount of values) {

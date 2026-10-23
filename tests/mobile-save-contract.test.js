@@ -18,8 +18,9 @@ function adapter(save) {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/app/modules/shared/dates.js'), 'utf8'), ctx);
   const source = fs.readFileSync(path.join(__dirname, '../public/app/modules/mobile-v2/outflow-form-mobile.js'), 'utf8');
-  vm.runInContext(source.replace('    ensureSheet,', '    applyOutflowCommand, parseMoneyInput,\n    ensureSheet,'), ctx);
+  vm.runInContext(source.replace('    ensureSheet,', '    applyOutflowCommand, parseMoneyInput, resolveMobileDate,\n    ensureSheet,'), ctx);
   return { ctx, nodes };
 }
 
@@ -55,4 +56,14 @@ test('mobile does not close the form for invalid, cancelled or pending saves', a
     assert.equal(result.status, status);
     assert.equal(ctx.closed, undefined);
   }
+});
+
+test('mobile date adapter keeps explicit months, offsets simple days and rejects impossible dates', () => {
+  const { ctx } = adapter(async () => ({ status: 'saved' }));
+  ctx.getCurrentMonth = () => ({ nome: 'OUTUBRO 2026' });
+  const resolve = ctx.MobileV2OutflowForm.resolveMobileDate;
+  assert.equal(resolve('10'), '10/11/26');
+  assert.equal(resolve('10/05/26'), '10/05/26');
+  assert.equal(resolve('31/02/26'), '');
+  assert.equal(resolve('32'), '');
 });

@@ -26,27 +26,8 @@ for (const [basis, values] of Object.entries(expected)) {
   });
 }
 
-for (const [name, bill, amount] of [
-  ['manual zero', { amount: 0, manualAmountSet: true, forecastAmount: 90 }, 0],
-  ['manual nonzero', { amount: 25.35, manualAmountSet: true, source: 'forecast', forecastAmount: 90 }, 25.35],
-  ['imported amount', { amount: 25.35, source: 'import', forecastAmount: 90 }, 25.35],
-  ['forecast ignores old amount', { amount: 25, source: 'forecast', forecastAmount: 90 }, 90],
-  ['missing forecast', { amount: 25, source: 'forecast' }, 0],
-  ['negative forecast', { forecastAmount: -20, source: 'forecast' }, 0],
-  ['negative manual', { amount: -20, manualAmountSet: true, forecastAmount: 90 }, 0],
-  ['numeric string', { amount: '12.34', source: 'import' }, 12.34],
-  ['empty bill', {}, 0]
-]) {
-  test(`2A bill precedence: ${name} agrees across current implementations`, () => {
-    const ctx = browserSandbox();
-    const before = JSON.stringify(bill);
-    assert.equal(financial.billAmount(bill), amount);
-    assert.equal(ctx.MesAtualCards.getUnifiedCardBillEffectiveAmount({}, bill), amount);
-    assert.equal(JSON.stringify(bill), before);
-  });
-}
 
-test('2A invalid bill amounts remain an explicit divergence, not an assumed common contract', () => {
+test('financial query keeps its NaN policy and rejects infinite bill amounts', () => {
   const ctx = browserSandbox();
   const bill = { amount: 'invalid', manualAmountSet: true };
   assert.equal(ctx.MesAtualCards.getUnifiedCardBillEffectiveAmount({}, bill), 0);

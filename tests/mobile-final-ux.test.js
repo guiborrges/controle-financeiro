@@ -79,17 +79,6 @@ test('calendar mobile uses theme-aware intensity variables and dark-mode styling
   assert.match(css, /html\[data-theme="dark"\]\.mobile-v2 \.cal-day\.has-items/);
 });
 
-test('mobile outflow save closes without reopening the second edit screen and accepts flexible dates', () => {
-  const source = read('modules', 'mobile-v2', 'outflow-form-mobile.js');
-  assert.match(source, /function resolveMobileDate\(rawValue\)/);
-  assert.match(source, /simpleDayMonthOffset:\s*1/);
-  assert.match(source, /placeholder="10 ou 10\/05\/26"/);
-  assert.match(source, /return await global\.saveMobileUnifiedOutflow\(mode, payload\)/);
-  assert.match(source, /await applyOutflowCommand\(mode, payload\)/);
-  assert.doesNotMatch(source, /global\.closeUnifiedOutflowModal/);
-  assert.doesNotMatch(source, /openUnifiedOutflowModal/);
-});
-
 test('mobile month swipe navigation is disabled while pull refresh remains active', () => {
   const source = read('mobile-v2-enhancements.js');
   assert.match(source, /function attachPullToRefresh\(\)/);

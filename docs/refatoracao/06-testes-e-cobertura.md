@@ -1,5 +1,17 @@
 # Testes e cobertura atuais
 
+## Atualizacao apos a limpeza da suite
+
+Base 3458915, 23/10/2026: antes, 413 testes em 68 arquivos; depois, 398 testes
+em 65 arquivos, todos aprovados. Smoke com 10 cenarios aprovado. Ver documento 15
+para cada remocao e a cobertura substituta. Os numeros e lacunas abaixo sao
+registros historicos, nao o estado atual completo. Nenhum percentual V8 novo
+foi medido nesta limpeza.
+
+Comandos atuais: `npm test` e `npm run test:smoke`. O alias test:ux:15points,
+que apontava para arquivo inexistente, foi removido. Scripts manuais de carga e
+integracao continuam separados; nao foram executados nem contados como aprovados.
+
 Atualizacao: baseline da fase 1 preservada abaixo. Ao concluir a etapa 2A,
 foram acrescentados 36 testes (total 352 aprovados) e executados 8 cenarios
 de navegador. Ha agora 63 arquivos `*.test.js` no total. Ver documento 10

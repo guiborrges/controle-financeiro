@@ -138,8 +138,10 @@ async function main() {
       assert.equal(await mobile.locator('#mobileV2LineChart').evaluate(canvas => canvas.width > 0 && canvas.height > 0), true);
     });
     await check('mobile edit sheet cancellation preserves original financial metadata', async () => {
+      await mobile.evaluate(() => MobileV2.setTab('mes'));
       const before = await financeSnapshot(mobile);
-      await mobile.evaluate(() => MobileV2OutflowForm.openEdit(getAllFinanceMonths().find(month => month.id === 'outubro_2026').outflows[0]));
+      await mobile.locator('#mobileV2Screen-mes [data-action="edit"]:visible').first().click();
+      await mobile.locator('#mobileV2OutflowSheet').waitFor({ state: 'visible' });
       await assertMonthlyCatalogSelects(mobile, 'mobileV2OutflowCategory', 'mobileV2OutflowTag');
       await mobile.locator('#mobileV2OutflowDescription').fill('Edicao ficticia cancelada');
       await mobile.locator('#mobileV2OutflowAmount').fill('456,78');

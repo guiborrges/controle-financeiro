@@ -1,5 +1,12 @@
 # Validacao final da etapa de auditoria
 
+## Atualizacao da limpeza de testes
+
+398 testes aprovados e 10 cenarios de navegador aprovados apos a limpeza,
+sem skips ou cancelamentos. Esta reducao vem da consolidacao/retirada de casos,
+nao da ocultacao de falhas: a baseline anterior de 413 tambem passou antes das
+mudancas. Codigo funcional do aplicativo intocado. Ver documento 15.
+
 Data: 23/10/2026. Base: `a3011ea`. Esta e a validacao do DIAGNOSTICO, nao
 o encerramento da refatoracao completa.
 

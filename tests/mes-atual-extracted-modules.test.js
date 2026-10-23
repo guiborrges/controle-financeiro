@@ -22,7 +22,7 @@ test('shared-expense module computes owner/others shares', () => {
   assert.equal(Number(result.othersShare.toFixed(2)), 80);
 });
 
-test('cards module computes recurring forecast and effective amount', () => {
+test('cards module sums recurring purchases and ignores one-off purchases', () => {
   const win = runModule('../public/app/modules/mes-atual/cards.js');
   const month = {
     outflows: [
@@ -33,29 +33,6 @@ test('cards module computes recurring forecast and effective amount', () => {
   };
   const forecast = win.MesAtualCardBill.getUnifiedCardRecurringForecastAmount(month, 'c1');
   assert.equal(forecast, 50);
-  const effective = win.MesAtualCardBill.getUnifiedCardBillEffectiveAmount(month, {
-    cardId: 'c1',
-    amount: 0,
-    forecastAmount: 50,
-    manualAmountSet: false,
-    source: 'forecast'
-  });
-  assert.equal(effective, 50);
-});
-
-test('cards module preserves manual zero and does not invent missing forecast', () => {
-  const win = runModule('../public/app/modules/mes-atual/cards.js');
-  assert.equal(win.MesAtualCards.getUnifiedCardBillEffectiveAmount({}, {
-    amount: 0,
-    forecastAmount: 120,
-    manualAmountSet: true,
-    source: 'manual'
-  }), 0);
-  assert.equal(win.MesAtualCards.getUnifiedCardBillEffectiveAmount({}, {
-    amount: 0,
-    manualAmountSet: false,
-    source: 'forecast'
-  }), 0);
 });
 
 test('cards module uses only owner share for shared card launches', () => {

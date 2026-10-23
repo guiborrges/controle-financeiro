@@ -1,5 +1,13 @@
 # Alteracoes realizadas
 
+## Limpeza de testes apos 3C
+
+De 413 para 398 testes: 16 casos redundantes/obsoletos removidos ou consolidados
+e um teste comportamental de datas Mobile acrescentado. Tres arquivos de teste
+removidos, exemplos fixos de fatura mantidos, editor Mobile exercitado pelo botao
+real no smoke. Alias quebrado de UX removido e test:smoke disponibilizado.
+Nenhum codigo do produto alterado. Detalhes no documento 15.
+
 ## Fase 1: historico do diagnostico
 
 Foram criados os nove documentos `docs/refatoracao/01-...md` a `09-...md`.
