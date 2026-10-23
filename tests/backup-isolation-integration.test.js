@@ -400,8 +400,11 @@ test('backup create and restore preserve partitioned state bundles', () => {
     const backup = createUserBackup(user.id, { type: 'manual', note: 'partitioned' });
     const listed = listUserBackups(user.id).find(item => item.id === backup.id);
     const backupStatePath = listed.path;
-    const hasBackupParts = fs.existsSync(path.join(path.dirname(backupStatePath), 'state-parts', 'months.json'));
-    const hasBackupMonthFile = fs.existsSync(path.join(path.dirname(backupStatePath), 'state-parts', 'months', '2026.json'));
+    const backupManifest = JSON.parse(fs.readFileSync(backupStatePath, 'utf8'));
+    const monthsPartPath = path.join(path.dirname(backupStatePath), 'state-parts', backupManifest.parts.months.file);
+    const monthsPart = JSON.parse(fs.readFileSync(monthsPartPath, 'utf8'));
+    const hasBackupParts = fs.existsSync(monthsPartPath);
+    const hasBackupMonthFile = fs.existsSync(path.join(path.dirname(backupStatePath), 'state-parts', 'months', monthsPart.chunks[0].file));
     writeUserAppState(user.id, { finStateSchemaVersion: '3', finData: [{ id: '2026-05' }] }, key);
     restoreUserBackup(user.id, backup.id);
     const restored = readUserAppState(user.id, key);

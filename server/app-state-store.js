@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('node:crypto');
 const { writeJsonFileAtomic } = require('./fs-atomic');
 
 const { findUserById, readUsersStore } = require('./user-store');
@@ -297,12 +298,9 @@ function readLegacyPerMonthPartition(partPayload, partsDir, encryptionKey = '') 
   return { finData };
 }
 
-function writeMonthsPartition(partsDir, manifestBase, partState, encryptionKey = '') {
+function writeMonthsPartition(partsDir, manifestBase, partState, encryptionKey, pendingWrites) {
   const months = Array.isArray(partState?.finData) ? partState.finData : [];
   const monthsDir = path.join(partsDir, MONTHS_PARTITION_DIR_NAME);
-  if (fs.existsSync(monthsDir)) {
-    fs.rmSync(monthsDir, { recursive: true, force: true });
-  }
   fs.mkdirSync(monthsDir, { recursive: true });
 
   const chunks = buildMonthYearChunks(months);
@@ -320,15 +318,16 @@ function writeMonthsPartition(partsDir, manifestBase, partState, encryptionKey =
       encrypted: !!encryptionKey,
       state: serializedState
     };
-    const chunkPath = path.join(monthsDir, chunk.file);
+    const fileName = `${manifestBase.generation}-${chunk.file}`;
+    const chunkPath = path.join(monthsDir, fileName);
     const size = computePayloadBytes(chunkPayload);
     totalBytes += size;
-    writeJsonFileAtomic(chunkPath, chunkPayload);
+    pendingWrites.push({ filePath: chunkPath, payload: chunkPayload });
     return {
       id: chunk.id,
       index: chunk.index,
       firstMonthIndex: chunk.firstMonthIndex,
-      file: chunk.file,
+      file: fileName,
       monthCount: chunk.months.length,
       size,
       encrypted: !!encryptionKey
@@ -346,11 +345,11 @@ function writeMonthsPartition(partsDir, manifestBase, partState, encryptionKey =
     chunks: manifestChunks,
     state: null
   };
-  const fileName = getPartitionFileName('months');
+  const fileName = `months-${manifestBase.generation}.json`;
   const partPath = path.join(partsDir, fileName);
   const manifestSize = computePayloadBytes(partPayload);
   totalBytes += manifestSize;
-  writeJsonFileAtomic(partPath, partPayload);
+  pendingWrites.push({ filePath: partPath, payload: partPayload });
 
   return {
     meta: {
@@ -371,11 +370,12 @@ function writePartitionedState(dir, manifestBase, sanitizedState, encryptionKey 
   fs.mkdirSync(partsDir, { recursive: true });
   const statePartitions = splitStateIntoPartitions(sanitizedState);
   const partsMeta = {};
+  const pendingWrites = [];
   let totalBytes = 0;
 
   Object.entries(statePartitions).forEach(([partitionName, partState]) => {
     if (partitionName === 'months') {
-      const { meta, totalBytes: monthBytes } = writeMonthsPartition(partsDir, manifestBase, partState, encryptionKey);
+      const { meta, totalBytes: monthBytes } = writeMonthsPartition(partsDir, manifestBase, partState, encryptionKey, pendingWrites);
       totalBytes += monthBytes;
       partsMeta[partitionName] = meta;
       return;
@@ -388,11 +388,11 @@ function writePartitionedState(dir, manifestBase, sanitizedState, encryptionKey 
       encrypted: !!encryptionKey,
       state: serializedState
     };
-    const fileName = getPartitionFileName(partitionName);
+    const fileName = `${partitionName}-${manifestBase.generation}.json`;
     const partPath = path.join(partsDir, fileName);
     const size = computePayloadBytes(partPayload);
     totalBytes += size;
-    writeJsonFileAtomic(partPath, partPayload);
+    pendingWrites.push({ filePath: partPath, payload: partPayload });
     partsMeta[partitionName] = {
       file: fileName,
       size,
@@ -400,7 +400,18 @@ function writePartitionedState(dir, manifestBase, sanitizedState, encryptionKey 
     };
   });
 
-  return { partsMeta, totalBytes };
+  return { partsMeta, totalBytes, pendingWrites };
+}
+
+function pruneUnreferencedStateFiles(dir, activeFiles) {
+  const partsDir = path.join(dir, STATE_PARTS_DIR_NAME);
+  for (const directory of [partsDir, path.join(partsDir, MONTHS_PARTITION_DIR_NAME)]) {
+    if (!fs.existsSync(directory)) continue;
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const filePath = path.join(directory, entry.name);
+      if (entry.isFile() && (entry.name.endsWith('.json') || entry.name.endsWith('.tmp')) && !activeFiles.has(filePath)) fs.unlinkSync(filePath);
+    }
+  }
 }
 
 function copyStateBundle(sourceStateFile, targetStateFile) {
@@ -685,6 +696,7 @@ function writeUserAppState(userId, state, encryptionKey = '') {
   const previousRevision = Date.parse(safeReadJson(filePath)?.updatedAt || '') || 0;
   const payload = {
     userId,
+    generation: crypto.randomBytes(12).toString('hex'),
     updatedAt: new Date(Math.max(Date.now(), previousRevision + 1)).toISOString(),
     monthCount,
     schemaVersion,
@@ -694,18 +706,37 @@ function writeUserAppState(userId, state, encryptionKey = '') {
     state: null,
     parts: {}
   };
-  const { partsMeta, totalBytes } = writePartitionedState(dir, payload, sanitizedState, encryptionKey);
+  const { partsMeta, totalBytes, pendingWrites } = writePartitionedState(dir, payload, sanitizedState, encryptionKey);
   payload.parts = partsMeta;
   payload.totalSize = totalBytes;
   if (totalBytes > MAX_STATE_BYTES) {
     throw new Error('Estado excede o limite de armazenamento permitido.');
   }
-  writeJsonFileAtomic(filePath, payload);
+  // Publish only after the complete new generation is durable; old files stay untouched on failure.
+  try {
+    pendingWrites.forEach(entry => writeJsonFileAtomic(entry.filePath, entry.payload));
+    for (const entry of pendingWrites) {
+      const expected = crypto.createHash('sha256').update(`${JSON.stringify(entry.payload, null, 2)}\n`).digest('hex');
+      const actual = crypto.createHash('sha256').update(fs.readFileSync(entry.filePath)).digest('hex');
+      if (actual !== expected) throw new Error('Falha ao verificar a nova particao de estado.');
+    }
+    writeJsonFileAtomic(filePath, payload);
+  } catch (error) {
+    for (const entry of pendingWrites) {
+      try { if (fs.existsSync(entry.filePath)) fs.unlinkSync(entry.filePath); } catch {}
+    }
+    throw error;
+  }
   clearUserStateReadCache(userId);
   setUserStateReadCache(userId, encryptionKey, {
     ...payload,
     state: sanitizedState
   });
+  try {
+    pruneUnreferencedStateFiles(dir, new Set(pendingWrites.map(entry => entry.filePath)));
+  } catch (error) {
+    console.warn('[app-state] Limpeza de particoes antigas pendente', { userId, code: error?.code || 'unknown' });
+  }
   return payload;
 }
 

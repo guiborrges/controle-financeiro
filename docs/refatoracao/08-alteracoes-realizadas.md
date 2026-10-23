@@ -86,3 +86,9 @@ Apos a conclusao local da etapa 2A, o usuario autorizou subir esta entrega.
 O envio inclui apenas testes/harness e documentacao; nao inclui backups,
 capturas, dados pessoais, pastas temporarias ou alteracoes funcionais.
 Essa autorizacao nao inicia a etapa 2B nem a fase 3.
+# Atualizacao da etapa 2B
+
+Primeiro lote F01/F02 implementado localmente: historico privado no bootstrap
+autenticado e gravacao por geracoes com publicacao do manifesto ao final.
+24 testes novos; suite completa com 375 aprovados e 8 cenarios de navegador.
+Sem publicacao ou alteracao de contas reais. Detalhes e limites no documento 11.

@@ -29,7 +29,8 @@ function showBootstrapFatalError(error) {
 
 (async () => {
   try {
-    await initializeServerStorage({ allowPartial: false });
+    const bootstrap = await initializeServerStorage({ allowPartial: false });
+    applyLegacyFinanceSeed(bootstrap.legacySeed);
     clearBootstrapRetryAction();
     init();
     if (typeof window.__loadMobileV2ScriptsIfNeeded === 'function') {

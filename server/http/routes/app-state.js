@@ -1,3 +1,5 @@
+const { getLegacySeedForUser } = require('../../legacy-seed-data');
+
 function registerAppStateRoutes(app, deps) {
   const {
     noStore,
@@ -136,6 +138,7 @@ function registerAppStateRoutes(app, deps) {
         canAccessESO: !!refreshedUser.permissions?.canAccessESO
       },
       isPrimaryUser,
+      legacySeed: getLegacySeedForUser(refreshedUser),
       appState: savedState?.state || null,
       stateRevision: stateRevision,
       hasServerState: !!savedState,

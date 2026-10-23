@@ -1,6 +1,8 @@
 # Riscos e problemas funcionais separados
 
-Nenhum item deste documento foi corrigido. Nao ha evidencia de perda de dados
+Atualizacao da etapa 2B: F01 e F02 corrigidos localmente no primeiro lote,
+conforme documento 11; ainda sem publicacao. F03 a F06 permanecem pendentes.
+As evidencias abaixo descrevem o diagnostico anterior. Nao ha evidencia de perda de dados
 reais; as simulacoes utilizaram apenas registros ficticios em armazenamento temporario.
 
 ## F01 / A01 - Historico embutido exposto

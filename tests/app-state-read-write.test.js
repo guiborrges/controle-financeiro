@@ -88,20 +88,20 @@ test('app-state writer stores state as partitioned bundle', () => {
     const manifest = JSON.parse(fs.readFileSync(statePath, 'utf8'));
     const partsDir = path.join(path.dirname(statePath), 'state-parts');
     const partFiles = fs.readdirSync(partsDir).sort();
-    const monthsManifest = JSON.parse(fs.readFileSync(path.join(partsDir, 'months.json'), 'utf8'));
+    const monthsManifest = JSON.parse(fs.readFileSync(path.join(partsDir, manifest.parts.months.file), 'utf8'));
     const monthFiles = fs.readdirSync(path.join(partsDir, 'months')).sort();
     const loaded = readUserAppState('u_partition', key);
     console.log(JSON.stringify({
       partitioned: manifest.partitioned === true,
       partitionVersion: manifest.partitionVersion,
       manifestHasEncryptedBlob: typeof manifest.state === 'string',
-      hasMonthsPart: partFiles.includes('months.json'),
+      hasMonthsPart: partFiles.includes(manifest.parts.months.file),
       monthsFormat: monthsManifest.format,
       chunkFileCount: monthFiles.length,
       firstChunkFileEncrypted: JSON.parse(fs.readFileSync(path.join(partsDir, 'months', monthFiles[0]), 'utf8')).encrypted === true,
       chunkCount: monthsManifest.chunkCount,
-      hasPatrimonioPart: partFiles.includes('patrimonio.json'),
-      hasEsoPart: partFiles.includes('eso.json'),
+      hasPatrimonioPart: partFiles.includes(manifest.parts.patrimonio.file),
+      hasEsoPart: partFiles.includes(manifest.parts.eso.file),
       monthCount: loaded.state.finData.length,
       monthOrder: loaded.state.finData.map(m => m.id).join('|'),
       accountId: loaded.state.finPatrimonioAccounts[0].id,

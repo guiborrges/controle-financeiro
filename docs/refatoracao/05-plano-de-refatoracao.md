@@ -82,6 +82,10 @@ Uma reversao de codigo nao desfaz dados ja migrados; isso precisa ser explicitad
 
 ## Fora do escopo
 
+Atualizacao: etapa 2B autorizada e iniciada. Primeiro lote F01/F02 implementado
+localmente e validado; detalhes no documento 11. F03 a F06 continuam pendentes.
+Nao houve autorizacao de publicacao nem inicio da fase 3.
+
 M10 permanece removida. Sem novas funcionalidades, novos componentes visuais,
 reactivacao de service worker, conexao bancaria real, IA externa, limpeza de
 historico Git, troca de banco, migracao destrutiva ou mudanca de credenciais.

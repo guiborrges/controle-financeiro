@@ -12,32 +12,25 @@ function buildTempFilePath(filePath) {
 }
 
 function renameReplaceSafe(tempPath, targetPath) {
-  try {
-    fs.renameSync(tempPath, targetPath);
-    return;
-  } catch (error) {
-    if (!error || !['EEXIST', 'EPERM', 'ENOTEMPTY'].includes(error.code)) {
-      throw error;
-    }
-  }
-  try {
-    fs.rmSync(targetPath, { force: true });
-  } catch {}
+  // Fail closed on Windows locks: never delete the last committed target.
   fs.renameSync(tempPath, targetPath);
 }
 
 function writeTextFileAtomic(filePath, content, encoding = 'utf8') {
   ensureParentDir(filePath);
   const tempPath = buildTempFilePath(filePath);
-  const fileDescriptor = fs.openSync(tempPath, 'w');
   try {
-    const buffer = Buffer.from(String(content), encoding);
-    fs.writeSync(fileDescriptor, buffer, 0, buffer.length, 0);
-    fs.fsyncSync(fileDescriptor);
+    const fileDescriptor = fs.openSync(tempPath, 'w');
+    try {
+      fs.writeFileSync(fileDescriptor, Buffer.from(String(content), encoding));
+      fs.fsyncSync(fileDescriptor);
+    } finally {
+      fs.closeSync(fileDescriptor);
+    }
+    renameReplaceSafe(tempPath, filePath);
   } finally {
-    fs.closeSync(fileDescriptor);
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
   }
-  renameReplaceSafe(tempPath, filePath);
 }
 
 function writeJsonFileAtomic(filePath, payload) {

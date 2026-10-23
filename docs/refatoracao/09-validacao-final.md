@@ -57,3 +57,9 @@ e SQLite criptografado relidos em processos novos com os mesmos campos/totais.
 Os criterios deste lote de protecao foram atendidos; isso nao equivale a sanar
 os achados da auditoria ou validar todas as integracoes. Detalhes e comandos
 reproduziveis no documento 10. Aguardando autorizacao para a etapa seguinte.
+# Atualizacao da etapa 2B
+
+Autorizacao recebida para iniciar 2B, nao para publicar. Primeiro lote F01/F02:
+375 testes aprovados e 8 cenarios Desktop/Mobile aprovados. Armazenamento real
+intocado; sem validacao em producao. F03 a F06 permanecem pendentes.
+Detalhes e limites no documento 11. As secoes anteriores registram etapas passadas.
