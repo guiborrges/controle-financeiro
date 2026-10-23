@@ -287,7 +287,18 @@ function stopDashboardWidgetResize() {
 // ============================================================
 function renderDashboard() {
   const histWrap = document.getElementById('histFilters'); if (histWrap) histWrap.innerHTML = '';
-  const filtered = getDashboardEligibleMonths(getFilteredData()).map(m => { ensureProjetos(m); return m; });
+  let filtered = getDashboardEligibleMonths(getFilteredData());
+  if (!filtered.length) {
+    const available = getDashboardEligibleMonths(data);
+    if (available.length) {
+      const latest = available.reduce((last, month) => getMonthSortValue(month) > getMonthSortValue(last) ? month : last);
+      periodFilter = { ...periodFilter, type: 'month', month: latest.id };
+      filtered = [latest];
+      saveUIState();
+    }
+  }
+  buildPeriodControls('dashFilters','resultModeSel');
+  filtered.forEach(ensureProjetos);
   if (filtered.length === 0) {
     const sub = document.getElementById('dashSub');
     const insights = document.getElementById('dashInsights');
@@ -320,7 +331,6 @@ function renderDashboard() {
   const prev = filtered[filtered.length - 2];
   const totalGastos = filtered.reduce((a,m)=>a+getTotals(m).totalGastos,0);
   const mediaGastos = filtered.length ? totalGastos / filtered.length : 0;
-  buildPeriodControls('dashFilters','resultModeSel');
   buildResultSelect('mesResultSelect', filtered);
   renderTitles();
   renderDashSeriesControls();
