@@ -1096,6 +1096,14 @@ function togglePeriodInputs() {
 
 function onPeriodTypeChange(val) {
   periodFilter.type = val;
+  if (val === 'year') {
+    const years = Array.from(document.getElementById('periodYear')?.options || [], option => option.value);
+    if (!years.includes(String(periodFilter.year || ''))) {
+      periodFilter.year = years[years.length - 1] || '';
+    } else {
+      periodFilter.year = String(periodFilter.year);
+    }
+  }
   togglePeriodInputs();
   saveUIState();
   renderAll();

@@ -292,8 +292,14 @@ function renderDashboard() {
     const available = getDashboardEligibleMonths(data);
     if (available.length) {
       const latest = available.reduce((last, month) => getMonthSortValue(month) > getMonthSortValue(last) ? month : last);
-      periodFilter = { ...periodFilter, type: 'month', month: latest.id };
-      filtered = [latest];
+      if (periodFilter.type === 'year') {
+        const year = getYear(latest);
+        periodFilter = { ...periodFilter, year };
+        filtered = available.filter(month => getYear(month) === year);
+      } else {
+        periodFilter = { ...periodFilter, type: 'month', month: latest.id };
+        filtered = [latest];
+      }
       saveUIState();
     }
   }
