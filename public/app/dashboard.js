@@ -417,13 +417,6 @@ function renderDashboard() {
     `
   };
   document.getElementById('dashMetrics').innerHTML = dashMetricOrder.filter(key => metricCards[key]).map(key => metricCards[key]).join('');
-  const detailMetrics = { resultado: ['result', 'resultadoMes'], gastos: ['expenses', 'totalGastos'], ganhos: ['income', 'rendaTotal'], renda: ['fixedIncome', 'rendaFixa'], projetos: ['projects', 'totalProj'] };
-  document.querySelectorAll('#dashMetrics [data-metric-key]').forEach(card => {
-    const [metric, field] = detailMetrics[card.dataset.metricKey];
-    FinancialDrilldown.bindValue(card.querySelector('.mc-value'), filtered, {
-      metric, expectedCents: Math.round(filtered.reduce((sum, month) => sum + getTotals(month)[field], 0) * 100)
-    });
-  });
 
   const dashboardWidgets = {
     gvsr: `
@@ -513,9 +506,7 @@ function renderDashboard() {
         hidden: !dashSeriesSelection.includes(key)
       }))
     },
-    options: { responsive:true, maintainAspectRatio:false,
-      onClick: (event, points, chart) => FinancialDrilldown.deferredChart(event, points, chart, filtered, dataset => ({ resultSimple: 'result', totalGastos: 'expenses', totalGanhos: 'income', rendaFixa: 'fixedIncome', projetos: 'projects' })[dataset.seriesKey]),
-      plugins:{legend:{display:true, position:'bottom', labels:{boxWidth:12, boxHeight:12, padding:14, font:{size:11}},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:true, position:'bottom', labels:{boxWidth:12, boxHeight:12, padding:14, font:{size:11}},
       onClick: (event, legendItem, legend) => {
         const chart = legend.chart;
         const datasetIndex = legendItem.datasetIndex;
@@ -535,8 +526,7 @@ function renderDashboard() {
       scales:{ x:{ticks:{font:{size:11}}}, y:{min:0, beginAtZero:true, ticks:{callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,.05)'}} } }
   });
   const lineCanvas = document.getElementById('lineChart');
-  FinancialDrilldown.bindChartKeyboard(lineCanvas, filtered, { metric: 'expenses' });
-  if (lineCanvas) lineCanvas.ondblclick = event => { FinancialDrilldown.cancelChart(); handleDashLineChartDblClick(event); };
+  if (lineCanvas) lineCanvas.ondblclick = handleDashLineChartDblClick;
   renderDashSeriesColorPicker();
 
   destroyChart('resultChart');
@@ -548,34 +538,27 @@ function renderDashboard() {
       labels: filtered.map(m => m.nome.split(' ').map((w,i)=>i===0?w.slice(0,3):w).join('/')),
       datasets: [{ data: filtered.map(m=>computeResult(m, dashboardResultMode)), backgroundColor: filtered.map(m=>computeResult(m, dashboardResultMode)>=0?'rgba(39,174,96,.75)':'rgba(192,57,43,.7)') }]
     },
-    options: { responsive:true, maintainAspectRatio:false,
-      onClick: (event, points, chart) => FinancialDrilldown.chart(event, points, chart, filtered, 'result'),
-      plugins:{legend:{display:false}},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
       scales:{ x:{ticks:{font:{size:11}}}, y:{ticks:{callback:v=>(v<0?'-':'')+'R$'+(Math.abs(v)/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,.05)'}} } }
   });
 
   const catEl = document.getElementById('catCards');
-  FinancialDrilldown.bindChartKeyboard(document.getElementById('resultChart'), filtered, { metric: 'result' });
   const catRaw = getCatTotalsPeriod(filtered, dashboardCategoryBasis);
   const catFilteredEntries = Object.entries(catRaw)
     .filter(([name, value]) => Number(value || 0) > 0 && !isTypeLikeCategoryLabel(name) && !(typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(name)));
   const totalRaw = catFilteredEntries.reduce((acc, [, value]) => acc + Number(value || 0), 0);
   const groupedEntries = [];
-  const smallerCategories = [];
   let smallerTotal = 0;
   catFilteredEntries.forEach(([name, value]) => {
     const amount = Number(value || 0);
     const ratio = totalRaw > 0 ? (amount / totalRaw) : 0;
     if (ratio < 0.01) {
       smallerTotal += amount;
-      smallerCategories.push(name);
     } else {
       groupedEntries.push([name, amount]);
     }
   });
-  let smallerLabel = 'Categorias menores';
-  while (catFilteredEntries.some(([name]) => name === smallerLabel)) smallerLabel += ' (agrupadas)';
-  if (smallerTotal > 0) groupedEntries.push([smallerLabel, smallerTotal]);
+  if (smallerTotal > 0) groupedEntries.push(['Categorias menores', smallerTotal]);
   const cats = Object.fromEntries(groupedEntries);
   const catKeys = Object.keys(cats).sort((a, b) => (cats[b] || 0) - (cats[a] || 0));
   destroyChart('catPieChart');
@@ -606,23 +589,7 @@ function renderDashboard() {
         </div>
       </div>
     `;
-    const openCategory = (name, origin) => FinancialDrilldown.open(filtered, {
-      metric: 'expenses', basis: dashboardCategoryBasis, title: name,
-      categories: name === smallerLabel && smallerCategories.length ? smallerCategories : [name],
-      expectedCents: Math.round(cats[name] * 100), origin
-    });
-    catEl.querySelectorAll('.cat-val').forEach((value, index) => {
-      const name = catKeys[index];
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'financial-detail-trigger';
-      button.textContent = value.textContent;
-      button.setAttribute('aria-label', `Detalhar categoria ${name}`);
-      button.onclick = () => openCategory(name, button);
-      value.replaceChildren(button);
-    });
     const pieCanvas = document.getElementById('catPieChart');
-    FinancialDrilldown.bindChartKeyboard(pieCanvas, filtered, { metric: 'expenses', basis: dashboardCategoryBasis });
     if (pieCanvas) {
       charts['catPieChart'] = new Chart(pieCanvas.getContext('2d'), {
         type: 'doughnut',
@@ -638,7 +605,6 @@ function renderDashboard() {
         },
         options: {
           responsive: true,
-          onClick: (event, points, chart) => { if (points[0]) openCategory(catKeys[points[0].index], chart.canvas); },
           maintainAspectRatio: false,
           cutout: '56%',
           plugins: {

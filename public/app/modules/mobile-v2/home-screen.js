@@ -299,12 +299,76 @@
     });
   }
 
-  function openCategoryDetails(categoryName, months, origin, value) {
+  function openCategoryDetails(categoryName, months) {
     const allMonths = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : []);
     const allowed = new Set((months || []).map((entry) => String(entry.id || '')));
-    return global.FinancialDrilldown.open(allMonths.filter(month => allowed.has(month.id)), {
-      metric: 'expenses', basis: categoryBasis, categories: [categoryName], origin,
-      expectedCents: Number.isFinite(value) ? Math.round(value * 100) : undefined
+    const rows = [];
+    allMonths.forEach((month) => {
+      if (!allowed.has(String(month?.id || ''))) return;
+      if (typeof global.getFinancialMonthQuery === 'function') {
+        global.getFinancialMonthQuery(month, { basis: categoryBasis }).expenseRows
+          .filter(row => row.category === categoryName && row.cents > 0).forEach(row => rows.push({
+            id: row.kind === 'bill' ? '' : row.sourceId,
+            date: row.date, description: row.description, amount: row.cents / 100,
+            output: row.kind === 'bill' ? 'Fatura' : 'Lancamento', tag: row.tag
+          }));
+        return;
+      }
+      const outflows = global.MobileV2Data?.getOutflowRows
+        ? global.MobileV2Data.getOutflowRows(month)
+        : (month?.outflows || []);
+      outflows.forEach((item) => {
+        const cat = global.MobileV2Data?.getCategoryName
+          ? global.MobileV2Data.getCategoryName(item, 'OUTROS')
+          : (typeof global.getUnifiedOutflowCategoryName === 'function'
+            ? String(global.getUnifiedOutflowCategoryName(item, 'OUTROS') || 'OUTROS')
+            : String(global.resolveCategoryName ? global.resolveCategoryName(item?.category || item?.categoria || 'OUTROS') : (item?.category || item?.categoria || 'OUTROS')));
+        if (cat !== categoryName) return;
+        const amount = global.MobileV2Data?.getOutflowAmount
+          ? global.MobileV2Data.getOutflowAmount(item)
+          : (typeof global.getUnifiedEffectiveOutflowAmount === 'function'
+            ? global.getUnifiedEffectiveOutflowAmount(item)
+            : Number(global.OutflowAmounts?.getEffectiveOutflowAmount?.(item) ?? item?.amount ?? 0));
+        if (!(amount > 0)) return;
+        rows.push({
+          id: String(item?.id || ''),
+          date: String(item?.date || ''),
+          description: String(item?.description || 'Lançamento'),
+          amount,
+          output: String(item?.outputKind === 'card' ? 'Cartão' : (item?.outputMethod || 'Saída')),
+          tag: String(item?.tag || '')
+        });
+      });
+    });
+    const body = rows.length ? rows.map((row) => `
+      <article class="m2-recent-item" data-m2-edit-outflow="${escapeHtml(row.id)}">
+        <span>
+          <p class="m2-row-title">${escapeHtml(row.description)}</p>
+          <span class="m2-row-meta">${escapeHtml(row.date)} · ${escapeHtml(row.output)}${row.tag ? ` · ${escapeHtml(row.tag)}` : ''}</span>
+        </span>
+        <span class="m2-row-amount negative">${formatMoney(Math.abs(row.amount || 0))}</span>
+      </article>
+    `).join('') : '<div class="m2-empty">Sem lançamentos nessa categoria no período.</div>';
+    global.MobileV2OutflowForm?.openInlineSheet?.({
+      title: `Categoria: ${categoryName}`,
+      subtitle: `${rows.length} lançamento(s) · ${formatMoney(rows.reduce((sum, row) => sum + row.amount, 0))}`,
+      body
+    });
+    requestAnimationFrame(() => {
+      const sheet = document.getElementById('mobileV2OutflowSheet');
+      sheet?.querySelectorAll('[data-m2-edit-outflow]').forEach((node) => {
+        node.addEventListener('click', () => {
+          const id = String(node.getAttribute('data-m2-edit-outflow') || '');
+          if (!id) return;
+          const item = allMonths.flatMap((month) => Array.isArray(month?.outflows) ? month.outflows : []).find((entry) => String(entry?.id || '') === id);
+          if (item && global.MobileV2OutflowForm?.openEdit) {
+            global.MobileV2OutflowForm.openEdit(item);
+          } else if (typeof global.openUnifiedOutflowModal === 'function') {
+            global.MobileV2OutflowForm?.closeInlineSheet?.();
+            global.openUnifiedOutflowModal(id);
+          }
+        });
+      });
     });
   }
 
@@ -457,55 +521,6 @@
     `;
 
     bindPeriodButtons(target);
-    const monthIds = new Set(months.map(month => month.id));
-    const rawMonths = (global.MobileV2Data?.getMonths?.() || []).filter(month => monthIds.has(month.id));
-    global.FinancialDrilldown?.bindValue(target.querySelector('.hero-result'), rawMonths, { metric: 'result', expectedCents: Math.round(totalResult * 100) });
-    target.querySelectorAll('.hero-sub span').forEach((span, index) => global.FinancialDrilldown?.bindValue(span, rawMonths, {
-      metric: index === 0 ? 'income' : 'expenses', expectedCents: Math.round((index === 0 ? totalIncome : totalExpenses) * 100)
-    }));
-    const lineCanvas = target.querySelector('#mobileV2LineChart');
-    if (lineCanvas) {
-      lineCanvas.tabIndex = 0;
-      lineCanvas.setAttribute('role', 'button');
-      lineCanvas.setAttribute('aria-label', 'Detalhar compromissos do grafico de evolucao');
-      lineCanvas.onkeydown = event => {
-        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); global.FinancialDrilldown.open(rawMonths, { metric: 'expenses', expectedCents: Math.round(totalExpenses * 100), origin: lineCanvas }); }
-      };
-      lineCanvas.onclick = event => {
-        if (!months.length) return;
-        const rect = lineCanvas.getBoundingClientRect();
-        const x = (event.clientX - rect.left) * lineCanvas.width / rect.width;
-        const y = (event.clientY - rect.top) * lineCanvas.height / rect.height;
-        const index = Math.max(0, Math.min(months.length - 1, Math.round((x - 32) / Math.max(1, lineCanvas.width - 44) * (months.length - 1))));
-        const month = months[index];
-        const max = Math.max(...months.flatMap(value => [value.renda, value.gastos]), 1) * 1.1;
-        const incomeY = 12 + (170 - 42) * (1 - month.renda / max);
-        const expenseY = 12 + (170 - 42) * (1 - month.gastos / max);
-        const metric = Math.abs(y - incomeY) < Math.abs(y - expenseY) ? 'income' : 'expenses';
-        global.FinancialDrilldown.open(rawMonths.filter(value => value.id === month.id), { metric,
-          expectedCents: Math.round((metric === 'income' ? month.renda : month.gastos) * 100), origin: lineCanvas });
-      };
-    }
-    const pieCanvas = target.querySelector('#mobileV2PieChart');
-    if (pieCanvas) {
-      pieCanvas.tabIndex = 0;
-      pieCanvas.setAttribute('role', 'button');
-      pieCanvas.setAttribute('aria-label', 'Detalhar categorias do grafico');
-      pieCanvas.onkeydown = event => {
-        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); global.FinancialDrilldown.open(rawMonths, { metric: 'expenses', basis: categoryBasis, expectedCents: Math.round(categories.reduce((sum, category) => sum + category.value, 0) * 100), origin: pieCanvas }); }
-      };
-      pieCanvas.onclick = event => {
-        const rect = pieCanvas.getBoundingClientRect();
-        const x = (event.clientX - rect.left) * pieCanvas.width / rect.width - pieCanvas.width / 2;
-        const y = (event.clientY - rect.top) * pieCanvas.height / rect.height - pieCanvas.height / 2;
-        if (Math.hypot(x, y) > pieCanvas.width / 2 - 6) return;
-        const fraction = ((Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2);
-        const total = categories.reduce((sum, category) => sum + category.value, 0);
-        let cumulative = 0;
-        const category = categories.find(value => { cumulative += value.value; return total > 0 && fraction <= cumulative / total; });
-        if (category) openCategoryDetails(category.name, months, pieCanvas, category.value);
-      };
-    }
     target.querySelector('[data-m2-category-basis]')?.addEventListener('change', event => {
       categoryBasis = event.target.value === 'consumption' ? 'consumption' : 'commitments';
       render(target);
@@ -519,7 +534,7 @@
       btn.addEventListener('click', () => {
         const category = String(btn.getAttribute('data-m2-cat') || '');
         if (!category) return;
-        openCategoryDetails(category, months, btn, categories.find(value => value.name === category)?.value);
+        openCategoryDetails(category, months);
       });
     });
     animateCharts(target, months, categories);
