@@ -106,6 +106,7 @@ function normalizePatrimonioMovement(movement, idx = 0) {
   const type = ['aporte', 'retirada', 'transferencia', 'atualizacao'].includes(movement?.type) ? movement.type : 'aporte';
   return {
     id: movement?.id || patrimonioId(`mov_${idx}`),
+    ...(window.ImportIdentity?.provenance(movement) || {}),
     type,
     accountId: movement?.accountId || '',
     fromAccountId: movement?.fromAccountId || '',
@@ -782,6 +783,7 @@ function savePatrimonioMovement() {
     if (!id) id = checkpointId;
   }
   const payload = normalizePatrimonioMovement({
+    ...(window.ImportIdentity?.provenance(existingMovement) || {}),
     id: id || patrimonioId('mov'),
     type,
     accountId: type === 'transferencia' ? '' : accountId,

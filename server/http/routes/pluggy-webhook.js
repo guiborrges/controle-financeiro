@@ -1,6 +1,7 @@
 ﻿'use strict';
 
 const { withConnection } = require('../../../workers/lib/oracle-db');
+const { stagingIdentity, resolveStagingKey } = require('../../import-identity');
 
 const DEFAULT_TENANT_USER_ID = String(process.env.PLUGGY_TENANT_USER_ID || 'guilherme').trim();
 const WEBHOOK_SECRET = String(process.env.PLUGGY_WEBHOOK_SECRET || '').trim();
@@ -152,14 +153,8 @@ function isCreditCardTransaction(tx) {
     || description.includes('CARTAO');
 }
 
-function normalizeExternalTransactionId(tx) {
-  const direct = String(tx?.id || tx?.transactionId || tx?.providerId || '').trim();
-  if (direct) return direct;
-  const accountId = String(tx?.accountId || tx?.account?.id || '').trim();
-  const date = String(tx?.date || tx?.paymentDate || tx?.createdAt || '').trim();
-  const amount = String(tx?.amount || '').trim();
-  const description = String(tx?.description || '').trim();
-  return `${accountId}|${date}|${amount}|${description}`.slice(0, 128);
+function normalizeExternalTransactionId(tx, tenantId = DEFAULT_TENANT_USER_ID) {
+  return stagingIdentity(tx, String(tx?.accountId || tx?.account?.id || '').trim(), tenantId);
 }
 
 function normalizeTransactionsFromWebhook(payload) {
@@ -193,13 +188,14 @@ async function upsertTransactions(transactions, tenantUserId) {
   await withConnection(async conn => {
     await ensureTransactionsTable(conn);
     for (const tx of transactions) {
-      const externalId = normalizeExternalTransactionId(tx);
-      if (!externalId) {
-        skipped += 1;
-        continue;
-      }
       const itemId = String(tx?.itemId || tx?.item?.id || tx?.account?.itemId || '').trim();
       const accountId = String(tx?.accountId || tx?.account?.id || '').trim();
+      const identity = await resolveStagingKey(conn, tx, accountId, tenantUserId);
+      if (!identity.key) {
+        skipped += 1;
+        console.warn(`[pluggy-webhook] transacao nao aplicada: identidade ${identity.status}`);
+        continue;
+      }
       const accountName = String(tx?.account?.name || tx?.accountName || '').trim();
       const accountType = String(tx?.accountType || tx?.account?.type || '').trim();
       const recordType = isCreditCardTransaction(tx) ? 'CARTAO_CREDITO' : 'CONTA_CORRENTE';
@@ -236,7 +232,7 @@ WHEN NOT MATCHED THEN INSERT (
           tenant_user_id: String(tenantUserId || DEFAULT_TENANT_USER_ID),
           pluggy_item_id: itemId || null,
           pluggy_account_id: accountId || null,
-          external_transaction_id: externalId.slice(0, 128),
+          external_transaction_id: identity.key,
           record_type: recordType,
           transaction_date: toTimestamp(tx?.date || tx?.paymentDate || tx?.createdAt),
           description: String(tx?.description || 'Transacao Pluggy').slice(0, 512),
@@ -337,5 +333,6 @@ module.exports = {
   resolveTenantUserId,
   normalizeTransactionsFromWebhook,
   getEventType,
-  getItem
+  getItem,
+  normalizeExternalTransactionId
 };

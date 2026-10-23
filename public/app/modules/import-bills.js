@@ -140,14 +140,17 @@
   }
 
   function getCurrentContext() {
-    const context = global.BillImportUtils.buildImportContext(global.data || [], global.currentSession || {});
-    const cards = global.BillImportUtils.getAllCardsFromUserData(global.data || []);
-    const categories = global.BillImportUtils.getAllCategoriesFromUserData(global.data || []);
+    const months = global.getAllFinanceMonths?.() || global.data || [];
+    const context = global.BillImportUtils.buildImportContext(months, global.__APP_BOOTSTRAP__?.session || global.currentSession || {});
+    const cards = global.BillImportUtils.getAllCardsFromUserData(months);
+    const categories = global.BillImportUtils.getAllCategoriesFromUserData(months);
     return {
       ...context,
       cards,
       categories,
-      data: global.data || []
+      cardIndex: cards,
+      categoryIndex: categories,
+      data: months
     };
   }
 
@@ -323,6 +326,7 @@
       }
       const validation = global.BillImportSchema.validatePayload(payload.result, getCurrentContext());
       global.BillImportReview.setReviewData({
+        sourceImportId: String(jobId),
         sourceFileName: state.jobs.find(job => String(job.id) === String(jobId))?.fileName || 'fatura',
         context: getCurrentContext(),
         rawPayload: payload.result,
@@ -367,9 +371,10 @@
       if (!response.ok || result?.ok !== true) throw new Error(result?.message || 'Falha ao importar lançamentos.');
       await refreshStatus();
       if (typeof global.loadAppBootstrapData === 'function') await global.loadAppBootstrapData();
-      if (typeof global.renderMes === 'function') global.renderMes();
+      if (typeof global.loadAppBootstrapData === 'function' && typeof global.renderMes === 'function') global.renderMes();
       if (typeof global.closeModal === 'function') global.closeModal('modalBillImportReview');
       showStatus(`Importação concluída. ${Number(result.imported || 0)} lançamento(s) inserido(s).`, 'ok', 'Importação concluída', 3000);
+      if (typeof global.loadAppBootstrapData !== 'function') global.location?.reload?.();
       return { status: 'saved' };
     } catch (error) {
       showStatus(error.message, 'error');

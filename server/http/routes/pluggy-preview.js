@@ -1,6 +1,7 @@
 ﻿'use strict';
 
 const { withConnection } = require('../../../workers/lib/oracle-db');
+const { nativeTransactionId } = require('../../import-identity');
 
 function getAllowedUserIds() {
   return String(process.env.PLUGGY_ALLOWED_USER_IDS || '')
@@ -75,6 +76,8 @@ function mapTransactionRow(row = {}) {
   }
   return {
     id: String(row.EXTERNAL_TRANSACTION_ID || ''),
+    nativeTransactionId: nativeTransactionId(raw),
+    identityQuality: nativeTransactionId(raw) ? 'native' : 'missing',
     itemId: String(row.PLUGGY_ITEM_ID || ''),
     accountId: String(row.PLUGGY_ACCOUNT_ID || ''),
     recordType: String(row.RECORD_TYPE || ''),

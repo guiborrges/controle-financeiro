@@ -174,10 +174,11 @@
   }
 
   function getUserId() {
-    const session = global.currentSession || {};
+    const session = global.__APP_BOOTSTRAP__?.session || global.currentSession || {};
     const userObj = session.user || {};
     return String(
-      session.userId
+      session.id
+      || session.userId
       || userObj.id
       || session.username
       || userObj.username
@@ -447,16 +448,8 @@
   }
 
   function isCreditBillPayment(tx) {
-    const amount = Number(tx?.amount || 0);
     const description = normalizeComparableText(tx?.description || tx?.descriptionRaw || '');
-    if (amount < 0) return true;
-    return description.includes('pagamento')
-      || description.includes('fatura')
-      || description.includes('credito fatura')
-      || description.includes('estorno')
-      || description.includes('ressarcimento')
-      || description.includes('reembolso')
-      || description.includes('chargeback');
+    return description.includes('pagamento') && (description.includes('fatura') || description.includes('cartao'));
   }
 
   function inferBankMovementType(tx) {
@@ -551,11 +544,11 @@
   function shouldSkipTx(account, tx) {
     const txId = String(tx?.id || '');
     if (!txId) return true;
-    if (STATE.userState.importedTxIds[txId]) return true;
     if (STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)]) return true;
-    if (STATE.userState.ignoredTxIds[txId]) return true;
     if (STATE.userState.ignoredTxKeys[buildImportedCompositeKey(account, tx)]) return true;
-    if (STATE.userState.hiddenGroups[`tx:${txId}`]) return true;
+    if (STATE.userState.hiddenGroups[`tx:${buildImportedCompositeKey(account, tx)}`]) return true;
+    const legacyOwners = (STATE.rawData?.accounts || []).filter(row => (row.transactions || []).some(item => String(item.id) === txId));
+    if (legacyOwners.length === 1 && (STATE.userState.ignoredTxIds[txId] === true || STATE.userState.hiddenGroups[`tx:${txId}`] === true)) return true;
     if (isSaldoSyncDescription(tx?.description || tx?.descriptionRaw || '')) return true;
     if (String(account?.accountType || '').toUpperCase() === 'CREDIT' && isCreditBillPayment(tx)) return true;
     if (!isTxVisibleByClearRule(account, tx)) return true;
@@ -696,11 +689,12 @@
     if (Array.isArray(STATE.pendingByAccount[accountId])) return STATE.pendingByAccount[accountId];
 
     const categories = getAllCategories();
+    const matcher = createAccountMatcher(account);
     const rows = (account.transactions || [])
       .filter(tx => stagedCommits.has(`${accountId}::${tx.id}`) || !shouldSkipTx(account, tx))
       .map(tx => {
         const txType = String(tx?.type || '').toUpperCase();
-        const txKey = String(tx?.id || '');
+        const txKey = `${accountId}::${String(tx?.id || '')}`;
         const savedUi = STATE.userState.txState[txKey] || {};
         const line = {
           ...tx,
@@ -711,6 +705,7 @@
             tag: normalizeScalarText(savedUi.tag || ''),
             movementType: normalizeText(savedUi.movementType || (txType === 'CREDIT' ? 'aporte' : (txType === 'DEBIT' ? 'retirada' : inferBankMovementType(tx)))),
             error: normalizeText(savedUi.error || ''),
+            duplicateDecision: savedUi.duplicateDecision || '',
             touched: {
               description: !!savedUi?.touched?.description,
               category: !!savedUi?.touched?.category,
@@ -719,6 +714,7 @@
             }
           }
         };
+        line._match = matcher ? matcher(describeIncoming(account, tx)) : { kind: 'new' };
         if (String(account.accountType || '').toUpperCase() === 'CREDIT') applyMemoryFromOriginalDescription(tx, line);
         return line;
       });
@@ -742,7 +738,7 @@
     if (!target._ui.touched) target._ui.touched = {};
     target._ui.touched[field] = true;
     target._ui.error = '';
-    const txKey = String(txId || '');
+    const txKey = `${accountId}::${String(txId || '')}`;
     if (txKey) {
       if (!STATE.userState.txState[txKey]) STATE.userState.txState[txKey] = {};
       STATE.userState.txState[txKey][field] = value;
@@ -759,7 +755,7 @@
     if (!target) return;
     if (!target._ui) target._ui = {};
     target._ui.error = normalizeText(message || '');
-    const txKey = String(txId || '');
+    const txKey = `${accountId}::${String(txId || '')}`;
     if (txKey) {
       if (!STATE.userState.txState[txKey]) STATE.userState.txState[txKey] = {};
       STATE.userState.txState[txKey].error = target._ui.error;
@@ -774,12 +770,11 @@
       || (account?.transactions || []).find(item => String(item?.id || '') === String(txId))
       || null;
     STATE.pendingByAccount[String(accountId)] = rows.filter(item => String(item.id) !== String(txId));
-    if (txId) STATE.userState.ignoredTxIds[String(txId)] = true;
     if (account && tx) {
       const ignoredCompositeKey = buildImportedCompositeKey(account, tx);
       if (ignoredCompositeKey) STATE.userState.ignoredTxKeys[ignoredCompositeKey] = true;
     }
-    STATE.userState.hiddenGroups[`tx:${String(txId)}`] = true;
+    if (account && tx) STATE.userState.hiddenGroups[`tx:${buildImportedCompositeKey(account, tx)}`] = true;
     persistUserState();
   }
 
@@ -794,45 +789,62 @@
     return global.ensureMonthExists(monthName, year);
   }
 
-  function isDuplicateByFields({ rows, txId, dateValue, amountValue, descriptionValue, matchesContext }) {
-    const targetTxId = String(txId || '');
-    const targetDesc = normalizeDescriptionKey(descriptionValue);
-    if (targetTxId && STATE.userState.importedTxIds[targetTxId]) return true;
-    return (rows || []).some((item) => {
-      if (typeof matchesContext === 'function' && !matchesContext(item)) return false;
-      if (String(item?.pluggyTransactionId || '') === targetTxId) return true;
-      const sameDate = String(item?.date || '') === String(dateValue);
-      const sourceAmount = Number(item?.amount ?? item?.value ?? 0);
-      const sameAmount = Math.abs(sourceAmount - Number(amountValue || 0)) < 0.01;
-      const desc = normalizeDescriptionKey(item?.description || '');
-      const sameDesc = desc && targetDesc ? (desc === targetDesc || desc.includes(targetDesc) || targetDesc.includes(desc)) : false;
-      return sameDate && sameAmount && sameDesc;
-    });
-  }
-
   function dedupeCredit(tx, month, cardId, dateBr, amount, description) {
-    return isDuplicateByFields({
-      rows: month?.outflows || [],
-      txId: tx?.id,
-      dateValue: dateBr,
-      amountValue: amount,
-      descriptionValue: description,
-      matchesContext: (item) => String(item?.outputKind || '') === 'card' && String(item?.outputRef || '') === String(cardId)
-    });
+    return tx?._match?.kind === 'exact';
   }
 
   function dedupeBank(tx, accountId, value, description, dateIso) {
-    return isDuplicateByFields({
-      rows: getPatrimonioMovementsRef(),
-      txId: tx?.id,
-      dateValue: dateIso,
-      amountValue: value,
-      descriptionValue: description,
-      matchesContext: (item) => String(item?.accountId || '') === String(accountId)
-    });
+    return tx?._match?.kind === 'exact';
+  }
+
+  function bankIdentity(account, tx) {
+    if (tx?.identityQuality === 'missing') return null;
+    return global.ImportIdentity?.create({ tenantId: getUserId(), provider: 'pluggy',
+      accountId: account?.accountId, externalId: tx?.nativeTransactionId || tx?.id }) || null;
+  }
+
+  function transactionDirection(account, tx) {
+    const adjustment = /\b(estorno|reembolso|ressarcimento|chargeback|devolucao)\b/.test(normalizeComparableText(tx?.descriptionRaw || tx?.description || ''));
+    return String(account?.accountType).toUpperCase() === 'CREDIT'
+      ? (adjustment || String(tx?.type).toUpperCase() === 'CREDIT' || Number(tx?.amount) < 0 ? 'credit' : 'debit')
+      : (inferBankMovementType(tx) === 'aporte' ? 'credit' : 'debit');
+  }
+
+  function describeIncoming(account, tx) {
+    return { identity: bankIdentity(account, tx),
+      context: `${getUserId()}::${STATE.userState.links[getGroupKey(account)] || ''}`,
+      date: formatDateAndTime(tx.date).dateBr, amount: Math.abs(Number(tx.amount || 0)),
+      direction: transactionDirection(account, tx), description: tx.descriptionRaw || tx.description };
+  }
+
+  function createAccountMatcher(account) {
+    if (!global.ImportIdentity) return null;
+    const credit = String(account.accountType).toUpperCase() === 'CREDIT';
+    const rows = credit ? getDataRef().flatMap(month => month.outflows || []) : getPatrimonioMovementsRef();
+    return global.ImportIdentity.createMatcher(rows, item => ({ identity: global.ImportIdentity.read(item),
+      context: `${getUserId()}::${credit ? item.outputRef : item.accountId}`,
+      date: credit ? item.date : formatDateAndTime(item.date).dateBr,
+      amount: Number(item.amount ?? item.value ?? 0),
+      direction: item.sourceDirection || (credit || item.type === 'retirada' ? 'debit' : 'credit'),
+      description: item.sourceDescription || item.description }));
+  }
+
+  function validateImportDecision(account, tx) {
+    if (tx?._match?.kind === 'candidate' && tx?._ui?.duplicateDecision !== 'new') {
+      throw new Error('Possivel duplicata: confirme Importar como nova ou ignore este item.');
+    }
+    if (tx?.identityQuality === 'missing' && tx?._ui?.duplicateDecision !== 'new') {
+      throw new Error('Origem sem identificador. Confirme a importacao como nova para continuar.');
+    }
+    if (String(account.accountType).toUpperCase() === 'CREDIT' && transactionDirection(account, tx) === 'credit') {
+      throw new Error('Credito ou estorno do cartao: mantido na revisao, sem transformar em despesa.');
+    }
   }
 
   function buildImportedCompositeKey(account, tx) {
+    const identity = bankIdentity(account, tx);
+    if (identity) return identity.key;
+    if (account?.accountId && tx?.id) return `fiw1:${JSON.stringify([getUserId(), account.accountId, tx.id])}`;
     const userId = getUserId();
     const accountNameOriginal = normalizeText(account?.accountName || '');
     const recordTypeRaw = String(account?.accountType || '').toUpperCase();
@@ -872,7 +884,6 @@
   }
 
   function recordImportedMarker(account, tx) {
-    if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
     STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] = true;
   }
 
@@ -882,90 +893,26 @@
     months.forEach((month) => {
       const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
       outflows.forEach((item) => {
+        const identity = global.ImportIdentity?.read(item);
+        if (identity?.tenantId === getUserId()) keys.add(identity.key);
         const rawKey = normalizeText(item?.ibImportKey || item?.internetBankingImportKey || '');
         if (rawKey) keys.add(rawKey);
       });
     });
     const movements = getPatrimonioMovementsRef();
     movements.forEach((movement) => {
+      const identity = global.ImportIdentity?.read(movement);
+      if (identity?.tenantId === getUserId()) keys.add(identity.key);
       const rawKey = normalizeText(movement?.ibImportKey || movement?.internetBankingImportKey || '');
       if (rawKey) keys.add(rawKey);
     });
     return keys;
   }
 
-  function hasMatchingOutflowInSystem(accountName, dateBr, amountAbs, descriptionNorm) {
-    const months = getDataRef();
-    for (const month of months) {
-      const outflows = Array.isArray(month?.outflows) ? month.outflows : [];
-      const found = outflows.some((item) => {
-        const itemAmount = Math.abs(Number(item?.amount || item?.valor || 0));
-        if (Math.abs(itemAmount - amountAbs) > 0.009) return false;
-        if (normalizeText(item?.date || '') !== normalizeText(dateBr)) return false;
-        const itemDescNorm = normalizeDescriptionKey(item?.description || item?.descricao || '');
-        if (!itemDescNorm || !descriptionNorm) return false;
-        if (!(itemDescNorm === descriptionNorm || itemDescNorm.includes(descriptionNorm) || descriptionNorm.includes(itemDescNorm))) return false;
-        // Prioriza matching de origem quando disponível
-        const sourceAccount = normalizeText(item?.ibAccountNameOriginal || item?.sourceAccountName || '');
-        if (sourceAccount && normalizeComparableText(sourceAccount) !== normalizeComparableText(accountName)) return false;
-        return true;
-      });
-      if (found) return true;
-    }
-    return false;
-  }
-
-  function hasMatchingPatrimonioMovementInSystem(accountName, dateIso, amountAbs, descriptionNorm) {
-    const movements = getPatrimonioMovementsRef();
-    return movements.some((item) => {
-      const itemValue = Math.abs(Number(item?.value || item?.valor || 0));
-      if (Math.abs(itemValue - amountAbs) > 0.009) return false;
-      if (normalizeText(item?.date || item?.data || '') !== normalizeText(dateIso)) return false;
-      const itemDescNorm = normalizeDescriptionKey(item?.description || item?.descricao || '');
-      if (!itemDescNorm || !descriptionNorm) return false;
-      if (!(itemDescNorm === descriptionNorm || itemDescNorm.includes(descriptionNorm) || descriptionNorm.includes(itemDescNorm))) return false;
-      const sourceAccount = normalizeText(item?.ibAccountNameOriginal || item?.sourceAccountName || '');
-      if (sourceAccount && normalizeComparableText(sourceAccount) !== normalizeComparableText(accountName)) return false;
-      return true;
-    });
-  }
-
   function rebuildImportedStateFromSavedData() {
     const persistedKeys = extractImportedKeysFromSavedData();
     persistedKeys.forEach((key) => {
       STATE.userState.importedTxKeys[key] = true;
-    });
-
-    if (!Array.isArray(STATE.rawData?.accounts)) return;
-    STATE.rawData.accounts.forEach((account) => {
-      const accountName = normalizeText(account?.accountName || '');
-      const accountType = String(account?.accountType || '').toUpperCase();
-      const txList = Array.isArray(account?.transactions) ? account.transactions : [];
-      txList.forEach((tx) => {
-        const amountAbs = Math.abs(Number(tx?.amount || 0));
-        if (!(amountAbs > 0)) return;
-        const descriptionNorm = normalizeDescriptionKey(tx?.descriptionRaw || tx?.description || '');
-        if (!descriptionNorm) return;
-        let matched = false;
-        if (accountType === 'CREDIT') {
-          const dateBr = formatDateAndTime(tx?.date).dateBr;
-          if (!dateBr) return;
-          matched = hasMatchingOutflowInSystem(accountName, dateBr, amountAbs, descriptionNorm);
-        } else if (accountType === 'BANK') {
-          const dateIso = dateToIsoDay(tx?.date);
-          if (!dateIso) return;
-          matched = hasMatchingPatrimonioMovementInSystem(accountName, dateIso, amountAbs, descriptionNorm);
-        }
-        if (!matched) return;
-        if (tx?.id) STATE.userState.importedTxIds[String(tx.id)] = true;
-        STATE.userState.importedTxKeys[buildImportedCompositeKeyFromParts(
-          accountName,
-          accountType,
-          normalizeText(tx?.date || ''),
-          Number(tx?.amount || 0),
-          tx?.descriptionRaw || tx?.description || ''
-        )] = true;
-      });
     });
   }
 
@@ -1061,8 +1008,10 @@
     if (stagedCommits.has(stageKey)) return;
     const account = getAccountById(accountId);
     if (!account) throw new Error('Conta Pluggy nao encontrada.');
+    refreshAccountMatches(account, ensurePending(account));
     const tx = ensurePending(account).find(item => String(item.id) === String(txId));
     if (!tx) return;
+    validateImportDecision(account, tx);
 
     const linkedCardId = normalizeText(STATE.userState.links[String(accountId)] || '');
     if (!linkedCardId || !validLinkIdsForAccountType('CREDIT').has(linkedCardId)) {
@@ -1078,8 +1027,8 @@
     const description = normalizeText(tx._ui?.description || tx.description || '');
     if (!dateBr || !description || !(amount > 0)) throw new Error('Dados invalidos na transacao.');
 
-    if (dedupeCredit(tx, month, linkedCardId, dateBr, amount, description)) {
-      return;
+    if (STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] || dedupeCredit(tx, month, linkedCardId, dateBr, amount, description)) {
+      return { duplicate: true };
     }
 
     if (!Array.isArray(month.outflowCards)) month.outflowCards = [];
@@ -1112,7 +1061,9 @@
       createdAt: new Date().toISOString(),
       sourceAccountName: normalizeText(account?.accountName || ''),
       ibAccountNameOriginal: normalizeText(account?.accountName || ''),
-      ibImportKey: buildImportedCompositeKey(account, tx)
+      ibImportKey: buildImportedCompositeKey(account, tx),
+      importIdentity: bankIdentity(account, tx), sourceDirection: transactionDirection(account, tx),
+      sourceDescription: tx._ui?.originalDescription || tx.descriptionRaw || tx.description
     };
     const normalized = typeof global.normalizeUnifiedOutflowItem === 'function'
       ? global.normalizeUnifiedOutflowItem(base, 0)
@@ -1137,8 +1088,10 @@
     if (stagedCommits.has(stageKey)) return;
     const account = getAccountById(accountId);
     if (!account) throw new Error('Conta Pluggy nao encontrada.');
+    refreshAccountMatches(account, ensurePending(account));
     const tx = ensurePending(account).find(item => String(item.id) === String(txId));
     if (!tx) return;
+    validateImportDecision(account, tx);
 
     const linkedAccountId = normalizeText(STATE.userState.links[String(accountId)] || '');
     if (!linkedAccountId || !validLinkIdsForAccountType('BANK').has(linkedAccountId)) {
@@ -1151,8 +1104,8 @@
     const dateIso = dateToIsoDay(tx.date);
     if (!dateIso || !description || !(value > 0)) throw new Error('Dados invalidos na transacao.');
 
-    if (dedupeBank(tx, linkedAccountId, value, description, dateIso)) {
-      return;
+    if (STATE.userState.importedTxKeys[buildImportedCompositeKey(account, tx)] || dedupeBank(tx, linkedAccountId, value, description, dateIso)) {
+      return { duplicate: true };
     }
 
     const movementBase = {
@@ -1164,7 +1117,9 @@
       date: dateIso,
       sourceAccountName: normalizeText(account?.accountName || ''),
       ibAccountNameOriginal: normalizeText(account?.accountName || ''),
-      ibImportKey: buildImportedCompositeKey(account, tx)
+      ibImportKey: buildImportedCompositeKey(account, tx),
+      importIdentity: bankIdentity(account, tx), sourceDirection: transactionDirection(account, tx),
+      sourceDescription: tx._ui?.originalDescription || tx.descriptionRaw || tx.description
     };
     const movement = typeof global.normalizePatrimonioMovement === 'function'
       ? global.normalizePatrimonioMovement(movementBase, getPatrimonioMovementsRef().length)
@@ -1254,7 +1209,19 @@
   }
 
   function getRowsForAccount(account) {
-    return sortRowsForAccount(account, ensurePending(account));
+    const rows = ensurePending(account);
+    refreshAccountMatches(account, rows);
+    return sortRowsForAccount(account, rows);
+  }
+
+  function refreshAccountMatches(account, rows) {
+    const link = STATE.userState.links[getGroupKey(account)] || '';
+    if (rows.every(row => row._matchContext === link)) return;
+    const matcher = createAccountMatcher(account);
+    rows.forEach(row => {
+      row._match = matcher?.(describeIncoming(account, row)) || { kind: 'new' };
+      row._matchContext = link;
+    });
   }
 
   function isCreditRowValid(tx) {
@@ -1325,7 +1292,7 @@
       let ownerAccount = null;
       let ownerTx = null;
       for (const account of accounts) {
-        const tx = (account.transactions || []).find(item => String(item?.id || '') === txId);
+        const tx = (account.transactions || []).find(item => String(item?.id || '') === txId || buildImportedCompositeKey(account, item) === txId);
         if (tx) {
           ownerAccount = account;
           ownerTx = tx;
@@ -1420,6 +1387,10 @@
         (account.transactions || []).forEach(tx => {
           const txId = String(tx?.id || '');
           if (txId) delete STATE.userState.hiddenGroups[`tx:${txId}`];
+          const scopedKey = buildImportedCompositeKey(account, tx);
+          delete STATE.userState.hiddenGroups[`tx:${scopedKey}`];
+          delete STATE.userState.ignoredTxKeys[scopedKey];
+          if (txId) delete STATE.userState.ignoredTxIds[txId];
         });
       }
       delete STATE.pendingByAccount[key];
@@ -1600,6 +1571,19 @@
     return `${escapeHtml(dateLabel)}${timeBr ? `<div class="pluggy-row-time">${escapeHtml(timeBr)}</div>` : ''}`;
   }
 
+  function renderImportDecision(accountKey, tx) {
+    const account = getAccountById(accountKey);
+    if (String(account?.accountType).toUpperCase() === 'CREDIT' && transactionDirection(account, tx) === 'credit') {
+      return '<small>Credito ou estorno mantido na revisao; nao sera convertido em despesa.</small>';
+    }
+    if (tx?._match?.kind !== 'candidate' && tx?.identityQuality !== 'missing') return '';
+    return `<small>${escapeHtml(tx._match?.reason || 'Origem sem identificador confiavel.')}</small>
+      <select class="pluggy-input" aria-label="Revisao de possivel duplicata" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','duplicateDecision',this.value)">
+        <option value="">Revisar antes de importar</option>
+        <option value="new" ${tx._ui?.duplicateDecision === 'new' ? 'selected' : ''}>Importar como nova</option>
+      </select>`;
+  }
+
   function renderRows(account) {
     const accountKey = String(getGroupKey(account) || '');
     const rows = getRowsForAccount(account);
@@ -1630,6 +1614,7 @@
             </td>
             <td class="amount-neg">${escapeHtml(money(amountAbs))}</td>
             <td class="pluggy-actions-cell">
+              ${renderImportDecision(accountKey, tx)}
               <button class="btn btn-link-action btn-sm pluggy-ok-btn" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Adicionar" aria-label="Adicionar">✓</button>
               <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
               ${tx?._ui?.error ? `<div class="pluggy-row-error">${escapeHtml(tx._ui.error)}</div>` : ''}
@@ -1650,6 +1635,7 @@
           <td><input class="pluggy-input" value="${escapeHtml(tx._ui?.description || '')}" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','description',this.value)"></td>
           <td class="${tx._ui?.movementType === 'aporte' ? 'amount-pos' : 'amount-neg'}">${escapeHtml(money(amountAbs))}</td>
           <td class="pluggy-actions-cell">
+            ${renderImportDecision(accountKey, tx)}
             <button class="btn btn-link-action btn-sm pluggy-ok-btn" type="button" onclick="PluggyBanking.addOne('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Adicionar" aria-label="Adicionar">✓</button>
             <button class="btn btn-link-action btn-sm" type="button" onclick="PluggyBanking.dismiss('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}')" title="Ignorar">✕</button>
             ${tx?._ui?.error ? `<div class="pluggy-row-error">${escapeHtml(tx._ui.error)}</div>` : ''}
@@ -1792,8 +1778,8 @@
       if (String(account.accountType || '').toUpperCase() === 'CREDIT' && !isCreditRowValid(row)) {
         throw new Error('Selecione uma categoria para este lançamento.');
       }
-      if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, txId);
-      else commitBankTransaction(accountId, txId);
+      const outcome = String(account.accountType || '').toUpperCase() === 'CREDIT'
+        ? commitCreditTransaction(accountId, txId) : commitBankTransaction(accountId, txId);
       if (await global.save(true) !== true) {
         showStatus('Salvamento pendente. O lancamento continua nesta lista; tente novamente sem importar outra vez.', 'warn');
         return { status: 'pending' };
@@ -1801,7 +1787,7 @@
       stagedCommits.delete(`${accountId}::${txId}`);
       removePendingTx(accountId, txId);
       if (!removeRowFromDom(accountId, txId)) renderWorkspace();
-      showStatus('Lancamento adicionado com sucesso.', 'ok');
+      showStatus(outcome?.duplicate ? 'Este identificador ja foi importado; nenhum novo lancamento foi criado.' : 'Lancamento adicionado com sucesso.', 'ok');
       return { status: 'saved' };
     } catch (error) {
       const message = error?.message || 'Falha ao adicionar lançamento.';
@@ -1838,6 +1824,7 @@
     let ok = 0;
     let errors = 0;
     let blockedByCategory = 0;
+    let duplicates = 0;
     const completed = [];
     commitInFlight = true;
     try {
@@ -1847,9 +1834,10 @@
             blockedByCategory += 1;
             return;
           }
-          if (String(account.accountType || '').toUpperCase() === 'CREDIT') commitCreditTransaction(accountId, tx.id);
-          else commitBankTransaction(accountId, tx.id);
-          ok += 1;
+          const outcome = String(account.accountType || '').toUpperCase() === 'CREDIT'
+            ? commitCreditTransaction(accountId, tx.id) : commitBankTransaction(accountId, tx.id);
+          if (outcome?.duplicate) duplicates++;
+          else ok++;
           completed.push(tx.id);
         } catch (_err) {
           errors += 1;
@@ -1865,6 +1853,7 @@
       });
       renderWorkspace();
       const parts = [`${ok} lancamento(s) adicionado(s)`];
+      if (duplicates) parts.push(`${duplicates} identificador(es) ja importado(s)`);
       if (blockedByCategory) parts.push(`${blockedByCategory} sem categoria`);
       if (errors) parts.push(`${errors} com erro`);
       showStatus(parts.join(', ') + '.', (errors || blockedByCategory) ? 'warning' : 'ok');
@@ -1921,6 +1910,9 @@
       tag: String(tx?._ui?.tag || ''),
       movementType: String(tx?._ui?.movementType || inferBankMovementType(tx)),
       amount: Math.abs(Number(tx?.amount || 0)),
+      duplicateReason: tx?._match?.kind === 'candidate' ? tx._match.reason : (tx?.identityQuality === 'missing' ? 'Origem sem identificador confiavel.' : ''),
+      duplicateDecision: tx?._ui?.duplicateDecision || '',
+      reviewReason: type === 'CREDIT' && transactionDirection(account, tx) === 'credit' ? 'Credito ou estorno mantido para revisao, sem virar despesa.' : '',
       isValid: type === 'CREDIT' ? isCreditRowValid(tx) : true
     };
   }

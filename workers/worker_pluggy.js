@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const { withConnection, closePool } = require('./lib/oracle-db');
 const pluggy = require('./lib/pluggy-client');
+const { stagingIdentity, resolveStagingKey } = require('../server/import-identity');
 
 const LOOP_MINUTES = Math.max(1, Number(process.env.PLUGGY_SYNC_INTERVAL_MINUTES || 10));
 const DAYS_BACK = Math.max(1, Number(process.env.PLUGGY_SYNC_DAYS_BACK || 45));
@@ -33,11 +34,8 @@ function hashObject(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value || {})).digest('hex');
 }
 
-function txExternalId(tx, accountId) {
-  const nativeId = String(tx?.id || tx?.transactionId || tx?.providerId || '').trim();
-  if (nativeId) return `tx:${nativeId}`;
-  const signature = `${String(accountId || '')}|${String(tx?.date || tx?.paymentDate || '')}|${String(tx?.description || '')}|${String(tx?.amount || '')}`;
-  return `txhash:${crypto.createHash('sha1').update(signature).digest('hex')}`;
+function txExternalId(tx, accountId, tenantId = TENANT_USER_ID) {
+  return stagingIdentity(tx, accountId, tenantId);
 }
 
 function toTimestamp(value) {
@@ -221,6 +219,7 @@ async function syncOnce() {
   try {
     let accountsCount = 0;
     let txCount = 0;
+    let identitySkipped = 0;
     let balanceCount = 0;
     let selectedItemIds = [];
     let discoverySource = 'env';
@@ -256,11 +255,17 @@ async function syncOnce() {
 
           const transactions = await pluggy.listTransactions(accountId, dateFromIso());
           for (const tx of transactions) {
+            const identity = await resolveStagingKey(conn, tx, accountId, TENANT_USER_ID);
+            if (!identity.key) {
+              identitySkipped++;
+              console.warn(`[sync-pluggy] transacao nao aplicada: identidade ${identity.status}`);
+              continue;
+            }
             const row = {
               tenant_user_id: TENANT_USER_ID,
               pluggy_item_id: itemId,
               pluggy_account_id: accountId,
-              external_transaction_id: txExternalId(tx, accountId),
+              external_transaction_id: identity.key,
               record_type: 'TRANSACTION',
               transaction_date: toTimestamp(tx?.date || tx?.paymentDate || tx?.createdAt),
               description: String(tx?.description || tx?.merchant?.name || 'Transacao Pluggy').slice(0, 512),
@@ -306,7 +311,7 @@ async function syncOnce() {
     });
 
     const elapsed = Date.now() - start;
-    console.log(`[sync-pluggy] OK ${nowIso()} source=${discoverySource} items=${selectedItemIds.length} accounts=${accountsCount} tx=${txCount} balance=${balanceCount} elapsedMs=${elapsed}`);
+    console.log(`[sync-pluggy] OK ${nowIso()} source=${discoverySource} items=${selectedItemIds.length} accounts=${accountsCount} tx=${txCount} identitySkipped=${identitySkipped} balance=${balanceCount} elapsedMs=${elapsed}`);
   } catch (error) {
     console.error(`[sync-pluggy] ERRO ${nowIso()} ${error?.message || error}`);
   } finally {
@@ -338,7 +343,9 @@ async function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-start().catch(error => {
+if (require.main === module) start().catch(error => {
   console.error('[sync-pluggy] falha fatal ao iniciar:', error?.message || error);
   process.exit(1);
 });
+
+module.exports = { txExternalId, syncOnce };

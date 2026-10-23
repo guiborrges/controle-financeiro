@@ -114,7 +114,7 @@ test('flags likely duplicate launch as warning', () => {
   assert.ok(result.items[0].warnings.some(warning => warning.includes('duplicado')));
 });
 
-test('ignores reimbursement and imports only expenses', () => {
+test('keeps reimbursement visible for review without importing it as an expense', () => {
   const payload = {
     format: 'finance_import_v1',
     version: 1,
@@ -142,9 +142,11 @@ test('ignores reimbursement and imports only expenses', () => {
     ]
   };
   const result = BillImportSchema.validatePayload(payload, buildContext());
-  assert.equal(result.items.length, 1);
-  assert.equal(result.ignoredCount, 1);
-  assert.equal(result.items[0].description, 'Mercado');
+  assert.equal(result.items.length, 2);
+  assert.equal(result.ignoredCount, 0);
+  assert.equal(result.items[0].creditAdjustment, true);
+  assert.equal(result.items[0].include, false);
+  assert.equal(result.items[1].description, 'Mercado');
 });
 
 test('infers month id from date when month_id is missing', () => {

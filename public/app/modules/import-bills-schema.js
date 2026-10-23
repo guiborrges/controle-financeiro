@@ -515,7 +515,7 @@
       const outDate = normalizeImportDate(outflow?.date || '');
       const sameDate = outDate && targetDate ? outDate === targetDate : true;
       const outDesc = normalizeDescriptionComparable(outflow?.description || '');
-      const sameDesc = targetDesc && outDesc ? outDesc.includes(targetDesc) || targetDesc.includes(outDesc) : true;
+      const sameDesc = targetDesc && outDesc ? outDesc === targetDesc : false;
       return sameDate && sameDesc;
     });
   }
@@ -551,7 +551,7 @@
 
     const monthMap = buildMonthIndex(context?.data);
     const currentYearFallback = (() => {
-      const id = String(global.currentMonthId || '').trim();
+      const id = String(global.getCurrentMonth?.()?.id || global.currentMonthId || '').trim();
       const byId = id.match(/_(20\d{2})$/);
       return byId ? Number(byId[1] || new Date().getFullYear()) : new Date().getFullYear();
     })();
@@ -615,18 +615,12 @@
       });
       const date = dateMeta.date;
       const description = normalizeText(rawItem?.description);
-      if (isReimbursementLikeEntry(description)) {
-        ignoredItems.push({
-          index,
-          description
-        });
-        return null;
-      }
+      const creditAdjustment = isReimbursementLikeEntry(description) || parseAmount(rawItem?.amount) < 0;
       const amount = parseAmount(rawItem?.amount);
       let monthId = monthIdFromField
         || getMonthIdFromDate(date)
         || payloadMonthReferenceId
-        || normalizeText(global.currentMonthId || '');
+        || normalizeText(global.getCurrentMonth?.()?.id || global.currentMonthId || '');
       const matchedMonthId = resolveMonthIdAgainstExisting(monthMap, monthId, date);
       if (matchedMonthId) monthId = matchedMonthId;
       const rawItemWithPayloadContext = {
@@ -649,6 +643,10 @@
       const itemWarnings = [];
       const itemErrors = [];
       let needsReview = rawItem?.needs_review === true;
+      if (creditAdjustment) {
+        needsReview = true;
+        itemWarnings.push('Credito ou estorno mantido para revisao; nao sera convertido em despesa.');
+      }
 
       if (!date) itemErrors.push('Data inválida ou ausente.');
       if (!description) itemErrors.push('Descrição ausente.');
@@ -690,7 +688,11 @@
       const normalizedItem = {
         id: `bill_import_item_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
         sourceIndex: index,
-        include: true,
+        include: !creditAdjustment,
+        creditAdjustment,
+        sourceRowId: String(index),
+        sourceDescription: description,
+        sourceDirection: creditAdjustment ? 'credit' : 'debit',
         date: dateAlignedToMonth || date,
         description,
         amount: Number.isFinite(amount) ? Number(amount.toFixed(2)) : 0,

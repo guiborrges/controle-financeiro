@@ -447,6 +447,12 @@
             </div>
           </div>
           ${fields}
+          ${row.reviewReason ? `<div class="mib-item-fields"><small>${escapeHtml(row.reviewReason)}</small></div>` : ''}
+          ${row.duplicateReason ? `<div class="mib-item-fields"><small>${escapeHtml(row.duplicateReason)}</small>
+            <select class="mib-select mobile-banking-field" data-field="duplicateDecision" aria-label="Revisao de possivel duplicata">
+              <option value="">Revisar antes de importar</option>
+              <option value="new" ${row.duplicateDecision === 'new' ? 'selected' : ''}>Importar como nova</option>
+            </select></div>` : ''}
         </article>
       `;
     }).join('');

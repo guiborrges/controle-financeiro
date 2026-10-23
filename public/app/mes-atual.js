@@ -903,6 +903,7 @@ function normalizeUnifiedOutflowItem(item, idx = 0) {
   );
   return {
     id: item?.id || `out_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+    ...(window.ImportIdentity?.provenance(item) || {}),
     description: rawDescription || (type === 'expense' ? 'Despesa' : ''),
     type,
     category,
@@ -4027,6 +4028,7 @@ function performUnifiedOutflowSave(options = {}) {
     return { status: 'invalid' };
   }
   let baseItem = normalizeUnifiedOutflowItem({
+    ...(window.ImportIdentity?.provenance(previousItem) || {}),
     id: editingUnifiedOutflowId || '',
     description,
     type,

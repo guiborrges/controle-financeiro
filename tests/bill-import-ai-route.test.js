@@ -219,6 +219,43 @@ test('invoice import endpoint marks job as imported', async () => {
   assert.equal(importedJob?.status, 'imported');
 });
 
+test('invoice endpoint preserves identical lines, retries idempotently and blocks uncertain overlap before writing', async () => {
+  process.env.BILL_IMPORT_AI_PROVIDER = 'oracle';
+  process.env.ORACLE_AI_ENDPOINT = '';
+  const state = { finData: [{ id: 'abril_2026', outflows: [] }] };
+  let writes = 0;
+  const app = createMockApp();
+  registerBillImportAiRoutes(app, createDeps({
+    readUserAppState: () => ({ state: JSON.parse(JSON.stringify(state)) }),
+    writeUserAppState: (_user, value) => { state.finData = value.finData; writes++; return { updatedAt: 'r' }; }
+  }));
+  const upload = app.routes.get('POST /api/invoice/upload');
+  const run = app.routes.get('POST /api/invoice/import');
+  const makeJob = async () => {
+    const response = createMockRes();
+    await upload({ body: { fileName: 'fixture.csv', mimeType: 'text/csv', contentBase64: Buffer.from('Data;Descricao;Valor\n01/04/2026;Padaria;50\n').toString('base64'), context: {} } }, response);
+    return response.payload.jobId;
+  };
+  const jobId = await makeJob();
+  const items = [0, 1].map(sourceIndex => ({ sourceIndex, cardId: 'c', date: '01/04/26', amount: 50, description: 'Padaria', include: true }));
+  const response = createMockRes();
+  await run({ body: { jobId, payload: { items } }, session: {} }, response);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.payload.imported, 2);
+  assert.equal(state.finData[0].outflows.length, 2);
+  const replay = createMockRes();
+  await run({ body: { jobId, payload: { items } }, session: {} }, replay);
+  assert.equal(replay.payload.alreadyImported, true);
+  assert.equal(writes, 1);
+  const nextJob = await makeJob();
+  const uncertain = createMockRes();
+  await run({ body: { jobId: nextJob, payload: { items } }, session: {} }, uncertain);
+  assert.equal(uncertain.statusCode, 409);
+  assert.equal(uncertain.payload.reviewRequired, true);
+  assert.equal(writes, 1);
+  assert.equal(state.finData[0].outflows.length, 2);
+});
+
 test('muplug connection endpoint returns connected when key/base are configured', async () => {
   process.env.BILL_IMPORT_AI_PROVIDER = 'muplug';
   process.env.MUPLUG_BASE_URL = 'https://muplug.local';

@@ -1,5 +1,6 @@
 ﻿function registerBillImportAiRoutes(app, deps) {
   let ociPdfQueue = Promise.resolve();
+  const { planInvoiceImport } = require('../../invoice-import-plan');
   const {
     noStore,
     requireAuth,
@@ -52,7 +53,7 @@
       '- NÃƒO preencher tag (tag deve ser null)',
       '- nÃ£o criar/sugerir tags',
       '- nÃ£o incluir total da fatura como compra',
-      '- ignorar ressarcimentos/estornos/reembolsos do cartÃ£o',
+      '- conservar creditos, estornos e reembolsos para revisao; manter o sinal e marcar needs_review=true',
       '- incluir apenas transaÃ§Ãµes',
       '- quando categoria for incerta: category = null, needs_review = true',
       '- pode usar suggested_categories com atÃ© 3 categorias existentes',
@@ -95,12 +96,11 @@
   }
 
   function moneyToNumber(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
     const txt = String(value || '')
       .replace(/[R$\s]/g, '')
-      .replace(/\./g, '')
-      .replace(',', '.')
       .trim();
-    const n = Number(txt);
+    const n = Number(txt.includes(',') ? txt.replace(/\./g, '').replace(',', '.') : txt);
     return Number.isFinite(n) ? n : 0;
   }
 
@@ -134,12 +134,12 @@
         date,
         description,
         amount,
-        card: 'XP',
+        card: '',
         category: null,
         needs_review: true,
         warnings: []
       };
-    }).filter(item => item.amount > 0 && item.description);
+    }).filter(item => item.amount !== 0 && item.description);
 
     return {
       format: 'finance_import_v1',
@@ -675,7 +675,7 @@
         category: String(tx?.category || '').trim() || null,
         needs_review: true,
         warnings: []
-      })).filter(item => item.amount > 0 && item.description);
+      })).filter(item => item.amount !== 0 && item.description);
       return { format: 'finance_import_v1', version: '1', items };
     }
     if (Array.isArray(payload?.items)) {
@@ -905,8 +905,10 @@
     try {
       const current = readUserAppState(userId, req.session?.dataEncryptionKey || '');
       const state = current?.state || {};
-      const data = Array.isArray(state?.data) ? state.data : [];
+      const canonical = Array.isArray(state?.finData);
+      const data = canonical ? state.finData : (Array.isArray(state?.data) ? state.data : []);
       const selected = payload.items.filter(item => item && item.include !== false);
+      const importPlan = planInvoiceImport(data, payload.items, userId, jobId, normalizeImportDate);
       const dedupSet = new Set();
       let imported = 0;
       let duplicates = 0;
@@ -922,6 +924,9 @@
         const cardId = normalizeText(item.cardId || item.card || item.card_id || '');
         const next = {
           id: `bill_import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          importIdentity: importPlan.get(item).identity,
+          sourceImportId: jobId, sourceRowId: importPlan.get(item).rowId, sourceDirection: 'debit',
+          sourceDescription: String(item.sourceDescription || item.description || ''),
           description: normalizeText(item.description),
           type: 'spend',
           category: normalizeText(item.category || ''),
@@ -941,35 +946,27 @@
           installmentIndex: 1,
           createdAt: nowIso()
         };
-        const key = buildDedupKey({ ...next, cardId });
+        const key = next.importIdentity?.key;
         if (!cardId || !next.date || !(next.amount > 0) || !next.description) {
           duplicates += 1;
           return;
         }
-        if (dedupSet.has(`${month.id}|${key}`)) {
+        if (dedupSet.has(key)) {
           duplicates += 1;
           return;
         }
-        const exists = outflows.some(flow => {
-          if (String(flow?.outputKind || '') !== 'card') return false;
-          const flowKey = buildDedupKey({
-            cardId: flow?.outputRef,
-            date: flow?.date,
-            amount: flow?.amount,
-            description: flow?.description
-          });
-          return flowKey === key;
-        });
+        const exists = importPlan.get(item).match.kind === 'exact';
         if (exists) {
           duplicates += 1;
           return;
         }
-        dedupSet.add(`${month.id}|${key}`);
+        dedupSet.add(key);
         outflows.push(next);
         month.outflows = outflows;
         imported += 1;
       });
-      state.data = data;
+      if (canonical) state.finData = data;
+      else state.data = data;
       const written = writeUserAppState(userId, state, req.session?.dataEncryptionKey || '');
       updateJob(userId, jobId, {
         status: 'imported',
@@ -981,7 +978,7 @@
       });
       return res.json({ ok: true, imported, duplicates, skippedMonth, updatedAt: written?.updatedAt || '' });
     } catch (error) {
-      return res.status(500).json({ message: error?.message || 'Falha ao importar fatura para o sistema.' });
+      return res.status(error?.reviewRequired ? 409 : 500).json({ message: error?.message || 'Falha ao importar fatura para o sistema.', reviewRequired: error?.reviewRequired === true });
     }
   });
 
@@ -1126,9 +1123,11 @@
     try {
       const current = readUserAppState(userId, req.session?.dataEncryptionKey || '');
       const state = current?.state || {};
-      const data = Array.isArray(state?.data) ? state.data : [];
+      const canonical = Array.isArray(state?.finData);
+      const data = canonical ? state.finData : (Array.isArray(state?.data) ? state.data : []);
       const selected = payload.items.filter(item => item && item.include !== false);
       const dedupSet = new Set();
+      const importPlan = planInvoiceImport(data, payload.items, userId, jobId, normalizeImportDate);
       let imported = 0;
       let duplicates = 0;
       let skippedMonth = 0;
@@ -1141,6 +1140,9 @@
         const next = {
           id: `bill_import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
           description: normalizeText(item.description),
+          importIdentity: importPlan.get(item).identity,
+          sourceImportId: jobId, sourceRowId: importPlan.get(item).rowId, sourceDirection: 'debit',
+          sourceDescription: String(item.sourceDescription || item.description || ''),
           type: 'spend',
           category: normalizeText(item.category || ''),
           amount: Number(item.amount || 0),
@@ -1159,26 +1161,18 @@
           installmentIndex: 1,
           createdAt: nowIso()
         };
-        const key = buildDedupKey({ ...next, cardId });
+        const key = next.importIdentity?.key;
         if (!cardId || !next.date || !(next.amount > 0) || !next.description) { duplicates += 1; return; }
-        if (dedupSet.has(`${month.id}|${key}`)) { duplicates += 1; return; }
-        const exists = outflows.some(flow => {
-          if (String(flow?.outputKind || '') !== 'card') return false;
-          const flowKey = buildDedupKey({
-            cardId: flow?.outputRef,
-            date: flow?.date,
-            amount: flow?.amount,
-            description: flow?.description
-          });
-          return flowKey === key;
-        });
+        if (dedupSet.has(key)) { duplicates += 1; return; }
+        const exists = importPlan.get(item).match.kind === 'exact';
         if (exists) { duplicates += 1; return; }
-        dedupSet.add(`${month.id}|${key}`);
+        dedupSet.add(key);
         outflows.push(next);
         month.outflows = outflows;
         imported += 1;
       });
-      state.data = data;
+      if (canonical) state.finData = data;
+      else state.data = data;
       const written = writeUserAppState(userId, state, req.session?.dataEncryptionKey || '');
       updateJob(userId, jobId, {
         status: 'imported',
@@ -1190,7 +1184,7 @@
       });
       return res.json({ ok: true, imported, duplicates, skippedMonth, updatedAt: written?.updatedAt || '' });
     } catch (error) {
-      return res.status(500).json({ message: error?.message || 'Falha ao importar fatura para o sistema.' });
+      return res.status(error?.reviewRequired ? 409 : 500).json({ message: error?.message || 'Falha ao importar fatura para o sistema.', reviewRequired: error?.reviewRequired === true });
     }
   });
 }

@@ -3,6 +3,7 @@
 
   const reviewState = {
     sourceFileName: '',
+    sourceImportId: '',
     context: null,
     rawPayload: null,
     formatErrors: [],
@@ -38,8 +39,12 @@
     return new Date(year, Math.max(0, monthRaw - 1), Math.max(1, dayRaw)).getTime() || 0;
   }
 
+  function getMonths() {
+    return global.getAllFinanceMonths?.() || global.data || [];
+  }
+
   function getMonthById(monthId) {
-    return (global.data || []).find(month => month?.id === monthId) || null;
+    return getMonths().find(month => month?.id === monthId) || null;
   }
 
   function getMonthLabel(monthId) {
@@ -59,7 +64,7 @@
   function getContextCardsList() {
     const cardsNode = reviewState.context?.cards;
     if (!cardsNode && global.BillImportUtils?.getAllCardsFromUserData) {
-      const runtime = global.BillImportUtils.getAllCardsFromUserData(global.data || []);
+      const runtime = global.BillImportUtils.getAllCardsFromUserData(getMonths());
       return Array.isArray(runtime?.list)
         ? runtime.list.map(card => ({
             id: String(card?.id || '').trim(),
@@ -88,7 +93,7 @@
   function getContextTagsList() {
     const tagsNode = reviewState.context?.tags;
     if (!tagsNode && global.BillImportUtils?.getAllTagsFromUserData) {
-      return global.BillImportUtils.getAllTagsFromUserData(global.data || [])
+      return global.BillImportUtils.getAllTagsFromUserData(getMonths())
         .map(tag => String(tag || '').trim())
         .filter(Boolean);
     }
@@ -109,15 +114,15 @@
     if (candidate && /_20\d{2}$/.test(candidate)) return candidate;
     const fromDate = inferMonthIdFromDate(dateFallback || '');
     if (fromDate) return fromDate;
-    const currentMonthId = String(global.currentMonthId || '').trim();
+    const currentMonthId = String(global.getCurrentMonth?.()?.id || global.currentMonthId || '').trim();
     if (currentMonthId) return currentMonthId;
     return candidate || '';
   }
 
   function getDateMonthContext(item) {
     return getMonthById(item?.monthId)
-      || getMonthById(global.currentMonthId)
-      || (global.data || [])[0]
+      || getMonthById(global.getCurrentMonth?.()?.id || global.currentMonthId)
+      || getMonths()[0]
       || null;
   }
 
@@ -142,7 +147,7 @@
   function findMonthByComparableId(rawId) {
     const comparable = normalizeMonthComparable(rawId);
     if (!comparable) return null;
-    const list = Array.isArray(global.data) ? global.data : [];
+    const list = getMonths();
     return list.find(month => normalizeMonthComparable(month?.id || '') === comparable) || null;
   }
 
@@ -191,6 +196,7 @@
   function recalculateReviewItemStatus(item) {
     const warnings = [];
     const errors = [];
+    let duplicateReview = false;
     const normalizedDate = global.BillImportSchema?.normalizeImportDate(item.date) || '';
     item.monthId = normalizeMonthIdCandidate(item.monthId, normalizedDate || item.date || '');
     if (!item.cardId && item.cardName) {
@@ -210,6 +216,7 @@
     if (!normalizedDate) errors.push('Data inválida.');
     if (!description) errors.push('Descrição ausente.');
     if (!Number.isFinite(amount) || amount <= 0) errors.push('Valor inválido.');
+    if (item.creditAdjustment) errors.push('Credito ou estorno nao pode ser importado como despesa.');
     if (!item.monthId) errors.push('Mês não identificado.');
     if (!item.cardId || !cardName) errors.push('Cartão inválido.');
     if (!category) {
@@ -219,6 +226,11 @@
       errors.push('Categoria fora da lista existente.');
     }
     if (item.tag) warnings.push('Tag definida manualmente na revisão.');
+    if (item.duplicateMatch?.kind === 'candidate') {
+      warnings.push(item.duplicateMatch.reason);
+      duplicateReview = item.duplicateDecision !== 'new';
+    }
+    if (item.duplicateMatch?.kind === 'exact') errors.push('Este identificador de origem ja foi importado.');
 
     item.date = normalizedDate || item.date;
     item.description = description;
@@ -229,11 +241,23 @@
     item.errors = errors;
     item.status = errors.length
       ? 'error'
-      : (item.needsReview ? 'needs_review' : (item.warnings.length ? 'warning' : 'valid'));
+      : ((item.needsReview || duplicateReview) ? 'needs_review' : (item.warnings.length ? 'warning' : 'valid'));
   }
 
   function recalculateAllStatuses() {
-    reviewState.items.forEach(item => recalculateReviewItemStatus(item));
+    const api = global.ImportIdentity;
+    const matcher = api?.createMatcher(getMonths().flatMap(month => month.outflows || []), item => ({
+      identity: api.read(item), context: item.outputKind === 'card' ? item.outputRef : '',
+      date: normalizeDateForKey(item.date), amount: Number(item.amount || 0),
+      direction: item.sourceDirection || 'debit', description: item.sourceDescription || item.description
+    }));
+    reviewState.items.forEach(item => {
+      item.importIdentity = api?.create({ tenantId: global.__APP_BOOTSTRAP__?.session?.id || global.currentSession?.id || global.currentSession?.userId || global.currentSession?.username || 'default-user',
+        provider: 'invoice', accountId: item.cardId, externalId: `${reviewState.sourceImportId}:${item.sourceRowId ?? item.sourceIndex ?? item.id}`, quality: 'source-row' });
+      item.duplicateMatch = matcher?.({ identity: item.importIdentity, context: item.cardId, date: normalizeDateForKey(item.date),
+        amount: item.amount, direction: item.sourceDirection || 'debit', description: item.sourceDescription || item.description });
+      recalculateReviewItemStatus(item);
+    });
   }
 
   function getReviewSummary() {
@@ -378,7 +402,10 @@
               </select>
             </td>
             <td>
-              <div class="${statusClass}">${item.status.replace('_', ' ')}</div>
+              <div class="${statusClass}">${item.creditAdjustment ? 'Credito/estorno' : ({ valid: 'Pronto', warning: 'Conferir', needs_review: 'Revisar', error: 'Corrigir' }[item.status] || item.status)}</div>
+              ${item.duplicateMatch?.kind === 'candidate' ? `<select class="bill-import-input" aria-label="Revisao de possivel duplicata" onchange="BillImportReview.updateField('${item.id}','duplicateDecision',this.value)">
+                <option value="">Revisar antes de importar</option>
+                <option value="new" ${item.duplicateDecision === 'new' ? 'selected' : ''}>Importar como nova</option></select>` : ''}
               ${note ? `<div class="bill-import-note">${note}</div>` : ''}
             </td>
             <td><button class="btn-icon" onclick="BillImportReview.removeItem('${item.id}')">✕</button></td>
@@ -425,7 +452,7 @@
         <div>Valor total da fatura: <strong>${escapeHtml(global.fmt ? global.fmt(summary.amount) : String(summary.amount))}</strong></div>
       </div>
       ${summary.error > 0 || summary.needs_review > 0
-        ? '<div class="text-muted" style="margin-top:8px">A importação só é liberada quando não houver itens com erro ou needs_review.</div>'
+        ? '<div class="text-muted" style="margin-top:8px">Revise os itens marcados antes de importar.</div>'
         : ''}
     `;
     const importButton = document.getElementById('billImportApplyBtn');
@@ -542,7 +569,7 @@
       if (!monthNumber || !year) return null;
       const wantedSlug = monthSlugByNumber[Number(monthNumber)] || '';
       if (!wantedSlug) return null;
-      const list = Array.isArray(global.data) ? global.data : [];
+      const list = getMonths();
       const found = list.find(month => {
         const id = normalizeIdToken(month?.id || '');
         if (!id) return false;
@@ -583,7 +610,7 @@
     if (primary) candidates.push(primary);
     const fromDate = inferMonthIdFromDate(item?.date);
     if (fromDate) candidates.push(fromDate);
-    const currentMonthId = normalizeText(global.currentMonthId || '');
+    const currentMonthId = normalizeText(global.getCurrentMonth?.()?.id || global.currentMonthId || '');
     if (currentMonthId) candidates.push(currentMonthId);
     for (let i = 0; i < candidates.length; i += 1) {
       const rawCandidate = normalizeText(candidates[i]);
@@ -626,6 +653,10 @@
   function createOutflowFromImport(item, cardId) {
     const base = {
       id: `bill_import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      importIdentity: item.importIdentity,
+      sourceImportId: reviewState.sourceImportId, sourceRowId: item.sourceRowId || String(item.sourceIndex ?? ''),
+      sourceDirection: item.sourceDirection || 'debit',
+      sourceDescription: item.sourceDescription || item.description,
       description: item.description,
       type: 'spend',
       category: item.category,
@@ -757,9 +788,9 @@
         droppedReason.card += 1;
         return;
       }
-      const monthDedupKey = buildImportDedupKey(cardId, item.date, item.amount, item.description);
-      const fullDedupKey = `${month.id}|${monthDedupKey}`;
-      if (!monthDedupKey || seenImportKeys.has(fullDedupKey) || monthHasOutflowKey(month, monthDedupKey)) {
+      const monthDedupKey = item.importIdentity?.key || item.id;
+      const fullDedupKey = monthDedupKey;
+      if (!monthDedupKey || seenImportKeys.has(fullDedupKey) || (month.outflows || []).some(row => global.ImportIdentity?.read(row)?.key === monthDedupKey)) {
         droppedReason.duplicate += 1;
         return;
       }
@@ -818,6 +849,7 @@
         return false;
       }
       reviewState.sourceFileName = payload?.sourceFileName || '';
+      reviewState.sourceImportId = payload?.sourceImportId || global.crypto?.randomUUID?.() || `review_${Date.now()}_${Math.random()}`;
       reviewState.context = payload?.context || null;
       reviewState.rawPayload = payload?.rawPayload || null;
       reviewState.formatErrors = Array.isArray(payload?.formatErrors) ? payload.formatErrors.slice() : [];
@@ -858,8 +890,10 @@
         item.monthId = normalizeMonthIdCandidate(value, item.date || '');
       } else if (field === 'tag') {
         item.tag = normalizeText(value);
+      } else if (field === 'duplicateDecision') {
+        item.duplicateDecision = value === 'new' ? 'new' : '';
       }
-      recalculateReviewItemStatus(item);
+      recalculateAllStatuses();
       renderReview();
     },
     toggleInclude(itemId, checked) {
@@ -891,6 +925,10 @@
     exportPayload() {
       const items = reviewState.items.map(item => ({
         id: item.id,
+        sourceIndex: item.sourceIndex, sourceRowId: item.sourceRowId,
+        duplicateDecision: item.duplicateDecision || '',
+        sourceDirection: item.sourceDirection || 'debit', creditAdjustment: item.creditAdjustment === true,
+        sourceDescription: item.sourceDescription || item.description,
         include: item.include !== false,
         date: item.date,
         description: item.description,
