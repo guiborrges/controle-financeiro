@@ -242,42 +242,6 @@
     model.settings.forEach(setting => rewrite(setting.payload));
   }
 
-  function inspect(model, month, months, options, horizon = 36) {
-    const start = options.sort(month);
-    const projections = [];
-    // Read copies of loaded months so paid rows, deletions and local overrides match navigation.
-    for (let offset = 0; offset < horizon; offset += 1) {
-      const target = options.monthAtOrdinal(start + offset);
-      if (!target) break;
-      const expected = project(model, target, options);
-      const loaded = months.find(entry => options.sort(entry) === start + offset);
-      projections.push({ month: target, expected, actual: loaded ? clone(loaded) : clone(expected) });
-    }
-    return model.rules.map(rule => {
-      const version = activeVersion(rule, start);
-      const occurrences = [];
-      const exceptions = [];
-      projections.forEach(({ month: target, expected, actual }) => {
-        const matches = row => row._calendarRule === rule.id || identity(rule.collection, row) === rule.key;
-        const planned = (expected[rule.collection] || []).find(matches);
-        const item = (actual[rule.collection] || []).find(matches);
-        if (planned && !item) exceptions.push({ month: target.id, kind: 'removed' });
-        if (!item || occurrences.length >= 3) return;
-        const changed = !planned || !equal(template(rule.collection, item), template(rule.collection, planned));
-        const exception = item.paid === true ? 'paid' : changed ? 'local' : '';
-        if (exception) exceptions.push({ month: target.id, kind: exception });
-        occurrences.push({ month: clone(target), item: clone(item), exception });
-      });
-      return {
-        id: rule.id, collection: rule.collection,
-        versions: clone(rule.versions),
-        sourceMonth: version?.sourceMonth || rule.versions.find(entry => entry.sourceMonth)?.sourceMonth || '',
-        stopped: version?.stopped === true,
-        payload: clone(version?.payload || rule.versions.find(entry => entry.payload)?.payload || {}),
-        occurrences, exceptions
-      };
-    });
-  }
 
   function rowKey(collection, item) {
     return collection === 'outflows' ? item.id : (identity(collection, item) || cleanName(item.nome));
@@ -457,6 +421,6 @@
     return { hydrate, virtual, serialize, upsert, stop };
   }
 
-  global.ContinuousCalendar = { VERSION, RECURRENCE_REVISION, createModel, repairRecurringRules, repairLegacyCardOutputs, updateCards, changeCard, createSession, project, inspect, renameSelection, identity, isRecurring };
+  global.ContinuousCalendar = { VERSION, RECURRENCE_REVISION, createModel, repairRecurringRules, repairLegacyCardOutputs, updateCards, changeCard, createSession, project, renameSelection, identity, isRecurring };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.ContinuousCalendar;
 })(typeof window !== 'undefined' ? window : globalThis);
