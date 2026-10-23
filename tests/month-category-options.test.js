@@ -53,6 +53,7 @@ function loadCoreCategorySandbox() {
   };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/app/modules/shared/month-selection-catalog.js'), 'utf8'), sandbox);
   const corePath = path.join(__dirname, '..', 'public', 'app', 'core.js');
   vm.runInContext(fs.readFileSync(corePath, 'utf8'), sandbox, { filename: corePath });
   return sandbox;

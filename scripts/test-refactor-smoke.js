@@ -20,6 +20,21 @@ async function finishCharts(page) {
   });
 }
 
+async function assertMonthlyCatalogSelects(page, categoryId, tagId) {
+  const result = await page.evaluate(({ categoryId, tagId }) => {
+    const values = id => Array.from(document.getElementById(id).options)
+      .map(option => option.value).filter(value => value && value !== 'nova');
+    const month = getCurrentMonth();
+    return {
+      categories: values(categoryId),
+      expectedCategories: getMonthCategoryOptions(month, window, { includeFallbackBase: false }).map(entry => entry.value),
+      tags: values(tagId), expectedTags: getMonthTagOptions(month, window)
+    };
+  }, { categoryId, tagId });
+  assert.deepEqual(result.categories, result.expectedCategories);
+  assert.deepEqual(result.tags, result.expectedTags);
+}
+
 async function vendorAssets() {
   const assets = new Map();
   for (const [name, url] of [
@@ -103,6 +118,7 @@ async function main() {
       await desktop.locator('.nav-item[data-page="mes"]').click();
       const before = await financeSnapshot(desktop);
       await desktop.locator('#page-mes button[onclick="openUnifiedOutflowModal()"]').click();
+      await assertMonthlyCatalogSelects(desktop, 'unifiedOutflowCategory', 'unifiedOutflowTag');
       await desktop.locator('#unifiedOutflowDescription').fill('Rascunho ficticio cancelado');
       await desktop.locator('#unifiedOutflowAmount').fill('123.45');
       await desktop.locator('#modalUnifiedOutflow').getByRole('button', { name: 'Cancelar', exact: true }).click();
@@ -124,6 +140,7 @@ async function main() {
     await check('mobile edit sheet cancellation preserves original financial metadata', async () => {
       const before = await financeSnapshot(mobile);
       await mobile.evaluate(() => MobileV2OutflowForm.openEdit(getAllFinanceMonths().find(month => month.id === 'outubro_2026').outflows[0]));
+      await assertMonthlyCatalogSelects(mobile, 'mobileV2OutflowCategory', 'mobileV2OutflowTag');
       await mobile.locator('#mobileV2OutflowDescription').fill('Edicao ficticia cancelada');
       await mobile.locator('#mobileV2OutflowAmount').fill('456,78');
       await mobile.locator('#mobileV2OutflowCancel').click();

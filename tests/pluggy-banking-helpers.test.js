@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const catalogSource = fs.readFileSync(path.join(__dirname, '../public/app/modules/shared/month-selection-catalog.js'), 'utf8');
 
 function loadHelpers() {
   const source = fs.readFileSync(
@@ -18,7 +19,7 @@ function loadHelpers() {
     }
   };
   sandbox.window = sandbox;
-  vm.runInNewContext(source, sandbox);
+  vm.runInNewContext(catalogSource + '\n' + source, sandbox);
   return sandbox.__pluggyBankingTest;
 }
 
@@ -103,7 +104,7 @@ test('resolveTenantLikeUserKey uses session user identity', () => {
     }
   };
   sandbox.window = sandbox;
-  vm.runInNewContext(source, sandbox);
+  vm.runInNewContext(catalogSource + '\n' + source, sandbox);
   const h = sandbox.__pluggyBankingTest;
   assert.equal(h.resolveTenantLikeUserKey(), 'user-id-1');
 });
@@ -124,7 +125,7 @@ test('composite imported key uses original Pluggy description for dedupe', () =>
     }
   };
   sandbox.window = sandbox;
-  vm.runInNewContext(source, sandbox);
+  vm.runInNewContext(catalogSource + '\n' + source, sandbox);
   const h = sandbox.__pluggyBankingTest;
   const account = { accountName: 'Cartao XP', accountType: 'CREDIT' };
   const tx = {
@@ -165,7 +166,7 @@ test('extractImportedKeysFromSavedData reads persisted internet banking markers'
     }
   };
   sandbox.window = sandbox;
-  vm.runInNewContext(source, sandbox);
+  vm.runInNewContext(catalogSource + '\n' + source, sandbox);
   const h = sandbox.__pluggyBankingTest;
   const keys = Array.from(h.extractImportedKeysFromSavedData());
   assert.deepEqual(keys.sort(), ['key-mov-1', 'key-mov-2', 'key-outflow-1', 'key-outflow-2']);
@@ -211,7 +212,7 @@ test('internet banking state merges canonical app-state with legacy local browse
     }
   };
   sandbox.window = sandbox;
-  vm.runInNewContext(source, sandbox);
+  vm.runInNewContext(catalogSource + '\n' + source, sandbox);
   const state = sandbox.__pluggyBankingTest.loadUserStateForTest();
 
   assert.equal(state.importedTxIds.canonicalImported, true);
@@ -248,7 +249,7 @@ test('internet banking state persists to canonical app-state and compatibility l
     }
   };
   sandbox.window = sandbox;
-  vm.runInNewContext(source, sandbox);
+  vm.runInNewContext(catalogSource + '\n' + source, sandbox);
   sandbox.__pluggyBankingTest.persistUserStateForTest({
     importedTxIds: { tx123: true },
     ignoredTxKeys: { keyABC: true }

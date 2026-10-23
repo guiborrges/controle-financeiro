@@ -49,69 +49,15 @@
   }
 
   function normalizeScalarText(value) {
-    if (value == null) return '';
-    if (typeof value === 'object') {
-      if (typeof value.name === 'string') return value.name.trim();
-      if (typeof value.label === 'string') return value.label.trim();
-      if (typeof value.title === 'string') return value.title.trim();
-      if (typeof value.value === 'string') return value.value.trim();
-      if (typeof value.id === 'string') return value.id.trim();
-      return '';
-    }
-    const text = String(value).trim();
-    return text === '[object Object]' ? '' : text;
+    return global.MonthSelectionCatalog.getCategoryScalarText(value);
   }
 
   function stripLegacyCategoryIconPrefix(rawName) {
-    const txt = normalizeScalarText(rawName);
-    if (!txt) return '';
-    const cleaned = txt.replace(/\s+/g, ' ').trim();
-    const match = cleaned.match(/^([a-z][a-z0-9_-]{1,24})\s+(.+)$/i);
-    if (!match) return cleaned;
-    const iconToken = String(match[1] || '').toLowerCase();
-    const tail = String(match[2] || '').trim();
-    const knownTokens = new Set([
-      'food', 'phone', 'market', 'shopping', 'education', 'card', 'home', 'health', 'fun', 'tag', 'work', 'car', 'bank'
-    ]);
-    if (!knownTokens.has(iconToken) || !tail) return cleaned;
-    return tail;
+    return global.MonthSelectionCatalog.stripLegacyCategoryIconPrefix(rawName);
   }
 
   function toVisualCategorySymbol(rawSymbol, categoryName = '') {
-    const symbol = normalizeScalarText(rawSymbol);
-    const iconEmojiMap = {
-      food: '🍽️',
-      phone: '📱',
-      market: '🛒',
-      shopping: '🛍️',
-      education: '📘',
-      card: '💳',
-      home: '🏠',
-      health: '🩺',
-      fun: '🎉',
-      tag: '🏷️',
-      work: '💼',
-      car: '🚗',
-      bank: '🏦',
-      invoice: '🧾',
-      gift: '🎁'
-    };
-    if (symbol) {
-      if (typeof global.normalizeCategoryIconId === 'function') {
-        const iconId = global.normalizeCategoryIconId(symbol);
-        if (iconEmojiMap[iconId]) return iconEmojiMap[iconId];
-      } else {
-        const normalizedRaw = symbol.toLowerCase();
-        if (iconEmojiMap[normalizedRaw]) return iconEmojiMap[normalizedRaw];
-      }
-      if (/[\u2190-\u2BFF\u{1F000}-\u{1FAFF}]/u.test(symbol)) return symbol;
-    }
-    if (typeof global.inferCategoryVisual === 'function') {
-      const visual = global.inferCategoryVisual(categoryName || '');
-      const inferred = String(visual?.icon || '').trim();
-      if (iconEmojiMap[inferred]) return iconEmojiMap[inferred];
-    }
-    return '';
+    return global.MonthSelectionCatalog.toVisualCategorySymbol(rawSymbol, categoryName, global);
   }
 
   function normalizeComparableText(value) {

@@ -59,6 +59,10 @@ os achados da auditoria ou validar todas as integracoes. Detalhes e comandos
 reproduziveis no documento 10. Aguardando autorizacao para a etapa seguinte.
 # Atualizacao da etapa 3A
 
+Atualizacao posterior: 3A publicada. Para a 3B, seis novos testes de catalogo e
+conferencia dos seletores reais Desktop/Mobile acrescentados; detalhes, comandos
+e limites no documento 13. As demais secoes registram etapas passadas.
+
 379 testes aprovados e 8 cenarios Desktop/Mobile aprovados. Mesmos totais nas
 fixtures de caracterizacao; sem erros de pagina ou escrita financeira no smoke.
 Validacao local, sem migracao ou publicacao. Detalhes e limites no documento 12.

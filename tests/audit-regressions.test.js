@@ -8,6 +8,7 @@ function load(files, extra = {}) {
   const ctx = { console, Date, setTimeout, clearTimeout, addEventListener() {}, resolveCategoryName: value => value, data: [], currentSession: null, document: { addEventListener() {} }, ...extra };
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/app/modules/shared/month-selection-catalog.js'), 'utf8'), ctx);
   for (const file of files) vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/app', file), 'utf8'), ctx, { filename: file });
   return ctx;
 }

@@ -92,7 +92,7 @@
             const rawIcon = String(entry.icon || entry.symbol || '');
             const icon = global.PluggyBanking?.toVisualCategorySymbol
               ? global.PluggyBanking.toVisualCategorySymbol(rawIcon, label)
-              : (/[\u2190-\u2BFF\u{1F000}-\u{1FAFF}]/u.test(rawIcon) ? rawIcon : '');
+              : global.MonthSelectionCatalog.getEmojiSymbol(rawIcon);
             return {
               value: String(entry.value || entry.id || entry.name || ''),
               label,

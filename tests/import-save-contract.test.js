@@ -9,6 +9,7 @@ function load(file, extra = {}, transform = value => value) {
     localStorage: { getItem: () => null, setItem() {} }, ...extra };
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/app/modules/shared/month-selection-catalog.js'), 'utf8'), ctx);
   vm.runInContext(transform(fs.readFileSync(path.join(__dirname, '../public/app', file), 'utf8')), ctx);
   return ctx;
 }

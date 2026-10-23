@@ -2646,7 +2646,7 @@ function getCategoryOptionDisplaySymbol(entry, categoryName) {
   if (window.PluggyBanking?.toVisualCategorySymbol) {
     return window.PluggyBanking.toVisualCategorySymbol(rawSymbol, categoryName || '');
   }
-  return /[\u2190-\u2BFF\u{1F000}-\u{1FAFF}]/u.test(rawSymbol) ? rawSymbol : '';
+  return window.MonthSelectionCatalog.getEmojiSymbol(rawSymbol);
 }
 
 function formatCategoryOptionLabelFromEntry(entry) {

@@ -9,10 +9,10 @@ Nao autoriza iniciar etapas ainda nao solicitadas. A 3A esta autorizada para dep
 
 ## Decisao solicitada
 
-Atualizacao: etapa 2A concluida; primeiro lote 2B (F01/F02) publicado com
-autorizacao no commit b277cbc. F03 a F06 continuam pendentes. Etapa 3A autorizada
-e implementada localmente, conforme documento 12. Sem autorizacao de publicacao
-da 3A ou de inicio da 3B.
+Atualizacao: etapa 2A concluida; primeiro lote 2B (F01/F02) publicado no commit
+b277cbc. F03 a F06 continuam pendentes. A 3A foi publicada no commit a6ef665.
+A 3B foi autorizada e implementada, conforme documento 13, com publicacao
+prevista apos os testes. Sem autorizacao para iniciar a 3C.
 
 Aprovar fases 2 a 7 em pequenas entregas, com correcoes F01-F06 tratadas em
 mudancas separadas e explicitamente autorizadas. A fase 3 foi iniciada pela 3A.
@@ -91,8 +91,8 @@ Uma reversao de codigo nao desfaz dados ja migrados; isso precisa ser explicitad
 ## Fora do escopo
 
 Atualizacao: primeiro lote F01/F02 da 2B publicado com autorizacao; detalhes no
-documento 11. F03 a F06 continuam pendentes. A 3A esta validada localmente;
-nenhuma etapa seguinte foi iniciada.
+documento 11. F03 a F06 continuam pendentes. A 3A foi publicada e a 3B esta
+implementada; nenhuma etapa seguinte foi iniciada.
 
 M10 permanece removida. Sem novas funcionalidades, novos componentes visuais,
 reactivacao de service worker, conexao bancaria real, IA externa, limpeza de

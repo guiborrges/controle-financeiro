@@ -1,5 +1,9 @@
 # Duplicacoes e contratos a consolidar
 
+Atualizacao 3B: regras de categorias/tags mensais, nomes escalares, prefixos
+antigos e simbolos extraidos para MonthSelectionCatalog. Fachadas mantidas.
+Sem cache persistente ou mudanca nas listas oferecidas. Detalhes no documento 13.
+
 Atualizacao 3A: a precedencia de fatura foi extraida para OutflowAmounts;
 FinancialQuery e MesAtualCards mantem suas fachadas e politicas anteriores para
 NaN. Contratos de exibicao monetaria foram caracterizados, nao unificados onde

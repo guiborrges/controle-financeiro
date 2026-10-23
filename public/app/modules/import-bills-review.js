@@ -328,7 +328,7 @@
       const raw = normalizeText(symbol);
       if (!raw) return '';
       if (global.PluggyBanking?.toVisualCategorySymbol) return global.PluggyBanking.toVisualCategorySymbol(raw, name || '');
-      return /[\u2190-\u2BFF\u{1F000}-\u{1FAFF}]/u.test(raw) ? raw : '';
+      return global.MonthSelectionCatalog.getEmojiSymbol(raw);
     };
     const pushOption = (category, prefix = '', symbol = '') => {
       const name = normalizeText(category);

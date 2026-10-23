@@ -88,6 +88,11 @@ capturas, dados pessoais, pastas temporarias ou alteracoes funcionais.
 Essa autorizacao nao inicia a etapa 2B nem a fase 3.
 # Atualizacao da etapa 3A
 
+Atualizacao posterior: 3A publicada no commit a6ef665. A 3B foi implementada
+com regras mensais e simbolos no modulo MonthSelectionCatalog, mantendo as
+fachadas. Seis novos testes; seletores reais Desktop/Mobile conferidos no smoke.
+Sem migracao ou alteracao de dados reais. Detalhes no documento 13.
+
 Helper de fatura extraido para OutflowAmounts, com fachadas e politicas de NaN
 preservadas. Matriz de 2.904 combinacoes caracterizada antes/depois; 4 testes
 novos. Suite: 379 aprovados; navegador: 8 cenarios aprovados. Nenhuma migracao,

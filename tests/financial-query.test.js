@@ -75,7 +75,7 @@ test('browser core, mobile contract and widget agree on expenses, income and res
     resolveCategoryName: value => value, ensureProjetos() {}, despSelectionState: {} };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
-  for (const name of ['modules/shared/outflow-amounts.js', 'modules/shared/financial-query.js', 'core.js', 'modules/mobile-v2/data-bridge.js']) {
+  for (const name of ['modules/shared/month-selection-catalog.js', 'modules/shared/outflow-amounts.js', 'modules/shared/financial-query.js', 'core.js', 'modules/mobile-v2/data-bridge.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/app', name), 'utf8'), sandbox);
   }
   sandbox.calculateUnifiedPlanningTotal = month => sandbox.getFinancialMonthQuery(month).expenseCents / 100;
