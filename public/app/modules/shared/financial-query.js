@@ -11,9 +11,7 @@
   const clean = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
   const nonCategories = new Set(['PIX', 'DEBITO', 'DINHEIRO', 'CARTAO', 'CARTAO DE CREDITO', 'CREDITO', 'DESPESA', 'DESPESAS', 'GASTO', 'GASTOS', 'DESPESA FIXA', 'DESPESAS FIXAS', 'DESPESA VARIAVEL', 'DESPESAS VARIAVEIS']);
   function billAmount(bill) {
-    const raw = Math.max(0, Number(bill?.amount || 0));
-    return bill?.manualAmountSet === true || (String(bill?.source || '').toLowerCase() !== 'forecast' && raw > 0)
-      ? raw : Math.max(0, Number(bill?.forecastAmount || 0));
+    return amounts.getEffectiveCardBillAmount(bill);
   }
   function buildFacts(month, options = {}) {
     const result = [];

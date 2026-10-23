@@ -86,6 +86,13 @@ Apos a conclusao local da etapa 2A, o usuario autorizou subir esta entrega.
 O envio inclui apenas testes/harness e documentacao; nao inclui backups,
 capturas, dados pessoais, pastas temporarias ou alteracoes funcionais.
 Essa autorizacao nao inicia a etapa 2B nem a fase 3.
+# Atualizacao da etapa 3A
+
+Helper de fatura extraido para OutflowAmounts, com fachadas e politicas de NaN
+preservadas. Matriz de 2.904 combinacoes caracterizada antes/depois; 4 testes
+novos. Suite: 379 aprovados; navegador: 8 cenarios aprovados. Nenhuma migracao,
+alteracao visual ou publicacao. Detalhes no documento 12.
+
 # Atualizacao da etapa 2B
 
 Primeiro lote F01/F02 implementado localmente: historico privado no bootstrap

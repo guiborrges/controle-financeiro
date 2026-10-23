@@ -57,6 +57,13 @@ e SQLite criptografado relidos em processos novos com os mesmos campos/totais.
 Os criterios deste lote de protecao foram atendidos; isso nao equivale a sanar
 os achados da auditoria ou validar todas as integracoes. Detalhes e comandos
 reproduziveis no documento 10. Aguardando autorizacao para a etapa seguinte.
+# Atualizacao da etapa 3A
+
+379 testes aprovados e 8 cenarios Desktop/Mobile aprovados. Mesmos totais nas
+fixtures de caracterizacao; sem erros de pagina ou escrita financeira no smoke.
+Validacao local, sem migracao ou publicacao. Detalhes e limites no documento 12.
+O lote F01/F02 da etapa 2B foi publicado com autorizacao apos o registro abaixo.
+
 # Atualizacao da etapa 2B
 
 Autorizacao recebida para iniciar 2B, nao para publicar. Primeiro lote F01/F02:

@@ -18,6 +18,7 @@ function loadMesAtualContext() {
   };
   context.window = context;
   vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../public/app/modules/shared/outflow-amounts.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(cardsModulePath, 'utf8'), context, { filename: cardsModulePath });
   vm.runInContext(code, context, { filename: filePath });
   return context;

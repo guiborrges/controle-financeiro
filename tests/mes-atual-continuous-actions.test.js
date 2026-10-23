@@ -21,7 +21,7 @@ function setup({ legacy = false } = {}) {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
-  for (const file of ['modules/continuous-calendar.js', 'modules/continuous-calendar-app.js', 'modules/mes-atual/cards.js', 'modules/mes-atual/outflow-expense-date.js', 'mes-atual.js']) {
+  for (const file of ['modules/shared/outflow-amounts.js', 'modules/continuous-calendar.js', 'modules/continuous-calendar-app.js', 'modules/mes-atual/cards.js', 'modules/mes-atual/outflow-expense-date.js', 'mes-atual.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/app', file), 'utf8'), ctx);
   }
   const options = {

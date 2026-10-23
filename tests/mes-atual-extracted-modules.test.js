@@ -10,6 +10,7 @@ function runModule(relativePath, context = {}) {
   const runtime = { window: {}, ...context };
   if (!runtime.window) runtime.window = {};
   vm.createContext(runtime);
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../public/app/modules/shared/outflow-amounts.js'), 'utf8'), runtime);
   vm.runInContext(code, runtime, { filename: filePath });
   return runtime.window;
 }

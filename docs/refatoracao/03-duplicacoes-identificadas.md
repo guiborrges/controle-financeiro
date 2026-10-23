@@ -1,5 +1,10 @@
 # Duplicacoes e contratos a consolidar
 
+Atualizacao 3A: a precedencia de fatura foi extraida para OutflowAmounts;
+FinancialQuery e MesAtualCards mantem suas fachadas e politicas anteriores para
+NaN. Contratos de exibicao monetaria foram caracterizados, nao unificados onde
+ha diferencas intencionais de sinal. Detalhes no documento 12.
+
 Nomes iguais nao provam duplicacao. A busca de declaracoes foi usada apenas
 para selecionar candidatos; os casos abaixo foram comparados por responsabilidade.
 

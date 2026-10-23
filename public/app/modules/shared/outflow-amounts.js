@@ -38,7 +38,21 @@
     return clampCurrency(item?.amount ?? item?.valor);
   }
 
+  function getEffectiveCardBillAmount(bill, { nanAsZero = false } = {}) {
+    const nonNegative = value => {
+      const number = Number(value || 0);
+      return Math.max(0, nanAsZero ? number || 0 : number);
+    };
+    const rawAmount = nonNegative(bill?.amount);
+    const source = String(bill?.source || '').toLowerCase();
+    if (bill?.manualAmountSet === true || (source !== 'forecast' && rawAmount > 0)) {
+      return rawAmount;
+    }
+    return nonNegative(bill?.forecastAmount);
+  }
+
   const api = {
+    getEffectiveCardBillAmount,
     clampCurrency,
     getSharedOwnerAmount,
     getEffectiveOutflowAmount

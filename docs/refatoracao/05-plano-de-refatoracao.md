@@ -1,13 +1,21 @@
 # Plano para aprovacao
 
+## Autorizacao vigente de publicacao
+
+Em 23/10/2026, apos a validacao da 3A, o usuario orientou publicar sempre ao
+finalizar e conferir que todos os testes passaram. Esta orientacao substitui
+as restricoes anteriores de publicacao por aprovacao individual neste plano.
+Nao autoriza iniciar etapas ainda nao solicitadas. A 3A esta autorizada para deploy.
+
 ## Decisao solicitada
 
-Atualizacao da autorizacao: o usuario autorizou somente a etapa 2A, executada
-conforme documento 10. A etapa 2B, a fase 3 e qualquer publicacao continuam
-aguardando aprovacao especifica.
+Atualizacao: etapa 2A concluida; primeiro lote 2B (F01/F02) publicado com
+autorizacao no commit b277cbc. F03 a F06 continuam pendentes. Etapa 3A autorizada
+e implementada localmente, conforme documento 12. Sem autorizacao de publicacao
+da 3A ou de inicio da 3B.
 
 Aprovar fases 2 a 7 em pequenas entregas, com correcoes F01-F06 tratadas em
-mudancas separadas e explicitamente autorizadas. A fase 3 NAO foi iniciada.
+mudancas separadas e explicitamente autorizadas. A fase 3 foi iniciada pela 3A.
 Nao havera deploy automatico neste trabalho, mesmo apos testes locais.
 Cada publicacao exigira autorizacao especifica.
 
@@ -82,9 +90,9 @@ Uma reversao de codigo nao desfaz dados ja migrados; isso precisa ser explicitad
 
 ## Fora do escopo
 
-Atualizacao: etapa 2B autorizada e iniciada. Primeiro lote F01/F02 implementado
-localmente e validado; detalhes no documento 11. F03 a F06 continuam pendentes.
-Nao houve autorizacao de publicacao nem inicio da fase 3.
+Atualizacao: primeiro lote F01/F02 da 2B publicado com autorizacao; detalhes no
+documento 11. F03 a F06 continuam pendentes. A 3A esta validada localmente;
+nenhuma etapa seguinte foi iniciada.
 
 M10 permanece removida. Sem novas funcionalidades, novos componentes visuais,
 reactivacao de service worker, conexao bancaria real, IA externa, limpeza de

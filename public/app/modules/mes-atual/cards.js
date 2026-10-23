@@ -24,13 +24,7 @@
   }
 
   function getUnifiedCardBillEffectiveAmount(month, bill) {
-    if (!bill) return 0;
-    const source = String(bill?.source || '').toLowerCase();
-    const rawAmount = Math.max(0, Number(bill?.amount || 0) || 0);
-    if (bill?.manualAmountSet === true || (source !== 'forecast' && rawAmount > 0)) {
-      return rawAmount;
-    }
-    return Math.max(0, Number(bill?.forecastAmount || 0) || 0);
+    return global.OutflowAmounts.getEffectiveCardBillAmount(bill, { nanAsZero: true });
   }
 
   function getUnifiedCardLaunchesAmount(month, cardId) {
