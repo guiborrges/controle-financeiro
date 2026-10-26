@@ -965,7 +965,8 @@ function renderTitles() {
     if (!node) return;
     const text = sectionTitles[key] || '';
     if (titleEditKey === key) {
-      node.innerHTML = `<input id="titleInlineEditor" value="${escapeHtml(text)}" style="width:min(280px, 55vw);padding:6px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;text-transform:uppercase;letter-spacing:.08em" onblur="commitTitleEdit(this.value)" onkeydown="handleTitleEditorKeydown(event)">`;
+      const textTransform = key === 'renda' || key === 'projetos' ? 'none' : 'uppercase';
+      node.innerHTML = `<input id="titleInlineEditor" value="${escapeHtml(text)}" style="width:min(280px, 55vw);padding:6px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;text-transform:${textTransform};letter-spacing:.08em" onblur="commitTitleEdit(this.value)" onkeydown="handleTitleEditorKeydown(event)">`;
       node.setAttribute('data-editable', 'true');
       requestAnimationFrame(() => {
         const editor = document.getElementById('titleInlineEditor');

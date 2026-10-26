@@ -1275,6 +1275,12 @@ Status global tem role=status/aria-live=polite, aberto por classe open.
 Sucesso usa classe ok; mensagem nao deve sumir atras do sheet.
 Inputs/botoes precisam de rotulos acessiveis e layout sem overflow.
 
+Nomes das rendas fixas/extras e cabecalhos dessas secoes aparecem em caixa alta
+fora da edicao, inclusive depois de renomear. A transformacao e de apresentacao:
+preservar a grafia original armazenada para mostrar no editor. Inputs nao devem
+herdar caixa alta da celula/cabecalho. A regra vale no Desktop e Mobile e nao
+altera valores, identificadores, aliases ou propagacao de recorrencia.
+
 M10 foi revertido por decisao do usuario. O snapshot e o comportamento vigente,
 nao a proposta descartada, sao a referencia de reconstrucao.
 

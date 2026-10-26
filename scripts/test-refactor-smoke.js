@@ -160,6 +160,52 @@ async function main() {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       await page.context().close();
     });
+    await check('income names and section titles are uppercase outside editing without rewriting originals', async () => {
+      const page = await open('a');
+      await page.locator('.nav-item[data-page="mes"]').click();
+      await page.evaluate(() => {
+        const month = getCurrentMonth();
+        month.renda[0].fonte = 'Salario mensal';
+        month.renda[0].recurringFixed = false;
+        month.projetos = [{ nome: 'Freelance extra', valor: 50, paid: false }];
+        renderMes();
+      });
+      for (const [body, name, edited] of [['rendaBody', 'Salario mensal', 'Salario editado'], ['projBody', 'Freelance extra', 'Freelance editado']]) {
+        const cell = page.locator(`#${body} tr`).first().locator('td').nth(1);
+        assert.equal(await cell.evaluate(node => getComputedStyle(node).textTransform), 'uppercase');
+        await cell.dblclick();
+        const input = page.locator('#inlineEditor');
+        assert.equal(await input.inputValue(), name);
+        assert.equal(await input.evaluate(node => getComputedStyle(node).textTransform), 'none');
+        await input.fill(edited);
+        await input.press('Enter');
+        if (body === 'rendaBody') await page.locator('#modalRecurringChangeScope').getByRole('button', { name: 'Alterar apenas este m\u00eas', exact: true }).click();
+        await input.waitFor({ state: 'hidden' });
+        assert.equal(await cell.textContent(), edited);
+        assert.equal(await cell.evaluate(node => getComputedStyle(node).textTransform), 'uppercase');
+      }
+      for (const id of ['title-renda', 'title-projetos']) {
+        await page.locator(`#${id}`).dblclick();
+        const input = page.locator('#titleInlineEditor');
+        assert.equal(await input.evaluate(node => getComputedStyle(node).textTransform), 'none');
+        await input.fill('Titulo personalizado');
+        await input.press('Enter');
+        assert.equal(await page.locator(`#${id}`).evaluate(node => getComputedStyle(node).textTransform), 'uppercase');
+      }
+      const mobilePage = await open('a', true);
+      await mobilePage.evaluate(() => {
+        const month = getCurrentMonth();
+        month.renda[0].fonte = 'Salario mensal';
+        month.projetos = [{ nome: 'Freelance extra', valor: 50, paid: false }];
+        MobileV2.setTab('mes');
+      });
+      await mobilePage.locator('[data-m2-subtab="renda"]').click();
+      const names = mobilePage.locator('.m-item-income .m-item-name');
+      assert.equal(await names.count(), 2);
+      for (const name of await names.all()) assert.equal(await name.evaluate(node => getComputedStyle(node).textTransform), 'uppercase');
+      await page.context().close();
+      await mobilePage.context().close();
+    });
     const mobile = await open('a', true);
     await check('mobile shares desktop financial totals and respects viewport', async () => {
       assert.deepEqual(await mobile.evaluate(() => {

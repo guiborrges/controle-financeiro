@@ -1453,6 +1453,17 @@ body {
   color: var(--text3);
 }
 #rendaTable thead { background: linear-gradient(180deg, #eef8f1 0%, #f9fcfa 100%); }
+#rendaBody td:nth-child(2),
+#projBody td:nth-child(2),
+.m-item-income .m-item-name,
+.m2-tab-panel[data-tab-panel="renda"] .m-list-title {
+  text-transform: uppercase;
+}
+
+#rendaBody td:nth-child(2) input,
+#projBody td:nth-child(2) input {
+  text-transform: none;
+}
 #rendaTable th { color: #3e6a4e; }
 #rendaTable tbody tr:nth-child(even) td { background: rgba(45,90,61,.03); }
 #rendaTable tbody tr:hover td { background: #ecf8ef; }
