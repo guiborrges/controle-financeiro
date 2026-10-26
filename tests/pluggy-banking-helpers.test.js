@@ -23,6 +23,30 @@ function loadHelpers() {
   return sandbox.__pluggyBankingTest;
 }
 
+test('missing provider identity has no warning, selector or import confirmation on Desktop and Mobile', () => {
+  const helpers = loadHelpers();
+  for (const kind of ['new', 'candidate']) {
+    const tx = { id: 'fixture', identityQuality: 'missing', amount: 10,
+      _match: { kind, reason: 'Origem sem identificador confiavel.' }, _ui: {} };
+    assert.equal(helpers.getImportReviewReason(tx), '');
+    assert.equal(helpers.renderImportDecision('fixture', tx), '');
+    assert.equal(helpers.toMobileRow({ accountType: 'BANK' }, tx).duplicateReason, '');
+    assert.doesNotThrow(() => helpers.validateImportDecision({ accountType: 'BANK' }, tx));
+  }
+});
+
+test('identified duplicate candidates still require review and card refunds cannot become expenses', () => {
+  const helpers = loadHelpers();
+  const candidate = { identityQuality: 'native', _match: { kind: 'candidate', reason: 'Possivel duplicata' }, _ui: {} };
+  assert.equal(helpers.getImportReviewReason(candidate), 'Possivel duplicata');
+  assert.throws(() => helpers.validateImportDecision({ accountType: 'BANK' }, candidate), /Possivel duplicata/);
+  candidate._ui.duplicateDecision = 'new';
+  assert.doesNotThrow(() => helpers.validateImportDecision({ accountType: 'BANK' }, candidate));
+  assert.throws(() => helpers.validateImportDecision({ accountType: 'CREDIT' }, {
+    identityQuality: 'missing', type: 'CREDIT', amount: -10
+  }), /Credito ou estorno/);
+});
+
 test('filter helper detects "Saldo sincronizado via Pluggy"', () => {
   const helpers = loadHelpers();
   assert.equal(helpers.isSaldoSyncDescription('Saldo sincronizado via Pluggy'), true);

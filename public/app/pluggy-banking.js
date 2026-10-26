@@ -775,12 +775,15 @@
       description: item.sourceDescription || item.description }));
   }
 
+  function getImportReviewReason(tx) {
+    // Missing provider IDs are reviewed manually by the user, without an extra prompt.
+    if (tx?.identityQuality === 'missing' || tx?._match?.kind !== 'candidate') return '';
+    return tx._match.reason || 'Possivel duplicata. Confira antes de importar.';
+  }
+
   function validateImportDecision(account, tx) {
-    if (tx?._match?.kind === 'candidate' && tx?._ui?.duplicateDecision !== 'new') {
+    if (getImportReviewReason(tx) && tx?._ui?.duplicateDecision !== 'new') {
       throw new Error('Possivel duplicata: confirme Importar como nova ou ignore este item.');
-    }
-    if (tx?.identityQuality === 'missing' && tx?._ui?.duplicateDecision !== 'new') {
-      throw new Error('Origem sem identificador. Confirme a importacao como nova para continuar.');
     }
     if (String(account.accountType).toUpperCase() === 'CREDIT' && transactionDirection(account, tx) === 'credit') {
       throw new Error('Credito ou estorno do cartao: mantido na revisao, sem transformar em despesa.');
@@ -1522,8 +1525,9 @@
     if (String(account?.accountType).toUpperCase() === 'CREDIT' && transactionDirection(account, tx) === 'credit') {
       return '<small>Credito ou estorno mantido na revisao; nao sera convertido em despesa.</small>';
     }
-    if (tx?._match?.kind !== 'candidate' && tx?.identityQuality !== 'missing') return '';
-    return `<small>${escapeHtml(tx._match?.reason || 'Origem sem identificador confiavel.')}</small>
+    const reason = getImportReviewReason(tx);
+    if (!reason) return '';
+    return `<small>${escapeHtml(reason)}</small>
       <select class="pluggy-input" aria-label="Revisao de possivel duplicata" onchange="PluggyBanking.updateField('${escapeHtml(accountKey)}','${escapeHtml(tx.id)}','duplicateDecision',this.value)">
         <option value="">Revisar antes de importar</option>
         <option value="new" ${tx._ui?.duplicateDecision === 'new' ? 'selected' : ''}>Importar como nova</option>
@@ -1856,7 +1860,7 @@
       tag: String(tx?._ui?.tag || ''),
       movementType: String(tx?._ui?.movementType || inferBankMovementType(tx)),
       amount: Math.abs(Number(tx?.amount || 0)),
-      duplicateReason: tx?._match?.kind === 'candidate' ? tx._match.reason : (tx?.identityQuality === 'missing' ? 'Origem sem identificador confiavel.' : ''),
+      duplicateReason: getImportReviewReason(tx),
       duplicateDecision: tx?._ui?.duplicateDecision || '',
       reviewReason: type === 'CREDIT' && transactionDirection(account, tx) === 'credit' ? 'Credito ou estorno mantido para revisao, sem virar despesa.' : '',
       isValid: type === 'CREDIT' ? isCreditRowValid(tx) : true
@@ -1948,6 +1952,10 @@
 
   global.renderInternetBankingPage = renderPage;
   global.__pluggyBankingTest = {
+    getImportReviewReason,
+    validateImportDecision,
+    renderImportDecision,
+    toMobileRow,
     normalizeDescriptionKey,
     isSaldoSyncDescription,
     inferBankMovementType,
