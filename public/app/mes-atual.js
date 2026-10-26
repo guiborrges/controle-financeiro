@@ -2628,11 +2628,7 @@ function formatCategoryOptionLabel(category) {
 
 function getCategoryOptionDisplaySymbol(entry, categoryName) {
   const rawSymbol = getCategoryScalarText(entry?.symbol || entry?.icon || entry?.emoji || '');
-  if (!rawSymbol) return '';
-  if (window.PluggyBanking?.toVisualCategorySymbol) {
-    return window.PluggyBanking.toVisualCategorySymbol(rawSymbol, categoryName || '');
-  }
-  return window.MonthSelectionCatalog.getEmojiSymbol(rawSymbol);
+  return window.MonthSelectionCatalog.toVisualCategorySymbol(rawSymbol, categoryName || '', window);
 }
 
 function formatCategoryOptionLabelFromEntry(entry) {

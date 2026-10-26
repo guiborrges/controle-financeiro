@@ -89,10 +89,8 @@
         return options.map((entry) => {
           if (entry && typeof entry === 'object') {
             const label = String(entry.label || entry.name || entry.value || '');
-            const rawIcon = String(entry.icon || entry.symbol || '');
-            const icon = global.PluggyBanking?.toVisualCategorySymbol
-              ? global.PluggyBanking.toVisualCategorySymbol(rawIcon, label)
-              : global.MonthSelectionCatalog.getEmojiSymbol(rawIcon);
+            const rawIcon = String(entry.symbol || entry.emoji || entry.icon || '');
+            const icon = global.MonthSelectionCatalog.toVisualCategorySymbol(rawIcon, label, global);
             return {
               value: String(entry.value || entry.id || entry.name || ''),
               label,

@@ -245,3 +245,15 @@ test('native category selects do not render internal icon ids as visible labels'
   assert.match(importReview, /getVisibleSymbol/);
   assert.match(importReview, /toVisualCategorySymbol/);
 });
+
+test('manual category labels use the banking symbol resolver even without stored metadata', () => {
+  const sandbox = loadCoreCategorySandbox();
+  sandbox.inferCategoryVisual = name => ({ icon: name === 'MORADIA' ? 'home' : 'fun' });
+  const source = fs.readFileSync(path.join(__dirname, '..', 'public', 'app', 'mes-atual.js'), 'utf8');
+  const start = source.indexOf('function getCategoryOptionDisplaySymbol(');
+  const end = source.indexOf('function populateUnifiedOutflowCategoryOptions(', start);
+  vm.runInContext(source.slice(start, end), sandbox);
+  assert.equal(sandbox.formatCategoryOptionLabelFromEntry({ name: 'MORADIA', symbol: '' }), '\u{1F3E0} MORADIA');
+  assert.equal(sandbox.formatCategoryOptionLabelFromEntry({ name: 'LAZER', icon: 'fun' }), '\u{1F389} LAZER');
+  assert.equal(sandbox.formatCategoryOptionLabelFromEntry({ name: 'LAZER', emoji: '\u{1F381}' }), '\u{1F381} LAZER');
+});
