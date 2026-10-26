@@ -2150,7 +2150,7 @@ function renderUnifiedCategoryGroups(month, items, options = {}) {
       displayValue:editableGoalDisplay,
       className:'text-muted'
     });
-    const expanded = hasItems && isUnifiedOutflowCategoryExpanded(month, category);
+    const expanded = hasItems && (getUnifiedOutflowSearchValue(month) || isUnifiedOutflowCategoryExpanded(month, category));
     const list = expanded ? categoryItems.sort((a, b) => parseData(b.date || '') - parseData(a.date || '')).map(item => `
       <tr class="unified-spend-detail-row">
         ${renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'description', kind:'text', value:item.description, displayValue:`${escapeHtml(item.description)}${getUnifiedSharedNoteHtml(item)}${item.tag ? `<div class="text-muted" style="margin-top:4px;font-size:11px">Tag • ${escapeHtml(item.tag)}</div>` : ''}`, className:'unified-outflow-description-cell', style:'padding-left:56px' }).replace('<td class="unified-outflow-description-cell" style="padding-left:56px"', '<td class="unified-outflow-description-cell" colspan="2" style="padding-left:56px"')}
@@ -2201,7 +2201,9 @@ function renderUnifiedSpendGroups(month, rows) {
     emptyText: 'Nenhum gasto registrado ainda.',
     includePaymentLabel: true,
     totalLabel: 'Total dos gastos',
-    forcedCategories: summary.categories,
+    forcedCategories: getUnifiedOutflowSearchValue(month)
+      ? Array.from(new Set(summary.items.map(item => resolveCategoryName(getUnifiedOutflowCategoryName(item, 'OUTROS')))))
+      : summary.categories,
     showCategoryRemove: true,
   });
 }
@@ -2344,18 +2346,15 @@ function renderUnifiedMonthPilot(month) {
   tagFilterSelect.innerHTML = renderUnifiedOutflowTagFilterOptions(month, currentTagFilter);
   tagFilterSelect.disabled = false;
   tagFilterSelect.style.display = '';
-  const showSearch = currentFilter === 'all';
-  searchInput.style.display = showSearch ? '' : 'none';
+  searchInput.style.display = '';
   if (searchInput.value !== currentSearch) {
     searchInput.value = currentSearch;
   }
-  if (!showSearch && currentSearch) {
-    month.unifiedOutflowUi.allSearch = '';
-    saveUIState();
-  }
   section.style.display = '';
-  const rows = getUnifiedFilterRows(month, currentFilter, currentTagFilter, showSearch ? currentSearch : '');
-  content.innerHTML = currentFilter === 'expense'
+  const rows = getUnifiedFilterRows(month, currentFilter, currentTagFilter, currentSearch);
+  content.innerHTML = currentSearch && !rows.length
+    ? '<div class="unified-empty-state" role="status">Nenhum lançamento encontrado neste mês e filtro.</div>'
+    : currentFilter === 'expense'
     ? renderUnifiedFixedRows(month, rows)
     : currentFilter === 'spend'
     ? renderUnifiedSpendGroups(month, rows)

@@ -126,6 +126,40 @@ async function main() {
       assert.equal(await financeSnapshot(desktop), before);
       await desktop.locator('.nav-item[data-page="dashboard"]').click();
     });
+    await check('month search respects method and month, finds numbers and dates, and tolerates text typos', async () => {
+      const page = await open('a');
+      await page.locator('.nav-item[data-page="mes"]').click();
+      await page.evaluate(() => {
+        const month = getCurrentMonth();
+        month.outflows.push(
+          { id: 'search-pix', description: 'Condominio Pesquisa', category: 'MORADIA', type: 'spend', outputKind: 'method', outputMethod: 'pix', date: '10/10/26', amount: 1234.56 },
+          { id: 'search-cash', description: 'Condominio Outro', category: 'MORADIA', type: 'spend', outputKind: 'method', outputMethod: 'dinheiro', date: '10/10/26', amount: 55 }
+        );
+        setUnifiedOutflowFilter('method:pix');
+      });
+      const search = page.locator('#unifiedOutflowSearch');
+      assert.equal(await search.isVisible(), true);
+      for (const query of ['condomnio', '1.234,56', '10/10/2026']) {
+        await search.fill(query);
+        const text = await page.locator('#unifiedMonthContent').textContent();
+        assert.match(text, /Condominio Pesquisa/);
+        assert.doesNotMatch(text, /Condominio Outro/);
+      }
+      await search.fill('1234,57');
+      assert.match(await page.locator('#unifiedMonthContent').textContent(), /Nenhum/);
+      await search.fill('condomnio');
+      await page.locator('#unifiedOutflowFilter').selectOption('spend');
+      assert.match(await page.locator('#unifiedMonthContent .unified-spend-detail-row').first().textContent(), /Condominio/);
+      await page.locator('#unifiedOutflowFilter').selectOption('method:dinheiro');
+      assert.match(await page.locator('#unifiedMonthContent').textContent(), /Condominio Outro/);
+      assert.doesNotMatch(await page.locator('#unifiedMonthContent').textContent(), /Condominio Pesquisa/);
+      assert.equal(await page.evaluate(() => getUnifiedFilterRows({ outflows: [] }, 'all', '', 'condomnio').length), 0);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.setViewportSize({ width: 1024, height: 768 });
+      assert.equal(await search.isVisible(), true);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.context().close();
+    });
     const mobile = await open('a', true);
     await check('mobile shares desktop financial totals and respects viewport', async () => {
       assert.deepEqual(await mobile.evaluate(() => {

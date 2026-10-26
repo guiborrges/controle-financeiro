@@ -8,6 +8,8 @@ function loadFilterFunctions() {
   const filePath = path.resolve(__dirname, '../public/app/modules/mes-atual/filters.js');
   const code = fs.readFileSync(filePath, 'utf8');
   const context = {
+    window: {},
+    normalizeVarDate: value => value,
     parseData: () => 0
   };
   vm.createContext(context);
@@ -82,4 +84,30 @@ test('all filter keeps outflows plus bills and tag filter narrows outflows only'
   const tagRows = getUnifiedFilterRows(month, 'all', 'viagem');
   assert.equal(tagRows.length, 1);
   assert.equal(tagRows[0].item.id, 'a');
+});
+
+test('search stays within every selected method, month and tag', () => {
+  const { getUnifiedFilterRows } = loadFilterFunctions();
+  const month = { outflows: [
+    { id: 'pix', description: 'Condomínio', amount: 1234.56, date: '10/11/26', category: 'MORADIA', tag: 'casa', outputKind: 'method', outputMethod: 'pix', type: 'spend' },
+    { id: 'cash', description: 'Condominio', amount: 1234.57, outputKind: 'method', outputMethod: 'dinheiro', type: 'expense' }
+  ], cardBills: [] };
+  for (const query of ['CONDOMINIO', '1.234,56', '1234.56', 'R$ 1234,56', '10/11/2026', '2026-11-10', 'moradia casa']) {
+    assert.deepEqual(Array.from(getUnifiedFilterRows(month, 'method:pix', 'casa', query), row => row.item.id), ['pix']);
+  }
+  assert.equal(getUnifiedFilterRows(month, 'method:pix', '', '1234,57').length, 0);
+  assert.equal(getUnifiedFilterRows(month, 'method:boleto', '', 'condominio').length, 0);
+  assert.equal(getUnifiedFilterRows(month, 'all', 'viagem', 'condominio').length, 0);
+  assert.equal(getUnifiedFilterRows({ outflows: [] }, 'all', '', 'condominio').length, 0);
+  for (const filter of ['expense', 'spend', 'all', 'method:dinheiro', 'method:pix']) {
+    assert.equal(getUnifiedFilterRows(month, filter, '', 'inexistente').length, 0);
+  }
+});
+
+test('planning search retains the heading of a matching recurring card launch', () => {
+  const { getUnifiedFilterRows } = loadFilterFunctions();
+  const month = { outflows: [{ id: 'subscription', description: 'Spotify', type: 'expense', outputKind: 'card', outputRef: 'c1' }], cardBills: [{ id: 'bill', cardId: 'c1' }], outflowCards: [{ id: 'c1', name: 'XP', paymentDay: 10 }] };
+  const rows = getUnifiedFilterRows(month, 'expense', '', 'spotify');
+  assert.deepEqual(Array.from(rows, row => row.item.id), ['subscription', 'bill']);
+  assert.deepEqual(Array.from(getUnifiedFilterRows(month, 'card:c1', '', 'spotify'), row => row.item.id), ['subscription']);
 });

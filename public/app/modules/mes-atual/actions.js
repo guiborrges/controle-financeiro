@@ -23,7 +23,7 @@ function setUnifiedOutflowSearch(value) {
   ensureUnifiedOutflowPilotMonth(month);
   month.unifiedOutflowUi.allSearch = String(value || '');
   saveUIState();
-  preserveCurrentScroll(() => renderMes());
+  preserveCurrentScroll(() => renderUnifiedMonthPilot(month));
 }
 
 function toggleUnifiedOutflowCategory(category) {

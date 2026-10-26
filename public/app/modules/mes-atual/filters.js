@@ -70,17 +70,31 @@ function getUnifiedFilterRows(month, filterValue, tagFilterValue = '', searchVal
   const normalizedSearch = normalizeUnifiedSearchToken(searchValue);
   const matchesSearch = (row) => {
     if (!normalizedSearch) return true;
-    if (row.kind === 'bill') {
-      const card = (month.outflowCards || []).find(entry => entry.id === row.item.cardId);
-      const dateLabel = getUnifiedCardPaymentDateLabelForFilters(month, card);
-      const billText = normalizeUnifiedSearchToken(`${card?.name || 'cartao'} ${dateLabel}`);
-      return billText.includes(normalizedSearch);
-    }
     const item = row.item || {};
-    const haystack = normalizeUnifiedSearchToken(`${item.description || ''} ${item.date || ''}`);
-    return haystack.includes(normalizedSearch);
+    const card = (month.outflowCards || []).find(entry => entry.id === (row.kind === 'bill' ? item.cardId : item.outputRef));
+    let text = `${item.description || ''} ${item.category || ''} ${item.tag || ''} ${item.outputMethod || ''} ${card?.name || ''}`;
+    let date = item.date || '';
+    let amount = getUnifiedEffectiveOutflowAmountForFilters(item);
+    if (row.kind === 'bill') {
+      text += ' cartao de credito';
+      date = getUnifiedCardPaymentDateLabelForFilters(month, card);
+      if (typeof getUnifiedCardBillEffectiveAmount === 'function') amount = getUnifiedCardBillEffectiveAmount(month, item);
+    }
+    const dateParts = String(date).split('/');
+    const dateAliases = dateParts.length === 3
+      ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2].slice(-2)} ${dateParts[0]}/${dateParts[1]}/${dateParts[2].length === 2 ? '20' : ''}${dateParts[2]} ${dateParts[2].length === 2 ? '20' : ''}${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` : '';
+    const numeric = `${date} ${dateAliases} ${amount.toFixed(2)} ${amount.toFixed(2).replace('.', ',')} ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const normalizedText = normalizeUnifiedSearchToken(text);
+    const tokens = normalizedSearch.replace(/r\$/g, '').trim().split(/\s+/).filter(Boolean);
+    const words = normalizedText.split(/[^a-z0-9]+/).filter(Boolean);
+    const fuzzy = typeof window.Fuse === 'function'
+      ? new window.Fuse(words, { threshold: 0.28, ignoreLocation: true, minMatchCharLength: 3 }) : null;
+    return tokens.every(token => /\d/.test(token)
+      ? numeric.includes(token) || normalizedText.includes(token)
+      : normalizedText.includes(token) || (token.length >= 4 && !!fuzzy?.search(token).length));
   };
   const applyTagFilter = (baseRows) => {
+    baseRows = baseRows.filter(matchesSearch);
     if (!normalizedTagFilter) return baseRows;
     return (baseRows || []).filter(row => {
       if (row.kind !== 'outflow') return false;
@@ -89,11 +103,14 @@ function getUnifiedFilterRows(month, filterValue, tagFilterValue = '', searchVal
   };
   if (filterValue === 'fixed') filterValue = 'expense';
   if (filterValue === 'expense') {
-    return applyTagFilter([
+    const selected = applyTagFilter([
       ...rows.filter(row => isType(row.item, 'expense')),
       ...rows.filter(row => isType(row.item, 'spend') && row.item.outputKind === 'method' && ['pix', 'dinheiro', 'debito'].includes(row.item.outputMethod)),
       ...billRows
     ]);
+    // Planning renders card launches beneath their bill, so retain that heading.
+    const matchedCards = new Set(selected.filter(row => row.kind === 'outflow' && row.item.outputKind === 'card').map(row => row.item.outputRef));
+    return selected.concat(billRows.filter(row => matchedCards.has(row.item.cardId) && !selected.includes(row)));
   }
   if (filterValue === 'spend') return applyTagFilter(rows.filter(row => isType(row.item, 'spend')));
   if (filterValue.startsWith('card:')) {
@@ -109,8 +126,7 @@ function getUnifiedFilterRows(month, filterValue, tagFilterValue = '', searchVal
     return applyTagFilter(rows.filter(row => row.item.outputKind === 'method' && row.item.outputMethod === method));
   }
   const base = applyTagFilter([...rows, ...billRows]);
-  if (filterValue !== 'all' || !normalizedSearch) return base;
-  return base.filter(matchesSearch);
+  return base;
 }
 
 function compareUnifiedRows(a, b, field, direction, month) {
