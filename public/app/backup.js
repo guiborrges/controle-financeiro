@@ -230,8 +230,8 @@ function importData(e) {
 }
 
 function renderAll() {
-  renderDashboard();
   const active = document.querySelector('.page.active')?.id;
+  if (active === 'page-dashboard') renderDashboard();
   if (active === 'page-mes') renderMes();
   if (active === 'page-patrimonio') renderPatrimonio();
   if (active === 'page-historico') renderHistorico();

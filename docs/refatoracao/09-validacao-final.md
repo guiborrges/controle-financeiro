@@ -1,5 +1,11 @@
 # Validacao final da etapa de auditoria
 
+## Atualizacao 4A
+
+414 testes aprovados e 12 cenarios de navegador isolado aprovados. Totais,
+categorias, indicadores e series preservados nas comparacoes antes/depois;
+cache descartado a cada render. Ver medicoes e limites no documento 17.
+
 ## Atualizacao 3D
 
 407 testes e 11 cenarios de navegador aprovados; matriz adicional com 216

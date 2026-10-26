@@ -268,6 +268,41 @@ async function main() {
         assert.equal(await financeSnapshot(page), before);
       }
     });
+    await check('Dashboard reuses monthly totals and skips hidden Desktop renders', async () => {
+      const result = await desktop.evaluate(() => {
+        nav('dashboard');
+        const original = getTotals;
+        let calls = 0;
+        getTotals = month => { calls++; return original(month); };
+        try {
+          const expected = getDashboardEligibleMonths(getFilteredData()).length;
+          const before = document.getElementById('dashMetrics').innerHTML;
+          renderDashboard();
+          const visibleCalls = calls;
+          const unchanged = document.getElementById('dashMetrics').innerHTML === before;
+          nav('mes');
+          calls = 0;
+          const chartsBefore = charts.lineChart;
+          if (!chartsBefore) throw new Error('Expected a rendered Dashboard chart');
+          renderDashboard();
+          const hiddenCalls = calls;
+          renderAll();
+          return { expected, visibleCalls, unchanged, hiddenCalls, sameChart: charts.lineChart === chartsBefore };
+        } finally { getTotals = original; }
+      });
+      assert.ok(result.expected > 0);
+      assert.equal(result.visibleCalls, result.expected);
+      assert.equal(result.unchanged, true);
+      assert.equal(result.hiddenCalls, 0);
+      assert.equal(result.sameChart, true);
+      const mobileCalls = await mobile.evaluate(() => {
+        const original = getTotals;
+        let calls = 0;
+        getTotals = month => { calls++; return original(month); };
+        try { renderDashboard(); return calls; } finally { getTotals = original; }
+      });
+      assert.equal(mobileCalls, 0);
+    });
     assert.deepEqual(errors, []);
     assert.equal(fixture.unchanged(), true);
     assert.equal(fixture.requests.writes, 0);

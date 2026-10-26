@@ -14,7 +14,8 @@ b277cbc. F03 a F06 continuam pendentes. A 3A foi publicada no commit a6ef665.
 A 3B foi publicada no commit 57402ba e a 3C no commit 3458915. A limpeza de
 testes foi publicada em 43b9296. A 3D foi autorizada e sua extracao compartilhada
 implementada, conforme documento 16. Divergencias funcionais anteriores foram
-registradas, nao corrigidas silenciosamente. Sem inicio da 4A.
+registradas, nao corrigidas silenciosamente. A 4A foi solicitada em 26/10/2026:
+reuso de totais por render e protecao do Dashboard oculto, conforme documento 17.
 
 Aprovar fases 2 a 7 em pequenas entregas, com correcoes F01-F06 tratadas em
 mudancas separadas e explicitamente autorizadas. A fase 3 foi iniciada pela 3A.

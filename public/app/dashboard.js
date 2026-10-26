@@ -286,6 +286,9 @@ function stopDashboardWidgetResize() {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
+  const page = document.getElementById('page-dashboard');
+  if (page?.classList && !page.classList.contains('active')) return;
+  if (typeof window !== 'undefined' && window.MobileV2?.isEnabled?.()) return;
   const histWrap = document.getElementById('histFilters'); if (histWrap) histWrap.innerHTML = '';
   let filtered = getDashboardEligibleMonths(getFilteredData());
   if (!filtered.length) {
@@ -317,6 +320,13 @@ function renderDashboard() {
     return;
   }
   const dashboardResultMode = getDashboardResultMode();
+  // This cache belongs only to this render, so edits and filter changes always read fresh data.
+  const summaries = new Map();
+  const totalsFor = month => {
+    if (!summaries.has(month)) summaries.set(month, getTotals(month));
+    return summaries.get(month);
+  };
+  const resultFor = month => computeResultWithTotals(totalsFor(month), dashboardResultMode);
   const allowedMetricKeys = getDashboardMetricKeys();
   const allowedSeriesKeys = getDashboardSeriesKeys();
   dashSeriesSelection = getDashSeriesSelectionForMode(dashboardResultMode).filter(key => allowedSeriesKeys.includes(key));
@@ -335,7 +345,7 @@ function renderDashboard() {
   }
   const cur = filtered[filtered.length - 1] || getCurrentMonth();
   const prev = filtered[filtered.length - 2];
-  const totalGastos = filtered.reduce((a,m)=>a+getTotals(m).totalGastos,0);
+  const totalGastos = filtered.reduce((a,m)=>a+totalsFor(m).totalGastos,0);
   const mediaGastos = filtered.length ? totalGastos / filtered.length : 0;
   buildResultSelect('mesResultSelect', filtered);
   renderTitles();
@@ -351,12 +361,12 @@ function renderDashboard() {
     dashGuide.innerHTML = `<strong>Como estou no geral?</strong> Use o topo para uma leitura rápida e os widgets abaixo para aprofundar tendências, categorias e resultado no ${pLabel.toLowerCase()}.`;
   }
 
-  const prevTotalGastos = prev ? getTotals(prev).totalGastos : 0;
-  const mChange = prevTotalGastos > 0 ? ((getTotals(cur).totalGastos - prevTotalGastos) / prevTotalGastos * 100) : 0;
-  const resCur = computeResult(cur, dashboardResultMode);
-  const resTotal = filtered.reduce((a,m)=>a+computeResult(m,dashboardResultMode),0);
-  const totalRendaFixaSum = filtered.reduce((a,m)=>a+getTotals(m).rendaFixa,0);
-  const totalProjSum = filtered.reduce((a,m)=>a+getTotals(m).totalProj,0);
+  const prevTotalGastos = prev ? totalsFor(prev).totalGastos : 0;
+  const mChange = prevTotalGastos > 0 ? ((totalsFor(cur).totalGastos - prevTotalGastos) / prevTotalGastos * 100) : 0;
+  const resCur = resultFor(cur);
+  const resTotal = filtered.reduce((a,m)=>a+resultFor(m),0);
+  const totalRendaFixaSum = filtered.reduce((a,m)=>a+totalsFor(m).rendaFixa,0);
+  const totalProjSum = filtered.reduce((a,m)=>a+totalsFor(m).totalProj,0);
   const totalGoals = filtered.reduce((acc, month) => acc + ((month.financialGoals || []).reduce((sum, goal) => sum + (goal.valor || 0), 0)), 0);
   const dashInsights = document.getElementById('dashInsights');
   if (dashInsights) {
@@ -397,7 +407,7 @@ function renderDashboard() {
     ganhos: `
       <div class="metric-card green" draggable="true" data-metric-key="ganhos" ondragstart="onDashMetricDragStart(event,'ganhos')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'ganhos')">
         <div class="mc-label">Entradas previstas no período</div>
-        <div class="mc-value">${fmt(filtered.reduce((a,m)=>a+getTotals(m).rendaTotal,0))}</div>
+        <div class="mc-value">${fmt(filtered.reduce((a,m)=>a+totalsFor(m).rendaTotal,0))}</div>
         <div class="mc-note">Renda fixa e demais entradas do período.</div>
       </div>
     `,
@@ -495,7 +505,7 @@ function renderDashboard() {
       datasets: allowedSeriesKeys.map(key => ({ key, option: DASH_SERIES_OPTIONS[key] })).filter(item => item.option).map(({ key, option }) => ({
         seriesKey: key,
         label: getDashboardSeriesLabel(key, filtered),
-        data: filtered.map(m => key === 'resultSimple' ? computeResult(m, dashboardResultMode) : option.getData(m)),
+        data: filtered.map(m => key === 'resultSimple' ? resultFor(m) : option.getData(m, totalsFor(m))),
         borderColor: getDashSeriesColor(key),
         backgroundColor: getDashSeriesBackground(key),
         fill: false,
@@ -536,14 +546,14 @@ function renderDashboard() {
     type: 'bar',
     data: {
       labels: filtered.map(m => m.nome.split(' ').map((w,i)=>i===0?w.slice(0,3):w).join('/')),
-      datasets: [{ data: filtered.map(m=>computeResult(m, dashboardResultMode)), backgroundColor: filtered.map(m=>computeResult(m, dashboardResultMode)>=0?'rgba(39,174,96,.75)':'rgba(192,57,43,.7)') }]
+      datasets: [{ data: filtered.map(m=>resultFor(m)), backgroundColor: filtered.map(m=>resultFor(m)>=0?'rgba(39,174,96,.75)':'rgba(192,57,43,.7)') }]
     },
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
       scales:{ x:{ticks:{font:{size:11}}}, y:{ticks:{callback:v=>(v<0?'-':'')+'R$'+(Math.abs(v)/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,.05)'}} } }
   });
 
   const catEl = document.getElementById('catCards');
-  const catRaw = getCatTotalsPeriod(filtered, dashboardCategoryBasis);
+  const catRaw = getCatTotalsPeriod(filtered, dashboardCategoryBasis, totalsFor);
   const catFilteredEntries = Object.entries(catRaw)
     .filter(([name, value]) => Number(value || 0) > 0 && !isTypeLikeCategoryLabel(name) && !(typeof isNonRealCategoryLabel === 'function' && isNonRealCategoryLabel(name)));
   const totalRaw = catFilteredEntries.reduce((acc, [, value]) => acc + Number(value || 0), 0);
@@ -636,12 +646,12 @@ function renderDashboard() {
   renderCategoryColorPicker();
 
   const recent = filtered.slice(-8).reverse();
-  const maxAbs = Math.max(...recent.map(m=>Math.abs(computeResult(m, dashboardResultMode))), 1);
+  const maxAbs = Math.max(...recent.map(m=>Math.abs(resultFor(m))), 1);
   document.getElementById('quickHistory').innerHTML = recent.map(m => `
     <div class="month-result">
       <span class="mr-name">${m.nome.split(' ').map((w,i)=>i===0?w.slice(0,3):w).join('/')}</span>
-      <div class="mr-bar-wrap"><div class="mr-bar ${computeResult(m,dashboardResultMode)>=0?'pos':'neg'}" style="width:${(Math.abs(computeResult(m,dashboardResultMode))/maxAbs*100).toFixed(0)}%"></div></div>
-      <span class="mr-val ${computeResult(m,dashboardResultMode)>=0?'amount-pos':'amount-neg'}">${fmtSigned(computeResult(m,dashboardResultMode))}</span>
+      <div class="mr-bar-wrap"><div class="mr-bar ${resultFor(m)>=0?'pos':'neg'}" style="width:${(Math.abs(resultFor(m))/maxAbs*100).toFixed(0)}%"></div></div>
+      <span class="mr-val ${resultFor(m)>=0?'amount-pos':'amount-neg'}">${fmtSigned(resultFor(m))}</span>
     </div>
   `).join('');
   if (typeof renderNotificationBells === 'function') renderNotificationBells();

@@ -814,10 +814,13 @@ function getFilteredData() {
   return list;
 }
 
-function getCatTotalsPeriod(list, basis = 'commitments') {
+function getCatTotalsPeriod(list, basis = 'commitments', totalsFor) {
   const totals = {};
   list.forEach(m => {
-    getFinancialMonthQuery(m, { basis }).categories.forEach(row => {
+    const categories = basis === 'commitments' && totalsFor
+      ? Object.entries(totalsFor(m).catTotals).map(([category, amount]) => ({ category, amountCents: window.FinancialQuery.cents(amount) }))
+      : getFinancialMonthQuery(m, { basis }).categories;
+    categories.forEach(row => {
       totals[row.category] = (totals[row.category] || 0) + row.amountCents;
     });
   });

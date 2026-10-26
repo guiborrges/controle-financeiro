@@ -120,25 +120,25 @@ const DASH_SERIES_OPTIONS = {
     getLabel: () => 'Total acumulado gastos',
     color: '#c0392b',
     background: 'rgba(192,57,43,.08)',
-    getData: m => getTotals(m).totalGastos
+    getData: (m, totals) => (totals || getTotals(m)).totalGastos
   },
   totalGanhos: {
     getLabel: () => 'Total acumulado ganhos',
     color: '#27ae60',
     background: 'rgba(39,174,96,.08)',
-    getData: m => getTotals(m).rendaTotal
+    getData: (m, totals) => (totals || getTotals(m)).rendaTotal
   },
   rendaFixa: {
     getLabel: () => 'Renda fixa acumulada',
     color: '#1f7a4d',
     background: 'rgba(31,122,77,.08)',
-    getData: m => getTotals(m).rendaFixa
+    getData: (m, totals) => (totals || getTotals(m)).rendaFixa
   },
   projetos: {
     getLabel: () => 'Projetos / entradas extras',
     color: '#2855a0',
     background: 'rgba(40,85,160,.08)',
-    getData: m => getTotals(m).totalProj
+    getData: (m, totals) => (totals || getTotals(m)).totalProj
   }
 };
 const DEFAULT_DASH_SERIES = Object.keys(DASH_SERIES_OPTIONS);
