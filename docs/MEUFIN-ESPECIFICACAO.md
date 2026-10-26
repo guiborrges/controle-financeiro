@@ -610,6 +610,16 @@ real nao for localizada pelo predicado, a compatibilidade permite propagar.
 Mudanca futura nao deve reescrever mes anterior nem item futuro pago/excecao.
 
 Edicao Mobile usa a mesma camada de comando, com adaptacao de rascunho.
+
+Regra de encerramento: depois de confirmar o salvamento de um item existente,
+fechar a caixa de edicao. Vale tambem para gasto, compromisso, recorrencia,
+parcela e compartilhamento. Nao reabrir o editor de categorias como efeito do
+sucesso; o retorno anterior continua disponivel ao cancelar/fechar manualmente.
+Erro, invalidacao, cancelamento de escopo ou persistencia pendente mantem a
+edicao aberta. Nao fechar outro item/competencia aberto durante a requisicao.
+Inclusao nova conserva a experiencia de adicionar outros lancamentos, sem
+aplicar automaticamente a regra de fechamento de edicao.
+
 Saida invalida no Mobile cai em method:boleto.
 Em compartilhamento manual existente, o ultimo participante recebe a diferenca
 residual nao negativa apos preservar os anteriores.

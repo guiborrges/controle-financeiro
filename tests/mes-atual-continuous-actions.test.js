@@ -231,6 +231,7 @@ test('outflow save confirms only after the matching persistence promise resolves
     let toasts = 0;
     ctx.save = () => new Promise(done => { resolve = done; });
     ctx.showUnifiedOutflowQuickToast = () => { toasts++; };
+    ctx.showAppStatus = (_message, _title, tone) => { if (tone === 'ok') toasts++; };
     editRecurrenceOff(ctx, elements);
     const promise = ctx.saveUnifiedOutflow();
     ctx.scope.onThisMonth();

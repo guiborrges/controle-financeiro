@@ -247,6 +247,46 @@ async function main() {
       assert.equal(await primary.evaluate(() => getTotals(getAllFinanceMonths().find(month => month.id === 'outubro_2026')).resultadoMes), 890);
       assert.equal(await primary.locator('#financialDrilldown').count(), 0);
     });
+    await check('confirmed old-item saves close every outflow editor, including category-origin and retry', async () => {
+      const page = await open('a');
+      await page.locator('.nav-item[data-page="mes"]').click();
+      for (const mode of ['spend', 'expense', 'recurring', 'installment', 'shared']) {
+        await page.evaluate(mode => {
+          const month = getCurrentMonth();
+          const item = normalizeUnifiedOutflowItem({
+            id: `close-${mode}`, description: `Edicao ${mode}`, amount: 30,
+            category: month.outflows[0]?.category || 'MORADIA', date: '23/10/26',
+            type: mode === 'expense' || mode === 'recurring' ? 'expense' : 'spend',
+            outputKind: 'method', outputMethod: 'boleto',
+            expenseRecurring: mode === 'recurring', recurringGroupId: mode === 'recurring' ? 'close-rec' : '',
+            installmentsTotal: mode === 'installment' ? 3 : 1,
+            installmentsGroupId: mode === 'installment' ? 'close-inst' : '',
+            sharedExpense: mode === 'shared', sharedOriginalAmount: mode === 'shared' ? 60 : 30,
+            sharedParticipants: mode === 'shared' ? [{ isOwner: true, amount: 30 }, { name: 'Pessoa ficticia', amount: 30 }] : []
+          });
+          month.outflows.push(item);
+          save = async () => mode !== 'spend';
+          openUnifiedOutflowModal(item.id, { fromCategoryEditor: true });
+        }, mode);
+        await page.locator('#unifiedOutflowAmount').fill(mode === 'shared' ? '80' : '40');
+        await page.locator('#unifiedOutflowSubmitBtn').click();
+        if (mode === 'recurring' || mode === 'installment') {
+          await page.locator('#modalRecurringChangeScope').getByRole('button', { name: 'Alterar apenas este m\u00eas', exact: true }).click();
+        }
+        if (mode === 'spend') {
+          await page.waitForFunction(() => unifiedOutflowSaveInFlight === null);
+          assert.equal(await page.locator('#modalUnifiedOutflow').isVisible(), true);
+          assert.match(await page.locator('#appStatusMessage').textContent(), /ainda nao foi salva/);
+          await page.evaluate(() => { save = async () => true; });
+          await page.locator('#unifiedOutflowSubmitBtn').click();
+        }
+        await page.locator('#modalUnifiedOutflow').waitFor({ state: 'hidden' });
+        assert.equal(await page.locator('#modalCategoryEditor').isVisible(), false);
+        assert.equal(await page.evaluate(() => editingUnifiedOutflowId), '');
+        assert.equal(await page.evaluate(mode => getCurrentMonth().outflows.filter(item => item.id === `close-${mode}`).length, mode), 1);
+      }
+      await page.context().close();
+    });
     await check('Desktop command creates, edits and deletes through real forms with synthetic persistence', async () => {
       const page = await open('a');
       await page.evaluate(() => { save = async () => true; });
@@ -263,11 +303,13 @@ async function main() {
       const item = await page.evaluate(() => getCurrentMonth().outflows.find(item => item.description === '3C Desktop fixture'));
       assert.equal(item.amount, 123.45);
       assert.equal(item.paid, true);
+      assert.equal(await page.locator('#modalUnifiedOutflow').isVisible(), true);
       await page.evaluate(id => openUnifiedOutflowModal(id), item.id);
       await page.locator('#unifiedOutflowAmount').fill('125.55');
       await page.locator('#unifiedOutflowSubmitBtn').click();
       await page.waitForFunction(id => getCurrentMonth().outflows.find(item => item.id === id)?.amount === 125.55, item.id);
-      await page.evaluate(id => { closeUnifiedOutflowModal(); deleteUnifiedOutflow(id); }, item.id);
+      await page.locator('#modalUnifiedOutflow').waitFor({ state: 'hidden' });
+      await page.evaluate(id => { deleteUnifiedOutflow(id); }, item.id);
       await page.locator('#modalYesNoQuestion button[onclick="resolveYesNoQuestion(true)"]').click();
       assert.equal(await financeSnapshot(page), before);
       await page.context().close();

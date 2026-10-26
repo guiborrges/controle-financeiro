@@ -3496,8 +3496,8 @@ function restoreUnifiedOutflowModal() {
   renderUnifiedOutflowModalRecentList();
 }
 
-function closeUnifiedOutflowModal() {
-  const shouldReturnToCategoryEditor = window.__unifiedOutflowReturnToCategoryEditor === true
+function closeUnifiedOutflowModal({ returnToCategoryEditor = true } = {}) {
+  const shouldReturnToCategoryEditor = returnToCategoryEditor && window.__unifiedOutflowReturnToCategoryEditor === true
     && window.__unifiedOutflowSimpleEditMode === true;
   if (!editingUnifiedOutflowId) {
     const month = getCurrentMonth();
@@ -3944,10 +3944,21 @@ function performUnifiedOutflowSave(options = {}, draft = readUnifiedOutflowComma
     },
     onPending: baseItem => {
       if (!mobile && !wasEditing && !editingUnifiedOutflowId) editingUnifiedOutflowId = baseItem.id;
+      if (!mobile && wasEditing && typeof showAppStatus === 'function') {
+        showAppStatus('A alteracao ainda nao foi salva. Tente salvar novamente antes de fechar.', 'Salvamento pendente', 'warn');
+      }
     },
     onSaved: baseItem => {
       if (mobile) return;
-      const savedLabel = String(baseItem?.name || '').trim() || 'Lançamento';
+      const savedLabel = String(baseItem?.description || '').trim() || 'Lançamento';
+      if (wasEditing) {
+        if (getCurrentMonth()?.id === month.id && editingUnifiedOutflowId === editId) {
+          closeUnifiedOutflowModal({ returnToCategoryEditor: false });
+          editingUnifiedOutflowId = '';
+        }
+        if (typeof showAppStatus === 'function') showAppStatus(`${savedLabel} atualizado.`, 'Lançamento', 'ok');
+        return;
+      }
       showUnifiedOutflowQuickToast(
         editingUnifiedOutflowId
           ? `${savedLabel} atualizado`
@@ -3960,10 +3971,6 @@ function performUnifiedOutflowSave(options = {}, draft = readUnifiedOutflowComma
           sharedToggleEl.checked = false;
           toggleUnifiedOutflowShared();
         }
-      }
-      if (wasEditing) {
-        closeUnifiedOutflowModal();
-        editingUnifiedOutflowId = '';
       }
     }
   });
