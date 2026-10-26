@@ -11,8 +11,10 @@ Nao autoriza iniciar etapas ainda nao solicitadas. A 3A esta autorizada para dep
 
 Atualizacao: etapa 2A concluida; primeiro lote 2B (F01/F02) publicado no commit
 b277cbc. F03 a F06 continuam pendentes. A 3A foi publicada no commit a6ef665.
-A 3B foi publicada no commit 57402ba. A 3C foi autorizada e implementada,
-conforme documento 14, com publicacao apos os testes. Sem inicio da 3D.
+A 3B foi publicada no commit 57402ba e a 3C no commit 3458915. A limpeza de
+testes foi publicada em 43b9296. A 3D foi autorizada e sua extracao compartilhada
+implementada, conforme documento 16. Divergencias funcionais anteriores foram
+registradas, nao corrigidas silenciosamente. Sem inicio da 4A.
 
 Aprovar fases 2 a 7 em pequenas entregas, com correcoes F01-F06 tratadas em
 mudancas separadas e explicitamente autorizadas. A fase 3 foi iniciada pela 3A.

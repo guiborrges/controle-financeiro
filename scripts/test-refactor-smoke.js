@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium, devices } = require('playwright');
 const { createBrowserFixtureServer } = require('../tests/helpers/refactor-browser-server');
+const { getProjectedCalendarMonth } = require('../server/calendar-projection');
 
 const financeSnapshot = page => page.evaluate(() => JSON.stringify(getAllFinanceMonths().map(month => ({
   id: month.id, outflows: month.outflows, renda: month.renda, projetos: month.projetos,
@@ -228,6 +229,44 @@ async function main() {
       assert.equal(rows[0].amount, 14.55);
       assert.equal(rows[0].paid, true);
       await page.context().close();
+    });
+    await check('Desktop, Mobile and server retain characterized recurring dates and installment positions', async () => {
+      for (const page of [desktop, mobile]) {
+        const before = await financeSnapshot(page);
+        const projected = await page.evaluate(() => {
+          const source = buildBlankMonth(new Date(2026, 9, 1));
+          source.outflowCards = [{ id: 'c', name: 'Cartao ficticio', closingDay: 31,
+            paymentDay: 10, closingDate: '31/10/26', paymentDate: '10/11/26' }];
+          source.renda = [{ fonte: 'Renda ficticia', valor: 1000, dataRecebimento: '10', recurringFixed: true, recurringGroupId: 'income', paid: true }];
+          source.outflows = [
+            { id: 'a', description: 'Conta ficticia', type: 'expense', category: 'CASA', amount: 20,
+              outputKind: 'method', outputMethod: 'boleto', expenseRecurring: true, recurringGroupId: 'expense',
+              date: '31/10/26', paid: true, sharedExpense: true,
+              sharedParticipants: [{ id: 'owner', isOwner: true, amount: 20, paid: true }] },
+            { id: 'b', description: 'Parcela ficticia', type: 'spend', category: 'CASA', amount: 30,
+              outputKind: 'card', outputRef: 'c', installmentsGroupId: 'installment', installmentsTotal: 6,
+              installmentIndex: 1, date: '31/10/26', paid: true }
+          ];
+          const options = getContinuousCalendarOptions();
+          const model = ContinuousCalendar.createModel([source], options);
+          const future = ContinuousCalendar.project(model, buildBlankMonth(new Date(2027, 1, 1)), options);
+          return { model, future };
+        });
+        const server = getProjectedCalendarMonth({ finData: [], finCalendarModel: projected.model }, 'fevereiro_2027');
+        for (const [side, result] of [['browser', projected.future], ['server', server]]) {
+          assert.equal(result.outflowCards[0].closingDate, '28/02/27');
+          assert.equal(result.outflowCards[0].paymentDate, '10/03/27');
+          assert.equal(result.renda[0].valor, 1000);
+          assert.equal(result.renda[0].paid, false);
+          assert.equal(result.outflows[0].date, '28/02/27');
+          assert.equal(result.outflows[0].sharedParticipants[0].paid, false);
+          // The browser source descriptor has no cards; its existing installment fallback is day 1.
+          assert.equal(result.outflows[1].date, side === 'browser' ? '01/02/27' : '28/02/27');
+          assert.equal(result.outflows[1].installmentIndex, 5);
+          assert.equal(result.outflows[1].paid, false);
+        }
+        assert.equal(await financeSnapshot(page), before);
+      }
     });
     assert.deepEqual(errors, []);
     assert.equal(fixture.unchanged(), true);

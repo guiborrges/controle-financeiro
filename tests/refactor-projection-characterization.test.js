@@ -2,16 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const calendar = require('../public/app/modules/continuous-calendar');
 const { getProjectedCalendarMonth } = require('../server/calendar-projection');
-const { monthAt, browserSandbox, loadBrowser } = require('./helpers/refactor-fixtures');
-
-function adapters() {
-  const ctx = browserSandbox();
-  loadBrowser(ctx, ['modules/mes-atual/constants.js', 'modules/mes-atual/income-dates.js',
-    'modules/mes-atual/income-recurrence.js', 'modules/mes-atual/outflow-expense-date.js',
-    'modules/continuous-calendar.js', 'modules/continuous-calendar-app.js', 'mes-atual.js']);
-  ctx.buildBlankMonth = date => monthAt(date.getFullYear(), date.getMonth());
-  return ctx;
-}
+const { monthAt } = require('./helpers/refactor-fixtures');
+const { browserProjectionAdapter: adapters } = require('./helpers/projection-adapters');
 
 for (const [year, sourceIndex, targetYear, targetIndex, sourceDate, expected] of [
   [2026, 0, 2026, 1, '31/01/26', '28/02/26'],

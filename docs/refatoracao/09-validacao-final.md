@@ -1,5 +1,12 @@
 # Validacao final da etapa de auditoria
 
+## Atualizacao 3D
+
+407 testes e 11 cenarios de navegador aprovados; matriz adicional com 216
+projecoes validas de datas de cartao. Nenhuma escrita financeira enviada ou
+alteracao em dados reais. As politicas divergentes anteriores foram preservadas
+e documentadas, nao consideradas equivalencia completa. Ver documento 16.
+
 ## Atualizacao da limpeza de testes
 
 398 testes aprovados e 10 cenarios de navegador aprovados apos a limpeza,

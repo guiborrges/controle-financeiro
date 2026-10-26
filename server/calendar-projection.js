@@ -1,4 +1,5 @@
 const calendar = require('../public/app/modules/continuous-calendar');
+const projection = require('../public/app/modules/shared/calendar-projection');
 
 const MONTHS = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
@@ -12,11 +13,10 @@ function occurrenceDate(value, source, target) {
   if (parts.length !== 3) return value || '';
   const year = Number(parts[2]) + (parts[2].length === 2 ? 2000 : 0);
   const originalOrdinal = year * 12 + Number(parts[1]) - 1;
-  const dateOrdinal = target.ordinal + originalOrdinal - source.ordinal;
-  const targetYear = Math.floor(dateOrdinal / 12);
-  const targetMonth = dateOrdinal % 12;
-  const day = Math.min(Number(parts[0]), new Date(targetYear, targetMonth + 1, 0).getDate());
-  return `${String(day).padStart(2, '0')}/${String(targetMonth + 1).padStart(2, '0')}/${String(targetYear).slice(-2)}`;
+  return projection.shiftDate(parts[0], projection.monthLag(originalOrdinal, source.ordinal), target.ordinal, (rawDay, targetYear, targetMonth) => {
+    const day = Math.min(Number(rawDay), new Date(targetYear, targetMonth + 1, 0).getDate());
+    return `${String(day).padStart(2, '0')}/${String(targetMonth + 1).padStart(2, '0')}/${String(targetYear).slice(-2)}`;
+  });
 }
 
 function getProjectedCalendarMonth(state, monthId) {
@@ -30,24 +30,18 @@ function getProjectedCalendarMonth(state, monthId) {
     blank: month => ({ ...monthFromId(month.id), renda: [], outflows: [], projetos: [], cardBills: [] }),
     normalize() {},
     projectSettings(payload, target, source) {
-      payload.outflowCards = (payload.outflowCards || []).map(card => ({
-        ...card,
-        closingDate: occurrenceDate(card.closingDate, source, monthFromId(target.id)),
-        paymentDate: occurrenceDate(card.paymentDate, source, monthFromId(target.id))
-      }));
+      projection.projectCardDates(payload, source, monthFromId(target.id), occurrenceDate);
     },
-    occurrence(collection, payload, month, source, offset) {
-      const result = { ...payload, paid: false, patrimonioMovementId: '' };
-      if (collection === 'outflows') {
-        result.date = occurrenceDate(payload.date, source, monthFromId(month.id));
-        result.installmentIndex = Number(payload.installmentIndex || 1) + (Number(payload.installmentsTotal || 1) > 1 ? offset : 0);
-      }
-      if (collection === 'projetos') {
-        result.dataRecebimento = occurrenceDate(payload.dataRecebimento, source, monthFromId(month.id));
-        result.recurringInstallmentIndex = Number(payload.recurringInstallmentIndex || 1) + offset;
-      }
-      return result;
-    }
+    occurrence: projection.createOccurrenceProjector({
+      income: payload => ({ ...payload, paid: false, patrimonioMovementId: '' }),
+      project: (payload, month, source, index) => ({ ...payload, paid: false, patrimonioMovementId: '',
+        dataRecebimento: occurrenceDate(payload.dataRecebimento, source, monthFromId(month.id)),
+        recurringInstallmentIndex: index }),
+      outflow: (payload, month, source) => ({ ...payload, paid: false, patrimonioMovementId: '',
+        date: occurrenceDate(payload.date, source, monthFromId(month.id)) }),
+      singleOutflowIndex: payload => Number(payload.installmentIndex || 1),
+      resetOutflowState: false
+    })
   };
   const session = calendar.createSession(model, options);
   return existing ? session.hydrate(existing) : session.virtual(monthFromId(monthId));

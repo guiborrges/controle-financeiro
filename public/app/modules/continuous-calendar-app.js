@@ -26,11 +26,7 @@ function getContinuousCalendarOptions() {
     monthAtOrdinal: ordinal => Number.isFinite(ordinal) ? fromId(getMonthIdFromParts(monthNames[ordinal % 12], Math.floor(ordinal / 12))) : null,
     blank: month => buildBlankMonth(getMonthDateFromMonthObject(month)),
     projectSettings: (payload, month, source) => {
-      payload.outflowCards = (payload.outflowCards || []).map(card => ({
-        ...card,
-        closingDate: getUnifiedCardDateForMonth(card.closingDate, source, month),
-        paymentDate: getUnifiedCardDateForMonth(card.paymentDate, source, month)
-      }));
+      window.CalendarProjection.projectCardDates(payload, source, month, getUnifiedCardDateForMonth);
     },
     normalize: month => {
       normalizeMonth(month);
@@ -44,25 +40,17 @@ function getContinuousCalendarOptions() {
       }
       recalcTotals(month);
     },
-    occurrence: (collection, payload, month, source, offset) => {
-      if (collection === 'renda') {
-        return window.MesAtualIncomeRecurrence.cloneRecurringIncome({
+    occurrence: window.CalendarProjection.createOccurrenceProjector({
+      income: (payload, month, source) => window.MesAtualIncomeRecurrence.cloneRecurringIncome({
           ...payload, dataRecebimento: /[\/-]/.test(String(payload.dataRecebimento || ''))
             ? getUnifiedCardDateForMonth(payload.dataRecebimento, source, month)
             : getRecurringIncomeReceiveDay(payload.dataRecebimento)
-        }, payload.recurringGroupId || getIncomeRecurringGroupId(payload));
-      }
-      if (collection === 'projetos') {
-        return cloneProjetoRecurringForMonth(payload, getMonthDateFromMonthObject(month), Number(payload.recurringInstallmentIndex || 1) + offset);
-      }
-      const result = cloneUnifiedOutflowForMonth(payload, getMonthDateFromMonthObject(month), source);
-      result.installmentIndex = Number(payload.installmentIndex || 1) + offset;
-      if (Number(payload.installmentsTotal || 1) <= 1) result.installmentIndex = 1;
-      result.paid = false;
-      result.status = 'planned';
-      result.sharedParticipants = (result.sharedParticipants || []).map(person => ({ ...person, paid: false }));
-      return result;
-    }
+        }, payload.recurringGroupId || getIncomeRecurringGroupId(payload)),
+      project: (payload, month, source, index) => cloneProjetoRecurringForMonth(payload, getMonthDateFromMonthObject(month), index),
+      outflow: (payload, month, source) => cloneUnifiedOutflowForMonth(payload, getMonthDateFromMonthObject(month), source),
+      singleOutflowIndex: () => 1,
+      resetOutflowState: true
+    })
   };
 }
 

@@ -1,5 +1,13 @@
 # Alteracoes realizadas
 
+## Etapa 3D
+
+Contratos equivalentes de deslocamento mensal, datas de cartoes e avanco de
+parcelas extraidos para CalendarProjection (UMD/CommonJS), usado pelo navegador
+e servidor. Politicas de clonagem/normalizacao mantidas nos adaptadores.
+407 testes e 11 cenarios de navegador aprovados. Divergencias anteriores de
+datas e limpeza de payloads documentadas no documento 16. Sem migracao.
+
 ## Limpeza de testes apos 3C
 
 De 413 para 398 testes: 16 casos redundantes/obsoletos removidos ou consolidados

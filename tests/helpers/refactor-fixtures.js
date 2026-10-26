@@ -51,7 +51,7 @@ function browserSandbox(extra = {}) {
     ...extra };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
-  loadBrowser(sandbox, ['modules/shared/month-selection-catalog.js', 'modules/shared/dates.js', 'modules/shared/outflow-amounts.js',
+  loadBrowser(sandbox, ['modules/shared/calendar-projection.js', 'modules/shared/month-selection-catalog.js', 'modules/shared/dates.js', 'modules/shared/outflow-amounts.js',
     'modules/shared/financial-query.js', 'modules/shared/dashboard-rules.js',
     'core.js', 'modules/mes-atual/cards.js', 'modules/mobile-v2/data-bridge.js']);
   return sandbox;

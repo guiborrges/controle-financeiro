@@ -1,5 +1,7 @@
 (function initMesAtualOutflowExpenseDate(global) {
   'use strict';
+  const projection = typeof module !== 'undefined' && module.exports
+    ? require('../shared/calendar-projection') : global.CalendarProjection;
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, Number(value || 0) || min));
@@ -49,7 +51,7 @@
     const targetYear = 2000 + clamp(yearRaw, 0, 99);
     const targetMonthIndex = clamp(monthRaw, 1, 12) - 1;
     const source = toMonthDate(sourceMonthRef);
-    return ((targetYear - source.getFullYear()) * 12) + (targetMonthIndex - source.getMonth());
+    return projection.monthLag(targetYear * 12 + targetMonthIndex, source.getFullYear() * 12 + source.getMonth());
   }
 
   function getExpenseDateForTargetMonth(sourceDate, sourceMonthRef, targetMonthDate) {
@@ -58,8 +60,7 @@
     const [dayRaw] = normalized.split('/');
     const lag = parseMonthLag(normalized, sourceMonthRef);
     const target = targetMonthDate instanceof Date ? targetMonthDate : toMonthDate(sourceMonthRef);
-    const shifted = new Date(target.getFullYear(), target.getMonth() + lag, 1);
-    return buildDateByDayForMonth(dayRaw, shifted.getFullYear(), shifted.getMonth());
+    return projection.shiftDate(dayRaw, lag, target.getFullYear() * 12 + target.getMonth(), buildDateByDayForMonth);
   }
 
   function formatExpenseDateInput(rawValue) {
