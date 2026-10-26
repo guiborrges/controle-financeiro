@@ -36,6 +36,7 @@ const { registerPageRoutes } = require('./server/http/routes/pages');
 const { registerDeveloperRoutes } = require('./server/http/routes/developer');
 const { registerAuthRoutes } = require('./server/http/routes/auth');
 const { registerProfileRoutes } = require('./server/http/routes/profile');
+const { createErrorHandler } = require('./server/http/error-handler');
 const { registerAppStateRoutes } = require('./server/http/routes/app-state');
 const { registerBillImportAiRoutes } = require('./server/http/routes/bill-import-ai');
 const { registerPluggyWebhookRoutes } = require('./server/http/routes/pluggy-webhook');
@@ -592,20 +593,7 @@ app.use((req, res) => {
   return res.redirect('/login');
 });
 
-app.use((error, req, res, next) => {
-  const requestId = crypto.randomUUID();
-  const safeMessage = String(error?.message || 'Erro interno').slice(0, 300);
-  const safePath = String(req?.path || '');
-  console.error(`[error:${requestId}] ${safePath} ${safeMessage}`);
-  if (res.headersSent) return next(error);
-  if (req.path.startsWith('/api/')) {
-    if (error?.type === 'entity.too.large' || error?.status === 413) {
-      return res.status(413).json({ message: 'Os dados enviados são grandes demais para o servidor.' });
-    }
-    return res.status(500).json({ message: 'Erro interno no servidor.', requestId });
-  }
-  return res.status(500).send(`Erro interno no servidor. Ref: ${requestId}`);
-});
+app.use(createErrorHandler());
 
 const httpServer = app.listen(PORT, () => {
   console.log(`Controle Financeiro protegido rodando em http://localhost:${PORT} (state-backend=${stateStore.backend || 'json'})`);

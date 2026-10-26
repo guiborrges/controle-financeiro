@@ -1,5 +1,6 @@
 ﻿function registerBillImportAiRoutes(app, deps) {
-  let ociPdfQueue = Promise.resolve();
+  const { createSerialQueue } = require('../../jobs/serial-queue');
+  const ociPdfQueue = createSerialQueue();
   const { planInvoiceImport } = require('../../invoice-import-plan');
   const {
     noStore,
@@ -36,7 +37,7 @@
   const path = require('path');
   const crypto = require('crypto');
   const { execFileSync } = require('child_process');
-  const userQueues = new Map();
+  const userQueues = createSerialQueue({ retryFailure: true });
   const configuredOciBin = String(process.env.ORACLE_AI_OCI_BIN || process.env.OCI_CLI_BIN || '').trim();
   let muplugCachedApiKey = '';
   let muplugCachedApiKeyExpireAt = 0;
@@ -382,9 +383,7 @@
 
   function enqueueOciPdfAnalysis(contentBase64, context = {}) {
     const run = async () => analyzePdfWithLocalOci(contentBase64, context);
-    const next = ociPdfQueue.then(run, run);
-    ociPdfQueue = next.catch(() => {});
-    return next;
+    return ociPdfQueue.enqueue('oci-pdf', run);
   }
 
   function safeId() {
@@ -555,10 +554,7 @@
   }
 
   function enqueueUserJob(userId, jobId) {
-    const prev = userQueues.get(userId) || Promise.resolve();
-    const next = prev.then(() => processJob(userId, jobId)).catch(() => processJob(userId, jobId));
-    userQueues.set(userId, next.catch(() => {}));
-    return next;
+    return userQueues.enqueue(userId, () => processJob(userId, jobId));
   }
 
   function normalizeImportDate(value) {

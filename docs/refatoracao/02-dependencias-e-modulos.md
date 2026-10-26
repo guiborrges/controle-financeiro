@@ -1,5 +1,13 @@
 # Mapa da arquitetura atual
 
+## Atualizacao da etapa 5
+
+App-state HTTP -> services/app-state-service -> contrato injetado do state store.
+Backups manuais/saida HTTP -> services/backup-service -> backup-store/user-store.
+Importacao HTTP -> jobs/serial-queue -> processador existente de importacao.
+server.js -> http/error-handler para apresentacao dos erros nao tratados.
+Os stores concretos e as interfaces publicas das rotas nao foram substituidos.
+
 Base e limites: ver 01. Os caminhos abaixo sao relativos a raiz do projeto.
 
 ## Fluxo principal

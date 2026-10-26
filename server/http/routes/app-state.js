@@ -1,3 +1,4 @@
+const { createAppStateService, AppStateConflict } = require('../../services/app-state-service');
 const { getLegacySeedForUser } = require('../../legacy-seed-data');
 
 function registerAppStateRoutes(app, deps) {
@@ -8,15 +9,8 @@ function registerAppStateRoutes(app, deps) {
     getAuthenticatedUser,
     touchUserActivity,
     findUserById,
-    readUserAppState,
-    recoverMissingMonthsFromLegacyBackups,
-    USERS_DATA_DIR,
-    writeUserAppState,
     ensureCsrfToken,
-    buildPrivateProfile,
-    hasUserAppState,
-    buildWidgetSnapshot,
-    saveWidgetSnapshot
+    buildPrivateProfile
   } = deps;
 
   const DEBUG_APP_STATE = String(process.env.FIN_APP_STATE_DEBUG || '').trim() === '1';
@@ -33,27 +27,7 @@ function registerAppStateRoutes(app, deps) {
     };
   }
 
-  /**
-   * Compare the exact revision, including an empty first-save revision.
-   */
-  function hasRevisionConflict(baseRevisionStr, currentRevisionStr) {
-    const base = String(baseRevisionStr || '').trim();
-    const current = String(currentRevisionStr || '').trim();
-    if (!current) return false;
-    return base !== current;
-  }
-
-  function getFinDataCount(state) {
-    return Array.isArray(state?.finData) ? state.finData.length : 0;
-  }
-
-  function hasDangerousMonthDrop(previousState, nextState) {
-    const previousCount = getFinDataCount(previousState);
-    const nextCount = getFinDataCount(nextState);
-    if (previousCount < 10) return false;
-    if (nextCount >= previousCount - 2) return false;
-    return nextCount < Math.ceil(previousCount * 0.8);
-  }
+  const stateService = createAppStateService(deps);
 
   app.get('/api/app/bootstrap', noStore, requireAuth, (req, res) => {
     const user = getAuthenticatedUser(req);
@@ -64,7 +38,7 @@ function registerAppStateRoutes(app, deps) {
     const refreshedUser = findUserById(user.id) || user;
     let savedState = null;
     try {
-      savedState = readUserAppState(refreshedUser.id, req.session?.dataEncryptionKey || '');
+      savedState = stateService.read(refreshedUser.id, req.session?.dataEncryptionKey || '');
     } catch (error) {
       console.error('[bootstrap] Falha ao carregar estado do usuario', {
         userId: refreshedUser.id,
@@ -73,39 +47,7 @@ function registerAppStateRoutes(app, deps) {
       });
       return res.status(500).json({ message: 'Falha ao carregar os dados do usuario com seguranca.' });
     }
-    if (savedState?.state) {
-      const recovered = recoverMissingMonthsFromLegacyBackups(refreshedUser.id, savedState.state, USERS_DATA_DIR);
-      if (recovered.changed) {
-        const rewritten = writeUserAppState(refreshedUser.id, recovered.state || {}, req.session?.dataEncryptionKey || '');
-        savedState = {
-          ...savedState,
-          partitioned: true,
-          partitionVersion: rewritten?.partitionVersion || savedState?.partitionVersion,
-          state: recovered.state,
-          updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
-        };
-      } else if (!savedState.partitioned || Number(savedState.partitionVersion || 0) < 3) {
-        const rewritten = writeUserAppState(refreshedUser.id, savedState.state || {}, req.session?.dataEncryptionKey || '');
-        savedState = {
-          ...savedState,
-          partitioned: true,
-          partitionVersion: rewritten?.partitionVersion || savedState?.partitionVersion,
-          updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
-        };
-      } else if (!savedState.encrypted && req.session?.dataEncryptionKey) {
-        const rewritten = writeUserAppState(refreshedUser.id, savedState.state || {}, req.session.dataEncryptionKey);
-        savedState = {
-          ...savedState,
-          updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
-        };
-      }
-    } else if (savedState && !savedState.encrypted && req.session?.dataEncryptionKey) {
-      const rewritten = writeUserAppState(refreshedUser.id, savedState.state || {}, req.session.dataEncryptionKey);
-      savedState = {
-        ...savedState,
-        updatedAt: rewritten?.updatedAt || savedState?.updatedAt || ''
-      };
-    }
+    savedState = stateService.prepareBootstrap(refreshedUser.id, savedState, req.session?.dataEncryptionKey || '');
     const isPrimaryUser = refreshedUser.username === 'guilherme';
     
     // ✅ CRÍTICO: Sempre retornar updatedAt do estado carregado
@@ -159,71 +101,16 @@ function registerAppStateRoutes(app, deps) {
     }
     
     try {
-      const currentState = readUserAppState(user.id, req.session?.dataEncryptionKey || '');
-      const currentRevision = String(currentState?.updatedAt || '').trim();
-        
-      if (DEBUG_APP_STATE) {
-        console.log('[app-state][put-check]', {
-          ...buildRequestContext(req, user.id),
-          userId: user.id,
-          baseRevision,
-          currentRevision
-        });
-      }
-
-      if (hasRevisionConflict(baseRevision, currentRevision)) {
-        console.warn('[app-state] Conflito real detectado - bloqueando write', {
-          ...buildRequestContext(req, user.id),
-          userId: user.id,
-          baseRevision,
-          currentRevision
-        });
-        return res.status(409).json({
-          message: 'O estado foi alterado em outra aba/dispositivo. Recarregue para evitar perda de dados.',
-          conflict: true,
-          currentRevision
-        });
-      }
-
-      if (hasDangerousMonthDrop(currentState?.state, state)) {
-        const previousCount = getFinDataCount(currentState?.state);
-        const nextCount = getFinDataCount(state);
-        console.warn('[app-state] Queda brusca de meses bloqueada', {
-          ...buildRequestContext(req, user.id),
-          userId: user.id,
-          previousCount,
-          nextCount,
-          baseRevision
-        });
-        return res.status(409).json({
-          message: 'Salvamento bloqueado para proteger seus dados: a aba tentou salvar uma versao com muitos meses a menos. Recarregue a pagina.',
-          conflict: true,
-          currentRevision: String(currentState?.updatedAt || '').trim(),
-          previousMonthCount: previousCount,
-          nextMonthCount: nextCount
-        });
-      }
-
-      const saved = writeUserAppState(user.id, state, req.session?.dataEncryptionKey || '');
-      if (user?.widgetToken && typeof buildWidgetSnapshot === 'function' && typeof saveWidgetSnapshot === 'function') {
-        try {
-          const snapshot = buildWidgetSnapshot(user.id, state);
-          saveWidgetSnapshot(user.id, snapshot);
-        } catch (snapshotError) {
-          console.error('[widget-snapshot] Erro ao gerar snapshot:', snapshotError?.message || String(snapshotError));
-        }
-      }
-      
-      if (DEBUG_APP_STATE) {
-        console.log('[app-state][put-ok]', {
-          ...buildRequestContext(req, user.id),
-          userId: user.id,
-          baseRevision,
-          updatedAt: saved.updatedAt
-        });
-      }
+      const saved = stateService.commit(user, state, baseRevision,
+        req.session?.dataEncryptionKey || '', buildRequestContext(req, user.id));
       return res.json({ ok: true, updatedAt: saved.updatedAt });
     } catch (error) {
+      if (error instanceof AppStateConflict) {
+        const message = error.kind === 'revision'
+          ? 'O estado foi alterado em outra aba/dispositivo. Recarregue para evitar perda de dados.'
+          : 'Salvamento bloqueado para proteger seus dados: a aba tentou salvar uma versao com muitos meses a menos. Recarregue a pagina.';
+        return res.status(409).json({ message, conflict: true, ...error.details });
+      }
       console.error('[app-state] ❌ Erro ao salvar estado', {
         userId: user.id,
         message: error?.message || String(error)
@@ -243,11 +130,11 @@ function registerAppStateRoutes(app, deps) {
     if (!state || typeof state !== 'object' || Array.isArray(state)) {
       return res.status(400).json({ message: 'Estado de migracao invalido.' });
     }
-    if (hasUserAppState(user.id)) {
+    if (stateService.has(user.id)) {
       return res.json({ ok: true, migrated: false });
     }
     try {
-      writeUserAppState(user.id, state, req.session?.dataEncryptionKey || '');
+      stateService.migrate(user.id, state, req.session?.dataEncryptionKey || '');
       return res.json({ ok: true, migrated: true });
     } catch (error) {
       return res.status(400).json({

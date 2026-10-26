@@ -1,5 +1,12 @@
 # Testes e cobertura atuais
 
+## Atualizacao da etapa 5
+
+457 testes aprovados e 14 cenarios Desktop/Mobile no navegador isolado.
+Dois novos arquivos adicionam 21 contratos de servicos/filas/erros e uma suite
+HTTP com 14 subcenarios. Os mesmos 14 subcenarios HTTP tambem foram executados
+contra as rotas anteriores de deee36c. Detalhes e limites no documento 19.
+
 ## Atualizacao apos a limpeza da suite
 
 Base 3458915, 23/10/2026: antes, 413 testes em 68 arquivos; depois, 398 testes

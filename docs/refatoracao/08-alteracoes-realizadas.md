@@ -1,5 +1,14 @@
 # Alteracoes realizadas
 
+## Etapa 5
+
+Politicas de estado e criacao de backups movidas para server/services, sem
+dependencia de req/res ou arquivos concretos. Filas serializadas de importacao
+extraidas para server/jobs, preservando as duas politicas de retry. Tratamento
+global de erros movido para middleware proprio. Autenticacao, CSRF, ownership,
+revisoes e stores existentes preservados. 457 testes e 14 cenarios de navegador
+aprovados. Documento 19 define o escopo e os limites desta entrega.
+
 ## Etapa 4B
 
 Eventos explicitos no save e na navegacao substituem os wrappers correspondentes.

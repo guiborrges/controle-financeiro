@@ -1,5 +1,12 @@
 # Validacao final da etapa de auditoria
 
+## Atualizacao da etapa 5
+
+457 testes aprovados; 14 cenarios de navegador aprovados. Contratos HTTP novos
+tambem aprovados usando as rotas anteriores. Confirmados 400/401/403/409/413/500,
+CSRF, isolamento por usuario, revisao, backup e falhas de armazenamento. Suite
+existente de restore e stores JSON/SQLite continua aprovada. Documento 19.
+
 ## Atualizacao 4B
 
 421 testes e 14 cenarios de navegador isolado aprovados. Init repetido nao

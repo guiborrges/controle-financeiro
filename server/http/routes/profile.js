@@ -1,3 +1,5 @@
+const { createBackupService } = require('../../services/backup-service');
+
 function registerProfileRoutes(app, deps) {
   const {
     noStore,
@@ -6,8 +8,6 @@ function registerProfileRoutes(app, deps) {
     ensureCsrfToken,
     getAuthenticatedUser,
     buildPrivateProfile,
-    createUserBackup,
-    toClientBackupMeta,
     updateUser,
     syncUserAppStateLocation,
     isValidEmail,
@@ -24,6 +24,8 @@ function registerProfileRoutes(app, deps) {
     deleteUser,
     consumeOperationToken
   } = deps;
+
+  const backupService = createBackupService(deps);
 
   app.get('/api/profile', noStore, requireAuth, (req, res) => {
     const user = getAuthenticatedUser(req);
@@ -46,11 +48,8 @@ function registerProfileRoutes(app, deps) {
       return res.status(409).json({ message: 'Operacao duplicada detectada. Aguarde para tentar novamente.', duplicate: true });
     }
     try {
-      const backup = createUserBackup(user.id, {
-        type: 'manual',
-        note: String(req.body?.note || '').trim()
-      });
-      return res.json({ ok: true, backup: toClientBackupMeta(backup) });
+      const backup = backupService.createManual(user.id, req.body?.note);
+      return res.json({ ok: true, backup });
     } catch (error) {
       return res.status(400).json({ message: error.message || 'Nao foi possivel criar o backup.' });
     }
@@ -71,26 +70,14 @@ function registerProfileRoutes(app, deps) {
       return res.status(403).json({ message: 'Token CSRF invalido.' });
     }
 
-    const minIntervalMs = Math.max(5_000, Number(process.env.FIN_AUTO_EXIT_BACKUP_MIN_MS || 21_600_000) || 21_600_000);
-    const lastAutoExitAtMs = Date.parse(String(user?.backupStats?.lastAutoExitBackupAt || ''));
-    const nowMs = Date.now();
-    if (Number.isFinite(lastAutoExitAtMs) && (nowMs - lastAutoExitAtMs) < minIntervalMs) {
+    const nowMs = backupService.getAutoExitTime(user);
+    if (nowMs === null) {
       return res.json({ ok: true, skipped: true, reason: 'cooldown' });
     }
 
     try {
-      const reason = String(req.body?.reason || 'auto-exit').trim().slice(0, 64) || 'auto-exit';
-      const backup = createUserBackup(user.id, {
-        type: 'automatic',
-        note: `Backup automático de saída (${reason}).`
-      });
-      updateUser(user.id, {
-        backupStats: {
-          ...(user?.backupStats || {}),
-          lastAutoExitBackupAt: new Date(nowMs).toISOString()
-        }
-      });
-      return res.json({ ok: true, backup: toClientBackupMeta(backup) });
+      const backup = backupService.createAutoExit(user, req.body?.reason, nowMs);
+      return res.json({ ok: true, backup });
     } catch (error) {
       return res.status(400).json({ message: error.message || 'Nao foi possivel criar backup automatico de saida.' });
     }

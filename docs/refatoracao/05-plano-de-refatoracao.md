@@ -18,6 +18,9 @@ registradas, nao corrigidas silenciosamente. A 4A foi solicitada em 26/10/2026:
 reuso de totais por render e protecao do Dashboard oculto, conforme documento 17.
 A 4A foi publicada em 1cd7e18. A 4B foi solicitada em seguida: eventos explicitos
 de save/nav, inicializacao unica e CSS Mobile separado; escopo no documento 18.
+A 4B foi publicada em deee36c. A etapa 5 foi solicitada: servicos de estado e
+backups, fila de jobs e middleware de erros extraidos; escopo no documento 19.
+Nao houve inicio da etapa 6 ou mudanca de backend de persistencia.
 
 Aprovar fases 2 a 7 em pequenas entregas, com correcoes F01-F06 tratadas em
 mudancas separadas e explicitamente autorizadas. A fase 3 foi iniciada pela 3A.
