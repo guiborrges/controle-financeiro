@@ -5,6 +5,12 @@ da internet, de um aparelho real ou da Oracle.
 
 ## Atualizacoes implementadas
 
+7: comparacao reproduzivel do render a956385 com o atual, no mesmo sandbox e
+motor financeiro, preserva hashes e mede 163 -> 12 chamadas para 12 meses e
+403 -> 36 para 36 meses. CDP da fixture atual com quatro meses: nos/listeners
+estaveis em 0/10/20 ciclos; heap cresce cerca de 348 KB, sem conclusao de leak.
+Nao comparar seus tempos com a fixture historica maior abaixo. Documento 21.
+
 6: OCI CLI e backoff deixaram de bloquear o event loop com execFileSync/Atomics.
 Teste de subprocesso confirma que um timer JS progride durante a chamada.
 Filas possuem limites opcionais por tenant/processo e liberam entradas terminadas.

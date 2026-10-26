@@ -22,7 +22,9 @@ A 4B foi publicada em deee36c. A etapa 5 foi solicitada: servicos de estado e
 backups, fila de jobs e middleware de erros extraidos; escopo no documento 19.
 A etapa 5 foi publicada em 8e08582. A etapa 6 foi solicitada: repositorio comum
 de staging, prazos e filas limitadas por tenant, conforme documento 20.
-Nao houve inicio da etapa 7 ou mudanca de backend de persistencia.
+A etapa 6 foi publicada em b2f8d58. A etapa 7 foi solicitada e executada como
+validacao, com ressalvas e pendencias explicitadas no documento 21. Sem troca
+de backend, major de biblioteca ou correcao financeira misturada a esta entrega.
 
 Aprovar fases 2 a 7 em pequenas entregas, com correcoes F01-F06 tratadas em
 mudancas separadas e explicitamente autorizadas. A fase 3 foi iniciada pela 3A.

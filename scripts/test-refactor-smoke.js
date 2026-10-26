@@ -376,6 +376,34 @@ async function main() {
       });
       assert.equal(result.visible, result.expected);
     });
+    if (process.env.MEUFIN_SMOKE_PROFILE === '1') {
+      await desktop.evaluate(() => nav('dashboard'));
+      await mobile.evaluate(() => MobileV2.setTab('dashboard'));
+      const desktopTimes = await desktop.evaluate(() => Array.from({ length: 7 }, () => {
+        const start = performance.now(); renderDashboard(); return performance.now() - start;
+      }));
+      const mobileTimes = await mobile.evaluate(() => Array.from({ length: 7 }, () => {
+        const start = performance.now(); MobileV2.refresh(); return performance.now() - start;
+      }));
+      const session = await desktop.context().newCDPSession(desktop);
+      async function memory() {
+        await finishCharts(desktop);
+        await session.send('HeapProfiler.collectGarbage');
+        const counters = await session.send('Memory.getDOMCounters');
+        const heap = await session.send('Runtime.getHeapUsage');
+        return { ...counters, usedSize: heap.usedSize };
+      }
+      const checkpoints = [await memory()];
+      for (let pass = 0; pass < 2; pass++) {
+        for (let index = 0; index < 10; index++) {
+          await desktop.evaluate(() => { nav('mes'); nav('dashboard'); });
+        }
+        checkpoints.push(await memory());
+      }
+      await session.detach();
+      console.log('PROFILE ' + JSON.stringify({ fixtureMonths: 4, desktopRenderMs: desktopTimes,
+        mobileHomeRefreshMs: mobileTimes, desktopAfterCycles: [0, 10, 20], checkpoints }));
+    }
     assert.deepEqual(errors, []);
     assert.equal(fixture.unchanged(), true);
     assert.equal(fixture.requests.writes, 0);

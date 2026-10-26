@@ -1,5 +1,13 @@
 # Alteracoes realizadas
 
+## Etapa 7
+
+Validacao final, benchmark antes/depois, perfil CDP de 20 ciclos e probes
+isolados para pendencias SQLite. Relatorio de seguranca local, sem segredos ou
+teste destrutivo online. Novos scripts/aliases de verificacao e documentacao;
+nenhuma alteracao do runtime financeiro ou upgrade major nesta etapa.
+Aprovacao integral permanece em aberto, conforme documento 21.
+
 ## Etapa 6
 
 Repositorio SQL Pluggy comum, prazos em integracoes HTTP/OCI/Oracle, pool

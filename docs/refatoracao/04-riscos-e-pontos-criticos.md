@@ -1,5 +1,17 @@
 # Riscos e problemas funcionais separados
 
+## Situacao revalidada na etapa 7
+
+F01/F02 foram publicados em b277cbc. F03/F04 foram reproduzidos em SQLite
+temporario na etapa 7 e continuam abertos: restore diverge e revisoes repetem
+com relogio congelado. Nao foi verificado se SQLite e usado em producao.
+F05 permanece: npm audit atual aponta um pacote alto (Nodemailer 9.1.1), zero
+criticos. F06 e as politicas de datas da 3D continuam separados da refatoracao.
+O documento 21 resume a validacao; o relatorio de seguranca detalhado e local.
+Os registros abaixo sao historicos e nao representam a situacao de deploy atual.
+
+## Registro Historico
+
 Atualizacao da etapa 2B: F01 e F02 corrigidos localmente no primeiro lote,
 conforme documento 11; ainda sem publicacao. F03 a F06 permanecem pendentes.
 As evidencias abaixo descrevem o diagnostico anterior. Nao ha evidencia de perda de dados

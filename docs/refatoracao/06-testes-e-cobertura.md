@@ -1,5 +1,13 @@
 # Testes e cobertura atuais
 
+## Fechamento da etapa 7
+
+476 testes aprovados e 14 cenarios de navegador aprovados. npm audit nao esta
+limpo: um pacote alto e zero criticos. O probe isolado de F03/F04 retorna
+NOT_APPROVED e exit code 2 enquanto houver divergencia/revisao repetida SQLite.
+Esses bloqueios nao foram transformados em testes verdes. Ver documento 21.
+Ferramentas adicionais: test:perf:refactor e check:refactor-risks.
+
 ## Atualizacao da etapa 6
 
 476 testes e 14 cenarios de navegador aprovados. Novos contratos verificam

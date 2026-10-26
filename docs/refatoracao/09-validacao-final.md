@@ -1,5 +1,13 @@
 # Validacao final da etapa de auditoria
 
+## Resultado da etapa 7
+
+Validacao executada, sem aprovacao irrestrita: 476 testes e 14 cenarios de
+navegador passam; verificacoes de dependencias/SQLite continuam com pendencias.
+Benchmark preserva resultados, e verificacao publica online nao autenticada
+confirma disponibilidade/headers. Documento 21 e o fechamento atual; registros
+de etapas anteriores abaixo nao substituem suas ressalvas.
+
 ## Atualizacao da etapa 6
 
 476 testes aprovados, incluindo 19 novos; 14 cenarios de navegador aprovados.
