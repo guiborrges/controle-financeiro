@@ -1,7 +1,17 @@
 # Linha de base e oportunidades de desempenho
 
-Nenhuma otimizacao foi implementada. Estes numeros sao baseline local, nao SLA
+Os numeros abaixo sao o baseline historico da auditoria, nao SLA
 da internet, de um aparelho real ou da Oracle.
+
+## Atualizacoes implementadas
+
+4A: resumo por mes por render e Dashboard oculto sem reconstrucao (documento 17).
+4B: removido polling de wrappers a cada segundo; save/nav emitem eventos e o
+Mobile instala seus listeners uma vez. Em navegador isolado, um save gera uma
+renderizacao e uma escrita no cache de sessao mesmo apos tres chamadas de init.
+CSS Mobile dividido em seis arquivos mantendo exatamente o conteudo e a ordem;
+isso adiciona seis requisicoes CSS locais, nao representa ganho de carregamento.
+Nao foi repetido o perfil CDP de heap/listeners e nao se afirma eliminar vazamento.
 
 ## Ambiente e metodo
 

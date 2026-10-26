@@ -2,7 +2,7 @@
   'use strict';
 
   const state = {
-    patched: false,
+    initialized: false,
     loadingCount: 0,
     pullActive: false,
     refreshInFlight: false,
@@ -104,9 +104,11 @@
   }
 
   function notifyDataChanged(reason = 'unknown') {
-    try {
-      document.dispatchEvent(new CustomEvent('mobileDataChanged', { detail: { reason } }));
-    } catch {}
+    global.AppEvents?.emit('mobileDataChanged', { reason });
+  }
+
+  function updateFinanceCache(event) {
+    if (event.detail?.reason === 'session-cache') return;
     try {
       persistFinanceCache();
       rebuildWidgetSnapshot();
@@ -190,7 +192,7 @@
     } catch {}
   }
 
-  function patchSaveAndMutations() {
+  function bindLegacyHaptics() {
     const wrap = (name, after) => {
       const original = global[name];
       if (typeof original !== 'function' || original.__mobileV2Wrapped) return false;
@@ -203,14 +205,11 @@
       global[name] = wrapped;
       return true;
     };
-    const didWrapSave = wrap('save', () => notifyDataChanged('save'));
     wrap('saveUnifiedOutflow', () => {
       global.triggerHapticFeedback?.('confirm');
-      notifyDataChanged('saveUnifiedOutflow');
     });
     wrap('deleteUnifiedOutflow', () => {
       global.triggerHapticFeedback?.('firm');
-      notifyDataChanged('deleteUnifiedOutflow');
     });
     ['saveUnifiedCard', 'saveItem'].forEach((name) => {
       wrap(name, () => global.triggerHapticFeedback?.('confirm'));
@@ -218,7 +217,6 @@
     ['savePatrimonioAccount', 'savePatrimonioMovement'].forEach((name) => {
       wrap(name, () => {
         global.triggerHapticFeedback?.('confirm');
-        notifyDataChanged(name);
       });
     });
     [
@@ -235,7 +233,6 @@
       const tone = String(args?.[2] || args?.[1] || '').toLowerCase();
       if (tone === 'error' || tone === 'warn') global.triggerHapticFeedback?.('error');
     });
-    state.patched = didWrapSave || state.patched;
   }
 
   function normalizeNumericInputs(root = document) {
@@ -283,7 +280,6 @@
         await global.initializeServerStorage();
       }
       document.dispatchEvent(new CustomEvent('mobileDataChanged', { detail: { reason: 'pull-refresh' } }));
-      global.MobileV2?.refresh?.();
       global.triggerHapticFeedback?.('light');
     } finally {
       setLoading(false);
@@ -516,8 +512,11 @@
   }
 
   function init() {
+    if (state.initialized) return;
+    state.initialized = true;
+    document.addEventListener('mobileDataChanged', updateFinanceCache);
     if (isMobileEnabled()) patchFetch();
-    patchSaveAndMutations();
+    bindLegacyHaptics();
     if (isMobileEnabled()) hydrateCachedFinanceState();
     normalizeNumericInputs();
     if (isMobileEnabled()) attachBottomSheetGestures();
@@ -530,12 +529,11 @@
     if (isMobileEnabled()) initDatePicker();
     registerPwa();
     if (isMobileEnabled()) closeSplash();
-    if (isMobileEnabled()) document.addEventListener('mobileDataChanged', () => global.MobileV2?.refresh?.());
-    window.setInterval(patchSaveAndMutations, 1000);
   }
 
   global.showToast = global.showToast || showToast;
   global.MobileV2Enhancements = {
+    init,
     haptic: global.triggerHapticFeedback,
     showToast,
     notifyDataChanged,

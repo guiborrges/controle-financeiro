@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readMobileStyles } = require('./helpers/mobile-styles');
 
 const appDir = path.join(__dirname, '..', 'public', 'app');
 const read = (...parts) => fs.readFileSync(path.join(appDir, ...parts), 'utf8');
@@ -73,7 +74,7 @@ test('historico mobile has no notification bell while month owns mobile notifica
 
 test('calendar mobile uses theme-aware intensity variables and dark-mode styling exists', () => {
   const calendar = read('modules', 'mobile-v2', 'calendario-mobile.js');
-  const css = read('mobile-v2.css');
+  const css = readMobileStyles();
   assert.match(calendar, /--m2-day-tone/);
   assert.match(css, /html\[data-theme="dark"\]\.mobile-v2 \.m2-calendar-card/);
   assert.match(css, /html\[data-theme="dark"\]\.mobile-v2 \.cal-day\.has-items/);

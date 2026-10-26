@@ -435,6 +435,7 @@ function nav(page) {
   if (typeof renderNotificationBells === 'function') renderNotificationBells();
   saveUIState();
   restoreScrollPosition();
+  window.AppEvents?.emit('app:navigated', { page });
 }
 
 function selectMonth(id) {

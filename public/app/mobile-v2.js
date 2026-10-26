@@ -3,6 +3,7 @@
 
   const MOBILE_BREAKPOINT = 900;
   const state = {
+    initialized: false,
     enabled: false,
     currentTab: 'mes',
     fabMenuOpen: false,
@@ -348,6 +349,8 @@
   }
 
   function init() {
+    if (state.initialized) return;
+    state.initialized = true;
     apply();
     global.addEventListener('resize', apply, { passive: true });
     global.addEventListener('orientationchange', apply);
@@ -366,23 +369,13 @@
       render();
     });
     document.addEventListener('mobileDataChanged', () => {
-      if (!state.enabled || state.defaultLandingApplied) return;
-      applyDefaultLanding();
+      if (!state.enabled) return;
+      if (!state.defaultLandingApplied) applyDefaultLanding();
       render();
     });
-
-    const oldNav = global.nav;
-    if (typeof oldNav === 'function') {
-      global.nav = function patchedNav(page) {
-        const result = oldNav.apply(this, arguments);
-        if (state.enabled) {
-          // A navegação mobile é controlada pela bottom nav. O bootstrap desktop
-          // não pode restaurar a última página por cima do landing do mês atual.
-          render();
-        }
-        return result;
-      };
-    }
+    document.addEventListener('app:navigated', () => {
+      if (state.enabled) render();
+    });
   }
 
   global.MobileV2 = {

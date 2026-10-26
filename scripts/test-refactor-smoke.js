@@ -303,6 +303,79 @@ async function main() {
       });
       assert.equal(mobileCalls, 0);
     });
+    await check('Mobile lifecycle initializes once, refreshes once and updates its scoped cache on save', async () => {
+      await mobile.evaluate(() => MobileV2.setTab('dashboard'));
+      const result = await mobile.evaluate(() => {
+        const originalRender = MobileV2HomeScreen.render;
+        const originalNav = nav;
+        const originalSave = save;
+        let renders = 0;
+        let changes = 0;
+        let cacheWrites = 0;
+        const storagePrototype = Object.getPrototypeOf(sessionStorage);
+        const originalSetItem = storagePrototype.setItem;
+        storagePrototype.setItem = function (key, value) {
+          if (String(key).startsWith('mobileV2:financeState:')) cacheWrites++;
+          return originalSetItem.call(this, key, value);
+        };
+        const changed = () => { changes++; };
+        document.addEventListener('mobileDataChanged', changed);
+        MobileV2HomeScreen.render = function () { renders++; return originalRender.apply(this, arguments); };
+        const month = getCurrentMonth();
+        const oldValue = month.renda[0].valor;
+        try {
+          for (let index = 0; index < 3; index++) { MobileV2.init(); MobileV2Enhancements.init(); }
+          const stableFunctions = nav === originalNav && save === originalSave;
+          month.renda[0].valor = oldValue + 7;
+          window.__fixtureSave();
+          const saveRenders = renders;
+          const saveChanges = changes;
+          const cached = MobileV2Enhancements.getCachedFinanceMonths().find(entry => entry.id === month.id);
+          const cachedValue = cached.renda[0].valor;
+          const cache = JSON.parse(sessionStorage.getItem(`mobileV2:financeState:${__APP_BOOTSTRAP__.session.id}`));
+          renders = 0;
+          nav('mes');
+          return { stableFunctions, saveRenders, saveChanges, cacheWrites, cachedValue, expected: oldValue + 7,
+            scoped: cache.userId === __APP_BOOTSTRAP__.session.id, navRenders: renders,
+            importRules: Array.from(document.styleSheets).find(sheet => sheet.href?.endsWith('/mobile-v2.css'))
+              .cssRules.length,
+            loadedImports: Array.from(Array.from(document.styleSheets).find(sheet => sheet.href?.endsWith('/mobile-v2.css'))
+              .cssRules).every(rule => rule.styleSheet?.cssRules.length > 0) };
+        } finally {
+          month.renda[0].valor = oldValue;
+          MobileV2HomeScreen.render = originalRender;
+          storagePrototype.setItem = originalSetItem;
+          document.removeEventListener('mobileDataChanged', changed);
+          AppEvents.emit('mobileDataChanged', { reason: 'fixture-reset' });
+        }
+      });
+      assert.equal(result.stableFunctions, true);
+      assert.equal(result.saveRenders, 1);
+      assert.equal(result.saveChanges, 1);
+      assert.equal(result.cacheWrites, 1);
+      assert.equal(result.cachedValue, result.expected);
+      assert.equal(result.scoped, true);
+      assert.equal(result.navRenders, 1);
+      assert.equal(result.importRules, 6);
+      assert.equal(result.loadedImports, true);
+    });
+    await check('Mobile month invalidates cached income metrics after an in-place edit', async () => {
+      const result = await mobile.evaluate(() => {
+        MobileV2.setTab('mes');
+        const month = getCurrentMonth();
+        const before = month.renda[0].valor;
+        try {
+          month.renda[0].valor = before + 9;
+          window.__fixtureSave();
+          return { visible: document.querySelector('#mobileV2Root .m2-mini-value')?.textContent,
+            expected: MobileV2Data.formatMoney(MobileV2Data.getMonthMetrics(month).renda) };
+        } finally {
+          month.renda[0].valor = before;
+          AppEvents.emit('mobileDataChanged', { reason: 'fixture-reset' });
+        }
+      });
+      assert.equal(result.visible, result.expected);
+    });
     assert.deepEqual(errors, []);
     assert.equal(fixture.unchanged(), true);
     assert.equal(fixture.requests.writes, 0);

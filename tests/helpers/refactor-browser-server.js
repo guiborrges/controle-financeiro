@@ -45,7 +45,8 @@ async function createBrowserFixtureServer(vendorAssets) {
     if (vendorAssets.has(url.pathname)) return send(200, vendorAssets.get(url.pathname), types['.js']);
     if (url.pathname === '/fixture-readonly.js') {
       // Only the harness is overridden: production sources and calculations stay intact.
-      return send(200, `save = () => Promise.resolve(false);
+      return send(200, `window.__fixtureSave = save;
+        save = () => Promise.resolve(false);
         flushServerStorage = () => Promise.resolve(false);
         scheduleServerStorageFlush = () => {};
         migrateToContinuousCalendar = async () => {};

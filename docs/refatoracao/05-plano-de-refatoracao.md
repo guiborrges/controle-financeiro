@@ -16,6 +16,8 @@ testes foi publicada em 43b9296. A 3D foi autorizada e sua extracao compartilhad
 implementada, conforme documento 16. Divergencias funcionais anteriores foram
 registradas, nao corrigidas silenciosamente. A 4A foi solicitada em 26/10/2026:
 reuso de totais por render e protecao do Dashboard oculto, conforme documento 17.
+A 4A foi publicada em 1cd7e18. A 4B foi solicitada em seguida: eventos explicitos
+de save/nav, inicializacao unica e CSS Mobile separado; escopo no documento 18.
 
 Aprovar fases 2 a 7 em pequenas entregas, com correcoes F01-F06 tratadas em
 mudancas separadas e explicitamente autorizadas. A fase 3 foi iniciada pela 3A.

@@ -1,5 +1,13 @@
 # Alteracoes realizadas
 
+## Etapa 4B
+
+Eventos explicitos no save e na navegacao substituem os wrappers correspondentes.
+Mobile inicializa uma vez; uma notificacao atualiza a tela e o cache sem duplicar
+listeners. Removido polling de wrappers; adaptadores hapticos residuais ligados
+uma vez. CSS Mobile separado em seis partes na ordem original. Documento 18
+detalha limites, equivalencia visual, 421 testes e 14 cenarios de navegador.
+
 ## Etapa 3D
 
 Contratos equivalentes de deslocamento mensal, datas de cartoes e avanco de

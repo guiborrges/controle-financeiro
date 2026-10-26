@@ -884,7 +884,9 @@ function save(forceFlush = false) {
   if (typeof continuousCalendarModel !== 'undefined') Storage.setJSON(STORAGE_KEYS.calendarModel, continuousCalendarModel);
   Storage.setJSON(STORAGE_KEYS.patrimonioAccounts, patrimonioAccounts);
   Storage.setJSON(STORAGE_KEYS.patrimonioMovements, patrimonioMovements);
-  if (forceFlush) return flushServerStorage(true);
+  const result = forceFlush ? flushServerStorage(true) : undefined;
+  window.AppEvents?.emit('mobileDataChanged', { reason: 'save' });
+  return result;
 }
 
 function saveMetas() {

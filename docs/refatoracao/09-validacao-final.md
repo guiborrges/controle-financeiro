@@ -1,5 +1,12 @@
 # Validacao final da etapa de auditoria
 
+## Atualizacao 4B
+
+421 testes e 14 cenarios de navegador isolado aprovados. Init repetido nao
+duplica renderizacao nem escrita no cache. Edicao em renda invalida o cache
+mensal e aparece imediatamente. CSS reconstruido tem o mesmo SHA-256 anterior;
+captura Mobile sintetica antes/depois identica byte a byte. Documento 18.
+
 ## Atualizacao 4A
 
 414 testes aprovados e 12 cenarios de navegador isolado aprovados. Totais,
