@@ -1,68 +1,86 @@
-# DEPLOY (Oracle + PM2 + SQLite)
+# Publicacao - Oracle Cloud e PM2
 
-## 1. Runtime recomendado
-- Node.js LTS (20+)
-- PM2
-- Backend de estado: `FIN_STATE_BACKEND=sqlite`
-- Execucao em instancia unica:
-  - `pm2 start server.js -i 1 --name controle-financeiro`
+Atualizado em 26/10/2026. Conferido com .github/workflows/deploy.yml e
+server/state-store-factory.js. Nao altera a configuracao online.
 
-## 2. Regra arquitetural obrigatoria (SQLite)
-- SQLite com WAL suporta varios leitores, mas neste sistema o escritor deve ser unico.
-- Nao rodar cluster Node.js (`-i max`) sobre o mesmo arquivo `.sqlite`.
-- O guard `stateRevision` protege concorrencia de usuarios/abas, mas nao substitui disciplina de processo.
-- Contrato operacional atual:
-  - **usar uma unica instancia PM2** com SQLite.
-- Escalabilidade horizontal futura:
-  - migrar backend de estado para PostgreSQL (ou equivalente) via `server/state-store-factory.js`.
-- Quando SQLite for backend definitivo no ambiente alvo:
-  - planejar remocao do mirror JSON de compatibilidade.
+## Fluxo ativo
 
-## 3. Variaveis de ambiente recomendadas
-- `NODE_ENV=production`
-- `PORT=3000` (ou porta do ambiente)
-- `FIN_STATE_BACKEND=sqlite`
-- `FIN_STORAGE_DIR=/caminho/persistente`
-- `FIN_APP_STATE_DEBUG=0`
-- `FIN_MAX_BACKUPS_PER_USER=0` (nao podar backups automaticamente)
-- `FIN_AUTO_EXIT_BACKUP_MIN_MS=60000`
-- `BILL_IMPORT_AI_PROVIDER=oracle` (habilita parser por IA no backend)
-- `ORACLE_AI_ENDPOINT=https://...` (endpoint Oracle AI/Function que devolve `finance_import_v1`)
-- `ORACLE_AI_API_KEY=...` (se o endpoint exigir bearer token)
-- `ORACLE_AI_MODEL=oracle-ai` (identificador informativo enviado no header `X-Model`)
-- `ORACLE_AI_TIMEOUT_MS=45000`
+Push em main aciona Deploy para Oracle Cloud:
 
-## 4. Passo a passo de deploy
-1. Atualizar codigo no servidor.
-2. Instalar dependencias:
-   - `npm ci --omit=dev`
-3. Garantir pasta persistente para storage.
-4. Exportar envs.
-5. Subir com PM2 em instancia unica:
-   - `pm2 start server.js -i 1 --name controle-financeiro`
-6. Salvar configuracao:
-   - `pm2 save`
-7. Habilitar startup:
-   - `pm2 startup`
+1. Checkout do codigo.
+2. npm ci.
+3. npm audit --audit-level=critical.
+4. SCP do checkout para /home/ubuntu/controle-financeiro.
+5. npm install --omit=dev no servidor.
+6. pm2 restart all, com fallback node server.js conforme o script atual.
 
-## 5. Validacao pos-deploy
-- Health basico:
-  - `pm2 status`
-  - `pm2 logs controle-financeiro --lines 200`
-- Integridade de testes (quando aplicavel no servidor):
-  - `npm test`
-- Verificacao funcional minima:
-  - login/logout
-  - leitura de estado
-  - salvar alteracao simples
-  - criar backup manual
-  - importar backup de teste
-  - validar conflito real entre duas abas (409 esperado na aba stale)
+SSH usa secrets OCI_HOST e OCI_KEY; nao inserir seus valores em documentos.
+Workflow usa source "." e NAO executa npm test ou test:smoke.
+Nao oferece, por isso, build, deploy atomico, migracao, teste funcional completo
+ou rollback automatico. pm2 restart all pode atingir outros processos PM2.
 
-## 6. Auditoria operacional rapida
-- Confirmar 1 instancia:
-  - `pm2 describe controle-financeiro | grep instances`
-- Confirmar backend:
-  - checar env `FIN_STATE_BACKEND=sqlite`
-- Confirmar persistencia:
-  - arquivos/dir em `FIN_STORAGE_DIR` existem e sao gravaveis
+## Storage e runtime
+
+- package.json declara Node.js >=20; conferir runtime real antes de habilitar SQLite.
+- Definir NODE_ENV=production, PORT, FIN_STORAGE_DIR e FIN_SESSION_SECRET.
+- FIN_STORAGE_DIR deve ser persistente e preservado entre publicacoes.
+- Preservar usuarios, dados, backups e chaves de criptografia/recuperacao.
+- Segredos Pluggy/Oracle/SMTP ficam fora do Git.
+- Conferir FIN_STATE_BACKEND efetivo no servidor; nao presumir SQLite.
+
+JSON e padrao; SQLite e selecionado explicitamente quando disponivel.
+Nao trocar backend incidentalmente durante uma publicacao.
+
+## Ressalva SQLite
+
+A recomendacao antiga de SQLite como padrao foi retirada.
+F03/F04 registram restore JSON que nao atualiza a copia prioritaria SQLite
+e revisoes SQLite repetidas sob relogio congelado. Nao declarar restore
+SQLite aprovado. Backend online nao foi certificado nesta revisao documental.
+
+Uma eventual migracao exige backup e teste. Se SQLite for utilizado, manter
+uma unica instancia escritora; nao usar cluster PM2 no mesmo arquivo.
+409 nao substitui disciplina de processo. Filas/locks sao locais por processo.
+
+## Validacao antes do push
+
+```powershell
+npm ci
+npm test
+npm run test:smoke
+npm run check:legacy-paths
+npm run audit:ci
+npm run check:refactor-risks
+```
+
+Os dois ultimos podem retornar nao-zero pelas pendencias documentadas.
+Nao esconder falhas nem confundir critical aprovado com audit high limpo.
+Nao atualizar dependencias major sem revisao especifica.
+
+Smoke usa contas sinteticas e intercepta escrita financeira no servidor.
+MEUFIN_SMOKE_VENDOR_DIR permite bibliotecas locais.
+Nao fazer restore/conflitos destrutivos em contas reais.
+
+## Depois da publicacao
+
+- Aguardar workflow do SHA enviado, nao apenas o push.
+- Conferir /api/health, /login e assets alterados.
+- Sem sessao, bootstrap/profile devem continuar protegidos.
+- Conferir login/bootstrap e funcionalidade afetada em conta de teste.
+- Revisar logs PM2, erros de pagina e persistencia apos reload.
+- Confirmar que storage/chaves nao foram substituidos pelo checkout.
+
+## Reversao, backups e integracoes
+
+Reverter codigo nao restaura dados automaticamente. Mudanca de schema exige
+plano de compatibilidade/restore antes da publicacao. Nunca apagar storage
+para resolver um deploy.
+
+Padroes do backup-store: 50 recentes e ate 12 ancoras mensais.
+FIN_MAX_BACKUPS_PER_USER=0 nao desativa poda: usa o padrao.
+FIN_MONTHLY_BACKUPS_PER_USER controla ancoras; conferir codigo ao mudar limites.
+
+Workers, Oracle e OCI sao configurados separadamente. Ver
+[docs/INDEPENDENT_PIPELINES.md](docs/INDEPENDENT_PIPELINES.md) e
+[docs/refatoracao/20-etapa-6-integracoes.md](docs/refatoracao/20-etapa-6-integracoes.md).
+Render/render.yaml sao alternativa historica, nao o online atual.

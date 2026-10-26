@@ -2,6 +2,11 @@
 
 Data: 2026-10-22.
 
+> Revisao historica. Em 26/10/2026, a validacao posterior registrou ressalvas
+> especificas de SQLite: as garantias de restore/revisao abaixo nao certificam
+> o backend opcional. Ver [arquitetura atual](ARCHITECTURE.md) e
+> [fechamento da etapa 7](refatoracao/21-fechamento-validacao.md).
+
 ## Escopo
 
 Revisao de recorrencias, cartoes, normalizacao, migracao, persistencia,

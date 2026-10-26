@@ -1,125 +1,83 @@
-﻿# Controle Financeiro com login protegido
+# MeuFin - Controle Financeiro
 
-Este projeto roda com backend em Node.js + Express, suporta múltiplos usuários com sessão individual e mantém os dados financeiros separados por conta.
+Documentacao revisada em 26/10/2026. Referencia funcional: `d83efd4`.
 
-## Workspace canônico (importante)
+Aplicacao web multiusuario em Node.js/Express para planejamento mensal,
+lancamentos, rendas, cartoes, metas, patrimonio, historico e importacao revisada.
+Desktop e MobileV2 compartilham estado e contratos financeiros.
 
-- Pasta canônica para edição e deploy: `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online`
-- Fonte ativa do app:
-  - backend em `server/`
-  - frontend em `public/`
-- Os arquivos JS/HTML/CSS da raiz foram neutralizados para compatibilidade e **não** são a fonte ativa.
-- O deploy usa diretamente esta raiz canônica. Não mantenha cópias paralelas como `render-deploy/` ou `render-upload/`, pois elas ficam desatualizadas e são enviadas desnecessariamente para a Oracle.
+## Documentacao
 
-## Estrutura principal
+- [Indice dos guias](docs/README.md)
+- [Arquitetura completa](docs/ARCHITECTURE.md)
+- [Contexto atual para manutencao](docs/PROJECT_CONTEXT.md)
+- [Calendario continuo](docs/CONTINUOUS_CALENDAR.md)
+- [Publicacao Oracle/PM2](DEPLOY.md)
+- [Checklist de entrega](DEPLOY_CHECKLIST.md)
 
-- `server.js`: composição do servidor e registro de rotas
-- `server/http/security.js`: middlewares de segurança (CSRF, sessão, rate-limit, cookies)
-- `server/http/month-recovery.js`: recuperação e ordenação cronológica de meses legados
-- `server/password.js`: hash e verificação de senha com PBKDF2
-- `server/user-store.js`: leitura e escrita do cadastro de usuários
-- `server/app-state-store.js`: persistência isolada do ambiente financeiro por usuário
-- `server/backup-store.js`: backup/restauração e integridade
-- `auth/users.json`: base de usuários e hashes de senha
-- `data/users/`: dados financeiros separados por usuário
-- `public/login/`: tela de login
-- `public/app/`: sistema financeiro protegido
-- `public/app/modules/category-editor.js`: módulo de edição e mesclagem de categorias
-- `public/app/modules/shared/`: helpers globais compartilhados (`fmt`, `fmtSigned`, `normalizeVarDate`, `parseData`, `escapeHtml`)
-- `docs/ARCHITECTURE.md`: visão de arquitetura e padrões de manutenção
-- `scripts/set-password.js`: atualiza a senha de forma segura
+Relatorios em docs/refatoracao/ sao historicos. Os guias acima descrevem o
+estado atual e diferenciam funcionalidades de pendencias conhecidas.
 
-## Como rodar localmente
+## Fontes e workspace
 
-1. Instale o Node.js 20 ou superior.
-2. Abra a pasta do projeto no terminal.
-3. Instale as dependências:
+Workspace canonico: `C:\Users\guisi\OneDrive\Controle Financeiro\DIretório Online`.
 
-```bash
-npm install
-```
+| Local | Funcao |
+|---|---|
+| server.js, server/http/ | Composicao Express, rotas e seguranca |
+| server/services/ | App-state e backup |
+| server/repositories/, server/integrations/, server/jobs/ | SQL, provedores e filas |
+| public/app/ | Frontend ativo Desktop/Mobile |
+| public/app/modules/shared/ | Valores, catalogos, datas e projecao |
+| public/app/modules/mes-atual/ | Comandos e regras mensais |
+| public/login/ | Login/cadastro |
+| tests/, scripts/, workers/ | Validacao e pipelines |
 
-4. Inicie o servidor:
+Arquivos legados da raiz e copias de auditoria nao sao fontes ativas.
+Nao versionar armazenamento real, credenciais ou fixtures pessoais.
 
-```bash
+## Executar localmente
+
+Requisito declarado: Node.js >=20.
+
+```powershell
+npm ci
 npm start
 ```
 
-5. Abra no navegador:
+Abrir http://localhost:3000/login (ou PORT configurada).
+Usar FIN_STORAGE_DIR isolado para desenvolvimento. Sem essa variavel, o
+servidor usa a raiz do projeto. Este guia nao fornece senhas iniciais.
 
-```text
-http://localhost:3000
+## Persistencia
+
+JSON particionado e o backend padrao. SQLite e opcional, com pendencias de
+restore/revisao: nao trocar automaticamente. Oracle Database atende integracoes,
+nao todo o app-state. FIN_STORAGE_DIR deve ser persistente em producao.
+Preservar tambem as chaves necessarias a dados criptografados.
+
+## Validar e publicar
+
+```powershell
+npm test
+npm run test:smoke
+npm run check:legacy-paths
 ```
 
-## Guard de diretório antigo
+Referencia validada: 481 testes Node e 15 cenarios sinteticos de navegador.
+Nao certifica contas/bancos reais nem ausencia de todos os defeitos.
+Ferramentas adicionais: test:perf:refactor, check:refactor-risks e audit:ci.
+audit:system pode escrever/corrigir arquivos; nao usar como leitura inocua.
 
-- Verificação manual:
-  - `npm run check:legacy-paths`
-- O repositório também possui hook local de `pre-commit` para bloquear novos commits com referência ao diretório antigo.
-- No ambiente atual, o `core.hooksPath` já foi configurado para `.githooks`.
+Fluxo ativo: GitHub main -> GitHub Actions -> Oracle Cloud -> PM2.
+Workflow nao executa suite funcional e bloqueia apenas alertas criticos.
+Render e alternativa historica. Ver DEPLOY.md antes de publicar.
 
-## Deploy no Render
+## Regras essenciais
 
-1. Envie este projeto para um repositório Git.
-2. No Render, crie um novo `Blueprint` ou `Web Service`.
-3. Se usar blueprint, o arquivo `render.yaml` já está pronto.
-4. Garanta que o serviço use:
-
-```text
-Build Command: npm install
-Start Command: npm start
-```
-
-5. Garanta também estas variáveis:
-
-```text
-NODE_ENV=production
-FIN_STORAGE_DIR=/var/data/controle-financeiro
-FIN_SESSION_SECRET=<uma-chave-longa-e-secreta>
-```
-
-6. Monte um disco persistente no Render em `/var/data`.
-
-Observação importante:
-- `FIN_STORAGE_DIR` é o local onde ficam `auth/users.json`, `data/users/` e os backups.
-- Sem disco persistente, os usuários e dados podem ser perdidos a cada deploy ou reinício.
-- No blueprint atual, o `FIN_SESSION_SECRET` já é gerado automaticamente pelo Render com `generateValue: true`.
-
-## Conta inicial
-
-- E-mail: `guisilvaah@gmail.com`
-- Senha inicial: `Controle@123`
-
-## Como definir a senha correta
-
-Depois do primeiro acesso, troque a senha executando:
-
-```bash
-node scripts/set-password.js --password "SuaSenhaNova"
-```
-
-## Observações importantes
-
-- A senha não fica em texto puro no frontend.
-- O backend valida a senha contra hash salvo em `auth/users.json`.
-- A sessão usa cookie `HttpOnly`.
-- Os dados financeiros salvos no backend ficam criptografados.
-- O app principal só abre pela rota protegida `/app`.
-- Os assets do sistema financeiro são servidos pela rota autenticada `/app-assets`.
-- Cada usuário tem um arquivo de dados próprio em `data/users/`.
-- O usuário `guilherme` tem acesso especial a `Fechamentos ESO`.
-- Novos usuários começam com um ambiente limpo e sem dados do `guilherme`.
-
-## Fluxo de acesso
-
-- Sem login: só a tela `/login` fica acessível
-- Com login válido: o sistema abre em `/app`
-- Logout: encerra a sessão e volta para `/login`
-
-## Como criar e testar um novo usuário
-
-1. Abra http://localhost:3000/login
-2. Clique em `Criar conta`
-3. Preencha nome completo, e-mail, telefone, data de nascimento, dica da senha e senha
-4. Conclua o cadastro
-5. O sistema vai abrir em um ambiente novo e independente
+- Preservar historico, isolamento, revisoes 409 e backups.
+- Distinguir salvamento local de confirmacao no servidor.
+- Nao duplicar fatura e compras nos totais.
+- Calendario projeta meses sem gravar anos infinitos.
+- Integracoes exigem revisao explicita.
+- /app exige login; /app-assets distribui codigo e nao pode conter dados reais.

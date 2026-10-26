@@ -1,31 +1,38 @@
-﻿# Checklist de deploy no Render
+# Checklist de entrega do MeuFin
 
-## Antes de subir
+Atualizado em 26/10/2026. Oracle Cloud + PM2.
+Procedimento: [DEPLOY.md](DEPLOY.md).
 
-- Confirmar que `render.yaml` está no repositório.
-- Confirmar que `NODE_ENV=production` e `FIN_STORAGE_DIR=/var/data/controle-financeiro` estão definidos.
-- Confirmar que existe um `FIN_SESSION_SECRET` forte.
-- Fazer backup inicial de `auth/` e `data/`.
+## Antes do push
 
-## No painel do Render
+- [ ] Conferir workspace, branch e diff; nao incluir dados reais/secrets.
+- [ ] Ler docs/ARCHITECTURE.md e atualizar guias dos contratos alterados.
+- [ ] Executar testes focados, npm test e npm run test:smoke.
+- [ ] Executar check:legacy-paths e git diff --check.
+- [ ] Conferir audit:ci e check:refactor-risks; registrar pendencias.
+- [ ] Conferir compatibilidade de estado/backup e escopo mensal.
+- [ ] Nao mudar backend, major de dependencia ou variaveis reais incidentalmente.
 
-- Verificar que o serviço foi criado como `Web Service` Node.
-- Verificar que o disco persistente existe.
-- Verificar que o disco está montado em `/var/data`.
-- Verificar que a variável `FIN_STORAGE_DIR` está em `/var/data/controle-financeiro`.
-- Verificar que a variável `FIN_SESSION_SECRET` está definida.
+## Hospedagem
 
-## Teste manual após o deploy
+- [ ] Confirmar storage persistente e chaves fora do checkout publicado.
+- [ ] Confirmar FIN_SESSION_SECRET e configuracoes de producao.
+- [ ] Identificar FIN_STATE_BACKEND efetivo.
+- [ ] Se SQLite, considerar F03/F04 e unica instancia escritora.
+- [ ] Conferir impacto de pm2 restart all e workers ativos.
 
-1. Abrir `/login`.
-2. Testar login com a conta principal.
-3. Fechar sessão e testar `Continuar logado` marcado e desmarcado.
-4. Criar um usuário novo.
-5. Confirmar que o usuário novo abre limpo e sem `Fechamentos ESO`.
-6. Criar um mês no usuário novo e confirmar que nada aparece no `guilherme`.
-7. Alterar um `Pago` em despesas e recarregar a página.
-8. Alterar `Dados da pessoa` e salvar.
-9. Fazer logout e login novamente.
-10. Confirmar que os dados persistiram.
+## Apos publicar
 
-11. Confirmar que os arquivos legados da raiz nao serao publicados nem usados no deploy.
+- [ ] Aguardar workflow do SHA enviado.
+- [ ] Conferir health, login e versao dos assets.
+- [ ] Conferir protecao de bootstrap/profile sem sessao.
+- [ ] Validar login/logout e persistencia apos reload em conta sintetica.
+- [ ] Conferir funcionalidade afetada no Desktop/Mobile.
+- [ ] Conferir isolamento entre contas de teste.
+- [ ] Navegar calendario futuro sem criar meses manualmente.
+- [ ] Busca mensal: conferir mes/metodo/tag e textos/valores/datas.
+- [ ] Importacao: conferir sucesso somente apos confirmacao do salvamento.
+- [ ] Revisar logs/erros de pagina sem restore destrutivo em conta real.
+
+Deploy verde nao equivale a audit high aprovado. Relatorios de refatoracao
+registram ressalvas SQLite, dependencias e politicas de datas.

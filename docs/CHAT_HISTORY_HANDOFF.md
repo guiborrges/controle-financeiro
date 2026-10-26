@@ -1,6 +1,11 @@
 # CHAT HISTORY HANDOFF (CONTEXT PACK)
 
 ## Purpose
+> Documento historico. Para retomar o sistema em 26/10/2026 ou depois, ler
+> [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) e [ARCHITECTURE.md](ARCHITECTURE.md).
+> As decisoes e estados abaixo nao substituem esses guias atuais; podem refletir
+> modelos antigos de deduplicacao, persistencia, UI e operacao.
+
 Arquivo de transferência de contexto para novo chat/projeto, com histórico consolidado de decisões, mudanças e estado operacional atual.
 
 ## Canonical Workspace

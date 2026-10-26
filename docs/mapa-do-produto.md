@@ -1,6 +1,22 @@
 # Mapa do Produto — Controle Financeiro
 
-Atualizado em 2026-06-16.
+Revisado em 26/10/2026. Implementacao de referencia: d83efd4.
+
+## Atualizacao funcional
+
+- Meses do ano atual e seguinte estao disponiveis por projecao, sem criacao
+  manual ou materializacao infinita. Historico e excecoes sao preservados.
+- Desktop/Mobile compartilham comandos, valores e catalogos mensais.
+- Compromissos do mes permite pesquisar textos, valores e datas dentro do mes
+  e metodo/tag escolhidos. Pequenos erros em textos sao aceitos; numeros nao
+  recebem aproximacao. A busca universal continua sendo outra ferramenta.
+- Emojis de categoria usam o mesmo resolver nos formularios e Internet Banking.
+- Internet Banking confirma adicao somente apos salvamento remoto confirmado.
+  O aviso de origem sem identificador confiavel foi removido por decisao do usuario.
+- M10 foi desfeito por decisao do usuario; nao considerar sua reintroducao aprovada.
+
+Este arquivo descreve produto. Contratos e ressalvas tecnicas vigentes estao
+em [ARCHITECTURE.md](ARCHITECTURE.md), nao nas aspiracoes das secoes abaixo.
 
 Este mapa organiza o produto pelo que ele é hoje, pelo que ele está tentando se tornar e pelos limites que não devem ser rompidos.
 
