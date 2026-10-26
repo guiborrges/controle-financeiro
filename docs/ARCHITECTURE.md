@@ -5,6 +5,10 @@ Este guia descreve o sistema implementado. Relatorios em `refatoracao/` sao
 historicos: suas contagens e limites correspondem a cada etapa, nao ao presente.
 Indice: [README.md](README.md). Resumo: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
 
+Para reconstrucao independente do repositorio, consultar
+[MEUFIN-RECONSTRUCAO-COMPLETA.md](MEUFIN-RECONSTRUCAO-COMPLETA.md), com contratos,
+formulas, exemplos e pacote-fonte sanitizado. Este guia e o mapa resumido.
+
 ## 1. Visao geral
 
 Aplicacao web multiusuario em Node.js/Express, sem framework SPA ou compilacao

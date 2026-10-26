@@ -12,6 +12,8 @@
     "dev": "node server.js",
     "test": "node --test tests/*.test.js",
     "test:smoke": "node scripts/test-refactor-smoke.js",
+    "docs:build": "node scripts/build-reconstruction-manual.js",
+    "docs:verify": "node scripts/reconstruct-from-manual.js docs/MEUFIN-RECONSTRUCAO-COMPLETA.md",
     "test:perf:refactor": "node scripts/benchmark-refactor-dashboard.js",
     "check:refactor-risks": "node scripts/check-refactor-known-risks.js",
     "audit:ci": "npm audit --audit-level=high",

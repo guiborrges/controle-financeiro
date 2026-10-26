@@ -4,6 +4,17 @@ Revisao: 26/10/2026. Referencia funcional: d83efd4.
 
 ## Ordem de leitura
 
+Para reconstruir o sistema somente a partir de um documento, usar
+[Especificacao completa e pacote independente](MEUFIN-RECONSTRUCAO-COMPLETA.md).
+Ela inclui formulas, exemplos, campos, algoritmos, casos de aceitacao e o
+pacote-fonte com extrator e hashes. Historico financeiro privado nao e incluido.
+A parte explicativa editavel esta em [MEUFIN-ESPECIFICACAO.md](MEUFIN-ESPECIFICACAO.md).
+Regenerar com npm run docs:build e conferir com npm run docs:verify.
+
+Entrega da especificacao: 487 testes no original; 484 testes e 15 cenarios
+de navegador na copia extraida do documento. Contagem menor da copia decorre
+da substituicao dos testes de historico privado, descrita no proprio manual.
+
 1. [Contexto atual](PROJECT_CONTEXT.md): resumo para retomar o trabalho.
 2. [Arquitetura](ARCHITECTURE.md): camadas, dados, contratos e responsabilidades.
 3. [Calendario continuo](CONTINUOUS_CALENDAR.md): projecoes, series e excecoes.

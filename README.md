@@ -8,6 +8,8 @@ Desktop e MobileV2 compartilham estado e contratos financeiros.
 
 ## Documentacao
 
+- [Documento independente para reconstruir o sistema](docs/MEUFIN-RECONSTRUCAO-COMPLETA.md)
+
 - [Indice dos guias](docs/README.md)
 - [Arquitetura completa](docs/ARCHITECTURE.md)
 - [Contexto atual para manutencao](docs/PROJECT_CONTEXT.md)
