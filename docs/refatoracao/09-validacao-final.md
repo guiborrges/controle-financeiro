@@ -1,5 +1,12 @@
 # Validacao final da etapa de auditoria
 
+## Atualizacao da etapa 6
+
+476 testes aprovados, incluindo 19 novos; 14 cenarios de navegador aprovados.
+SQL anterior preservado por hashes normalizados; testes de identidade/importacao
+continuam preservando compras iguais reais e retry idempotente. Prazos testados
+com HTTP local e subprocesso Node, Oracle somente simulado. Ver documento 20.
+
 ## Atualizacao da etapa 5
 
 457 testes aprovados; 14 cenarios de navegador aprovados. Contratos HTTP novos

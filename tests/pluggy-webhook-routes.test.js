@@ -40,6 +40,58 @@ test('webhook helper resolves tenant from payload fields', () => {
   assert.equal(resolveTenantUserId({ data: { item: { clientUserId: 'u3' } } }), 'u3');
 });
 
+test('webhook rejects oversized batches before calling staging', async () => {
+  const original = process.env.PLUGGY_WEBHOOK_MAX_TRANSACTIONS;
+  process.env.PLUGGY_WEBHOOK_MAX_TRANSACTIONS = '1';
+  try {
+    const app = createMockApp();
+    registerPluggyWebhookRoutes(app, { requireWebhookSecret: false,
+      upsertTransactions: async () => assert.fail('oversized batch reached storage') });
+    const res = createMockRes();
+    await app.routes.get('POST /api/pluggy/webhook')({ headers: {}, body: {
+      event: 'transactions/created', clientUserId: 'fixture', transactions: [{ id: 'one' }, { id: 'two' }] } }, res);
+    assert.equal(res.statusCode, 413);
+  } finally {
+    if (original === undefined) delete process.env.PLUGGY_WEBHOOK_MAX_TRANSACTIONS;
+    else process.env.PLUGGY_WEBHOOK_MAX_TRANSACTIONS = original;
+  }
+});
+
+test('webhook capacity is tenant-scoped and rejects excess work without SQL calls', async () => {
+  const keys = ['PLUGGY_WEBHOOK_MAX_PENDING_PER_USER', 'PLUGGY_WEBHOOK_MAX_PENDING_TOTAL'];
+  const before = keys.map(key => process.env[key]);
+  process.env[keys[0]] = '1';
+  process.env[keys[1]] = '2';
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let calls = 0;
+  try {
+    const app = createMockApp();
+    registerPluggyWebhookRoutes(app, { requireWebhookSecret: false,
+      upsertConnection: async () => { calls++; await gate; } });
+    const handler = app.routes.get('POST /api/pluggy/webhook');
+    const req = user => ({ headers: {}, body: { event: 'item/created', clientUserId: user, item: { id: 'item' } } });
+    const a = createMockRes();
+    const first = handler(req('a'), a);
+    const blocked = createMockRes();
+    await handler(req('a'), blocked);
+    assert.equal(blocked.statusCode, 503);
+    const b = createMockRes();
+    const second = handler(req('b'), b);
+    const full = createMockRes();
+    await handler(req('c'), full);
+    assert.equal(full.statusCode, 503);
+    assert.equal(calls, 2);
+    release();
+    await Promise.all([first, second]);
+    assert.equal(a.statusCode, 200);
+    assert.equal(b.statusCode, 200);
+  } finally {
+    release();
+    keys.forEach((key, index) => { if (before[index] === undefined) delete process.env[key]; else process.env[key] = before[index]; });
+  }
+});
+
 test('webhook helper normalizes event + item + tx list', () => {
   assert.equal(getEventType({ event: 'transactions/created' }), 'transactions/created');
   assert.deepEqual(normalizeTransactionsFromWebhook({ data: { transactions: [{ id: 't1' }] } }), [{ id: 't1' }]);

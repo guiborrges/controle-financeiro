@@ -1,5 +1,13 @@
 # Mapa da arquitetura atual
 
+## Atualizacao da etapa 6
+
+Worker Pluggy e webhook -> repositories/pluggy-staging, preservando os SQLs
+com/sem atualizacao de saldo. Integracoes HTTP -> integrations/deadline;
+OCI CLI -> integrations/process-runner assincrono. Filas por tenant compartilham
+jobs/serial-queue, agora com capacidade e identificacao de job ativo opcionais.
+Oracle Access mantem withConnection/closePool e recebe limites de fila/chamada.
+
 ## Atualizacao da etapa 5
 
 App-state HTTP -> services/app-state-service -> contrato injetado do state store.

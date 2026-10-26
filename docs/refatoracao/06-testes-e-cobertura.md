@@ -1,5 +1,12 @@
 # Testes e cobertura atuais
 
+## Atualizacao da etapa 6
+
+476 testes e 14 cenarios de navegador aprovados. Novos contratos verificam
+capacidade/dedupe de jobs, prazos HTTP/subprocesso, recuperacao do pool Oracle
+e SQL equivalente ao anterior. Oracle real, locks distribuidos e quotas de
+armazenamento nao foram validados nem implementados. Ver documento 20.
+
 ## Atualizacao da etapa 5
 
 457 testes aprovados e 14 cenarios Desktop/Mobile no navegador isolado.

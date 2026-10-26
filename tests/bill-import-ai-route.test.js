@@ -60,6 +60,65 @@ test('bill import ai route rejects when provider is not oracle', async () => {
   assert.match(String(res.payload?.message || ''), /provider/i);
 });
 
+test('invoice admission is tenant-scoped, creates no extra job at capacity and does not reset an active reprocess', async () => {
+  const keys = ['BILL_IMPORT_AI_PROVIDER', 'ORACLE_AI_ENDPOINT', 'INVOICE_MAX_PENDING_PER_USER', 'INVOICE_MAX_PENDING_TOTAL'];
+  const before = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, { BILL_IMPORT_AI_PROVIDER: 'oracle', ORACLE_AI_ENDPOINT: 'https://fixture.invalid/parse',
+    INVOICE_MAX_PENDING_PER_USER: '1', INVOICE_MAX_PENDING_TOTAL: '2' });
+  const originalFetch = global.fetch;
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let calls = 0;
+  global.fetch = async () => { calls++; await gate; return { ok: true, status: 200,
+    text: async () => JSON.stringify({ format: 'finance_import_v1', items: [] }) }; };
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'invoice-capacity-'));
+  try {
+    const app = createMockApp();
+    registerBillImportAiRoutes(app, createDeps({ USERS_DATA_DIR: root,
+      getAuthenticatedUser: req => ({ id: req.fixtureUser }) }));
+    const upload = app.routes.get('POST /api/invoice/upload');
+    const status = app.routes.get('GET /api/invoice/status');
+    const reprocess = app.routes.get('POST /api/invoice/reprocess/:jobId');
+    const req = user => ({ fixtureUser: user, body: { fileName: 'fixture.pdf', mimeType: 'application/pdf', contentBase64: 'YWJj' } });
+    const first = createMockRes();
+    await upload(req('a'), first);
+    assert.equal(first.statusCode, 200);
+    const blocked = createMockRes();
+    await upload(req('a'), blocked);
+    assert.equal(blocked.statusCode, 503);
+    const current = createMockRes();
+    status({ fixtureUser: 'a' }, current);
+    assert.equal(current.payload.jobs.length, 1);
+    assert.equal(current.payload.jobs[0].status, 'processing');
+    const repeated = createMockRes();
+    await reprocess({ fixtureUser: 'a', params: { jobId: first.payload.jobId } }, repeated);
+    assert.deepEqual(repeated.payload, { ok: true });
+    const after = createMockRes();
+    status({ fixtureUser: 'a' }, after);
+    assert.equal(after.payload.jobs[0].status, 'processing');
+    const other = createMockRes();
+    await upload(req('b'), other);
+    assert.equal(other.statusCode, 200);
+    const full = createMockRes();
+    await upload(req('c'), full);
+    assert.equal(full.statusCode, 503);
+    assert.equal(calls, 2);
+    release();
+    await new Promise(resolve => setImmediate(resolve));
+    const done = createMockRes();
+    status({ fixtureUser: 'a' }, done);
+    assert.equal(done.payload.jobs[0].status, 'completed');
+    assert.equal(calls, 2);
+  } finally {
+    release();
+    await new Promise(resolve => setImmediate(resolve));
+    global.fetch = originalFetch;
+    for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
+    assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep));
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('bill import ai route returns parsed payload from oracle endpoint', async () => {
   process.env.BILL_IMPORT_AI_PROVIDER = 'oracle';
   process.env.ORACLE_AI_ENDPOINT = 'https://oracle.local/mock';
@@ -114,12 +173,12 @@ test('bill import ai route parses PDF locally via OCI CLI when oracle endpoint i
   process.env.BILL_IMPORT_AI_PROVIDER = 'oracle';
   process.env.ORACLE_AI_ENDPOINT = '';
   const childProcess = require('child_process');
-  const originalExec = childProcess.execFileSync;
-  childProcess.execFileSync = () => JSON.stringify({
+  const originalExec = childProcess.execFile;
+  childProcess.execFile = (_file, _args, _options, callback) => callback(null, JSON.stringify({
     data: {
       pages: [{ lines: [{ text: '01/04/2026 SUPERMERCADO R$ 100,50' }] }]
     }
-  });
+  }), '');
   try {
     const app = createMockApp();
     registerBillImportAiRoutes(app, createDeps());
@@ -140,7 +199,7 @@ test('bill import ai route parses PDF locally via OCI CLI when oracle endpoint i
     assert.equal(res.payload?.payload?.items?.length, 1);
     assert.equal(res.payload?.payload?.items?.[0]?.description, 'SUPERMERCADO');
   } finally {
-    childProcess.execFileSync = originalExec;
+    childProcess.execFile = originalExec;
   }
 });
 

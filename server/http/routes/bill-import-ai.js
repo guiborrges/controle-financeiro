@@ -1,6 +1,10 @@
 ﻿function registerBillImportAiRoutes(app, deps) {
   const { createSerialQueue } = require('../../jobs/serial-queue');
-  const ociPdfQueue = createSerialQueue();
+  const { fetchText, positiveLimit } = require('../../integrations/deadline');
+  const ociPdfQueue = createSerialQueue({ maxPending: positiveLimit(process.env.ORACLE_AI_MAX_PENDING, 20) });
+  const parseQueue = createSerialQueue({
+    maxPendingPerKey: positiveLimit(process.env.INVOICE_PARSE_MAX_PENDING_PER_USER, 5),
+    maxPending: positiveLimit(process.env.INVOICE_PARSE_MAX_PENDING_TOTAL, 20) });
   const { planInvoiceImport } = require('../../invoice-import-plan');
   const {
     noStore,
@@ -36,8 +40,10 @@
   const os = require('os');
   const path = require('path');
   const crypto = require('crypto');
-  const { execFileSync } = require('child_process');
-  const userQueues = createSerialQueue({ retryFailure: true });
+  const { runFile } = require('../../integrations/process-runner');
+  const userQueues = createSerialQueue({ retryFailure: true,
+    maxPendingPerKey: positiveLimit(process.env.INVOICE_MAX_PENDING_PER_USER, 10),
+    maxPending: positiveLimit(process.env.INVOICE_MAX_PENDING_TOTAL, 100) });
   const configuredOciBin = String(process.env.ORACLE_AI_OCI_BIN || process.env.OCI_CLI_BIN || '').trim();
   let muplugCachedApiKey = '';
   let muplugCachedApiKeyExpireAt = 0;
@@ -296,7 +302,7 @@
     };
   }
 
-  function analyzePdfWithLocalOci(contentBase64, context = {}) {
+  async function analyzePdfWithLocalOci(contentBase64, context = {}) {
     function resolveOciBin() {
       const candidates = [
         configuredOciBin,
@@ -313,12 +319,6 @@
         } catch (_) {}
       }
       return 'oci';
-    }
-
-    function sleepMs(ms) {
-      const sab = new SharedArrayBuffer(4);
-      const int32 = new Int32Array(sab);
-      Atomics.wait(int32, 0, 0, ms);
     }
 
     function isRateLimitError(error) {
@@ -350,10 +350,11 @@
       const retryDelaysMs = [0, 2000, 5000];
       let lastError = null;
       for (let i = 0; i < retryDelaysMs.length; i += 1) {
-        if (retryDelaysMs[i] > 0) sleepMs(retryDelaysMs[i]);
+        if (retryDelaysMs[i] > 0) await new Promise(resolve => setTimeout(resolve, retryDelaysMs[i]));
         try {
-          stdout = execFileSync(ociBin, args, {
+          stdout = await runFile(ociBin, args, {
             encoding: 'utf8',
+            timeout: positiveLimit(oracleTimeoutMs, 45000),
             maxBuffer: 30 * 1024 * 1024
           });
           lastError = null;
@@ -554,7 +555,16 @@
   }
 
   function enqueueUserJob(userId, jobId) {
-    return userQueues.enqueue(userId, () => processJob(userId, jobId));
+    return userQueues.enqueue(userId, () => processJob(userId, jobId), { jobId });
+  }
+
+  function admitUserJob(userId, res) {
+    try { userQueues.assertCapacity(userId); return true; }
+    catch (error) {
+      if (error.code !== 'INTEGRATION_BUSY') throw error;
+      res.status(503).json({ message: 'Fila de importacao ocupada. Aguarde e tente novamente.' });
+      return false;
+    }
   }
 
   function normalizeImportDate(value) {
@@ -646,15 +656,14 @@
       throw new Error('IntegraÃ§Ã£o Muplug nÃ£o configurada. Defina MUPLUG_API_KEY/PLUGGY_API_KEY ou PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET.');
     }
     const endpoint = `${muplugBaseUrl}${muplugParsePath.startsWith('/') ? muplugParsePath : `/${muplugParsePath}`}`;
-    const response = await fetch(endpoint, {
+    const { response, text: raw } = await fetchText(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({ fileName, mimeType, contentBase64, context })
-    });
-    const raw = await response.text();
+    }, positiveLimit(oracleTimeoutMs, 45000));
     if (!response.ok) throw new Error(`Muplug retornou ${response.status}: ${raw.slice(0, 280)}`);
     let payload = null;
     try {
@@ -682,15 +691,16 @@
 
   async function fetchMuplugApiKeyByClientCredentials() {
     if (!muplugBaseUrl || !pluggyClientId || !pluggyClientSecret) return '';
-    const response = await fetch(`${muplugBaseUrl}/auth`, {
+    const { response, text } = await fetchText(`${muplugBaseUrl}/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         clientId: pluggyClientId,
         clientSecret: pluggyClientSecret
       })
-    });
-    const payload = await response.json().catch(() => ({}));
+    }, positiveLimit(oracleTimeoutMs, 45000));
+    let payload;
+    try { payload = JSON.parse(text || '{}'); } catch { payload = {}; }
     if (!response.ok) {
       throw new Error(`Falha ao autenticar no Pluggy: ${response.status}`);
     }
@@ -719,10 +729,10 @@
     const testPaths = ['/health', '/status', '/ping'];
     for (let i = 0; i < testPaths.length; i += 1) {
       try {
-        const response = await fetch(`${muplugBaseUrl}${testPaths[i]}`, {
+        const { response } = await fetchText(`${muplugBaseUrl}${testPaths[i]}`, {
           method: 'GET',
           headers: { Authorization: `Bearer ${apiKey}` }
-        });
+        }, positiveLimit(oracleTimeoutMs, 45000));
         if (response.ok || [401, 403, 404].includes(response.status)) return true;
       } catch (_) {}
     }
@@ -762,7 +772,7 @@
         });
       }
       if (isPdfFile && !oracleEndpoint) {
-        const payload = await enqueueOciPdfAnalysis(contentBase64, context);
+        const payload = await parseQueue.enqueue(getUserId(req), () => enqueueOciPdfAnalysis(contentBase64, context));
         return res.json({
           ok: true,
           provider: 'oracle-local-oci-pdf',
@@ -771,7 +781,7 @@
       }
 
       const effectiveInstructions = String(prompt || '').trim() || buildDefaultInvoiceInstructions();
-      const payload = await callOracleAi({
+      const payload = await parseQueue.enqueue(getUserId(req), () => callOracleAi({
         task: 'parse-credit-card-bill',
         outputFormat: 'finance_import_v1',
         file: {
@@ -781,7 +791,7 @@
         },
         context: context && typeof context === 'object' ? context : {},
         instructions: effectiveInstructions
-      });
+      }));
 
       return res.json({
         ok: true,
@@ -789,6 +799,9 @@
         payload
       });
     } catch (error) {
+      if (error.code === 'INTEGRATION_BUSY') {
+        return res.status(503).json({ message: 'Fila de analise ocupada. Aguarde e tente novamente.' });
+      }
       return res.status(422).json({
         message: error?.message || 'Falha ao interpretar fatura com Oracle AI.'
       });
@@ -812,6 +825,7 @@
       return res.status(400).json({ message: 'Arquivo invÃ¡lido para upload.' });
     }
     try {
+      if (!admitUserJob(userId, res)) return;
       const id = safeId();
       const dirs = ensureUserJobDir(userId);
       const safeName = sanitizeFileName(fileName);
@@ -872,6 +886,8 @@
     const jobId = String(req.params?.jobId || '');
     const existing = readUserJobs(userId).find(entry => String(entry?.id || '') === jobId);
     if (!existing) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
+    if (userQueues.hasJob(userId, jobId)) return res.json({ ok: true });
+    if (!admitUserJob(userId, res)) return;
     updateJob(userId, jobId, {
       status: 'uploaded',
       progress: 0,
@@ -1007,6 +1023,7 @@
       return res.status(400).json({ message: 'Arquivo invÃ¡lido para upload.' });
     }
     try {
+      if (!admitUserJob(userId, res)) return;
       const id = safeId();
       const dirs = ensureUserJobDir(userId);
       const safeName = sanitizeFileName(fileName);
@@ -1087,6 +1104,8 @@
     const jobId = String(req.params?.jobId || '');
     const existing = readUserJobs(userId).find(entry => String(entry?.id || '') === jobId);
     if (!existing) return res.status(404).json({ message: 'Fatura nÃ£o encontrada.' });
+    if (userQueues.hasJob(userId, jobId)) return res.json({ ok: true });
+    if (!admitUserJob(userId, res)) return;
     updateJob(userId, jobId, {
       status: 'uploaded',
       progress: 0,

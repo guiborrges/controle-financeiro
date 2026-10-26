@@ -3,7 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execFileSync } = require('child_process');
+const { runFile } = require('../server/integrations/process-runner');
+const { positiveLimit } = require('../server/integrations/deadline');
 const { withConnection, closePool } = require('./lib/oracle-db');
 
 const WATCH_DIR = String(process.env.ORACLE_AI_WATCH_DIR || '/home/ubuntu/controle-financeiro/inbox-pdfs').trim();
@@ -49,7 +50,7 @@ function extractText(payload) {
   return Array.from(new Set(bucket)).slice(0, 5000).join('\n');
 }
 
-function callOciDocument(pdfBuffer) {
+async function callOciDocument(pdfBuffer) {
   const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'oracle-ai-worker-'));
   const inputPath = path.join(tmpDir, 'doc.pdf');
   const outputPath = path.join(tmpDir, 'result.json');
@@ -67,8 +68,9 @@ function callOciDocument(pdfBuffer) {
       '--region',
       OCI_REGION
     ];
-    const output = execFileSync(OCI_BIN, args, {
+    const output = await runFile(OCI_BIN, args, {
       encoding: 'utf8',
+      timeout: positiveLimit(process.env.ORACLE_AI_CLI_TIMEOUT_MS, 120000),
       stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 30 * 1024 * 1024
     });
@@ -178,7 +180,7 @@ async function processFile(filePath) {
       extractedFields: {},
       rawResult: {}
     });
-    const ociResult = callOciDocument(buffer);
+    const ociResult = await callOciDocument(buffer);
     const extractedText = extractText(ociResult);
     await upsertDocumentRow({
       fileName,

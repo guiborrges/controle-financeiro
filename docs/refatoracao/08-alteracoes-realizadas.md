@@ -1,5 +1,14 @@
 # Alteracoes realizadas
 
+## Etapa 6
+
+Repositorio SQL Pluggy comum, prazos em integracoes HTTP/OCI/Oracle, pool
+recuperavel apos falha de abertura e rollback em erro. Filas com capacidade por
+tenant/processo, identificacao de job ativo e liberacao de entradas terminadas.
+Admissao de upload acontece antes da criacao de arquivos; reprocessar job ativo
+nao zera seu progresso. 476 testes e 14 cenarios de navegador aprovados.
+Documento 20 detalha os limites operacionais e a ausencia de Oracle real no teste.
+
 ## Etapa 5
 
 Politicas de estado e criacao de backups movidas para server/services, sem

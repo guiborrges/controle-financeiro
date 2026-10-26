@@ -5,6 +5,12 @@ da internet, de um aparelho real ou da Oracle.
 
 ## Atualizacoes implementadas
 
+6: OCI CLI e backoff deixaram de bloquear o event loop com execFileSync/Atomics.
+Teste de subprocesso confirma que um timer JS progride durante a chamada.
+Filas possuem limites opcionais por tenant/processo e liberam entradas terminadas.
+Prazos HTTP incluem leitura do corpo; Oracle tem espera de pool e round trips
+limitados. Nao se mediu throughput/latencia do Oracle real. Ver documento 20.
+
 4A: resumo por mes por render e Dashboard oculto sem reconstrucao (documento 17).
 4B: removido polling de wrappers a cada segundo; save/nav emitem eventos e o
 Mobile instala seus listeners uma vez. Em navegador isolado, um save gera uma

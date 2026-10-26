@@ -1,6 +1,7 @@
 'use strict';
 
 const DEFAULT_BASE_URL = 'https://api.pluggy.ai';
+const { fetchText, positiveLimit } = require('../../server/integrations/deadline');
 
 function baseUrl() {
   return String(process.env.PLUGGY_BASE_URL || DEFAULT_BASE_URL).trim().replace(/\/+$/, '');
@@ -11,8 +12,8 @@ let cachedApiKeyExpireAt = 0;
 
 async function requestJson(pathname, options = {}) {
   const endpoint = `${baseUrl()}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
-  const response = await fetch(endpoint, options);
-  const text = await response.text();
+  const { response, text } = await fetchText(endpoint, options,
+    positiveLimit(process.env.PLUGGY_HTTP_TIMEOUT_MS, 45000));
   let parsed = null;
   try {
     parsed = text ? JSON.parse(text) : null;
