@@ -43,6 +43,38 @@ async function main(){
   const p=await open(false);
   const layout=await p.evaluate(()=>JSON.stringify(dashboardWidgetLayout));
   const finance=await p.evaluate(()=>JSON.stringify(getAllFinanceMonths()));
+  await check('Dashboard organization is explicit and preserves saved positions when toggled',async()=>{
+   assert.equal(await p.locator('#dashCustomizeBtn').getAttribute('aria-pressed'),'false');
+   assert.equal(await p.locator('.dashboard-widget-grip').first().isVisible(),false);
+   await p.locator('#dashCustomizeBtn').click();await settle(p);
+   assert.equal(await p.locator('#dashboardWidgets').evaluate(e=>e.classList.contains('is-organizing')),true);
+   assert.equal(await p.locator('.dashboard-widget-grip').first().isVisible(),true);
+   await p.locator('#dashCustomizeBtn').click();await settle(p);
+   assert.equal(await p.evaluate(()=>JSON.stringify(dashboardWidgetLayout)),layout);
+   assert.equal(await p.evaluate(()=>JSON.stringify(getAllFinanceMonths())),finance);
+   const position=await p.evaluate(()=>{
+    dashboardWidgetLayout.gvsr.h+=40;applyDashboardResponsiveLayout();
+    return {custom:document.getElementById('dashboardWidgets').classList.contains('is-custom-layout'),
+     height:document.querySelector('[data-widget-key="gvsr"]').getBoundingClientRect().height};
+   });
+   assert.equal(position.custom,true);
+   await p.locator('#dashCustomizeBtn').click();await p.locator('#dashCustomizeBtn').click();await settle(p);
+   assert.equal(await p.locator('[data-widget-key="gvsr"]').evaluate(e=>e.getBoundingClientRect().height),position.height);
+   await p.evaluate(value=>{dashboardWidgetLayout=JSON.parse(value);applyDashboardResponsiveLayout();},layout);
+  });
+  await check('Category ranking retains full values and optional pie renders when expanded',async()=>{
+   assert.ok(await p.locator('.category-ranking .category-bar').count()>0);
+   assert.match(await p.locator('.category-ranking').innerText(),/R\$/);
+   const details=p.locator('.category-pie-details');
+   assert.equal(await details.evaluate(e=>e.open),false);
+   await details.locator('summary').click();await settle(p);
+   assert.equal(await p.locator('#catPieChart').isVisible(),true);
+   assert.equal(await p.locator('#catPieChart').evaluate(c=>{
+    const pixels=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    return pixels.some((v,i)=>i%4===3&&v>0);
+   }),true);
+   await details.locator('summary').click();
+  });
   await check('loaded Dashboard fits intermediate widths and restores without changing saved layout or finance',async()=>{
    for(const width of [1280,1024,900,768,640,320,640,1024,1920]){
     await p.setViewportSize({width,height:900});await settle(p);
@@ -72,6 +104,18 @@ async function main(){
    await p.setViewportSize({width:320,height:900});await p.evaluate(()=>nav('historico'));await settle(p);
    assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true);
   });
+  await check('Month keeps inclusion separate from paid and recent copying starts collapsed',async()=>{
+   await p.setViewportSize({width:1920,height:1080});
+   await p.evaluate(()=>nav('mes'));await settle(p);
+   assert.ok(await p.locator('input[aria-label="Incluir no total do mês"]').count()>0);
+   assert.ok(await p.locator('.unified-paid-toggle').count()>0);
+   await p.evaluate(()=>openUnifiedOutflowModal());
+   const recent=p.locator('details.unified-outflow-recent-wrap');
+   assert.equal(await recent.evaluate(e=>e.open),false);
+   await recent.locator('summary').click();
+   assert.equal(await recent.evaluate(e=>e.open),true);
+   await p.evaluate(()=>closeModal('modalUnifiedOutflow'));
+  });
   await p.context().close();
   const mobile=await open(true,'many');
   await check('Mobile loads after first entering its breakpoint and returns to Desktop',async()=>{
@@ -94,6 +138,23 @@ async function main(){
    assert.ok(await mobile.locator('#mobile-pie-data tbody tr').count()>0);
    await mobile.locator('#mobile-line-data summary').click();
    assert.match(await mobile.locator('#mobile-line-data').innerText(),/Resultado após metas/);
+  });
+  await check('Mobile ranking is one column and calendar keeps values in accessible day labels',async()=>{
+   assert.equal(await mobile.locator('.pie-legend.category-ranking').evaluate(e=>getComputedStyle(e).gridTemplateColumns.trim().split(/\s+/).length),1);
+   const pie=mobile.locator('#mobileV2Root .category-pie-details');
+   await pie.locator('summary').click();await settle(mobile);
+   assert.equal(await mobile.locator('#mobileV2PieChart').evaluate(c=>{
+    const pixels=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    return c.offsetWidth>0&&pixels.some((v,i)=>i%4===3&&v>0);
+   }),true);
+   await mobile.evaluate(()=>MobileV2.setTab('calendario'));await settle(mobile);
+   assert.equal(await mobile.locator('.cal-day-total').count(),0);
+   assert.ok(await mobile.locator('.cal-day[aria-label*="em saídas"]').count()>0);
+   assert.equal(await mobile.locator('.cal-day[aria-pressed="true"]').count(),1);
+   const otherDay=mobile.locator('.cal-day[aria-pressed="false"]').first();
+   const day=await otherDay.getAttribute('data-cal-day');
+   await otherDay.click();
+   assert.equal(await mobile.locator(`.cal-day[data-cal-day="${day}"]`).getAttribute('aria-pressed'),'true');
   });
   await mobile.context().close();
   assert.deepEqual(errors,[]);assert.equal(fixture.unchanged(),true);assert.equal(fixture.requests.writes,0);

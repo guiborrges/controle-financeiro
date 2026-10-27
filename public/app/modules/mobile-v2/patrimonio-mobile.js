@@ -137,7 +137,7 @@
       <section class="hero-card hero-card-wealth">
         <div class="hero-result-label">TOTAL PATRIMONIAL</div>
         <div class="hero-result">${formatMoney(total)}</div>
-        <div class="hero-sub"><span>${error ? escapeHtml(error) : `${accounts.length} conta(s) acompanhada(s) pelo mesmo cálculo do PC`}</span></div>
+        <div class="hero-sub"><span>${error ? escapeHtml(error) : `${accounts.length} ${accounts.length === 1 ? 'conta acompanhada' : 'contas acompanhadas'}`}</span></div>
       </section>
 
       <section class="m2-patr-summary">

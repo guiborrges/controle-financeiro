@@ -1,6 +1,6 @@
 # Arquitetura do MeuFin
 
-Atualizado em 26/10/2026. Codigo de referencia: `d83efd4`.
+Atualizado em 27/10/2026. Base anterior ao redesign: `67fa380`.
 Este guia descreve o sistema implementado. Relatorios em `refatoracao/` sao
 historicos: suas contagens e limites correspondem a cada etapa, nao ao presente.
 Indice: [README.md](README.md). Resumo: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
@@ -10,6 +10,24 @@ Para reconstrucao independente do repositorio, consultar
 formulas, exemplos e pacote-fonte sanitizado. Este guia e o mapa resumido.
 
 ## 1. Visao geral
+
+### Apresentacao visual vigente (27/10/2026)
+
+`public/app/product-design.css` e carregado por ultimo no aplicativo e concentra
+os tokens claro/escuro e os ajustes visuais compartilhados. Nao altera contratos
+de estado, calculos ou persistencia. Inter continua sendo a fonte da interface.
+Dashboard usa grade fluida quando o layout e o padrao; um layout personalizado
+continua sendo aplicado, inclusive depois de concluir a organizacao. O botao
+Organizar painel somente exibe os controles de mover/redimensionar. O modo de
+edicao e temporario; as posicoes continuam na preferencia existente.
+
+Categorias mostram ranking com valores completos e barras proporcionais,
+mantendo compromissos/consumo distintos e a pizza em uma area recolhivel.
+As tabelas acessiveis dos graficos permanecem. O resumo de resultado explicita
+a reserva em metas incluidas, obtida dos totais canonicos do periodo.
+No formulario Desktop, copiar lancamento e um details/summary recolhivel.
+No calendario Mobile, celulas mostram dia e indicador; valores completos ficam
+no nome acessivel do dia e na lista do dia selecionado. Nenhum registro e removido.
 
 Aplicacao web multiusuario em Node.js/Express, sem framework SPA ou compilacao
 do frontend. Desktop e MobileV2 apresentam o mesmo estado financeiro.

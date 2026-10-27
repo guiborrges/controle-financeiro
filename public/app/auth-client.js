@@ -167,7 +167,7 @@ async function syncSessionUser() {
     const userName = document.getElementById('sessionUserName');
     if (userName) userName.textContent = currentSession.displayName || currentSession.fullName || currentSession.username || 'Usuario';
     const profileShortcut = document.getElementById('profileShortcut');
-    if (profileShortcut) profileShortcut.textContent = currentSession.displayName || currentSession.fullName || 'Dados da pessoa';
+    if (profileShortcut) profileShortcut.title = `Perfil de ${currentSession.displayName || currentSession.fullName || 'usuário'}`;
     applySessionPermissions(currentSession);
     return currentSession;
   } catch (error) {
@@ -217,7 +217,7 @@ function fillProfileForm(profile) {
   const userName = document.getElementById('sessionUserName');
   if (userName) userName.textContent = data.displayName || data.fullName || currentSession?.displayName || 'Usuario';
   const profileShortcut = document.getElementById('profileShortcut');
-  if (profileShortcut) profileShortcut.textContent = data.displayName || data.fullName || 'Dados da pessoa';
+  if (profileShortcut) profileShortcut.title = `Perfil de ${data.displayName || data.fullName || currentSession?.displayName || 'usuário'}`;
 }
 
 async function renderProfilePage(forceReload = false) {

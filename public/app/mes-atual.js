@@ -1860,8 +1860,8 @@ function renderUnifiedFixedRows(month, rows) {
       const recurringCardRows = recurringCardRowsByCardId.get(String(bill?.cardId || '').trim()) || [];
       const billAmountDisplay = `<span title="${escapeHtml(getUnifiedCardLaunchesTooltip(month, bill.cardId, cardLaunchesAmount))}">${fmt(billAmount)}</span>`;
       const selectionControl = selectionIdx === -1
-        ? '<input type="checkbox" checked disabled>'
-        : `<input type="checkbox" ${selected ? 'checked' : ''} onchange="toggleDespesaSelection(${selectionIdx})">`;
+        ? '<input type="checkbox" aria-label="Incluído no total do mês" checked disabled>'
+        : `<input type="checkbox" aria-label="Incluir no total do mês" title="Incluir no total do mês" ${selected ? 'checked' : ''} onchange="toggleDespesaSelection(${selectionIdx})">`;
       const recurringCardDetails = recurringCardRows.length
         ? recurringCardRows
             .slice()
@@ -1900,7 +1900,7 @@ function renderUnifiedFixedRows(month, rows) {
           <td>${escapeHtml(getUnifiedCardBillingDateLabel(month, card))}</td>
           ${renderInlineCell({ table:'unifiedCardBill', row:bill.id, field:'amount', kind:'number', value:billAmount, displayValue:billAmountDisplay, className:'amount amount-neg' })}
           <td><label class="unified-paid-toggle"><input type="checkbox" ${bill.paid ? 'checked' : ''} onchange="toggleUnifiedCardBillPaid('${bill.id}', this.checked)"><span>Pago</span></label></td>
-          <td><button class="btn-icon" onclick="openUnifiedCardModal('${card?.id || ''}')">✎</button></td>
+          <td><button class="btn-icon" title="Editar cartão" aria-label="Editar cartão" onclick="openUnifiedCardModal('${card?.id || ''}')">✎</button></td>
         </tr>
         ${recurringCardDetails}`;
     }
@@ -1910,8 +1910,8 @@ function renderUnifiedFixedRows(month, rows) {
       : null;
     const descriptionDisplay = `${escapeHtml(item.description)}${getUnifiedSharedNoteHtml(item)}${item.tag ? `<div class="text-muted" style="margin-top:4px;font-size:11px">Tag • ${escapeHtml(item.tag)}</div>` : ''}${linkedCard ? `<div class="text-muted unified-card-reference" style="margin-top:4px;font-size:11px">No cartão • ${renderUnifiedCardLabel(linkedCard, 'Cartão')}</div>` : ''}`;
     const selectionControl = selectionIdx === -1
-      ? '<input type="checkbox" checked disabled>'
-      : `<input type="checkbox" ${selected ? 'checked' : ''} onchange="toggleDespesaSelection(${selectionIdx})">`;
+      ? '<input type="checkbox" aria-label="Incluído no total do mês" checked disabled>'
+      : `<input type="checkbox" aria-label="Incluir no total do mês" title="Incluir no total do mês" ${selected ? 'checked' : ''} onchange="toggleDespesaSelection(${selectionIdx})">`;
     const paidCell = `<label class="unified-paid-toggle"><input type="checkbox" ${item.paid ? 'checked' : ''} onchange="toggleUnifiedOutflowPaid('${item.id}', this.checked)"><span>Pago</span></label>`;
     const categoryCell = renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'category', kind:'unified-category', value:item.category, displayValue:renderCategoryLabel(item.category) });
     const dateCell = renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'date', kind:'var-date', value:item.date || '', displayValue:escapeHtml(item.date || '—') });
@@ -1923,7 +1923,7 @@ function renderUnifiedFixedRows(month, rows) {
         ${dateCell}
         ${renderInlineCell({ table:'unifiedOutflow', row:item.id, field:'amount', kind:'number', value:item.amount, displayValue:fmt(item.amount), className:'amount amount-neg' })}
         <td>${paidCell}</td>
-        <td><button class="btn-icon" onclick="openUnifiedOutflowModal('${item.id}')">✎</button><button class="btn-icon" onclick="deleteUnifiedOutflow('${item.id}')">✕</button></td>
+        <td><button class="btn-icon" title="Editar lançamento" aria-label="Editar lançamento" onclick="openUnifiedOutflowModal('${item.id}')">✎</button><button class="btn-icon row-delete-btn" title="Excluir lançamento" aria-label="Excluir lançamento" onclick="deleteUnifiedOutflow('${item.id}')">✕</button></td>
       </tr>`;
   }).join('');
   const metrics = getUnifiedMonthPilotMetrics(month);

@@ -1,9 +1,16 @@
 # Contexto atual do MeuFin
 
-Atualizado em 26/10/2026. Codigo de referencia: `d83efd4`.
+Atualizado em 27/10/2026. Base anterior ao redesign: `67fa380`.
 Guia detalhado: [ARCHITECTURE.md](ARCHITECTURE.md). Indice: [README.md](README.md).
 
 ## Produto e workspace
+
+Apresentacao vigente: `public/app/product-design.css`, carregado por ultimo,
+com superficies opacas, tokens claro/escuro e tipografia Inter. Dashboard tem
+modo Organizar painel, preserva layouts personalizados e mostra reservas em
+metas no resultado. Categorias priorizam ranking; pizza opcional. Copiar
+lancamento e recolhivel; calendario Mobile mantem valores nos detalhes do dia.
+Regras financeiras, dados, pesquisa e contratos de salvamento nao mudaram.
 
 Aplicacao web multiusuario de planejamento, lancamentos, rendas, cartoes,
 metas, patrimonio, historico e calendario. Desktop/MobileV2 usam mesmo estado

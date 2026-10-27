@@ -1,19 +1,27 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const { dashboardFixture } = require('./helpers/dashboard-render-fixture');
 const { loadBrowser } = require('./helpers/refactor-fixtures');
 
-for (const [months, expected] of [
-  [1, '72e22bfb87ef92862bdfd3db1a9ae4bf4b1aa12eead0839428f01dd852184f82'],
-  [12, '6132b7b702a3314d394a9226101fd97b5b0cfa8d3e89c2da37be7dbecfad1cde'],
-  [36, '5736cf43bc9bb520e0cd122bb7654d45a164bbbad01d8294459ad64349fbd44a']
-]) {
-  test(`Dashboard preserves original cards, insights, categories and chart data for ${months} months`, () => {
+for (const months of [1, 12, 36]) {
+  test(`Dashboard preserves financial series, goal reserves and render budget for ${months} months`, () => {
     const f = dashboardFixture(months);
     const before = JSON.stringify(f.ctx.data);
     f.ctx.renderDashboard();
-    assert.equal(crypto.createHash('sha256').update(JSON.stringify(f.snapshot())).digest('hex'), expected);
+    const snapshot = f.snapshot();
+    const series = snapshot.charts.lineChart.datasets;
+    assert.deepEqual(series.map(item => item.seriesKey), ['resultSimple', 'totalGastos', 'totalGanhos']);
+    for (const [index, value] of [1614.33, 1535.67, 3250].entries()) {
+      assert.deepEqual(series[index].data, Array(months).fill(value));
+    }
+    assert.deepEqual(snapshot.charts.resultChart.datasets[0].data, Array(months).fill(1614.33));
+    assert.equal(snapshot.charts.lineChart.labels.length, months);
+    assert.match(snapshot.metrics, new RegExp(`reservar ${f.ctx.fmt(months * 100).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} em metas`));
+    assert.match(snapshot.categories, /category-ranking/);
+    assert.match(snapshot.categories, /category-bar/);
+    for (const amount of [1200, 250, 45.67, 40]) {
+      assert.ok(snapshot.categories.includes(f.ctx.fmt(amount * months)));
+    }
     assert.equal(JSON.stringify(f.ctx.data), before);
     assert.equal(f.calls(), months);
   });

@@ -1,6 +1,6 @@
 # MeuFin - Especificacao Completa de Reconstrucao
 
-Edicao de 26/10/2026. Base de codigo anterior a esta entrega: 1027041.
+Edicao de 27/10/2026. Base anterior ao redesign visual: 67fa380.
 Finalidade: permitir reconstruir o produto, entender suas regras e conferir seus
 numeros sem depender de uma conversa anterior.
 
@@ -9,6 +9,40 @@ reune este texto e o pacote-fonte integral da edicao reconstruivel, descrito
 no Anexo A. Esse documento completo e a entrega independente do repositorio.
 
 ## Como interpretar
+
+### Apresentacao aprovada em 27/10/2026
+
+O aplicativo carrega `product-design.css` depois dos demais estilos. Esse
+arquivo concentra tokens de cor claro/escuro, superficies opacas, bordas,
+tipografia Inter e alinhamento tabular de valores. Azul identifica acoes
+principais nas duas apresentacoes. Emojis de categoria e caixa alta dos nomes
+de renda fora da edicao continuam preservados.
+
+Dashboard usa grade fluida no layout padrao. Quando ha coordenadas/dimensoes
+personalizadas, elas continuam sendo aplicadas na leitura, nao so na edicao.
+Organizar painel alterna um estado temporario que mostra alcas e controles;
+concluir nao apaga posicoes. Ajustes responsivos continuam sem regravar o
+layout. Em largura reduzida continuam valendo os fallbacks anteriores.
+
+Ranking de categorias mostra nome, valor completo e participacao proporcional.
+Compromissos e consumo continuam consultas distintas. A pizza e opcional em
+details/summary, redimensionada ao abrir, e as tabelas dos graficos permanecem.
+O resultado explicita a soma de totalFinancialGoals dos meses do periodo,
+excluindo metas nao incluidas. A formula financeira nao muda.
+
+O editor de lancamento Desktop e opaco e agrupa as opcoes existentes. A lista
+de copiar lancamentos fica recolhida inicialmente, sem alterar os comandos de
+copia/salvamento. Checkboxes de inclusao no total e de pago continuam distintos;
+os primeiros recebem nomes acessiveis e as acoes editar/excluir, tooltips.
+O calendario Mobile deixa de escrever valores dentro de cada celula: conserva
+dia, intensidade/ponto e selecao. O nome acessivel do dia contem valor e numero
+de registros; a lista do dia selecionado conserva todos os valores.
+
+Nao ha migracao de registros, novo formato de backup, troca de framework ou
+integracao externa decorrente desse redesign. Testes financeiros permanecem;
+snapshots integrais de HTML foram substituidos por valores independentes de
+series, categorias, reservas e limites de chamadas. Testes de navegador cobrem
+organizacao, pizza opcional, formulario recolhivel e calendario.
 
 - **Vigente**: comportamento encontrado no codigo, inclusive particularidades.
 - **Invariante**: propriedade que uma implementacao equivalente deve preservar.

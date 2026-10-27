@@ -287,11 +287,27 @@ function stopDashboardWidgetResize() {
 // ============================================================
 let dashboardLayoutObserver = null;
 let dashboardLayoutFrame = 0;
+let dashboardLayoutEditing = false;
+
+function toggleDashboardLayoutEditing() {
+  dashboardLayoutEditing = !dashboardLayoutEditing;
+  applyDashboardResponsiveLayout();
+}
 
 function applyDashboardResponsiveLayout() {
   const grid = document.getElementById('dashboardWidgets');
   if (!grid || !grid.clientWidth) return;
   const width = grid.clientWidth;
+  grid.classList.toggle('is-organizing', dashboardLayoutEditing);
+  const baseLayout = typeof dashboardWidgetBaseLayout === 'function' ? dashboardWidgetBaseLayout() : null;
+  const customLayout = !!baseLayout && Object.keys(baseLayout).some(key =>
+    Object.keys(baseLayout[key]).some(field => dashboardWidgetLayout[key]?.[field] !== baseLayout[key][field]));
+  grid.classList.toggle('is-custom-layout', customLayout);
+  const customize = document.getElementById('dashCustomizeBtn');
+  if (customize) {
+    customize.setAttribute('aria-pressed', String(dashboardLayoutEditing));
+    customize.textContent = dashboardLayoutEditing ? 'Concluir organização' : 'Organizar painel';
+  }
   grid.classList.toggle('is-responsive', width < 1040);
   grid.classList.toggle('is-single-column', width < 720);
   const layout = fitDashboardWidgetLayoutToCanvas(dashboardWidgetLayout, width);
@@ -300,7 +316,7 @@ function applyDashboardResponsiveLayout() {
     if (!item) return;
     for (const [name, value] of Object.entries(item)) widget.style.setProperty(`--widget-${name}`, `${value}px`);
   });
-  if (width < 1040) grid.style.minHeight = '0px';
+  if (width < 1040 || (!dashboardLayoutEditing && !customLayout)) grid.style.minHeight = '0px';
   else grid.style.minHeight = `${Math.max(760, ...Object.values(layout).map(item => item.y + item.h + 24))}px`;
 }
 
@@ -392,7 +408,7 @@ function renderDashboard() {
   const resTotal = filtered.reduce((a,m)=>a+resultFor(m),0);
   const totalRendaFixaSum = filtered.reduce((a,m)=>a+totalsFor(m).rendaFixa,0);
   const totalProjSum = filtered.reduce((a,m)=>a+totalsFor(m).totalProj,0);
-  const totalGoals = filtered.reduce((acc, month) => acc + ((month.financialGoals || []).reduce((sum, goal) => sum + (goal.valor || 0), 0)), 0);
+  const totalGoals = filtered.reduce((acc, month) => acc + Number(totalsFor(month).totalFinancialGoals || 0), 0);
   const dashInsights = document.getElementById('dashInsights');
   if (dashInsights) {
     const resultValue = resTotal;
@@ -417,9 +433,9 @@ function renderDashboard() {
   const metricCards = {
     resultado: `
       <div class="metric-card ${resTotal >= 0 ? 'green' : 'red'}" draggable="true" data-metric-key="resultado" ondragstart="onDashMetricDragStart(event,'resultado')" ondragend="onDashMetricDragEnd(event)" ondragover="onDashMetricDragOver(event)" ondragleave="onDashMetricDragLeave(event)" ondrop="onDashMetricDrop(event,'resultado')">
-        <div class="mc-label">Saldo previsto no período</div>
+        <div class="mc-label">Resultado previsto no período</div>
         <div class="mc-value">${fmtSigned(resTotal)}</div>
-        <div class="mc-note">${pLabel}</div>
+        <div class="mc-note">Após reservar ${fmt(totalGoals)} em metas · ${pLabel}</div>
       </div>
     `,
     gastos: `
@@ -605,19 +621,23 @@ function renderDashboard() {
     const chartColors = buildDistinctPieColors(catKeys.length);
     const colorByCategory = new Map(catKeys.map((key, idx) => [key, chartColors[idx]]));
     catEl.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="category-distribution">
+        <details class="category-pie-details" ontoggle="if(this.open)charts.catPieChart?.resize()">
+        <summary>Ver gráfico de distribuição</summary>
         <div style="padding:4px 0 0;display:flex;justify-content:center">
           <div class="chart-wrap" style="height:300px;width:min(100%, 360px)">
             <canvas id="catPieChart"></canvas>
           </div>
         </div>
-        <div class="cat-grid" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));align-content:start;min-width:0;gap:12px">
+        </details>
+        <div class="cat-grid category-ranking" style="grid-template-columns:minmax(0, 1fr);align-content:start;min-width:0;gap:12px">
           ${catKeys.map(k => `
             <div class="cat-item" ondblclick="openCategoryColorPicker('${String(k).replace(/'/g, "\\'")}', event.clientX + 12, event.clientY + 12)" style="min-width:0;padding:12px 14px;align-items:center;background:rgba(255,255,255,.75);border:1px solid rgba(140,118,96,.12);border-radius:14px;cursor:pointer">
               <div class="cat-dot" style="background:${colorByCategory.get(k) || getCategoryColor(k)}"></div>
               <div class="cat-info" style="min-width:0">
-                <div class="cat-name" style="white-space:normal;overflow-wrap:anywhere;line-height:1.35">${k}</div>
+                <div class="cat-name" style="white-space:normal;overflow-wrap:anywhere;line-height:1.35">${typeof escapeHtml === 'function' ? escapeHtml(k) : k}</div>
                 <div class="cat-pct">${((cats[k]/total)*100).toFixed(0)}% do periodo</div>
+                <div class="category-bar" aria-hidden="true"><span style="width:${((cats[k]/total)*100).toFixed(2)}%;background:${colorByCategory.get(k)}"></span></div>
               </div>
               <div class="cat-val" style="flex-shrink:0;text-align:right;padding-left:12px">${fmt(cats[k])}</div>
             </div>

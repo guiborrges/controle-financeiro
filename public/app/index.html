@@ -70,6 +70,7 @@
   <link rel="stylesheet" href="/app-assets/mobile-v2.css">
   <link rel="stylesheet" href="/app-assets/dark-mode.css">
   <link rel="stylesheet" href="/app-assets/modules/universal-search.css">
+  <link rel="stylesheet" href="/app-assets/product-design.css">
 </head>
 <body>
 <div id="mobileV2Splash"><div class="mobile-v2-splash-logo">Controle Financeiro</div></div>
@@ -87,12 +88,12 @@
 <nav class="sidebar">
   <div class="sidebar-header">
     <img class="sidebar-brand-logo" src="/app-assets/pwa-icon.svg" alt="" aria-hidden="true">
-    <h1>Controle<br>Financeiro</h1>
-    <button id="profileShortcut" class="sidebar-profile-trigger" type="button" onclick="nav('perfil')">Dados da pessoa</button>
+    <h1>MeuFin</h1>
+    <span class="sidebar-brand-caption">Controle financeiro</span>
   </div>
   <div class="sidebar-session">
     <div class="sidebar-session-copy">
-      <span class="sidebar-session-label">Sessão</span>
+      <button id="profileShortcut" class="sidebar-profile-trigger" type="button" onclick="nav('perfil')">Perfil</button>
       <strong id="sessionUserName">Usuário</strong>
     </div>
     <button class="btn btn-ghost sidebar-logout" type="button" onclick="logout()">Sair</button>
@@ -172,6 +173,7 @@
         Buscador universal
       </button>
       <button class="btn btn-ghost" onclick="openPreferences()">Preferências</button>
+      <button class="btn btn-ghost" id="dashCustomizeBtn" type="button" aria-pressed="false" onclick="toggleDashboardLayoutEditing()">Organizar painel</button>
     </div>
   </div>
   <div class="metrics-grid" id="dashMetrics"></div>
@@ -224,10 +226,10 @@
       </div>
       <div class="section-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input id="unifiedOutflowSearch" type="search" class="btn unified-outflow-search-input" placeholder="Pesquisar neste mês" aria-label="Pesquisar compromissos do mês e método selecionados" oninput="setUnifiedOutflowSearch(this.value)">
-        <select id="unifiedOutflowTagFilter" class="btn" style="display:none;padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
-        <select id="unifiedOutflowFilter" class="btn" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowFilter(this.value)"></select>
+        <select id="unifiedOutflowTagFilter" class="btn" aria-label="Filtrar por tag" style="display:none;padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowTagFilter(this.value)"></select>
+        <select id="unifiedOutflowFilter" class="btn" aria-label="Filtrar por método ou cartão" style="padding:8px 10px;font-size:12px" onchange="setUnifiedOutflowFilter(this.value)"></select>
         <button class="btn btn-primary" onclick="openUnifiedOutflowModal()">+ Adicionar lançamento</button>
-        <button class="btn btn-primary" onclick="openUnifiedCardModal()">+ Adicionar cartão</button>
+        <button class="btn btn-ghost" onclick="openUnifiedCardModal()">+ Adicionar cartão</button>
       </div>
     </div>
     <div class="section-body" style="padding:16px 18px 12px">
@@ -1000,6 +1002,7 @@
           </div>
         </div>
       </div>
+      <div class="unified-outflow-options-label">Opções do lançamento</div>
       <div class="unified-outflow-toggle-group">
         <label class="month-copy-toggle form-help-label" id="unifiedOutflowRecurringLabel" style="display:none" data-help="Repete esse gasto automaticamente nos próximos meses, com o mesmo valor e a mesma configuração.">
           <input id="unifiedOutflowRecurringToggle" type="checkbox" onchange="toggleUnifiedOutflowRecurring()">
@@ -1042,10 +1045,10 @@
       </div>
     </div>
     <div id="unifiedOutflowQuickToast" class="unified-outflow-quick-toast" role="status" aria-live="polite"></div>
-    <div class="unified-outflow-recent-wrap">
-      <div class="unified-outflow-recent-head">Copiar lançamentos deste mês</div>
+    <details class="unified-outflow-recent-wrap">
+      <summary class="unified-outflow-recent-head">Copiar lançamento deste mês</summary>
       <div id="unifiedOutflowRecentList" class="unified-outflow-recent-list"></div>
-    </div>
+    </details>
     <div class="form-actions unified-outflow-modal-actions" style="margin-top:20px">
       <button class="btn btn-ghost" onclick="closeUnifiedOutflowModal()">Cancelar</button>
       <button id="unifiedOutflowSubmitBtn" class="btn btn-primary" onclick="saveUnifiedOutflow()">Adicionar</button>

@@ -42,13 +42,15 @@
     const shortLabel = labelRaw.split(' ')[0]?.slice(0, 3)?.toUpperCase?.() || '--';
     const income = monthIncome(month);
     const expenses = monthExpenses(month);
+    const goals = Number(global.MobileV2Data?.getTotals(month)?.totalFinancialGoals || 0);
     return {
       id: month?.id,
       label: labelRaw,
       shortLabel,
       renda: income,
       gastos: expenses,
-      resultado: income - expenses - Number(global.MobileV2Data?.getTotals(month)?.totalFinancialGoals || 0)
+      metas: goals,
+      resultado: income - expenses - goals
     };
   }
 
@@ -482,6 +484,7 @@
           <span>Renda ${formatMoney(totalIncome)}</span>
           <span>Lançamentos ${formatMoney(totalExpenses)}</span>
         </div>
+        <p class="result-reserve-note">Após reservar ${formatMoney(months.reduce((sum, month) => sum + month.metas, 0))} em metas</p>
       </section>
 
       <section class="dash-section">
@@ -502,9 +505,12 @@
 
       <section class="dash-section">
         <div class="dash-section-header"><span>${categoryBasis === 'consumption' ? 'Consumo por categoria' : 'Compromissos por categoria'}</span><select class="form-input" style="width:auto;max-width:48%" aria-label="Base das categorias" data-m2-category-basis><option value="commitments" ${categoryBasis === 'commitments' ? 'selected' : ''}>Compromissos</option><option value="consumption" ${categoryBasis === 'consumption' ? 'selected' : ''}>Consumo</option></select></div>
-        <div class="dash-pie-row">
+        <div class="dash-pie-row category-distribution">
+          <details class="category-pie-details">
+          <summary>Ver gráfico de distribuição</summary>
           <canvas id="mobileV2PieChart" class="pie-canvas" role="img" aria-label="Valores por categoria" aria-describedby="mobile-pie-data"></canvas>
-          <div class="pie-legend">
+          </details>
+          <div class="pie-legend category-ranking">
             ${categories.map((category, idx) => {
               const total = categories.reduce((sum, item) => sum + item.value, 0) || 1;
               const pct = Math.round((category.value / total) * 100);
@@ -512,8 +518,8 @@
               return `
                 <button type="button" class="pie-legend-item" data-m2-cat="${escapeHtml(category.name)}">
                   <span class="pie-dot" style="background:${colors[idx % colors.length]}"></span>
-                  <span class="pie-cat">${getCategorySymbol(category.name)} <span>${escapeHtml(category.name)}</span></span>
-                  <span class="pie-pct">${pct}%</span>
+                  <span class="pie-cat">${getCategorySymbol(category.name)} <span>${escapeHtml(category.name)}</span><span class="category-bar" aria-hidden="true"><span style="width:${pct}%;background:${colors[idx % colors.length]}"></span></span></span>
+                  <span class="pie-category-value">${formatMoney(category.value)}<small class="pie-pct">${pct}%</small></span>
                 </button>
               `;
             }).join('')}
