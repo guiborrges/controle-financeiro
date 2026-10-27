@@ -98,7 +98,7 @@ test('cloning a paid direct purchase into the future resets its payment using th
 
 test('mobile dashboard rendered result includes the reserved financial goals', () => {
   const month = { id: 'm', nome: 'OUTUBRO 2026' };
-  const ctx = load(['modules/mobile-v2/home-screen.js'], {
+  const ctx = load(['modules/shared/chart-presentation.js', 'modules/mobile-v2/home-screen.js'], {
     performance: { now: () => 0 }, requestAnimationFrame: () => 1, cancelAnimationFrame() {},
     MobileV2Data: {
       escapeHtml: String, formatMoney: String, categoryIcon: () => '',

@@ -138,31 +138,33 @@
 
   function drawLineChart(canvas, months) {
     if (!canvas || !months.length) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width = canvas.offsetWidth || 320;
-    const H = canvas.height = 170;
-    const PAD = { top: 12, right: 12, bottom: 30, left: 32 };
-    const chartW = W - PAD.left - PAD.right;
-    const chartH = H - PAD.top - PAD.bottom;
+    const W = canvas.offsetWidth || 320;
+    const H = 170;
+    const ctx = global.ChartPresentation.canvas(canvas, W, H);
+    const theme = global.ChartPresentation.theme();
 
     const rendas = months.map((m) => m.renda || 0);
     const gastos = months.map((m) => m.gastos || 0);
     const maxVal = Math.max(...rendas, ...gastos, 1) * 1.1;
+    ctx.font = '11px Arial';
+    const ticks = [0, 0.5, 1].map(t => ({ t, label:formatChartAxisValue(maxVal * t) }));
+    const PAD = { top:12, right:18, bottom:30, left:Math.ceil(Math.max(...ticks.map(tick => ctx.measureText(tick.label).width))) + 10 };
+    const chartW = W - PAD.left - PAD.right;
+    const chartH = H - PAD.top - PAD.bottom;
 
     ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = '#d9dde5';
+    ctx.strokeStyle = theme.grid;
     ctx.lineWidth = 1;
-    ctx.fillStyle = '#8a93a3';
-    ctx.font = '10px Arial';
+    ctx.fillStyle = theme.text;
+    ctx.font = '11px Arial';
     ctx.textAlign = 'right';
-    [0, 0.5, 1].forEach((t) => {
+    ticks.forEach(({ t, label }) => {
       const y = PAD.top + chartH * (1 - t);
       ctx.beginPath();
       ctx.moveTo(PAD.left, y);
       ctx.lineTo(W - PAD.right, y);
       ctx.stroke();
-      const value = maxVal * t;
-      ctx.fillText(formatChartAxisValue(value), PAD.left - 5, y + 3);
+      ctx.fillText(label, PAD.left - 5, y + 3);
     });
 
     const xOf = (i) => PAD.left + ((months.length <= 1 ? 0 : i / (months.length - 1)) * chartW);
@@ -179,32 +181,31 @@
     draw(months.map((m, i) => [xOf(i), yOf(m.renda || 0)]), '#2471A3');
     draw(months.map((m, i) => [xOf(i), yOf(m.gastos || 0)]), '#E74C3C');
 
-    ctx.fillStyle = '#6b7280';
+    ctx.fillStyle = theme.text;
     ctx.font = '10px Arial';
     ctx.textAlign = 'center';
+    const stride = Math.max(1, Math.ceil(months.length / Math.max(2, Math.floor(chartW / 36))));
     months.forEach((m, i) => {
+      if (i % stride !== 0 && i !== months.length - 1) return;
+      if (i > 0 && i !== months.length - 1 && months.length - 1 - i < stride) return;
+      ctx.textAlign = i === months.length - 1 ? 'right' : i === 0 ? 'left' : 'center';
       ctx.fillText(String(m.shortLabel || '--'), xOf(i), H - 8);
     });
   }
 
   function formatChartAxisValue(value) {
-    const numeric = Number(value || 0);
-    if (numeric >= 1000000) return `${(numeric / 1000000).toFixed(1).replace('.', ',')}M`;
-    if (numeric >= 1000) return `${Math.round(numeric / 1000)}k`;
-    return String(Math.round(numeric));
+    return global.ChartPresentation.axis(value);
   }
 
   function drawPieChart(canvas, categories) {
     if (!canvas || !categories.length) return;
-    const ctx = canvas.getContext('2d');
     const size = Math.min(canvas.offsetWidth || 140, 160);
-    canvas.width = size;
-    canvas.height = size;
+    const ctx = global.ChartPresentation.canvas(canvas, size, size);
     const cx = size / 2;
     const cy = size / 2;
     const radius = size / 2 - 6;
     const total = categories.reduce((sum, item) => sum + item.value, 0) || 1;
-    const colors = ['#2471A3', '#E74C3C', '#27AE60', '#F39C12', '#8E44AD', '#17A589'];
+    const colors = global.buildDistinctPieColors(categories.length);
 
     let start = -Math.PI / 2;
     categories.forEach((item, idx) => {
@@ -213,7 +214,7 @@
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, radius, start, start + arc);
       ctx.closePath();
-      ctx.fillStyle = colors[idx % colors.length];
+      ctx.fillStyle = colors[idx];
       ctx.fill();
       start += arc;
     });
@@ -485,7 +486,8 @@
 
       <section class="dash-section">
         <div class="dash-section-header"><span>Evolução mensal</span></div>
-        <canvas id="mobileV2LineChart" class="mobile-v2-chart-canvas"></canvas>
+        <canvas id="mobileV2LineChart" class="mobile-v2-chart-canvas" role="img" aria-label="Evolução mensal" aria-describedby="mobile-line-data"></canvas>
+        ${global.ChartPresentation.table('mobile-line-data', 'Evolução mensal', ['Mês','Renda','Lançamentos','Resultado após metas'], months.map(month => [month.label, formatMoney(month.renda), formatMoney(month.gastos), formatMoney(month.resultado)]))}
         <div class="m2-line-legend" aria-label="Legenda do gráfico de evolução mensal">
           <span class="m2-line-legend-item">
             <span class="m2-line-legend-dot is-income"></span>
@@ -501,12 +503,12 @@
       <section class="dash-section">
         <div class="dash-section-header"><span>${categoryBasis === 'consumption' ? 'Consumo por categoria' : 'Compromissos por categoria'}</span><select class="form-input" style="width:auto;max-width:48%" aria-label="Base das categorias" data-m2-category-basis><option value="commitments" ${categoryBasis === 'commitments' ? 'selected' : ''}>Compromissos</option><option value="consumption" ${categoryBasis === 'consumption' ? 'selected' : ''}>Consumo</option></select></div>
         <div class="dash-pie-row">
-          <canvas id="mobileV2PieChart" class="pie-canvas"></canvas>
+          <canvas id="mobileV2PieChart" class="pie-canvas" role="img" aria-label="Valores por categoria" aria-describedby="mobile-pie-data"></canvas>
           <div class="pie-legend">
             ${categories.map((category, idx) => {
               const total = categories.reduce((sum, item) => sum + item.value, 0) || 1;
               const pct = Math.round((category.value / total) * 100);
-              const colors = ['#2471A3', '#E74C3C', '#27AE60', '#F39C12', '#8E44AD', '#17A589'];
+              const colors = global.buildDistinctPieColors(categories.length);
               return `
                 <button type="button" class="pie-legend-item" data-m2-cat="${escapeHtml(category.name)}">
                   <span class="pie-dot" style="background:${colors[idx % colors.length]}"></span>
@@ -517,6 +519,7 @@
             }).join('')}
           </div>
         </div>
+        ${global.ChartPresentation.table('mobile-pie-data', 'Valores por categoria', ['Categoria','Valor'], categories.map(category => [category.name, formatMoney(category.value)]))}
       </section>
     `;
 

@@ -66,6 +66,49 @@ test('forced storage flush waits for its queued snapshot, not only the preceding
   assert.equal(ctx.timers.length, 0);
 });
 
+test('stale presentation-only recovery rebases preferences without overwriting finance or revision', async () => {
+  const ctx = context(async () => ({ ok:true, json:async () => ({}) }));
+  vm.runInContext("serverStateRevision = 'new'; serverStorageCache.finUIState = { page: 'dashboard' };", ctx);
+  ctx.window.PendingSync = { read:async () => ({ baseRevision:'old', dirtyKeys:['finUIState'],
+    state:{ finData:['stale'], finUIState:{ page:'mes' } } }) };
+  await ctx.restorePendingStorage();
+  assert.equal(vm.runInContext('storageWriteConflictDetected', ctx), false);
+  assert.equal(vm.runInContext('serverStorageCache.finData[0]', ctx), 1);
+  assert.equal(vm.runInContext('serverStorageCache.finUIState.page', ctx), 'mes');
+  assert.equal(vm.runInContext('serverStateRevision', ctx), 'new');
+});
+
+test('stale pending copy identical to current server is cleared instead of blocking edits', async () => {
+  const ctx = context(async () => ({ ok:true, json:async () => ({}) }));
+  let cleared = false;
+  ctx.window.PendingSync = { read:async () => ({baseRevision:'old',dirtyKeys:['finData'],state:{finData:[1]}}),
+    clear:async () => { cleared = true; } };
+  await ctx.restorePendingStorage();
+  assert.equal(cleared, true);
+  assert.equal(vm.runInContext('storageWriteConflictDetected || storageSyncPending', ctx), false);
+});
+
+test('stale mixed finance and preference draft stays blocked and never partially rebases', async () => {
+  const ctx = context(async () => ({ ok:true, json:async () => ({}) }));
+  ctx.window.PendingSync = { read:async () => ({baseRevision:'old',dirtyKeys:['finData','finUIState'],
+    state:{finData:['pending'],finUIState:{page:'mes'}}}) };
+  await ctx.restorePendingStorage();
+  assert.equal(vm.runInContext('storageWriteConflictDetected', ctx), true);
+  assert.equal(vm.runInContext('serverStorageCache.finData[0]', ctx), 1);
+  assert.equal(vm.runInContext('serverStorageCache.finUIState', ctx), undefined);
+});
+
+test('dashboard fallback always fits its canvas and leaves saved positions untouched', () => {
+  const ctx = context(async () => ({ ok:true, json:async () => ({}) }));
+  const saved = ctx.dashboardWidgetBaseLayout();
+  const before = JSON.stringify(saved);
+  for (const width of [160,320,640,900,980,1040,1400]) {
+    const fitted = ctx.fitDashboardWidgetLayoutToCanvas(saved, width);
+    for (const item of Object.values(fitted)) assert.ok(item.x + item.w <= width);
+    assert.equal(JSON.stringify(saved), before);
+  }
+});
+
 test('backup import never announces success when server did not persist it', async () => {
   for (const result of [false, true]) {
     const alerts = [];

@@ -1,0 +1,56 @@
+{
+  "checks": [
+    {
+      "name": "normal fixture monthly totals in matrix",
+      "status": "passed",
+      "details": {
+        "records": 420
+      }
+    },
+    {
+      "name": "normal Desktop line series equal independent fixture constants",
+      "status": "passed",
+      "details": {
+        "series": 330
+      }
+    },
+    {
+      "name": "Mobile period totals include goals",
+      "status": "passed",
+      "details": {
+        "periods": 5
+      }
+    },
+    {
+      "name": "real zoom factors match requested",
+      "status": "passed",
+      "details": {
+        "factors": [
+          0.8,
+          1,
+          1.25,
+          1.5,
+          2
+        ]
+      }
+    },
+    {
+      "name": "visual fixtures and JavaScript errors",
+      "status": "passed"
+    },
+    {
+      "name": "corrected matrix, continuous resize and real zoom stay within viewport",
+      "status": "passed"
+    },
+    {
+      "name": "Mobile transition follows the layout breakpoint in both directions",
+      "status": "passed"
+    },
+    {
+      "name": "real functional checks pass after remember restoration",
+      "status": "passed"
+    }
+  ],
+  "knownLayoutFailures": [],
+  "notFullFinancialCertification": true
+}

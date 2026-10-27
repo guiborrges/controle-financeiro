@@ -1527,3 +1527,39 @@ recursivamente dentro de seu proprio pacote. O gerador inclui fontes versionadas
 das pastas permitidas e os novos arquivos explicitos desta entrega. Novos modulos
 devem estar versionados antes de uma futura regeneracao.
 Os hashes do inventario representam a edicao sanitizada, nao o seed original.
+
+## Atualizacao: responsividade e sessao restaurada
+
+O Dashboard continua usando os mesmos totais e series financeiras. Seu layout
+visual agora observa a largura real do conteiner. Com menos de 1040 px, os
+widgets passam a grid; abaixo de 720 px, uma coluna. A disposicao ampla salva
+nao e substituida por esses ajustes temporarios. Redimensionar nao deve gravar
+dados financeiros nem gerar backups. O fallback de layout nunca deve exceder
+a largura recebida, mesmo se a largura minima de edicao ampla for maior.
+
+`ChartPresentation` oferece apresentacao compartilhada: tabela com caption e
+cabecalhos, escape de textos, cores do tema, abreviacao de escalas e tamanho
+do bitmap proporcional ao DPR (limitado a 3). Valores completos continuam
+na tabela, sem arredondar o modelo financeiro para abreviar o eixo.
+Mobile mede o texto do eixo Y e espaça os rotulos X. Desktop e Mobile
+associam canvas e tabela por aria-describedby. Essa implementacao nao substitui
+homologacao por leitor de tela e aparelho fisico.
+
+O controlador de inicializacao permanece atento ao breakpoint Mobile depois
+da primeira carga. O loader reutiliza sua promessa e nao carrega outra copia
+dos mesmos modulos ao cruzar novamente o limite.
+
+Na recuperacao de pending draft, revisao divergente nao bloqueia edicao quando
+as unicas diferencas efetivas sao preferencias visuais permitidas. Somente essas
+chaves sao aplicadas ao estado atual; finData e demais valores financeiros do
+snapshot antigo nao sao copiados. Se qualquer diferenca pendente for financeira,
+o bloqueio de conflito permanece e exige intervencao/recuperacao protegida.
+Um snapshot sem diferencas efetivas pode ser descartado sem perder alteracoes.
+
+Remember-me nao cria uma sessao a partir de mutacoes POST/PUT de pagina antiga.
+Uma navegacao GET/HEAD pode restaurar a sessao; a nova pagina recebe seu token
+CSRF. Nunca aceitar token antigo ou remover CSRF para contornar essa transicao.
+
+Testes novos: helpers de apresentacao, recuperacao de preferencias sem
+sobrescrita financeira e `npm run test:responsive`. O historico de evidencias
+anteriores acima nao e reescrito como se tivesse exercitado essas mudancas.

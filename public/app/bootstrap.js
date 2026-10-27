@@ -40,6 +40,16 @@ function showBootstrapFatalError(error) {
       window.MobileV2.apply?.();
       window.requestAnimationFrame(() => window.MobileV2?.refresh?.());
     }
+    const loadMobileOnResize = async () => {
+      if (window.MobileV2 || !window.__isMobileV2Candidate?.()) return;
+      try {
+        await window.__loadMobileV2ScriptsIfNeeded?.();
+      } catch (error) {
+        showAppStatus(error.message, 'Falha ao carregar a interface móvel', 'error');
+      }
+    };
+    window.addEventListener('resize', loadMobileOnResize, { passive:true });
+    loadMobileOnResize();
     document.dispatchEvent(new CustomEvent('appReady'));
   } catch (error) {
     showBootstrapFatalError(error);

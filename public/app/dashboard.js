@@ -285,6 +285,40 @@ function stopDashboardWidgetResize() {
 // ============================================================
 // DASHBOARD
 // ============================================================
+let dashboardLayoutObserver = null;
+let dashboardLayoutFrame = 0;
+
+function applyDashboardResponsiveLayout() {
+  const grid = document.getElementById('dashboardWidgets');
+  if (!grid || !grid.clientWidth) return;
+  const width = grid.clientWidth;
+  grid.classList.toggle('is-responsive', width < 1040);
+  grid.classList.toggle('is-single-column', width < 720);
+  const layout = fitDashboardWidgetLayoutToCanvas(dashboardWidgetLayout, width);
+  grid.querySelectorAll('[data-widget-key]').forEach(widget => {
+    const item = layout[widget.dataset.widgetKey];
+    if (!item) return;
+    for (const [name, value] of Object.entries(item)) widget.style.setProperty(`--widget-${name}`, `${value}px`);
+  });
+  if (width < 1040) grid.style.minHeight = '0px';
+  else grid.style.minHeight = `${Math.max(760, ...Object.values(layout).map(item => item.y + item.h + 24))}px`;
+}
+
+function observeDashboardLayout() {
+  applyDashboardResponsiveLayout();
+  if (typeof ResizeObserver === 'undefined') return;
+  if (!dashboardLayoutObserver) {
+    dashboardLayoutObserver = new ResizeObserver(() => {
+      if (dashboardLayoutFrame) return;
+      dashboardLayoutFrame = requestAnimationFrame(() => {
+        dashboardLayoutFrame = 0;
+        applyDashboardResponsiveLayout();
+      });
+    });
+    dashboardLayoutObserver.observe(document.getElementById('dashboardWidgets'));
+  }
+}
+
 function renderDashboard() {
   const page = document.getElementById('page-dashboard');
   if (page?.classList && !page.classList.contains('active')) return;
@@ -334,15 +368,6 @@ function renderDashboard() {
   dashMetricOrder = sanitizeDashMetricOrder(dashMetricOrder).filter(key => allowedMetricKeys.includes(key));
   if (!dashMetricOrder.length) dashMetricOrder = [...allowedMetricKeys];
   saveDashMetricOrder();
-  const dashboardCanvas = document.getElementById('dashboardWidgets');
-  if (dashboardCanvas) {
-    const nextDashboardLayout = fitDashboardWidgetLayoutToCanvas(dashboardWidgetLayout, dashboardCanvas.clientWidth || 0);
-    if (JSON.stringify(nextDashboardLayout) !== JSON.stringify(dashboardWidgetLayout)) {
-      dashboardWidgetLayout = nextDashboardLayout;
-      saveDashboardWidgetState();
-      saveUIState();
-    }
-  }
   const cur = filtered[filtered.length - 1] || getCurrentMonth();
   const prev = filtered[filtered.length - 2];
   const totalGastos = filtered.reduce((a,m)=>a+totalsFor(m).totalGastos,0);
@@ -494,6 +519,7 @@ function renderDashboard() {
   };
   document.getElementById('dashboardWidgets').innerHTML = ['gvsr', 'categories', 'result', 'quickhist'].map(key => dashboardWidgets[key]).join('');
   updateDashboardCanvasHeight();
+  observeDashboardLayout();
 
   destroyChart('lineChart');
   const lc = document.getElementById('lineChart').getContext('2d');
@@ -625,7 +651,7 @@ function renderDashboard() {
                 boxWidth: 12,
                 boxHeight: 12,
                 padding: 14,
-                color: '#5b4a3f',
+                color: typeof ChartPresentation !== 'undefined' ? ChartPresentation.theme().text : '#505867',
                 font: { size: 11 }
               }
             },
@@ -654,11 +680,30 @@ function renderDashboard() {
       <span class="mr-val ${resultFor(m)>=0?'amount-pos':'amount-neg'}">${fmtSigned(resultFor(m))}</span>
     </div>
   `).join('');
+  renderDashboardChartTables();
   if (typeof renderNotificationBells === 'function') renderNotificationBells();
 }
 
 function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function renderDashboardChartTables() {
+  if (typeof ChartPresentation === 'undefined') return;
+  for (const id of ['lineChart', 'resultChart', 'catPieChart']) {
+    const canvas = document.getElementById(id);
+    const chart = charts[id];
+    if (!canvas || !chart) continue;
+    const datasets = chart.data.datasets.filter(dataset => !dataset.hidden);
+    const rows = chart.data.labels.map((label, index) => [label, ...datasets.map(dataset => fmt(dataset.data[index] || 0))]);
+    const caption = id === 'lineChart' ? 'Evolução mensal' : id === 'resultChart' ? 'Resultado mensal' : 'Valores por categoria';
+    const dataId = `${id}-data`;
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', caption);
+    canvas.setAttribute('aria-describedby', dataId);
+    canvas.closest('.section-body').insertAdjacentHTML('beforeend', ChartPresentation.table(dataId, caption,
+      [id === 'catPieChart' ? 'Categoria' : 'Mês', ...datasets.map(dataset => dataset.label || 'Valor')], rows));
+  }
 }
 
 

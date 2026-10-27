@@ -10,7 +10,8 @@ function dashboardFixture(count = 12) {
   });
   const elements = Object.fromEntries(['histFilters', 'dashFilters', 'dashSub', 'dashInsights', 'dashMetrics',
     'dashboardWidgets', 'lineChart', 'resultChart', 'catCards', 'quickHistory'].map(id => [id,
-    { innerHTML: '', textContent: '', clientWidth: 1200, getContext: () => ({ id }) }]));
+    { innerHTML: '', textContent: '', clientWidth: 1200, classList: { toggle() {} },
+      style: {}, querySelectorAll: () => [], getContext: () => ({ id }) }]));
   ctx.document.getElementById = id => elements[id] || null;
   const noOp = () => {};
   Object.assign(ctx, {

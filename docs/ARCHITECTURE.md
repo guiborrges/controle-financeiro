@@ -273,6 +273,25 @@ sem pendencias. Procedimento: [../DEPLOY.md](../DEPLOY.md).
 
 ## 12. Ressalvas conhecidas
 
+### Responsividade e recuperacao de preferencias (outubro/2026)
+
+- `modules/shared/chart-presentation.js` centraliza tabela acessivel, tema,
+  abreviacao de eixos e bitmap Canvas com DPR limitado a 3. Nao calcula totais.
+- Dashboard observa a largura de `dashboardWidgets`. Abaixo de 1040 px de
+  conteiner usa grid; abaixo de 720 px usa uma coluna. O layout salvo de
+  widgets nao e regravado pelo resize e volta a valer em telas amplas.
+- O bootstrap acompanha a entrada na faixa Mobile mesmo se a carga inicial
+  foi Desktop; o loader mantem uma unica promessa de carregamento.
+- Canvas Desktop/Mobile possuem tabelas equivalentes sincronizadas aos dados
+  exibidos. Temas usam tokens, e rotulos Mobile medem a largura necessaria.
+- Um pending draft com revisao antiga so e rebaseado quando todas as mudancas
+  efetivas sao preferencias de apresentacao. Qualquer diferenca financeira
+  continua bloqueada; o snapshot antigo inteiro nunca substitui o servidor.
+- Remember-me restaura sessao em GET/HEAD, nao em autosave POST/PUT de pagina
+  antiga. Mutacoes sem sessao continuam exigindo reautenticacao e CSRF.
+- Regressao adicional: `npm run test:responsive`; auditoria e validacao em
+  `docs/auditoria-responsividade/`. Emulacao nao certifica aparelhos fisicos.
+
 Atualizar documentacao nao resolveu estas pendencias:
 
 - F03/F04: restore JSON nao atualiza copia prioritaria SQLite; revisoes SQLite

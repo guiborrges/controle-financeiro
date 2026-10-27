@@ -757,7 +757,7 @@ body {
 }
 .insight-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 12px;
   margin: -8px 0 22px;
 }
@@ -1666,10 +1666,29 @@ body {
 .dashboard-widget-resize:hover { opacity:1; border-color: rgba(40,85,160,.75); }
 .dashboard-widget-head {
   display:flex;
+  min-width:0;
+  flex-wrap:wrap;
   align-items:center;
   justify-content:space-between;
   gap:12px;
 }
+.dashboard-widget-head h3 { min-width:0; overflow-wrap:anywhere; flex:1 1 140px; }
+.dashboard-widget-head select { min-width:0; max-width:100%; }
+.dashboard-widget .section-head { flex-wrap:wrap; min-width:0; }
+.dashboard-widget-grid.is-responsive { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; min-height:0 !important; }
+.dashboard-widget-grid.is-responsive .dashboard-widget { position:static !important; width:auto !important; height:400px !important; transform:none !important; }
+.dashboard-widget-grid.is-single-column { grid-template-columns:minmax(0,1fr); }
+.dashboard-widget-grid.is-responsive .dashboard-widget-grip,
+.dashboard-widget-grid.is-responsive .dashboard-widget-resize { display:none; }
+.chart-data-table { margin-top:8px; font-size:12px; min-width:0; color:var(--text2); }
+.chart-data-table summary { cursor:pointer; padding:8px 0; }
+.chart-data-scroll { overflow:auto; max-height:240px; }
+.chart-data-table table { width:100%; border-collapse:collapse; font-size:12px; }
+.chart-data-table caption { text-align:left; padding:8px; font-weight:600; }
+.chart-data-table th,.chart-data-table td { padding:8px; text-align:left; white-space:nowrap; }
+.dashboard-widget-body-fill:has(.chart-data-table) { display:flex; flex-direction:column; }
+.dashboard-widget-body-fill:has(.chart-data-table) .chart-wrap { flex:1; min-height:160px; height:auto !important; }
+.dashboard-widget-body-fill .chart-data-table { flex:none; }
 .dashboard-widget-grip {
   font-size:12px;
   color:var(--text3);

@@ -14,7 +14,7 @@
   (() => {
     try {
       window.__isMobileV2Candidate = function isMobileV2Candidate() {
-        const width = Number(window.innerWidth || document.documentElement?.clientWidth || 0);
+        const width = Number(document.documentElement?.clientWidth || window.innerWidth || 0);
         const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)')?.matches === true;
         const ua = String(navigator.userAgent || '');
         const mobileLike = /(Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile)/i.test(ua);
@@ -1878,6 +1878,7 @@
     })();
   </script>
   <script defer src="/app-assets/core.js"></script>
+  <script defer src="/app-assets/modules/shared/chart-presentation.js"></script>
   <script defer src="/app-assets/dashboard.js"></script>
   <script defer src="/app-assets/mes-atual.js"></script>
   <script defer src="/app-assets/modules/universal-search.js"></script>

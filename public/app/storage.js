@@ -80,6 +80,25 @@ async function restorePendingStorage() {
   if (!snapshot?.state || typeof snapshot.state !== 'object') return;
   storageSyncPending = true;
   if (String(snapshot.baseRevision || '') !== serverStateRevision) {
+    const dirtyKeys = Array.isArray(snapshot.dirtyKeys) ? snapshot.dirtyKeys : Object.keys(snapshot.state);
+    const changedKeys = dirtyKeys.filter(key => JSON.stringify(snapshot.state[key]) !== JSON.stringify(serverStorageCache[key]));
+    const viewKeys = new Set([STORAGE_KEYS.uiState, STORAGE_KEYS.dashboardWidgetOrder, STORAGE_KEYS.dashboardWidgetLayout,
+      STORAGE_KEYS.dashMetricOrder, STORAGE_KEYS.monthMetricOrder, STORAGE_KEYS.monthSectionOrder,
+      STORAGE_KEYS.dashSeriesSelection, STORAGE_KEYS.dashSeriesSelectionSimple, STORAGE_KEYS.dashSeriesSelectionFixed,
+      STORAGE_KEYS.dashSeriesSelectionVersion, STORAGE_KEYS.dashSeriesColors, STORAGE_KEYS.categoryColors,
+      STORAGE_KEYS.categoryEmojis, STORAGE_KEYS.monthSectionColors, STORAGE_KEYS.monthSectionCollapsed, STORAGE_KEYS.titles]);
+    // Rebase only presentation preferences; never restore stale financial data over the server.
+    if (changedKeys.every(key => viewKeys.has(key))) {
+      changedKeys.forEach(key => {
+        serverStorageCache[key] = cloneStateValue(snapshot.state[key]);
+        storageDirtyKeys.add(key);
+      });
+      if (!changedKeys.length) {
+        try { await window.PendingSync?.clear(scopedStorageNamespace); } catch {}
+        storageSyncPending = false;
+      }
+      return;
+    }
     pendingRecoverySnapshot = snapshot;
     pauseAutosaveWithConflict('Existe um rascunho protegido, mas os dados do servidor mudaram. Baixe a copia pendente antes de continuar.');
     const message = typeof document !== 'undefined' ? document.getElementById('appStatusMessage') : null;
@@ -992,7 +1011,7 @@ function fitDashboardWidgetLayoutToCanvas(layout, canvasWidth) {
   const next = sanitizeDashboardWidgetLayout(layout);
   if (!width) return next;
 
-  const desktopFallbackWidth = 980;
+  const desktopFallbackWidth = 1040;
   const limits = dashboardWidgetLimits();
   let changed = false;
 
@@ -1024,8 +1043,13 @@ function fitDashboardWidgetLayoutToCanvas(layout, canvasWidth) {
     });
   });
 
-  if (width >= desktopFallbackWidth && (hasSevereOverflow || hasHeavyOverlap)) {
-    return sanitizeDashboardWidgetLayout(base);
+  if (width < desktopFallbackWidth || hasSevereOverflow || hasHeavyOverlap) {
+    let y = 0;
+    return Object.fromEntries(Object.keys(base).map(key => {
+      const item = { ...next[key], x:0, y, w:Math.min(next[key].w, width) };
+      y += item.h + 20;
+      return [key, item];
+    }));
   }
 
   return changed ? sanitizeDashboardWidgetLayout(next) : next;

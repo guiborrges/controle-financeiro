@@ -72,6 +72,14 @@ Ver relatorio 21 antes de afirmar que tudo esta aprovado.
 
 ## Manutencao e entrega
 
+Correcoes da auditoria responsiva: widgets adaptam-se ao conteiner sem alterar
+layout salvo; Mobile pode carregar depois da primeira entrada no breakpoint;
+graficos possuem tabela equivalente, tema e Canvas com DPR. Recuperacao de
+draft antigo so rebaseia preferencias visuais, nunca dados financeiros
+divergentes. Remember nao cria sessao em autosave de pagina antiga.
+Ver `auditoria-responsividade/15-correcao-e-validacao.md` e o novo comando
+`npm run test:responsive`. Aparelhos fisicos continuam fora da homologacao.
+
 1. Ler guia e modulo dono da regra; reutilizar contratos.
 2. Preservar dados, historico, isolamento e conflitos 409.
 3. Testar dominio afetado e executar npm test/test:smoke.

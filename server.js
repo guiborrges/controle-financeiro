@@ -281,6 +281,8 @@ async function sendPasswordResetEmail({ email, displayName, token, resetLink, ex
 }
 function restoreRememberedSession(req, res, next) {
   if (req.session?.authenticated) return next();
+  // Old-page autosaves must not mint competing sessions while a new page restores its cookie.
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   const cookies = parseCookies(req);
   const rememberToken = cookies[REMEMBER_COOKIE_HOST_NAME] || cookies[REMEMBER_COOKIE_NAME];
   if (!rememberToken) return next();
