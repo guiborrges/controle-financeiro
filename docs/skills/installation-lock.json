@@ -1,0 +1,450 @@
+{
+  "version": 1,
+  "date": "2026-10-27",
+  "hashEncoding": "SHA256; valid UTF8 text normalized to LF; binary exact",
+  "skills": [
+    {
+      "name": "webapp-testing",
+      "kind": "external",
+      "source": "https://github.com/anthropics/skills/tree/dbd4588f9e1033efb41dad4bef2f7947c8993d44/skills/webapp-testing",
+      "repo": "anthropics/skills",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "sourcePath": "skills/webapp-testing",
+      "sourceEntrypointHash": "51b7349e77ec63b7744a6f63647e7566a0b4d2e301121cc10e8c2113af6556a2",
+      "license": "Apache-2.0",
+      "adapted": true,
+      "status": "installed-with-restrictions",
+      "location": ".agents/skills/webapp-testing",
+      "files": {
+        "examples/console_logging.py": "ea46877289acb82da7e7ce59d0bc37c8977cd57e2a006d0c88d7a1c625bf95da",
+        "examples/element_discovery.py": "d63c89604a22f8845d724e95dda45db49b1bf57c25ce0a83afbb7b8da3d402f0",
+        "examples/static_html_automation.py": "9d533aafb875ee3ab8b8ebf8f5b9003ac8d999da3d09b285cce252e623140064",
+        "LICENSE.txt": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+        "scripts/with_server.py": "b0dcf4918935b795f4eda9821579b9902119235ff4447f687a30286e7d0925fd",
+        "SKILL.md": "dd42946eab46413b0b2f26d4b66e69f5b4420730b766eb2c4f274a5c7ca76ac6"
+      }
+    },
+    {
+      "name": "frontend-design",
+      "kind": "external",
+      "source": "https://github.com/anthropics/skills/tree/dbd4588f9e1033efb41dad4bef2f7947c8993d44/skills/frontend-design",
+      "repo": "anthropics/skills",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "sourcePath": "skills/frontend-design",
+      "sourceEntrypointHash": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "license": "Apache-2.0",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/frontend-design",
+      "files": {
+        "LICENSE.txt": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+        "SKILL.md": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3"
+      }
+    },
+    {
+      "name": "qa-execute",
+      "kind": "external",
+      "source": "https://github.com/c47-dev/skills/tree/b158f5c583003ec0e42afa571e3c5c54bf25b73b/skills/qa-execute",
+      "repo": "c47-dev/skills",
+      "commit": "b158f5c583003ec0e42afa571e3c5c54bf25b73b",
+      "sourcePath": "skills/qa-execute",
+      "sourceEntrypointHash": "ce76abd0fae6d9e81b96d551f0778aaa001bbf095725fb5c009d9a0dca65575d",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/qa-execute",
+      "files": {
+        "LICENSE": "d8a21f8dc0a461598eca456ade4da48afda0b676928c334d833987d048183451",
+        "SKILL.md": "ce76abd0fae6d9e81b96d551f0778aaa001bbf095725fb5c009d9a0dca65575d"
+      }
+    },
+    {
+      "name": "analyze",
+      "kind": "external",
+      "source": "https://github.com/c47-dev/skills/tree/b158f5c583003ec0e42afa571e3c5c54bf25b73b/skills/analyze",
+      "repo": "c47-dev/skills",
+      "commit": "b158f5c583003ec0e42afa571e3c5c54bf25b73b",
+      "sourcePath": "skills/analyze",
+      "sourceEntrypointHash": "65086f4c693cb2faff6a45839f8e2da0c57ccc9f31cb1156ba16f05a8b2f5909",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/analyze",
+      "files": {
+        "LICENSE": "d8a21f8dc0a461598eca456ade4da48afda0b676928c334d833987d048183451",
+        "SKILL.md": "65086f4c693cb2faff6a45839f8e2da0c57ccc9f31cb1156ba16f05a8b2f5909"
+      }
+    },
+    {
+      "name": "simplify-code",
+      "kind": "external",
+      "source": "https://github.com/c47-dev/skills/tree/b158f5c583003ec0e42afa571e3c5c54bf25b73b/skills/simplify-code",
+      "repo": "c47-dev/skills",
+      "commit": "b158f5c583003ec0e42afa571e3c5c54bf25b73b",
+      "sourcePath": "skills/simplify-code",
+      "sourceEntrypointHash": "9a5269d97bb12e53173f9c65814a94777ad4c59ab3eebb0904a0ad8856a476e2",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/simplify-code",
+      "files": {
+        "LICENSE": "d8a21f8dc0a461598eca456ade4da48afda0b676928c334d833987d048183451",
+        "SKILL.md": "9a5269d97bb12e53173f9c65814a94777ad4c59ab3eebb0904a0ad8856a476e2"
+      }
+    },
+    {
+      "name": "code-review",
+      "kind": "external",
+      "source": "https://github.com/c47-dev/skills/tree/b158f5c583003ec0e42afa571e3c5c54bf25b73b/skills/code-review",
+      "repo": "c47-dev/skills",
+      "commit": "b158f5c583003ec0e42afa571e3c5c54bf25b73b",
+      "sourcePath": "skills/code-review",
+      "sourceEntrypointHash": "8f09b61be94be495664411aec3fd5215bc32772c6850363bdca37183db25dd7b",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/code-review",
+      "files": {
+        "LICENSE": "d8a21f8dc0a461598eca456ade4da48afda0b676928c334d833987d048183451",
+        "SKILL.md": "8f09b61be94be495664411aec3fd5215bc32772c6850363bdca37183db25dd7b"
+      }
+    },
+    {
+      "name": "plan",
+      "kind": "external",
+      "source": "https://github.com/c47-dev/skills/tree/b158f5c583003ec0e42afa571e3c5c54bf25b73b/skills/plan",
+      "repo": "c47-dev/skills",
+      "commit": "b158f5c583003ec0e42afa571e3c5c54bf25b73b",
+      "sourcePath": "skills/plan",
+      "sourceEntrypointHash": "d9fe5052cb7a5825298e5993d7e077742bca35eb7bfd118e44061cd02cf10ece",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/plan",
+      "files": {
+        "LICENSE": "d8a21f8dc0a461598eca456ade4da48afda0b676928c334d833987d048183451",
+        "SKILL.md": "d9fe5052cb7a5825298e5993d7e077742bca35eb7bfd118e44061cd02cf10ece"
+      }
+    },
+    {
+      "name": "best-practice-research",
+      "kind": "external",
+      "source": "https://github.com/c47-dev/skills/tree/b158f5c583003ec0e42afa571e3c5c54bf25b73b/skills/best-practice-research",
+      "repo": "c47-dev/skills",
+      "commit": "b158f5c583003ec0e42afa571e3c5c54bf25b73b",
+      "sourcePath": "skills/best-practice-research",
+      "sourceEntrypointHash": "1a05a0725ad1a0f50c68281ecd6bf32f5f822b81c4feccb93978b5f0a8255ce4",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/best-practice-research",
+      "files": {
+        "LICENSE": "d8a21f8dc0a461598eca456ade4da48afda0b676928c334d833987d048183451",
+        "SKILL.md": "1a05a0725ad1a0f50c68281ecd6bf32f5f822b81c4feccb93978b5f0a8255ce4"
+      }
+    },
+    {
+      "name": "optimize-performance",
+      "kind": "external",
+      "source": "https://github.com/c47-dev/skills/tree/b158f5c583003ec0e42afa571e3c5c54bf25b73b/skills/optimize-performance",
+      "repo": "c47-dev/skills",
+      "commit": "b158f5c583003ec0e42afa571e3c5c54bf25b73b",
+      "sourcePath": "skills/optimize-performance",
+      "sourceEntrypointHash": "769a0b6caba7badf982c084a33995ad9250274c693adaf6fd2f747d340603c9d",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/optimize-performance",
+      "files": {
+        "LICENSE": "d8a21f8dc0a461598eca456ade4da48afda0b676928c334d833987d048183451",
+        "SKILL.md": "769a0b6caba7badf982c084a33995ad9250274c693adaf6fd2f747d340603c9d"
+      }
+    },
+    {
+      "name": "security-review",
+      "kind": "external",
+      "source": "https://github.com/getsentry/skills/tree/d12f250460ffd961f549dbebf7eeb0cf4afd4c2e/skills/security-review",
+      "repo": "getsentry/skills",
+      "commit": "d12f250460ffd961f549dbebf7eeb0cf4afd4c2e",
+      "sourcePath": "skills/security-review",
+      "sourceEntrypointHash": "26db9a5b1999adc19c4bf6eb7fbe37b56f0135b79f3054f33fd03baefa8e93ed",
+      "license": "Apache-2.0; security-review references CC-BY-SA-4.0",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/security-review",
+      "files": {
+        "infrastructure/docker.md": "84bd49469c5a0cbd42fecdcce752de98cf6821b601dfef6a1920df61f030ae62",
+        "languages/javascript.md": "f4226c82de13da9dec9be7b509932d74a4ade2c8d46b98a078a5b38bf8aa3319",
+        "languages/python.md": "32d0b1304d132fc582320d584d54bbaea566d51700cd16b3f0be723ed834a556",
+        "LICENSE": "0fc858d87f467971ee612fc183896257a1c160a1610a443896b33ae4d2a44ef7",
+        "LICENSE.repository": "96e78a9ce85795b117c8929887bdb78f88bf23f7b85a31f0872cde4dff7e92cd",
+        "references/api-security.md": "65b2456b4c5ae0d6d9849eac8196ac03fbefbf88657c5e069a8aa5063dd6afbf",
+        "references/authentication.md": "7bc598cd4af33bb62406f5a0e8ff7adebff83c04e5fb449e6738f96ae0e26be6",
+        "references/authorization.md": "5ccfd579a1eca4d9d374eb00b04ba33cc9a2918e14e5cb7620c136a6feaeffff",
+        "references/business-logic.md": "fc8ec30eb19f73759e8901e58d7ca66fc87035703325cc8a844298102fa6298a",
+        "references/cryptography.md": "1e1301624e0c9b1699e1d95af11df06a67d104ff06443e93711bb656152f364c",
+        "references/csrf.md": "7b57ba0a45a291eee24578af8b0c69515c76e452c33d8c2d717c66ee3bbdda20",
+        "references/data-protection.md": "920b7dfb86dc696002d31022c1f7665ef602dd1ed76f1124ad937d488ce2b381",
+        "references/deserialization.md": "be9946daf389ad594fbc4065246ff334c389da1e2cf593180ca150b0204287fb",
+        "references/error-handling.md": "e12d3c9f713614223ce797935f3a4c2ac1a7f1fcf0ea24e865a1a70efeab4fb9",
+        "references/file-security.md": "a0a001fb79fe9f1169fa3ba523225164744c42d8779341f15d3d0fc349185f2a",
+        "references/injection.md": "d3989e97af773f521170b430a0e629b26c6ff2051cd826fa62a895523f268178",
+        "references/logging.md": "acca4eeebfc451bb62a7c085d1121ffa443e8cd0831548c2ae6f7fc606056cbc",
+        "references/misconfiguration.md": "919c44e309eaa6427a8bb44a2ed645fbf2b46d9dfe86a0fcdb2d084201898390",
+        "references/modern-threats.md": "d2ac69d91ade6df9c4bf89b2be0d203651d1a0cc5a67d03db8013af52c8ffe6b",
+        "references/ssrf.md": "646a8244fa61997b9b4f093169be1af4f94e6a3d04dcae8d426bb821870b2bff",
+        "references/supply-chain.md": "ef3000d91763ccdddfbce2660943c4090b4c16b3b33afe980f4e10947729e1f1",
+        "references/xss.md": "4735df1e581b757b078605fbc27d37e85cfe182c45ab326c9e536c71a930680c",
+        "SKILL.md": "26db9a5b1999adc19c4bf6eb7fbe37b56f0135b79f3054f33fd03baefa8e93ed",
+        "SPEC.md": "e8dcb0a851bc70a99f7fcab3e10da0045c615415245463d808e08104b1917b42"
+      }
+    },
+    {
+      "name": "security-model",
+      "kind": "external",
+      "source": "https://github.com/getsentry/skills/tree/d12f250460ffd961f549dbebf7eeb0cf4afd4c2e/skills/security-model",
+      "repo": "getsentry/skills",
+      "commit": "d12f250460ffd961f549dbebf7eeb0cf4afd4c2e",
+      "sourcePath": "skills/security-model",
+      "sourceEntrypointHash": "77dc0c410029c23e35a11317182385c8770da7e1bb35a74b4d169f7933804cfd",
+      "license": "Apache-2.0; security-review references CC-BY-SA-4.0",
+      "adapted": false,
+      "status": "installed-with-restrictions",
+      "location": ".agents/skills/security-model",
+      "files": {
+        "agents/openai.yaml": "67c12399714ebe2a7ed8fe5d9891700abd5a6c51f40ed50b1f0e8063091371f1",
+        "LICENSE.repository": "96e78a9ce85795b117c8929887bdb78f88bf23f7b85a31f0872cde4dff7e92cd",
+        "references/consuming-policy.md": "9a3b5b4100877475dd99e074b3413247c60f7691ca26088f5979943f4f81212a",
+        "scripts/resolve_security_model.py": "0aa4908a8de81cbecbcc4da2d1135a7f93113bae816a82932015c7b283234828",
+        "scripts/selftest_resolve_security_model.py": "c0ca76f3aeee60b0cda0332efc3e74125a0bed19d4d2bad97334ce94f771d70f",
+        "SKILL.md": "77dc0c410029c23e35a11317182385c8770da7e1bb35a74b4d169f7933804cfd",
+        "SOURCES.md": "8cf77f0aebeb5f6eff9f2e977e7bac15cb5e44bdc3cdd50d6aba23bb475d2dd9",
+        "SPEC.md": "39e1a533d5cb5a922a6d713de37a31fc32ea4d2ec1e76959e9745827b6e3b040"
+      }
+    },
+    {
+      "name": "secret-serialization",
+      "kind": "external",
+      "source": "https://github.com/getsentry/skills/tree/d12f250460ffd961f549dbebf7eeb0cf4afd4c2e/skills/secret-serialization",
+      "repo": "getsentry/skills",
+      "commit": "d12f250460ffd961f549dbebf7eeb0cf4afd4c2e",
+      "sourcePath": "skills/secret-serialization",
+      "sourceEntrypointHash": "fcff1bc1e5f38bdbe9dccccd21a39846bd45e2423307fda971c9cc1e53a39d3b",
+      "license": "Apache-2.0; security-review references CC-BY-SA-4.0",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/secret-serialization",
+      "files": {
+        "LICENSE.repository": "96e78a9ce85795b117c8929887bdb78f88bf23f7b85a31f0872cde4dff7e92cd",
+        "references/javascript-typescript.md": "14d6a47cf0c36d4a724381ef43f76549ffddb9c4bd5c4648b39b7ec6a732e1b0",
+        "references/python.md": "d5e9b673d8ef8dada8d5d18403a8e74cca5e2f7c98c5d7ae1a2135716ef3f2b6",
+        "SKILL.md": "fcff1bc1e5f38bdbe9dccccd21a39846bd45e2423307fda971c9cc1e53a39d3b",
+        "SOURCES.md": "f69fa9c62580bb8b2e1a6e37452aed01a06401c97566d3569f95c624532d79d0",
+        "SPEC.md": "451a87e0aaa66fe83114f5b8b49ed73db32b062ebbc9dcaeef9939a229c4e7e2"
+      }
+    },
+    {
+      "name": "skill-scanner",
+      "kind": "external",
+      "source": "https://github.com/getsentry/skills/tree/d12f250460ffd961f549dbebf7eeb0cf4afd4c2e/skills/skill-scanner",
+      "repo": "getsentry/skills",
+      "commit": "d12f250460ffd961f549dbebf7eeb0cf4afd4c2e",
+      "sourcePath": "skills/skill-scanner",
+      "sourceEntrypointHash": "b0fdcbb9cd0d11e0425815fa37bb5483b13e6dce5fe5f3aeb4529dc8f80708bd",
+      "license": "Apache-2.0; security-review references CC-BY-SA-4.0",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/skill-scanner",
+      "files": {
+        "LICENSE.repository": "96e78a9ce85795b117c8929887bdb78f88bf23f7b85a31f0872cde4dff7e92cd",
+        "references/dangerous-code-patterns.md": "9fe3e09ccc9f472271472b3dc8b20337b84e3161f949565102342b056e39a677",
+        "references/permission-analysis.md": "ed6c1ca37b31313869fa418f7fddf5df9f8213c2dac3d97a9f5a7eadc02833b3",
+        "references/prompt-injection-patterns.md": "237e41599d0d4d2d2af99683f77ad3ef6e504dff190b0ff58bbd310f11182228",
+        "scripts/scan_skill.py": "58f6f3f0164b5d1b96378207f9c717dd26554175df30d1ebbc7128fbf5d593ac",
+        "SKILL.md": "b0fdcbb9cd0d11e0425815fa37bb5483b13e6dce5fe5f3aeb4529dc8f80708bd"
+      }
+    },
+    {
+      "name": "gha-security-review",
+      "kind": "external",
+      "source": "https://github.com/getsentry/skills/tree/d12f250460ffd961f549dbebf7eeb0cf4afd4c2e/skills/gha-security-review",
+      "repo": "getsentry/skills",
+      "commit": "d12f250460ffd961f549dbebf7eeb0cf4afd4c2e",
+      "sourcePath": "skills/gha-security-review",
+      "sourceEntrypointHash": "b75c6c43ff99c82b3cf44519bd30723917de97064f225e392ecfd6fdcd7455bd",
+      "license": "Apache-2.0; security-review references CC-BY-SA-4.0",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/gha-security-review",
+      "files": {
+        "LICENSE.repository": "96e78a9ce85795b117c8929887bdb78f88bf23f7b85a31f0872cde4dff7e92cd",
+        "references/ai-prompt-injection-via-ci.md": "9177d24968ac5b8d719b9f6748f91751d5e157ae0afa4d41cd0bb760356f23a2",
+        "references/comment-triggered-commands.md": "243526302999b7cbcbff4bbdd01c7d16377b1c60a86ee8877326c2b2b040a0b3",
+        "references/credential-escalation.md": "7febad6c0e4073dabfb338ee4646c2dd484251ad7d18b500ea83ad6fd9ac1a1d",
+        "references/expression-injection.md": "f701049355e4758207f77efc53c8e4a42f377eaa15240a2c867446154041d4f0",
+        "references/permissions-and-secrets.md": "6b6837c5f37ff85cf18c1f611f882202ce0ce41cb006b55dd49c4da52f976779",
+        "references/pwn-request.md": "6dd84c91ce77d57883059edf95c2f1c64ea1ec39551c5c8208e0cadb9c3ca673",
+        "references/real-world-attacks.md": "761260977a220264a1ee30e0b961618495723c2e6cc4e91893b7d9d4a9408718",
+        "references/runner-infrastructure.md": "cb427fa29c34c10aef18766441e0be8e0123632bb87c307bdb8d1c40b47fc81e",
+        "references/supply-chain.md": "1f80df872a1be8f70ccf1be0bb25b2e24ee1ec2ac6a9f3d7a53800cb361bfa86",
+        "SKILL.md": "b75c6c43ff99c82b3cf44519bd30723917de97064f225e392ecfd6fdcd7455bd"
+      }
+    },
+    {
+      "name": "test-driven-development",
+      "kind": "external",
+      "source": "https://github.com/obra/superpowers/tree/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/skills/test-driven-development",
+      "repo": "obra/superpowers",
+      "commit": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "sourcePath": "skills/test-driven-development",
+      "sourceEntrypointHash": "64b03fce4aee5a97a93160cea8111f3ba13a17b7c001db4bd5836d67fd10705d",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/test-driven-development",
+      "files": {
+        "LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
+        "SKILL.md": "64b03fce4aee5a97a93160cea8111f3ba13a17b7c001db4bd5836d67fd10705d",
+        "writing-good-tests.md": "51471c853306ff92ca8bb41dcaea05f31c0e46b03651f8f3c99754b7172f4ae1"
+      }
+    },
+    {
+      "name": "web-design-guidelines",
+      "kind": "external",
+      "source": "https://github.com/vercel-labs/agent-skills/tree/6ec269328bc400712ee225a173a14b6b29128df7/skills/web-design-guidelines",
+      "repo": "vercel-labs/agent-skills",
+      "commit": "6ec269328bc400712ee225a173a14b6b29128df7",
+      "sourcePath": "skills/web-design-guidelines",
+      "sourceEntrypointHash": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f",
+      "license": "MIT (upstream README)",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/web-design-guidelines",
+      "files": {
+        "SKILL.md": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f",
+        "UPSTREAM-LICENSE-README.md": "7c02f64b08fc6c4eef03c01d64f3e2ed478193ccfcbd14edba379abe23304651"
+      }
+    },
+    {
+      "name": "dependency-scanning",
+      "kind": "external",
+      "source": "https://github.com/seb1n/awesome-ai-agent-skills/tree/75865a5d037a4cdaa7f409a4ec14ab9b0292920b/security/dependency-scanning",
+      "repo": "seb1n/awesome-ai-agent-skills",
+      "commit": "75865a5d037a4cdaa7f409a4ec14ab9b0292920b",
+      "sourcePath": "security/dependency-scanning",
+      "sourceEntrypointHash": "7c2eb3d2ef13bfc6834a424c86287401b0e8458b47a569d03c27006159fbd4c4",
+      "license": "MIT",
+      "adapted": false,
+      "status": "installed",
+      "location": ".agents/skills/dependency-scanning",
+      "files": {
+        "LICENSE": "f1835fac859d7d648b6debd317d1a13634966a7614ca78b22d2b4063694b68b2",
+        "SKILL.md": "7c2eb3d2ef13bfc6834a424c86287401b0e8458b47a569d03c27006159fbd4c4"
+      }
+    },
+    {
+      "name": "meufin-backup-integrity",
+      "kind": "custom",
+      "source": "MeuFin repository; code and tests reviewed locally",
+      "version": "1.0.0",
+      "baseCommit": "5d4f7d96f0da92d5bd82a889a970e1d2e518d278",
+      "license": "Project-authored instructions; no external license copied",
+      "status": "created",
+      "location": ".agents/skills/meufin-backup-integrity",
+      "files": {
+        "SKILL.md": "432d7c74d29e9d0f978b35a446868adce45de3876382a1ae9c4f691bf54f7cd9"
+      }
+    },
+    {
+      "name": "meufin-dashboard-audit",
+      "kind": "custom",
+      "source": "MeuFin repository; code and tests reviewed locally",
+      "version": "1.0.0",
+      "baseCommit": "5d4f7d96f0da92d5bd82a889a970e1d2e518d278",
+      "license": "Project-authored instructions; no external license copied",
+      "status": "created",
+      "location": ".agents/skills/meufin-dashboard-audit",
+      "files": {
+        "SKILL.md": "63cbe85dbe71b6dbc903d0a591396a11a36f82a0d39f5f72c270fd6b92c5f418"
+      }
+    },
+    {
+      "name": "meufin-deployment-guard",
+      "kind": "custom",
+      "source": "MeuFin repository; code and tests reviewed locally",
+      "version": "1.0.0",
+      "baseCommit": "5d4f7d96f0da92d5bd82a889a970e1d2e518d278",
+      "license": "Project-authored instructions; no external license copied",
+      "status": "created",
+      "location": ".agents/skills/meufin-deployment-guard",
+      "files": {
+        "SKILL.md": "f5170f229ac1f6205b634bff324bfe21cde01209b1e907cdd05236b59bbfc609"
+      }
+    },
+    {
+      "name": "meufin-financial-engine",
+      "kind": "custom",
+      "source": "MeuFin repository; code and tests reviewed locally",
+      "version": "1.0.0",
+      "baseCommit": "5d4f7d96f0da92d5bd82a889a970e1d2e518d278",
+      "license": "Project-authored instructions; no external license copied",
+      "status": "created",
+      "location": ".agents/skills/meufin-financial-engine",
+      "files": {
+        "SKILL.md": "d30dae8d4b3c7fc2fc763d177bca8061320f142bf42d9d32404d22d56a578a52"
+      }
+    },
+    {
+      "name": "meufin-multiuser-security",
+      "kind": "custom",
+      "source": "MeuFin repository; code and tests reviewed locally",
+      "version": "1.0.0",
+      "baseCommit": "5d4f7d96f0da92d5bd82a889a970e1d2e518d278",
+      "license": "Project-authored instructions; no external license copied",
+      "status": "created",
+      "location": ".agents/skills/meufin-multiuser-security",
+      "files": {
+        "SKILL.md": "91cbe25402683a4ee089cd7ebb9aaf4b049d51d0c6edfa651659d483f33b9a29"
+      }
+    },
+    {
+      "name": "meufin-pluggy-reconciliation",
+      "kind": "custom",
+      "source": "MeuFin repository; code and tests reviewed locally",
+      "version": "1.0.0",
+      "baseCommit": "5d4f7d96f0da92d5bd82a889a970e1d2e518d278",
+      "license": "Project-authored instructions; no external license copied",
+      "status": "created",
+      "location": ".agents/skills/meufin-pluggy-reconciliation",
+      "files": {
+        "SKILL.md": "c33177349cdefd17e371cae076c1c3bd0041da7dc09a05c0c7dce17e321c6649"
+      }
+    },
+    {
+      "name": "meufin-responsive-qa",
+      "kind": "custom",
+      "source": "MeuFin repository; code and tests reviewed locally",
+      "version": "1.0.0",
+      "baseCommit": "5d4f7d96f0da92d5bd82a889a970e1d2e518d278",
+      "license": "Project-authored instructions; no external license copied",
+      "status": "created",
+      "location": ".agents/skills/meufin-responsive-qa",
+      "files": {
+        "SKILL.md": "f5324fd869b2c16543802c2b7d434b8a74dcca7110c266fd70b18dc7549c1b46"
+      }
+    },
+    {
+      "name": "meufin-safe-refactor",
+      "kind": "custom",
+      "source": "MeuFin repository; code and tests reviewed locally",
+      "version": "1.0.0",
+      "baseCommit": "5d4f7d96f0da92d5bd82a889a970e1d2e518d278",
+      "license": "Project-authored instructions; no external license copied",
+      "status": "created",
+      "location": ".agents/skills/meufin-safe-refactor",
+      "files": {
+        "SKILL.md": "484ea3d63fd266e1861af76f5f24843389cf8cbb0e39af8572002c0d45aab572"
+      }
+    }
+  ]
+}

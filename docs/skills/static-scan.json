@@ -1,0 +1,508 @@
+{
+  "date": "2026-10-27",
+  "scope": "Static heuristics; reviewed scanner only; candidate scripts NOT executed. Findings require contextual review; no safety certification.",
+  "reports": [
+    {
+      "skill": "analyze",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "best-practice-research",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "code-review",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "dependency-scanning",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "frontend-design",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "gha-security-review",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "meufin-backup-integrity",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "meufin-dashboard-audit",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "meufin-deployment-guard",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "meufin-financial-engine",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "meufin-multiuser-security",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "meufin-pluggy-reconciliation",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "meufin-responsive-qa",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "meufin-safe-refactor",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "optimize-performance",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "plan",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "qa-execute",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "secret-serialization",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "security-model",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "security-review",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [
+        {
+          "type": "Secret Detected",
+          "severity": "high",
+          "location": "SKILL.md:211",
+          "description": "Hardcoded password",
+          "category": "Secret Exposure"
+        },
+        {
+          "type": "Secret Detected",
+          "severity": "high",
+          "location": "references/injection.md:185",
+          "description": "Hardcoded password",
+          "category": "Secret Exposure"
+        },
+        {
+          "type": "Secret Detected",
+          "severity": "high",
+          "location": "references/misconfiguration.md:148",
+          "description": "Hardcoded password",
+          "category": "Secret Exposure"
+        },
+        {
+          "type": "Secret Detected",
+          "severity": "high",
+          "location": "references/misconfiguration.md:150",
+          "description": "Hardcoded password",
+          "category": "Secret Exposure"
+        },
+        {
+          "type": "Secret Detected",
+          "severity": "high",
+          "location": "references/misconfiguration.md:156",
+          "description": "Hardcoded password",
+          "category": "Secret Exposure"
+        },
+        {
+          "type": "Secret Detected",
+          "severity": "high",
+          "location": "references/misconfiguration.md:160",
+          "description": "Hardcoded password",
+          "category": "Secret Exposure"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/modern-threats.md:252",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Secret Detected",
+          "severity": "critical",
+          "location": "references/supply-chain.md:149",
+          "description": "AWS Access Key ID",
+          "category": "Secret Exposure"
+        }
+      ],
+      "counts": {
+        "high": 6,
+        "critical": 2
+      }
+    },
+    {
+      "skill": "simplify-code",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "skill-scanner",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [
+        {
+          "type": "Suspicious Base64",
+          "severity": "high",
+          "location": "references/dangerous-code-patterns.md:145",
+          "description": "Base64 string decodes to text containing 'system'",
+          "category": "Obfuscation"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:11",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:12",
+          "description": "Instruction override: disregard previous",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:13",
+          "description": "Instruction override: forget previous",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:14",
+          "description": "New system prompt injection",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:15",
+          "description": "System prompt override",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "high",
+          "location": "references/prompt-injection-patterns.md:16",
+          "description": "Temporal instruction override",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:26",
+          "description": "Jailbreak: DAN pattern",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:27",
+          "description": "Jailbreak: developer/debug mode",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:28",
+          "description": "Role reassignment: unrestricted mode",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:30",
+          "description": "Jailbreak: developer/debug mode",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:31",
+          "description": "Jailbreak: bypass safety",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "high",
+          "location": "references/prompt-injection-patterns.md:40",
+          "description": "Role reassignment: 'you are now'",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "high",
+          "location": "references/prompt-injection-patterns.md:41",
+          "description": "Pretend-based jailbreak",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:42",
+          "description": "Role reassignment: unrestricted mode",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "high",
+          "location": "references/prompt-injection-patterns.md:55",
+          "description": "System prompt extraction",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:62",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:105",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:111",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:125",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:142",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:143",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:144",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:145",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Prompt Injection Pattern",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:146",
+          "description": "Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Zero-Width Characters",
+          "severity": "high",
+          "location": "references/prompt-injection-patterns.md:72",
+          "description": "Zero-width characters detected: U+200B",
+          "category": "Obfuscation"
+        },
+        {
+          "type": "Suspicious Base64",
+          "severity": "high",
+          "location": "references/prompt-injection-patterns.md:62",
+          "description": "Base64 string decodes to text containing 'ignore'",
+          "category": "Obfuscation"
+        },
+        {
+          "type": "Hidden Injection in Comment",
+          "severity": "critical",
+          "location": "references/prompt-injection-patterns.md:105",
+          "description": "HTML comment contains injection pattern: Instruction override: ignore previous instructions",
+          "category": "Prompt Injection"
+        },
+        {
+          "type": "Dangerous Code Pattern",
+          "severity": "critical",
+          "location": "scripts/scan_skill.py:82",
+          "description": "Netcat usage (potential reverse shell)",
+          "category": "Malicious Code"
+        },
+        {
+          "type": "Dangerous Code Pattern",
+          "severity": "high",
+          "location": "scripts/scan_skill.py:88",
+          "description": "eval() usage",
+          "category": "Malicious Code"
+        },
+        {
+          "type": "Dangerous Code Pattern",
+          "severity": "high",
+          "location": "scripts/scan_skill.py:89",
+          "description": "exec() usage",
+          "category": "Malicious Code"
+        },
+        {
+          "type": "Dangerous Code Pattern",
+          "severity": "high",
+          "location": "scripts/scan_skill.py:90",
+          "description": "Shell execution with shell=True",
+          "category": "Malicious Code"
+        },
+        {
+          "type": "Dangerous Code Pattern",
+          "severity": "critical",
+          "location": "scripts/scan_skill.py:96",
+          "description": "Git hooks modification",
+          "category": "Malicious Code"
+        },
+        {
+          "type": "Dangerous Code Pattern",
+          "severity": "medium",
+          "location": "scripts/scan_skill.py:262",
+          "description": "Base64 decoding (potential obfuscation)",
+          "category": "Malicious Code"
+        },
+        {
+          "type": "Dangerous Code Pattern",
+          "severity": "high",
+          "location": "scripts/scan_skill.py:394",
+          "description": "Sensitive directory access",
+          "category": "Malicious Code"
+        },
+        {
+          "type": "Pre-prompt Command",
+          "severity": "high",
+          "location": "SKILL.md:109",
+          "description": "!`command` syntax executes at skill load time before the model sees the prompt. Command: command",
+          "category": "Pre-prompt Injection"
+        }
+      ],
+      "counts": {
+        "high": 12,
+        "critical": 23,
+        "medium": 1
+      }
+    },
+    {
+      "skill": "test-driven-development",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "web-design-guidelines",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [],
+      "counts": {}
+    },
+    {
+      "skill": "webapp-testing",
+      "validationExit": 0,
+      "validation": "Skill is valid!",
+      "findings": [
+        {
+          "type": "Dangerous Code Pattern",
+          "severity": "high",
+          "location": "scripts/with_server.py:28",
+          "description": "Raw socket connection",
+          "category": "Malicious Code"
+        }
+      ],
+      "counts": {
+        "high": 1
+      }
+    }
+  ]
+}
