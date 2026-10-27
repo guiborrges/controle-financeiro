@@ -384,6 +384,27 @@ body {
   display: none !important;
 }
 
+@media (max-width: 900px) {
+  :root { --text: #202124; --text-soft: #5b616c; --button: #2d63b8; --button-hover: #245297; }
+  body { font-family: Inter, 'Segoe UI', sans-serif; background: #f6f7f9; }
+  .login-backdrop { display: none; }
+  .login-shell { min-height: 100dvh; }
+  .login-panel, .register-card, .developer-card {
+    background: #fff; border: 1px solid #dce1e8; border-radius: 8px !important;
+    backdrop-filter: none; box-shadow: none; gap: 20px;
+  }
+  .login-brand-logo { width: 56px; height: 56px; filter: none; }
+  .login-copy h1, .register-head h2 { font-family: inherit; font-size: 28px; line-height: 1.2; letter-spacing: 0; color: var(--text); }
+  .login-kicker, .field > span { font-size: 13px; letter-spacing: 0; text-transform: none; }
+  .field input { font-size: 16px; min-height: 48px; border-radius: 8px; background: #fff; color: var(--text); }
+  .login-submit { border-radius: 8px; min-height: 48px; box-shadow: none; background: var(--button); }
+  .password-toggle, .register-close { min-height: 44px; border-radius: 8px; }
+  .login-links { flex-wrap: wrap; gap: 8px; }
+  .login-link { min-height: 44px; }
+  .remember-check { min-height: 44px; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--button); outline-offset: 3px; }
+}
+
 @media (max-width: 640px) {
   .login-shell {
     padding: 18px;

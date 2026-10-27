@@ -45,6 +45,17 @@ Nao tratar snapshots de auditoria como aplicativo ativo.
 
 ## Entregas recentes
 
+- Revisao visual Mobile: cabecalhos com menu de acoes, valores adaptaveis,
+  periodo exato do Dashboard, barras reais e expansao de categorias; metas
+  primeiro e distribuicao opcional; historico por ano. Tokens mobile isolados.
+- Acessibilidade de sheets inclui confirmacoes Desktop abertas pelo mobile,
+  foco contido e retorno, alertas dentro do dialogo e protecao de rascunho.
+  Navegacao continua com cinco destinos; Painel/Agenda sao rotulos compactos.
+- Pesquisa mobile usa o filtro compartilhado e permanece dentro do mes/visao.
+  Login mobile usa Inter e superficies opacas, sem alterar autenticacao.
+- `npm run test:mobile-design` valida a revisao, inclusive cancelamento e save
+  confirmado de recorrente; nenhum schema, storage ou backup foi alterado.
+
 - Aviso de origem sem identificador confiavel removido por pedido do usuario.
   Nao prometer dedupe perfeito sem ID. Protecoes de identidade confiavel,
   duplicata exata e reembolso permanecem.

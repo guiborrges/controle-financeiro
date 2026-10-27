@@ -23,6 +23,7 @@
     if (root) return root;
     root = document.createElement('div');
     root.id = 'mobileV2ToastRoot';
+    root.setAttribute('role', 'status');
     root.setAttribute('aria-live', 'polite');
     document.body.appendChild(root);
     return root;
@@ -35,7 +36,8 @@
     const action = options.actionLabel
       ? `<button type="button" class="mobile-v2-toast-action">${String(options.actionLabel)}</button>`
       : '';
-    toast.innerHTML = `<span class="mobile-v2-toast-check" aria-hidden="true">OK</span><span>${String(message || '')}</span>${action}`;
+    toast.innerHTML = `<span class="mobile-v2-toast-message"></span>${action}`;
+    toast.querySelector('.mobile-v2-toast-message').textContent = String(message || '');
     root.appendChild(toast);
 
     let actionTaken = false;
@@ -243,15 +245,20 @@
   }
 
   function closeSheet(sheet) {
+    if (sheet?.id === 'mobileV2OutflowSheet') return global.MobileV2OutflowForm?.requestDismiss();
+    if (sheet?.id === 'mobileV2PerfilSheet') return global.MobileV2PerfilSheet?.close();
+    if (sheet?.id === 'mobileV2FiltersSheet') return global.MobileV2FiltersSheet?.close();
+    if (sheet?.id === 'mobileV2DatePickerSheet') return global.MobileV2DatePicker?.close();
     sheet?.classList.remove('open');
   }
 
   function attachBottomSheetGestures(root = document) {
     root.querySelectorAll('.bottom-sheet:not([data-mobile-v2-gestures])').forEach((sheet) => {
       sheet.setAttribute('data-mobile-v2-gestures', '1');
+      if (sheet.id === 'mobileV2OutflowSheet') return;
       sheet.querySelector('.bottom-sheet-scrim')?.addEventListener('click', () => closeSheet(sheet));
       const panel = sheet.querySelector('.bottom-sheet-panel');
-      const grip = sheet.querySelector('.bottom-sheet-grip') || panel;
+      const grip = sheet.querySelector('.bottom-sheet-grip');
       if (!panel || !grip) return;
       let startY = 0;
       let deltaY = 0;

@@ -173,8 +173,10 @@
               <div class="m2-patr-actions">
                 <div class="m2-patr-action-row secondary">
                   <button type="button" onclick="MobileV2Patrimonio.openAccountUpdateActions('${accountId}')">Atualizar</button>
+                  <details class="m2-patr-secondary-actions"><summary>Mais ações</summary>
                   <button type="button" onclick="window.openPatrimonioAccountModal && window.openPatrimonioAccountModal('${accountId}')">Editar</button>
                   <button class="m2-patr-danger" type="button" onclick="window.deletePatrimonioAccount && window.deletePatrimonioAccount('${accountId}')">Excluir</button>
+                  </details>
                 </div>
               </div>
             </article>

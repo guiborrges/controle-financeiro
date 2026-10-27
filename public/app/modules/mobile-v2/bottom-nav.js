@@ -20,11 +20,11 @@
   function render(container, currentTab, onChange) {
     if (!container) return;
     container.innerHTML = `
-      <nav class="bottom-nav" role="tablist" aria-label="Navegação principal mobile">
+      <nav class="bottom-nav" aria-label="Navegação principal mobile">
         ${TABS.map((tab) => `
-          <button type="button" class="bottom-nav-item ${tab.key === currentTab ? 'active' : ''}" data-mobile-v2-tab="${tab.key}" aria-label="${tab.label}">
+          <button type="button" class="bottom-nav-item ${tab.key === currentTab ? 'active' : ''}" data-mobile-v2-tab="${tab.key}" aria-label="${tab.label}" ${tab.key === currentTab ? 'aria-current="page"' : ''}>
             <span class="nav-icon">${ICONS[tab.iconKey] || ''}</span>
-            <span class="nav-label">${tab.label}</span>
+            <span class="nav-label">${tab.key === 'dashboard' ? 'Painel' : tab.key === 'calendario' ? 'Agenda' : tab.label}</span>
           </button>
         `).join('')}
       </nav>

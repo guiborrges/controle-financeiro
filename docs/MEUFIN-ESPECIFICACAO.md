@@ -10,6 +10,39 @@ no Anexo A. Esse documento completo e a entrega independente do repositorio.
 
 ## Como interpretar
 
+### Complemento Mobile de 27/10/2026
+
+A apresentacao mobile conserva o azul MeuFin e Inter, com estilos limitados a
+`html.mobile-v2` e login em largura mobile. O cabecalho agrupa acoes secundarias
+em menu nativo details/summary. A barra inferior conserva cinco destinos e
+nomes acessiveis; Painel e Agenda sao rotulos curtos de Dashboard e Calendario.
+Os indicadores acomodam valores grandes sem alterar precisao ou sinais.
+
+Dashboard imprime o intervalo resolvido pelo contrato de periodos existente.
+O ranking mostra inicialmente cinco categorias, com expansao para todas e
+tabela integral; barras tem geometria real. A soma financeira usa todas as
+categorias, nao apenas as cinco visiveis. A distribuicao em categorias/metas
+fica recolhida; a lista de metas e prioridade. Historico agrupa meses por ano,
+preservando todos os registros. Nenhuma formula e modificada por isso.
+
+`modules/mobile-v2/sheet-accessibility.js` controla a pilha de sheets e modais
+legados abertos em MobileV2. O foco pertence a camada superior, com ciclos de
+Tab/ShiftTab, Esc, retorno ao acionador e fundo inerte. O z-index anterior e
+restaurado ao fechar. Confirmacoes de recorrencia entram nessa mesma pilha.
+Avisos globais sao espelhados como alertas no dialogo ativo para nao ficarem
+inacessiveis. Nao ha dependencia externa para essa coordenacao.
+
+O editor protege rascunhos ao sair por Esc, fundo ou Voltar; Cancelar explicito
+continua descartando. Arrastar conteudo nao fecha o formulario: o gesto fica
+na alca. Sucesso fecha somente apos confirmacao de persistencia; pending/retry
+e escolha de escopo de recorrencia continuam seguindo os comandos canonicos.
+Busca mobile utiliza `getUnifiedFilterRows` e nao consulta outro mes; a visao
+selecionada continua restringindo os itens apresentados. Datas e dinheiro nao
+recebem aproximacao textual. Emojis e caixa alta das rendas sao preservados.
+
+Validacao adicional: `npm run test:mobile-design`. Testes em browser emulado
+nao equivalem a teclado virtual, leitor de tela ou aparelho fisico homologado.
+
 ### Apresentacao aprovada em 27/10/2026
 
 O aplicativo carrega `product-design.css` depois dos demais estilos. Esse

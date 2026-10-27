@@ -11,6 +11,21 @@ formulas, exemplos e pacote-fonte sanitizado. Este guia e o mapa resumido.
 
 ## 1. Visao geral
 
+### Mobile: revisao visual de 27/10/2026
+
+MobileV2 usa os mesmos comandos e consultas financeiros. Os ajustes mobile em
+`product-design.css` ficam restritos a `html.mobile-v2`: periodo explicito,
+resumos adaptaveis, ranking com expansao, categorias/metas com distribuicao
+recolhida, duas trilhas de visoes/meios e historico agrupado por ano.
+`sheet-accessibility.js` coordena foco, fundo inerte e ordem de sheets e modais
+de confirmacao, preservando o z-index original ao fechar. Avisos sao espelhados
+como alertas no dialogo ativo. O modulo nao salva nem altera dados financeiros.
+Esc/toque externo/Voltar no editor solicitam confirmacao para descartar rascunho;
+salvar confirmado continua fechando, enquanto pending/retry mantem o contrato.
+Pesquisa mobile reaproveita `getUnifiedFilterRows` no mes atual, sem mudar a
+consulta financeira nem fazer aproximacao numerica. Testes adicionais:
+`npm run test:mobile-design`. Emulacao nao homologa aparelho/teclado fisico.
+
 ### Apresentacao visual vigente (27/10/2026)
 
 `public/app/product-design.css` e carregado por ultimo no aplicativo e concentra

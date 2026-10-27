@@ -30,6 +30,12 @@
     if (!target) return;
     const months = global.MobileV2Data?.getMonths ? global.MobileV2Data.getMonths() : (typeof global.getAllFinanceMonths === 'function' ? global.getAllFinanceMonths() : (global.data || []));
     const rows = [...months].map(summarizeMonth).reverse();
+    const years = new Map();
+    rows.forEach(row => {
+      const year = row.name.match(/\d{4}/)?.[0] || 'Outros meses';
+      if (!years.has(year)) years.set(year, []);
+      years.get(year).push(row);
+    });
     target.innerHTML = `
       <div class="m2-header m2-page-header">
         <div>
@@ -43,7 +49,10 @@
 
       <section class="m2-card">
         <h3 class="m2-card-title">Resumo mensal</h3>
-        ${rows.length ? rows.map((row) => `
+        ${rows.length ? Array.from(years, ([year, entries], index) => `
+          <details class="m2-history-year" ${index === 0 ? 'open' : ''}>
+          <summary>${escapeHtml(year)} <span>${entries.length} meses</span></summary>
+          ${entries.map((row) => `
           <article class="m2-recent-item m2-history-row-plain">
             <span>
               <p class="m2-row-title">${escapeHtml(row.name)}</p>
@@ -51,7 +60,7 @@
             </span>
             <span class="m2-row-amount ${row.result >= 0 ? 'positive' : 'negative'}">${formatMoney(row.result)}</span>
           </article>
-        `).join('') : '<p style="color:var(--text3);font-size:12px">Sem histórico disponível.</p>'}
+        `).join('')}</details>`).join('') : '<p style="color:var(--text3);font-size:12px">Sem histórico disponível.</p>'}
       </section>
     `;
 

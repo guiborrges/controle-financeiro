@@ -15,6 +15,7 @@
   let previousChartState = null;
   let chartAnimationFrame = 0;
   let customRange = null;
+  let showAllCategories = false;
 
   const { escapeHtml, formatMoney, categoryIcon: getCategorySymbol } = global.MobileV2Data;
 
@@ -148,7 +149,7 @@
     const rendas = months.map((m) => m.renda || 0);
     const gastos = months.map((m) => m.gastos || 0);
     const maxVal = Math.max(...rendas, ...gastos, 1) * 1.1;
-    ctx.font = '11px Arial';
+    ctx.font = '11px Inter, Arial';
     const ticks = [0, 0.5, 1].map(t => ({ t, label:formatChartAxisValue(maxVal * t) }));
     const PAD = { top:12, right:18, bottom:30, left:Math.ceil(Math.max(...ticks.map(tick => ctx.measureText(tick.label).width))) + 10 };
     const chartW = W - PAD.left - PAD.right;
@@ -158,7 +159,7 @@
     ctx.strokeStyle = theme.grid;
     ctx.lineWidth = 1;
     ctx.fillStyle = theme.text;
-    ctx.font = '11px Arial';
+    ctx.font = '11px Inter, Arial';
     ctx.textAlign = 'right';
     ticks.forEach(({ t, label }) => {
       const y = PAD.top + chartH * (1 - t);
@@ -180,11 +181,12 @@
       ctx.stroke();
     };
 
-    draw(months.map((m, i) => [xOf(i), yOf(m.renda || 0)]), '#2471A3');
-    draw(months.map((m, i) => [xOf(i), yOf(m.gastos || 0)]), '#E74C3C');
+    const tokens = getComputedStyle(document.documentElement);
+    draw(months.map((m, i) => [xOf(i), yOf(m.renda || 0)]), tokens.getPropertyValue('--green').trim() || '#176447');
+    draw(months.map((m, i) => [xOf(i), yOf(m.gastos || 0)]), tokens.getPropertyValue('--red').trim() || '#b53d36');
 
     ctx.fillStyle = theme.text;
-    ctx.font = '10px Arial';
+    ctx.font = '11px Inter, Arial';
     ctx.textAlign = 'center';
     const stride = Math.max(1, Math.ceil(months.length / Math.max(2, Math.floor(chartW / 36))));
     months.forEach((m, i) => {
@@ -473,9 +475,11 @@
 
       <div class="period-selector">
         ${PERIODS.map((period) => `
-          <button type="button" class="period-btn ${period.value === activePeriod ? 'active' : ''}" data-m2-period="${period.value}">${period.label}</button>
+          <button type="button" class="period-btn ${period.value === activePeriod ? 'active' : ''}" aria-pressed="${period.value === activePeriod}" data-m2-period="${period.value}">${period.label}</button>
         `).join('')}
       </div>
+
+      <p class="m2-period-context">${escapeHtml(months[0].label)}${months.length > 1 ? ` a ${escapeHtml(months[months.length - 1].label)}` : ''}</p>
 
       <section class="hero-card ${totalResult < 0 ? 'is-negative' : ''}">
         <div class="hero-result-label">RESULTADO ACUMULADO</div>
@@ -489,7 +493,8 @@
 
       <section class="dash-section">
         <div class="dash-section-header"><span>Evolução mensal</span></div>
-        <canvas id="mobileV2LineChart" class="mobile-v2-chart-canvas" role="img" aria-label="Evolução mensal" aria-describedby="mobile-line-data"></canvas>
+        ${!months.some(month => month.renda || month.gastos) ? '<p class="m2-empty">Sem movimentações financeiras neste período.</p>' : ''}
+        <canvas id="mobileV2LineChart" ${!months.some(month => month.renda || month.gastos) ? 'hidden' : ''} class="mobile-v2-chart-canvas" role="img" aria-label="Evolução mensal" aria-describedby="mobile-line-data"></canvas>
         ${global.ChartPresentation.table('mobile-line-data', 'Evolução mensal', ['Mês','Renda','Lançamentos','Resultado após metas'], months.map(month => [month.label, formatMoney(month.renda), formatMoney(month.gastos), formatMoney(month.resultado)]))}
         <div class="m2-line-legend" aria-label="Legenda do gráfico de evolução mensal">
           <span class="m2-line-legend-item">
@@ -516,7 +521,7 @@
               const pct = Math.round((category.value / total) * 100);
               const colors = global.buildDistinctPieColors(categories.length);
               return `
-                <button type="button" class="pie-legend-item" data-m2-cat="${escapeHtml(category.name)}">
+                <button type="button" class="pie-legend-item" ${idx >= 5 && !showAllCategories ? 'hidden' : ''} data-m2-cat="${escapeHtml(category.name)}">
                   <span class="pie-dot" style="background:${colors[idx % colors.length]}"></span>
                   <span class="pie-cat">${getCategorySymbol(category.name)} <span>${escapeHtml(category.name)}</span><span class="category-bar" aria-hidden="true"><span style="width:${pct}%;background:${colors[idx % colors.length]}"></span></span></span>
                   <span class="pie-category-value">${formatMoney(category.value)}<small class="pie-pct">${pct}%</small></span>
@@ -524,12 +529,19 @@
               `;
             }).join('')}
           </div>
+          ${categories.length > 5 ? `<button class="m2-chip-btn m2-category-expand" type="button" aria-expanded="${showAllCategories}" data-m2-expand-categories>${showAllCategories ? 'Mostrar resumo' : `Ver todas as ${categories.length} categorias`}</button>` : ''}
+          ${!categories.length ? '<p class="m2-empty">Sem valores por categoria neste período.</p>' : ''}
         </div>
         ${global.ChartPresentation.table('mobile-pie-data', 'Valores por categoria', ['Categoria','Valor'], categories.map(category => [category.name, formatMoney(category.value)]))}
       </section>
     `;
 
     bindPeriodButtons(target);
+    target.querySelector('[data-m2-expand-categories]')?.addEventListener('click', () => {
+      showAllCategories = !showAllCategories;
+      render(target);
+      target.querySelector('[data-m2-expand-categories]')?.focus({ preventScroll: true });
+    });
     target.querySelector('[data-m2-category-basis]')?.addEventListener('change', event => {
       categoryBasis = event.target.value === 'consumption' ? 'consumption' : 'commitments';
       render(target);
@@ -548,6 +560,7 @@
     });
     animateCharts(target, months, categories);
     observeCharts(target, months, categories);
+    global.MobileV2?.polishHeaders?.(target);
   }
 
   global.MobileV2HomeScreen = {

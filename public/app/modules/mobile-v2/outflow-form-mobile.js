@@ -3,6 +3,19 @@
   const { escapeHtml } = global.MobileV2Data;
   let submitting = false;
   let pendingSave = null;
+  let initialFormState = null;
+
+  function formState() {
+    return JSON.stringify(Array.from(document.querySelectorAll('#mobileV2OutflowFormBody input, #mobileV2OutflowFormBody select, #mobileV2OutflowFormBody textarea'))
+      .map(el => [el.id, el.value, el.checked]));
+  }
+
+  function requestDismiss() {
+    if (submitting) return false;
+    if (initialFormState !== null && formState() !== initialFormState && !global.confirm('Descartar as alterações deste lançamento?')) return false;
+    close();
+    return true;
+  }
   let returnFocus = null;
 
   const MODE_LABEL = {
@@ -137,11 +150,12 @@
     `;
 
     document.body.appendChild(root);
-    root.querySelector('.bottom-sheet-scrim')?.addEventListener('click', close);
+    root.querySelector('.bottom-sheet-scrim')?.addEventListener('click', requestDismiss);
     const panel = root.querySelector('.bottom-sheet-panel');
     let dragStartY = 0;
     let dragCurrentY = 0;
     panel?.addEventListener('touchstart', (event) => {
+      if (!event.target.closest('.bottom-sheet-grip')) { dragStartY = 0; return; }
       dragStartY = Number(event.touches?.[0]?.clientY || 0);
       dragCurrentY = dragStartY;
     }, { passive: true });
@@ -149,7 +163,7 @@
       dragCurrentY = Number(event.touches?.[0]?.clientY || dragStartY);
     }, { passive: true });
     panel?.addEventListener('touchend', () => {
-      if ((dragCurrentY - dragStartY) > 88) close();
+      if (dragStartY && (dragCurrentY - dragStartY) > 88) requestDismiss();
     });
     root.setAttribute('hidden', 'hidden');
     root.style.display = 'none';
@@ -261,8 +275,7 @@
     `;
 
     body.querySelector('#mobileV2OutflowBack')?.addEventListener('click', () => {
-      close();
-      global.MobileV2AddSheet?.open?.();
+      if (requestDismiss()) global.MobileV2AddSheet?.open?.();
     });
     body.querySelector('#mobileV2OutflowCancel')?.addEventListener('click', close);
     body.querySelector('#mobileV2OutflowSubmit')?.addEventListener('click', () => submitForm(mode));
@@ -414,6 +427,7 @@
   }
 
   function openInlineSheet({ title, subtitle, body, showBack = false, backLabel = 'Voltar', onBack = null, closeLabel = 'Fechar' }) {
+    initialFormState = null;
     global.MobileV2?.closeFabMenu?.({ instant: true });
     const sheet = ensureSheet();
     sheet?.classList.remove('m2-banking-sheet');
@@ -478,6 +492,7 @@
     sheet.setAttribute('data-mobile-v2-mode', mode);
     sheet.removeAttribute('data-mobile-v2-edit-id');
     renderForm(mode);
+    initialFormState = formState();
     sheet.style.display = '';
     sheet.removeAttribute('hidden');
     sheet.classList.add('open');
@@ -528,6 +543,7 @@
     if (submit) submit.textContent = 'Salvar';
     const title = document.querySelector('#mobileV2OutflowFormBody .form-title');
     if (title) title.textContent = 'Editar lançamento';
+    initialFormState = formState();
     sheet.style.display = '';
     sheet.removeAttribute('hidden');
     sheet.classList.add('open');
@@ -539,6 +555,7 @@
     if (submitting) return;
     const sheet = document.getElementById('mobileV2OutflowSheet');
     if (!sheet) return;
+    initialFormState = null;
     sheet.classList.remove('open');
     sheet.setAttribute('hidden', 'hidden');
     sheet.style.display = 'none';
@@ -561,6 +578,7 @@
     open,
     openEdit,
     close,
+    requestDismiss,
     closeInlineSheet: close,
     openInlineSheet,
     openIncomePicker

@@ -245,3 +245,158 @@ html.mobile-v2 .cal-month-title { font-size: 16px; font-weight: 600; letter-spac
     transition: none !important;
   }
 }
+
+/* Mobile presentation stays scoped: Desktop layouts and financial queries are unchanged. */
+@media (max-width: 900px) {
+  html.mobile-v2 {
+    --m2-analysis-surface: #eaf3f5;
+    --m2-selection-text: #245297;
+    --m2-space: 16px;
+  }
+  html.mobile-v2[data-theme="dark"] {
+    --m2-analysis-surface: #203033;
+    --m2-selection-text: #bfd7ff;
+  }
+  html.mobile-v2 [hidden] { display: none !important; }
+  html.mobile-v2 .mobile-v2-screen { padding-top: 20px; }
+  html.mobile-v2 .m2-header,
+  html.mobile-v2 .m2-page-header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin: 0 16px 20px; padding: 0;
+  }
+  html.mobile-v2 .m2-header > div:first-child { flex: 1 1 150px; min-width: 0; }
+  html.mobile-v2 .m2-page-header > div:first-child .m2-title { white-space: normal; }
+  html.mobile-v2 .m2-title { font-size: 22px; line-height: 1.25; }
+  html.mobile-v2 .m2-subtitle { font-size: 13px; line-height: 1.4; }
+  html.mobile-v2 .m2-header-actions { margin-left: auto; gap: 8px; }
+  html.mobile-v2 .m2-header-actions .m2-icon-btn,
+  html.mobile-v2 .m2-icon-btn { width: 44px; height: 44px; min-width: 44px; }
+  html.mobile-v2 .m2-header-menu { position: relative; }
+  html.mobile-v2 .m2-header-menu > summary { list-style: none; cursor: pointer; }
+  html.mobile-v2 .m2-header-menu > summary::-webkit-details-marker { display: none; }
+  html.mobile-v2 .m2-header-menu > div {
+    position: absolute; right: 0; top: 50px; z-index: 550; display: grid; gap: 8px;
+    min-width: 180px; padding: 8px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); box-shadow: var(--shadow-strong);
+  }
+  html.mobile-v2 .m2-header-menu > div button { width: 100%; justify-content: flex-start; gap: 10px; padding: 8px; }
+  html.mobile-v2 .m2-header-menu-label { font: 500 13px Inter, sans-serif; }
+  html.mobile-v2 .period-selector { gap: 4px; margin-bottom: 8px; }
+  html.mobile-v2 .period-btn, html.mobile-v2 .tab-pill,
+  html.mobile-v2 .m2-chip-btn { min-height: 44px; }
+  html.mobile-v2 .period-btn { min-width: 0; padding: 8px; flex: 1; }
+  html.mobile-v2 .m2-period-context { margin: 0 16px 16px; color: var(--text2); font-size: 13px; }
+  html.mobile-v2 .hero-card { background: var(--m2-analysis-surface) !important; margin-bottom: 20px; }
+  html.mobile-v2 .hero-result { font-size: 30px; margin: 8px 0 16px; }
+  html.mobile-v2 .hero-sub { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; font-size: 14px; }
+  html.mobile-v2 .hero-sub span { min-width: 0; overflow-wrap: anywhere; }
+  html.mobile-v2 .hero-result-label { text-transform: none; opacity: 1; }
+  html.mobile-v2 .dash-section { margin-bottom: 20px; }
+  html.mobile-v2 .dash-section-header { flex-wrap: wrap; font-size: 16px; gap: 12px; }
+  html.mobile-v2 .dash-section-header select { max-width: 100% !important; width: 100% !important; }
+  html.mobile-v2 .category-bar { display: block; height: 4px; width: 100%; }
+  html.mobile-v2 .category-bar > span { border-radius: 2px; }
+  html.mobile-v2 .pie-cat { font-size: 14px; }
+  html.mobile-v2 .pie-cat > span { display: block; }
+  html.mobile-v2 .pie-category-value { font-size: 14px; }
+  html.mobile-v2 .category-pie-details { order: 2; }
+  html.mobile-v2 .m2-category-expand { width: 100%; }
+  html.mobile-v2 .m2-line-legend-dot.is-income { background: var(--green); }
+  html.mobile-v2 .m2-line-legend-dot.is-expense { background: var(--red); }
+  html.mobile-v2 .m2-month-nav { margin: 0 16px 16px; }
+  html.mobile-v2 .m2-month-title { font-size: 18px; line-height: 1.3; text-align: center; }
+  html.mobile-v2 .m2-month-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; }
+  html.mobile-v2 .m2-mini-metric { min-width: 0; padding: 12px; text-align: left; }
+  html.mobile-v2 .m2-mini-label { font-size: 12px; line-height: 1.4; letter-spacing: 0; text-transform: none; }
+  html.mobile-v2 .m2-mini-value { display: block; min-width: 0; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; white-space: normal; }
+  html.mobile-v2 .m2-mini-metric:last-child { grid-column: 1 / -1; background: var(--m2-analysis-surface); }
+  html.mobile-v2 .m2-method-tabs { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  html.mobile-v2 .m2-month-search-label { display: block; margin: 12px 16px 6px; font-size: 12px; color: var(--text2); }
+  html.mobile-v2 .m2-method-tabs .tab-pill { background: var(--surface2); }
+  html.mobile-v2 .tab-pill.active, html.mobile-v2 .period-btn.active { background: var(--action); color: #fff; }
+  html.mobile-v2 .tab-pill { background: var(--surface); }
+  html.mobile-v2 .m2-tab-panel.active[data-tab-panel="gastos-metas"] { display: flex; flex-direction: column; gap: 16px; }
+  html.mobile-v2 .gm-list-card { order: 0; }
+  html.mobile-v2 .gm-summary-card { order: 1; padding: 16px; }
+  html.mobile-v2 .gm-summary-card > summary { cursor: pointer; font-size: 14px; font-weight: 500; }
+  html.mobile-v2 .gm-summary { margin-top: 16px; }
+  html.mobile-v2 .gm-legend { grid-template-columns: minmax(0, 1fr); }
+  html.mobile-v2 .gm-legend-name { white-space: normal; overflow-wrap: anywhere; font-size: 13px; }
+  html.mobile-v2 .gm-head { display: flex; flex-wrap: wrap; gap: 8px; }
+  html.mobile-v2 .gm-name { min-width: 0; white-space: normal; overflow-wrap: anywhere; font-size: 14px; }
+  html.mobile-v2 .gm-spent { margin-left: auto; white-space: normal; overflow-wrap: anywhere; }
+  html.mobile-v2 .gm-sub { font-size: 12px; line-height: 1.4; }
+  html.mobile-v2 .gm-edit, html.mobile-v2 .m2-icon-mini { min-width: 44px; min-height: 44px; border-radius: 8px; }
+  html.mobile-v2 .m-item-surface { gap: 10px; padding: 14px 16px; }
+  html.mobile-v2 .m-item-name { font-size: 14px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+  html.mobile-v2 .m2-virtual-item .m-item-name, html.mobile-v2 .m2-virtual-item .m-item-meta { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  html.mobile-v2 #mobileV2AllList .m2-virtual-item { top: 0; }
+  html.mobile-v2 .m-item-meta { font-size: 12px; line-height: 1.4; letter-spacing: 0; text-transform: none; }
+  html.mobile-v2 .m-item-value { font-size: 14px; line-height: 1.4; max-width: 48%; white-space: normal; overflow-wrap: anywhere; }
+  html.mobile-v2 .m-item-income .m-item-surface {
+    display: grid; grid-template-columns: 32px minmax(0, 1fr) 44px 44px; gap: 8px;
+  }
+  html.mobile-v2 .m-item-income .m-item-info { grid-column: 2 / -1; grid-row: 1; }
+  html.mobile-v2 .m-item-income .m-item-cat-icon { grid-column: 1; grid-row: 1; }
+  html.mobile-v2 .m-item-income .m-item-value { grid-column: 1 / 3; grid-row: 2; margin: 0; max-width: 100%; font-size: 16px; }
+  html.mobile-v2 .m-item-income button { grid-row: 2; }
+  html.mobile-v2 .m2-patr-account { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; margin: 0; }
+  html.mobile-v2 .m2-patr-actions { padding: 8px 16px 16px; }
+  html.mobile-v2 .m2-patr-summary-card { background: transparent; border: 0; border-radius: 0; padding: 12px 0; }
+  html.mobile-v2 .m2-patr-summary-label { font-size: 12px; letter-spacing: 0; text-transform: none; }
+  html.mobile-v2 .m2-patr-action-row.secondary { display: flex; align-items: flex-start; gap: 8px; }
+  html.mobile-v2 .m2-patr-secondary-actions { flex: 1; }
+  html.mobile-v2 .m2-patr-secondary-actions summary { min-height: 44px; padding: 12px; text-align: center; cursor: pointer; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+  html.mobile-v2 .m2-patr-secondary-actions button { display: block; width: 100%; margin-top: 8px; min-height: 44px; }
+  html.mobile-v2 .m2-history-year { border-top: 1px solid var(--border); }
+  html.mobile-v2 .m2-history-year > summary { padding: 16px; font-size: 16px; font-weight: 600; cursor: pointer; }
+  html.mobile-v2 .m2-history-year > summary span { margin-left: 12px; font-size: 12px; font-weight: 400; color: var(--text2); }
+  html.mobile-v2 .m2-settings-group, html.mobile-v2 .m2-settings-logout { border-radius: 8px; }
+  html.mobile-v2 .m2-settings-group-title { font-size: 12px; letter-spacing: 0; text-transform: none; }
+  html.mobile-v2 .m2-settings-copy small { font-size: 12px; line-height: 1.4; }
+  html.mobile-v2 .m2-settings-main-head h2, html.mobile-v2 .m2-settings-subview-head h2 { letter-spacing: 0; }
+  html.mobile-v2 .bottom-nav { grid-template-columns: .85fr .65fr 1.3fr 1.1fr .85fr; padding: 6px 4px max(6px, env(safe-area-inset-bottom, 0px)); }
+  html.mobile-v2 .bottom-nav-item { min-width: 0; min-height: 52px; }
+  html.mobile-v2 .bottom-nav-item .nav-label { font-size: 11px; line-height: 1.2; white-space: nowrap; }
+  html.mobile-v2 .bottom-nav-item.active { color: var(--m2-selection-text); background: var(--accent-light); }
+  html.mobile-v2 .bottom-sheet-panel { max-height: 92dvh; }
+  html.mobile-v2 body.mobile-v2-sheet-open #appStatus { display: none; }
+  html.mobile-v2 [data-mobile-dialog-status] { padding: 12px; margin: 12px 0; border: 1px solid var(--red); border-radius: 8px; background: var(--surface2); color: var(--text); }
+  html.mobile-v2 [data-mobile-dialog-status] p { margin: 0 0 8px; font-size: 14px; line-height: 1.4; }
+  html.mobile-v2 [data-mobile-dialog-status] button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); }
+  html.mobile-v2 .form-label, html.mobile-v2 .m2-field-label { font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+  html.mobile-v2 .form-input, html.mobile-v2 .form-input-value { min-height: 48px; height: 48px; font-size: 16px; border-radius: 8px; }
+  html.mobile-v2 .form-actions { position: sticky; bottom: 0; z-index: 3; background: var(--surface); padding: 16px 0; margin-top: 16px; border-top: 1px solid var(--border); }
+  html.mobile-v2 .form-actions button { border-radius: 8px; min-height: 48px; }
+  html.mobile-v2 .form-check-row { min-height: 44px; align-items: center; }
+  html.mobile-v2 .form-check-label { font-size: 14px; }
+  html.mobile-v2 .m2-empty-rich { background: transparent; border: 0; border-radius: 0; }
+  html.mobile-v2 .m2-calendar-summary-card { background: transparent; border: 0; border-radius: 0; padding: 12px 0; }
+  html.mobile-v2 .m2-calendar-summary-label { font-size: 12px; line-height: 1.4; text-transform: none; letter-spacing: 0; }
+  html.mobile-v2 .m2-calendar-summary-value { font-size: 14px; overflow-wrap: anywhere; }
+  html.mobile-v2 .m2-calendar-daily-chart { margin-top: 16px; }
+  html.mobile-v2 .mib-shell-panel { border-radius: 16px 16px 0 0; background: var(--surface); }
+  html.mobile-v2 .mib-shell-title { font-size: 22px; letter-spacing: 0; }
+  html.mobile-v2 .mib-group-name { font-size: 14px; }
+  html.mobile-v2 .m2-fab-menu.open .m2-fab-scrim { backdrop-filter: none; background: rgba(0,0,0,.4); }
+  html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action {
+    left: auto; right: 16px; width: min(260px, calc(100% - 32px)); min-height: 48px;
+    transform: none; border-radius: 8px; background: var(--surface); color: var(--text); font-weight: 500; letter-spacing: 0;
+  }
+  html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action.is-left { bottom: calc(252px + env(safe-area-inset-bottom, 0px)); }
+  html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action.is-top { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); }
+  html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action.is-right { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 360px) {
+  html.mobile-v2 .hero-sub { grid-template-columns: minmax(0, 1fr); }
+  html.mobile-v2 .m2-month-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-height: 500px) and (max-width: 900px) {
+  html.mobile-v2 .m2-subtitle { display: none; }
+  html.mobile-v2 .m2-header { margin-bottom: 12px; }
+  html.mobile-v2 .m2-month-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html.mobile-v2 .bottom-sheet-panel { max-height: 98dvh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-v2 *, html.mobile-v2 *::before, html.mobile-v2 *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}

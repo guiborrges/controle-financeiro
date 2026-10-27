@@ -20,7 +20,7 @@
   }
 
   function toggleRow(label, checked, action, iconName, detail = '') {
-    return `<button class="m2-settings-row m2-settings-toggle-row" type="button" data-profile-action="${escapeHtml(action)}">
+    return `<button class="m2-settings-row m2-settings-toggle-row" type="button" role="switch" aria-checked="${checked}" data-profile-action="${escapeHtml(action)}">
       <span class="m2-settings-icon" aria-hidden="true">${icon(iconName)}</span>
       <span class="m2-settings-copy"><strong>${escapeHtml(label)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}</span>
       <span class="m2-switch ${checked ? 'on' : ''}" aria-hidden="true"><span></span></span>
@@ -95,13 +95,14 @@
     root = document.createElement('div');
     root.id = 'mobileV2PerfilSheet';
     root.className = 'bottom-sheet m2-settings-sheet';
-    root.innerHTML = `<div class="bottom-sheet-scrim" aria-hidden="true"></div><div class="bottom-sheet-panel">
+    root.innerHTML = `<button class="bottom-sheet-scrim" type="button" aria-label="Fechar ajustes"></button><div class="bottom-sheet-panel" role="dialog" aria-modal="true" aria-label="Ajustes">
       <header class="m2-settings-main-head"><div><h2>Ajustes</h2><p>Conta, sistema e integrações</p></div><button class="m2-icon-btn" type="button" data-close-perfil aria-label="Fechar">&times;</button></header>
       <div class="m2-settings-body"></div></div>`;
     document.body.appendChild(root);
     root.setAttribute('hidden', 'hidden');
     root.style.display = 'none';
     root.querySelectorAll('[data-close-perfil]').forEach((el) => el.addEventListener('click', close));
+    root.querySelector('.bottom-sheet-scrim').addEventListener('click', close);
     root.querySelector('.bottom-sheet-panel')?.addEventListener('touchmove', (event) => event.stopPropagation(), { passive: true });
     return root;
   }

@@ -298,6 +298,30 @@
       if (!shouldShowFab) fab.classList.remove('open');
     }
     if (state.currentTab !== 'mes') closeFabMenu();
+    polishHeaders(root);
+  }
+
+  function polishHeaders(root) {
+    root.querySelectorAll('.m2-header-actions').forEach(actions => {
+      if (actions.children.length <= 2 || actions.querySelector('.m2-header-menu')) return;
+      const menu = document.createElement('details');
+      menu.className = 'm2-header-menu';
+      menu.innerHTML = `<summary class="m2-icon-btn" aria-label="Mais ações">${global.SystemIcons?.render('dots') || '...'}</summary><div></div>`;
+      const mount = menu.querySelector('div');
+      Array.from(actions.children).slice(1).forEach(child => {
+        const button = child.matches('button') ? child : child.querySelector('button');
+        if (button) {
+          const label = document.createElement('span'); label.className = 'm2-header-menu-label';
+          label.textContent = button.getAttribute('aria-label') || '';
+          button.appendChild(label);
+        }
+        mount.appendChild(child);
+      });
+      actions.appendChild(menu);
+      menu.addEventListener('keydown', event => {
+        if (event.key === 'Escape') { menu.open = false; menu.querySelector('summary').focus(); }
+      });
+    });
   }
 
   function renderBottomNav(root) {
@@ -386,6 +410,7 @@
     openInternetBanking,
     openUniversalSearch,
     closeFabMenu,
+    polishHeaders,
     setTab,
     isEnabled: () => state.enabled,
     version: MOBILE_MODULE_VERSION

@@ -17,7 +17,7 @@
   const monthCache = new Map();
   const virtualState = new WeakMap();
   let dataVersion = 0;
-  const VIRTUAL_ITEM_HEIGHT = 62;
+  const VIRTUAL_ITEM_HEIGHT = 112;
   const VIRTUAL_THRESHOLD = 80;
   const VIRTUAL_BUFFER = 10;
 
@@ -247,22 +247,24 @@
       .map((card) => ({
         key: `card:${String(card.id || '')}`,
         label: String(card.name || '').trim(),
-        shortLabel: String(card.name || '').trim().slice(0, 14)
+        shortLabel: String(card.name || '').trim()
       }));
     return `
       <div class="tab-scroll-shell">
-      <div class="tab-scroll" role="tablist" aria-label="Visões do mês">
+      <div class="tab-scroll" role="group" aria-label="Visões do mês">
         ${SUBTABS.map((tab) => `
-          <button type="button" class="tab-pill ${activeSubtab === tab.key ? 'active' : ''}" data-m2-subtab="${tab.key}">${escapeHtml(tab.label)}</button>
+          <button type="button" class="tab-pill ${activeSubtab === tab.key ? 'active' : ''}" aria-pressed="${activeSubtab === tab.key}" data-m2-subtab="${tab.key}">${escapeHtml(tab.label)}</button>
         `).join('')}
+      </div>
+      <div class="tab-scroll m2-method-tabs" role="group" aria-label="Cartões e meios de pagamento" ${['renda', 'gastos-metas', 'reembolsos'].includes(activeSubtab) ? 'hidden' : ''}>
         ${cardTabs.map((tab) => `
-          <button type="button" class="tab-pill tab-pill-card ${activeSubtab === tab.key ? 'active' : ''}" data-m2-subtab="${escapeHtml(tab.key)}" title="${escapeHtml(tab.label)}">
+          <button type="button" class="tab-pill tab-pill-card ${activeSubtab === tab.key ? 'active' : ''}" aria-pressed="${activeSubtab === tab.key}" data-m2-subtab="${escapeHtml(tab.key)}" title="${escapeHtml(tab.label)}">
             <span class="tab-pill-card-icon">${global.SystemIcons?.render ? global.SystemIcons.render('card') : '💳'}</span>
             <span>${escapeHtml(tab.shortLabel)}</span>
           </button>
         `).join('')}
         ${methodTabs.map((tab) => `
-          <button type="button" class="tab-pill ${activeSubtab === tab.key ? 'active' : ''}" data-m2-subtab="${tab.key}">${escapeHtml(tab.label)}</button>
+          <button type="button" class="tab-pill ${activeSubtab === tab.key ? 'active' : ''}" aria-pressed="${activeSubtab === tab.key}" data-m2-subtab="${tab.key}">${escapeHtml(tab.label)}</button>
         `).join('')}
       </div>
       </div>
@@ -577,7 +579,8 @@
 
     return `
       <div class="m2-tab-panel ${activeSubtab === 'gastos-metas' ? 'active' : ''}" data-tab-panel="gastos-metas">
-        <section class="m-list-card gm-summary-card">
+        <details class="m-list-card gm-summary-card">
+          <summary>Ver distribuição por categoria</summary>
           <div class="gm-summary">
             <canvas class="gm-pie-canvas" width="152" height="152" aria-label="Distribuição dos gastos por categoria"></canvas>
             <div class="gm-legend" aria-label="Legenda do gráfico de gastos por categoria">
@@ -590,7 +593,7 @@
               `).join('') : '<span class="gm-empty-legend">Sem gastos para comparar</span>'}
             </div>
           </div>
-        </section>
+        </details>
 
         <section class="m-list-card gm-list-card">
           <h3 class="m-list-title">Categorias</h3>
@@ -599,7 +602,7 @@
             const over = hasGoal && row.pct > 100;
             const width = hasGoal ? Math.min(Math.max(row.pct, row.spent > 0 ? 4 : 0), 100) : 0;
             const subtitle = hasGoal
-              ? `Meta: ${formatMoney(row.goal)} · ${row.pct}%`
+              ? `Meta: ${formatMoney(row.goal)} · ${row.pct}%${over ? ' · Limite ultrapassado' : ''}`
               : 'Sem meta definida';
             return `
               <div class="gm-row" data-action="open-category" data-category="${escapeHtml(row.category)}">
@@ -609,7 +612,7 @@
                     <span class="gm-name">${escapeHtml(row.category)}</span>
                     <span class="gm-spent ${over ? 'over' : ''}">${formatMoney(row.spent)}</span>
                   </div>
-                  <div class="gm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(hasGoal ? row.pct : width, 100)}">
+                  <div class="gm-bar" role="progressbar" aria-label="${escapeHtml(`Meta de gasto: ${row.category}`)}" aria-valuetext="${escapeHtml(subtitle)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(hasGoal ? row.pct : width, 100)}">
                     <span class="gm-bar-fill ${over ? 'over' : ''} ${hasGoal ? 'with-goal' : 'without-goal'}" style="width:${Math.min(width, 100)}%"></span>
                   </div>
                   <span class="gm-sub">${escapeHtml(subtitle)}</span>
@@ -741,7 +744,6 @@
     return `
       <div class="m2-tab-panel ${activeSubtab === 'todos' ? 'active' : ''}" data-tab-panel="todos">
         ${badgeCount ? `<div class="m2-filter-badge">${badgeCount} filtro ativo</div>` : ''}
-        <input id="mobileV2AllSearch" class="m2-search" type="search" placeholder="Buscar lançamentos..." value="${escapeHtml(searchValue)}">
         <section class="m-list-card ${allRows.length >= VIRTUAL_THRESHOLD ? 'm2-virtual-list-card' : ''}" id="mobileV2AllList" data-virtual-list="${allRows.length >= VIRTUAL_THRESHOLD ? '1' : '0'}">
           ${allRows.length ? allRows.map((row) => `
             <article class="m-item" data-outflow-id="${row.id}">
@@ -940,7 +942,6 @@
 
     const searchInput = target.querySelector('#mobileV2AllSearch');
     if (searchInput) {
-      const list = target.querySelector('#mobileV2AllList');
       const apply = () => {
         const term = String(searchInput.value || '').trim().toLowerCase();
         const monthId = String(month?.id || 'current');
@@ -948,9 +949,18 @@
         state.allSearch = searchInput.value || '';
         uiStateByMonth.set(monthId, state);
         activeFilters.search = searchInput.value || '';
-        list?.querySelectorAll('.m-item[data-outflow-id]').forEach((row) => {
-          row.style.display = !term || row.textContent.toLowerCase().includes(term) ? '' : 'none';
+        const matched = typeof global.getUnifiedFilterRows === 'function'
+          ? new Set(global.getUnifiedFilterRows(month, 'all', '', term).filter(row => row.kind === 'outflow').map(row => String(row.item.id))) : null;
+        target.querySelectorAll('.m-item[data-outflow-id]').forEach((row) => {
+          row.hidden = !!term && (matched ? !matched.has(row.getAttribute('data-outflow-id')) : !row.textContent.toLowerCase().includes(term));
         });
+        const virtualList = target.querySelector('#mobileV2AllList');
+        if (virtualList) virtualState.get(virtualList)?.update?.();
+        const message = target.querySelector('#mobileV2SearchStatus');
+        if (message) {
+          const count = target.querySelectorAll('.m2-tab-panel.active .m-item[data-outflow-id]:not([hidden])').length;
+          message.textContent = term ? `${count} lançamento(s) encontrado(s) nesta visão.` : '';
+        }
       };
       apply();
       searchInput.addEventListener('input', apply);
@@ -959,6 +969,13 @@
     target.querySelectorAll('.m-item').forEach((row) => attachSwipe(target, row));
 
     target.querySelectorAll('[data-action="edit"]').forEach((btn) => {
+      if (btn.tagName !== 'BUTTON') {
+        btn.setAttribute('role', 'button'); btn.tabIndex = 0;
+        btn.setAttribute('aria-label', `Editar lançamento: ${btn.querySelector('.m-item-name')?.textContent || ''}`);
+        btn.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); btn.click(); }
+        });
+      }
       btn.addEventListener('click', (event) => {
         const id = btn.getAttribute('data-id') || '';
         if (!id) return;
@@ -1146,14 +1163,17 @@
       virtualState.set(list, virtual);
       const update = () => {
         virtual.ticking = false;
+        const visibleItems = items.filter(item => !item.hidden);
+        spacer.style.height = `${visibleItems.length * VIRTUAL_ITEM_HEIGHT}px`;
         const viewport = list.closest('.mobile-v2-screen') || list;
         const viewportRect = viewport.getBoundingClientRect();
         const listRect = list.getBoundingClientRect();
         const scrollTop = Math.max(0, viewport.scrollTop - Math.max(0, listRect.top - viewportRect.top));
         const viewportHeight = viewport.clientHeight || 520;
         const start = Math.max(0, Math.floor(scrollTop / VIRTUAL_ITEM_HEIGHT) - VIRTUAL_BUFFER);
-        const end = Math.min(items.length - 1, Math.ceil((scrollTop + viewportHeight) / VIRTUAL_ITEM_HEIGHT) + VIRTUAL_BUFFER);
-        items.forEach((item, index) => {
+        const end = Math.min(visibleItems.length - 1, Math.ceil((scrollTop + viewportHeight) / VIRTUAL_ITEM_HEIGHT) + VIRTUAL_BUFFER);
+        items.filter(item => item.hidden).forEach(item => { item.style.display = 'none'; });
+        visibleItems.forEach((item, index) => {
           if (index < start || index > end) {
             item.style.display = 'none';
             return;
@@ -1162,6 +1182,7 @@
           item.style.transform = `translateY(${index * VIRTUAL_ITEM_HEIGHT}px)`;
         });
       };
+      virtual.update = update;
       const schedule = () => {
         if (virtual.ticking) return;
         virtual.ticking = true;
@@ -1212,6 +1233,7 @@
       ${renderPageHeader()}
       ${renderMonthNav(month)}
       ${renderSubtabs()}
+      ${['planejamento', 'todos'].includes(activeSubtab) || /^(card|method):/.test(activeSubtab) ? `<label class="m2-month-search-label" for="mobileV2AllSearch">Pesquisar neste mês e nesta visão</label><input id="mobileV2AllSearch" class="m2-search" type="search" aria-label="Buscar lançamentos neste mês e nesta visão" placeholder="Nome, valor ou data" value="${escapeHtml(activeFilters.search || '')}"><p id="mobileV2SearchStatus" class="m2-month-search-label" role="status"></p>` : ''}
       ${renderPlanejamento(month)}
       ${Array.isArray(month?.outflowCards) ? month.outflowCards.map((card) => renderCardTab(month, card?.id)).join('') : ''}
       ${getDirectMethodTabs(month).map((tab) => renderMethodTab(month, tab.method)).join('')}
@@ -1222,6 +1244,14 @@
     `;
 
     attachListeners(target, month);
+    global.MobileV2?.polishHeaders?.(target);
+    target.querySelectorAll('.tab-scroll').forEach(scroll => {
+      const selected = scroll.querySelector('.tab-pill.active');
+      if (selected) scroll.scrollLeft = selected.offsetLeft - scroll.offsetLeft - Math.max(0, (scroll.clientWidth - selected.offsetWidth) / 2);
+    });
+    target.querySelector('.gm-summary-card')?.addEventListener('toggle', event => {
+      if (event.currentTarget.open) drawGmPieChart(event.currentTarget);
+    });
     requestAnimationFrame(() => global.MesAtualNotifications?.renderNotificationBells?.());
     if (activeSubtab === 'gastos-metas') {
       requestAnimationFrame(() => {

@@ -81,7 +81,9 @@
       }
       const label = ensureIOSHapticSwitch();
       if (!label) return false;
+      const active = global.document.activeElement;
       label.click();
+      if (active?.isConnected && global.document.activeElement !== active) active.focus?.({ preventScroll: true });
       return true;
     } catch (error) {
       console.warn('[haptics] feedback indisponivel:', error?.message || error);
