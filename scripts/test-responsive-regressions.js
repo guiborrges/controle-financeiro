@@ -116,6 +116,26 @@ async function main(){
    assert.equal(await recent.evaluate(e=>e.open),true);
    await p.evaluate(()=>closeModal('modalUnifiedOutflow'));
   });
+  await check('Month picker follows both themes, fits narrow screens and selects months',async()=>{
+   fs.mkdirSync(path.resolve('output/month-picker-validation'),{recursive:true});
+   for(const dark of [false,true]){
+    await p.evaluate(dark=>toggleThemePreference(dark),dark);
+    for(const width of [1920,320]){
+     await p.setViewportSize({width,height:900});await settle(p);
+     await p.evaluate(()=>openMonthCalendar());await settle(p);
+     const colors=await p.locator('.month-calendar-card').evaluate(e=>{
+      const sample=document.createElement('div');sample.style.background='var(--surface)';e.append(sample);
+      const expected=getComputedStyle(sample).backgroundColor;sample.remove();
+      const r=e.getBoundingClientRect();return {actual:getComputedStyle(e).backgroundColor,expected,left:r.left,right:r.right,width:innerWidth};
+     });
+     assert.equal(colors.actual,colors.expected);
+     assert.ok(colors.left>=0&&colors.right<=colors.width);
+     await p.screenshot({path:path.resolve(`output/month-picker-validation/${dark?'dark':'light'}-${width}.png`)});
+     await p.locator('.month-calendar-cell').first().click();await settle(p);
+     assert.match(await p.locator('#monthPickerLabel').innerText(),/JANEIRO/);
+    }
+   }
+  });
   await p.context().close();
   const mobile=await open(true,'many');
   await check('Mobile loads after first entering its breakpoint and returns to Desktop',async()=>{

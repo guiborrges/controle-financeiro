@@ -114,6 +114,17 @@ html:not(.mobile-v2) .main { padding: 28px 32px 40px; }
 .sidebar-tools { padding: 12px; }
 .sidebar-tool-btn { background: var(--surface) !important; color: var(--text2) !important; border: 1px solid var(--border) !important; border-radius: 6px; }
 .month-picker-trigger { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
+.month-calendar-modal { width: min(280px, calc(100vw - 24px)); }
+:root .month-calendar-card { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-strong); }
+:root .month-calendar-yearbar { background: var(--surface); color: var(--text); border-bottom: 1px solid var(--border); padding: 12px; }
+.month-calendar-yearbar strong { font-family: inherit; font-weight: 600; letter-spacing: 0; }
+:root .month-calendar-arrow { width: 36px; height: 36px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
+:root .month-calendar-cell { min-height: 36px; background: transparent; color: var(--text2); border-radius: 6px; font-size: 12px; font-weight: 500; letter-spacing: 0; text-shadow: none; transition: none; }
+:root .month-calendar-cell:hover { background: var(--surface2); color: var(--text); transform: none; }
+:root .month-calendar-cell.is-current-real { color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
+:root .month-calendar-cell.is-selected { background: var(--action); color: #fff; box-shadow: none; }
+:root .month-calendar-actions .btn { padding: 8px 10px; background: transparent; color: var(--text2); border: 1px solid var(--border); font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+:root .month-calendar-actions .btn:hover { background: var(--surface2); color: var(--text); }
 .modal-bg { background: rgba(16, 20, 28, .42); backdrop-filter: none; }
 .modal { background: var(--surface) !important; color: var(--text); border: 1px solid var(--border) !important; border-radius: 12px; box-shadow: var(--shadow-strong); }
 .modal h3 { color: var(--text); letter-spacing: 0; font-family: inherit; font-size: 19px; font-weight: 600; }

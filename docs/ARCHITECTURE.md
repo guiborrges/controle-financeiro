@@ -16,6 +16,8 @@ formulas, exemplos e pacote-fonte sanitizado. Este guia e o mapa resumido.
 `public/app/product-design.css` e carregado por ultimo no aplicativo e concentra
 os tokens claro/escuro e os ajustes visuais compartilhados. Nao altera contratos
 de estado, calculos ou persistencia. Inter continua sendo a fonte da interface.
+O seletor de competencia tambem usa esses tokens, incluindo painel, ano,
+mes selecionado e acoes, sem alterar a janela de anos ou a selecao financeira.
 Dashboard usa grade fluida quando o layout e o padrao; um layout personalizado
 continua sendo aplicado, inclusive depois de concluir a organizacao. O botao
 Organizar painel somente exibe os controles de mover/redimensionar. O modo de
