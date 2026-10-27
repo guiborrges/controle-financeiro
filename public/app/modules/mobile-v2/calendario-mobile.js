@@ -295,6 +295,11 @@
           }).join('')}
         </div>
       </section>
+      ${typeof global.FinanceCalendarUtils?.getDayIntensityColor === 'function' ? `<div class="m2-calendar-legend" aria-label="Intensidade das saídas por dia">
+        <span>Menor saída</span>
+        ${[0, 0.25, 0.5, 0.75, 1].map((value) => `<span class="m2-calendar-legend-swatch" aria-hidden="true" style="--m2-day-tone:${escapeHtml(global.FinanceCalendarUtils.getDayIntensityColor(value))}"></span>`).join('')}
+        <span>Maior saída</span>
+      </div>` : ''}
       ${renderDailyChart(dayMap, selectedDay)}
       ${renderSelectedDay(month, selectedDay, dayMap)}
     `;

@@ -302,6 +302,21 @@
     `;
   }
 
+  function renderRowMetadata(row) {
+    const parts = [row.date, row.category];
+    const item = row.raw || {};
+    const total = Number(item.installmentsTotal || 1);
+    if (total > 1) parts.push(`Parcela ${Number(item.installmentIndex || 1)} de ${total}`);
+    else if (item.expenseRecurring === true || item.recurringSpend === true) parts.push('Recorrente');
+    return parts.filter(Boolean).map(escapeHtml).join(' · ');
+  }
+
+  function renderCardDue(month, card) {
+    const date = typeof global.getUnifiedCardPaymentDateLabelForFilters === 'function'
+      ? global.getUnifiedCardPaymentDateLabelForFilters(month, card) : '';
+    return date ? `<span class="m2-card-due">Vencimento: ${escapeHtml(date)}</span>` : '';
+  }
+
   function renderListCard(title, rows, options = {}) {
     const isReadonly = options.readonly === true;
     const sortedRows = sortViewsByDateDesc(rows);
@@ -315,7 +330,7 @@
               <div class="m-item-cat-icon">${row.icon || '•'}</div>
               <div class="m-item-info">
                 <span class="m-item-name">${escapeHtml(row.description)}</span>
-                <span class="m-item-meta">${escapeHtml(row.date)} · ${escapeHtml(row.category)}</span>
+                <span class="m-item-meta">${renderRowMetadata(row)}</span>
               </div>
               <span class="m-item-value">${formatMoney(row.amount)}</span>
             </div>
@@ -358,6 +373,7 @@
               <span class="m2-card-focus-copy">
                 <span>${escapeHtml(title)}</span>
                 <span class="m2-card-focus-total">${formatMoney(total)}</span>
+                ${renderCardDue(month, card)}
               </span>
               <button class="m2-icon-mini m2-card-focus-edit" type="button" data-action="edit-card-bill" data-card-id="${escapeHtml(cardId)}" aria-label="Editar fatura">✎</button>
             </span>
@@ -371,7 +387,7 @@
                 <div class="m-item-cat-icon">${row.icon || '•'}</div>
                 <div class="m-item-info">
                   <span class="m-item-name">${escapeHtml(row.description)}</span>
-                  <span class="m-item-meta">${escapeHtml(row.date)} · ${escapeHtml(row.category)}</span>
+                  <span class="m-item-meta">${renderRowMetadata(row)}</span>
                 </div>
                 <span class="m-item-value">${formatMoney(row.amount)}</span>
               </div>
@@ -428,6 +444,7 @@
               <span class="m2-card-focus-copy">
                 <span>${escapeHtml(String(card?.name || 'Cartão'))}</span>
                 <span class="m2-card-focus-total">${formatMoney(effectiveAmount)}</span>
+                ${renderCardDue(month, card)}
               </span>
             </span>
           </h3>
@@ -599,10 +616,10 @@
           <h3 class="m-list-title">Categorias</h3>
           ${goalRows.length ? goalRows.map((row) => {
             const hasGoal = row.goal > 0;
-            const over = hasGoal && row.pct > 100;
+            const over = hasGoal && Math.round(row.spent * 100) > Math.round(row.goal * 100);
             const width = hasGoal ? Math.min(Math.max(row.pct, row.spent > 0 ? 4 : 0), 100) : 0;
             const subtitle = hasGoal
-              ? `Meta: ${formatMoney(row.goal)} · ${row.pct}%${over ? ' · Limite ultrapassado' : ''}`
+              ? `Meta: ${formatMoney(row.goal)} · ${row.pct}% · ${over ? `Limite ultrapassado em ${formatMoney(row.spent - row.goal)}` : `Restante: ${formatMoney(row.goal - row.spent)}`}`
               : 'Sem meta definida';
             return `
               <div class="gm-row" data-action="open-category" data-category="${escapeHtml(row.category)}">

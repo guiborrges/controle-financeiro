@@ -11,7 +11,10 @@ test('internet banking mobile uses a dedicated tall shell closed explicitly by X
   const source = read('modules', 'mobile-v2', 'internet-banking-mobile.js');
   assert.match(source, /id = 'mobileV2InternetBankingSheet'/);
   assert.match(source, /data-mib-close/);
-  assert.match(source, /height:min\(94dvh,900px\)/);
+  const styles = read('modules', 'mobile-v2', 'styles', 'banking.css');
+  assert.match(styles, /height:min\(94dvh,900px\)/);
+  assert.match(styles, /html\.mobile-v2 \.mib-shell/);
+  assert.doesNotMatch(source, /injectMibStyles|mib-styles/);
   assert.doesNotMatch(source, /openInlineSheet\?\.\(\{\s*title: 'Internet Banking'/);
 });
 

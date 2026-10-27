@@ -5,7 +5,9 @@ Guia detalhado: [ARCHITECTURE.md](ARCHITECTURE.md). Indice: [README.md](README.m
 
 ## Produto e workspace
 
-Apresentacao vigente: `public/app/product-design.css`, carregado por ultimo,
+Apresentacao compartilhada: `public/app/product-design.css`, seguida de
+`modules/mobile-v2/styles/banking.css` (estrutura antes injetada) e
+`public/app/mobile-design.css` (acabamento mobile isolado),
 com superficies opacas, tokens claro/escuro e tipografia Inter. Dashboard tem
 modo Organizar painel, preserva layouts personalizados e mostra reservas em
 metas no resultado. Categorias priorizam ranking; pizza opcional. Copiar

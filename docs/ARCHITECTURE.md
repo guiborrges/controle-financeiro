@@ -14,7 +14,7 @@ formulas, exemplos e pacote-fonte sanitizado. Este guia e o mapa resumido.
 ### Mobile: revisao visual de 27/10/2026
 
 MobileV2 usa os mesmos comandos e consultas financeiros. Os ajustes mobile em
-`product-design.css` ficam restritos a `html.mobile-v2`: periodo explicito,
+`mobile-design.css` ficam restritos a `html.mobile-v2`: periodo explicito,
 resumos adaptaveis, ranking com expansao, categorias/metas com distribuicao
 recolhida, duas trilhas de visoes/meios e historico agrupado por ano.
 `sheet-accessibility.js` coordena foco, fundo inerte e ordem de sheets e modais
@@ -28,7 +28,7 @@ consulta financeira nem fazer aproximacao numerica. Testes adicionais:
 
 ### Apresentacao visual vigente (27/10/2026)
 
-`public/app/product-design.css` e carregado por ultimo no aplicativo e concentra
+`public/app/product-design.css` concentra
 os tokens claro/escuro e os ajustes visuais compartilhados. Nao altera contratos
 de estado, calculos ou persistencia. Inter continua sendo a fonte da interface.
 O seletor de competencia tambem usa esses tokens, incluindo painel, ano,

@@ -18,6 +18,11 @@ async function main() {
   const browser = await browserType.launch();
   const failures = [], errors = [];
   let passed = 0;
+  async function capture(page, name) {
+    if (!process.env.MEUFIN_DESIGN_OUTPUT) return;
+    fs.mkdirSync(process.env.MEUFIN_DESIGN_OUTPUT, { recursive: true });
+    await page.screenshot({ path: path.join(process.env.MEUFIN_DESIGN_OUTPUT, engine + '-' + name + '.png'), fullPage: true });
+  }
   async function check(name, run) {
     try { await run(); passed++; console.log('PASS ' + name); }
     catch (error) { failures.push({ name, message: error.message }); console.log('FAIL ' + name + ': ' + error.message); }
@@ -32,7 +37,12 @@ async function main() {
       if (url.origin !== fixture.origin) return route.abort();
       if (url.pathname === '/api/app/bootstrap') {
         const payload = await (await route.fetch()).json(); payload.appState = richState(kind);
-        if (kind === 'normal') payload.appState.finData.at(-1).outflows[3].description = 'Supermercado de teste';
+        if (kind === 'normal') {
+          const month = payload.appState.finData.at(-1);
+          month.outflows[3].description = 'Supermercado de teste';
+          month.outflows[11].installmentsTotal = 3;
+          month.outflows[11].installmentIndex = 1;
+        }
         return route.fulfill({ json: payload });
       }
       return route.continue();
@@ -47,6 +57,12 @@ async function main() {
   try {
     const p = await open('normal');
     const before = await p.evaluate(() => JSON.stringify(getAllFinanceMonths()));
+    await check('mobile presentation has a dedicated stylesheet after shared design', async () => {
+      assert.equal(await p.evaluate(() => {
+        const sheets = [...document.querySelectorAll('link[rel="stylesheet"]')].map(node => new URL(node.href).pathname);
+        return sheets.indexOf('/app-assets/mobile-design.css') > sheets.indexOf('/app-assets/product-design.css');
+      }), true);
+    });
     await check('320px heading does not intersect actions', async () => {
       assert.equal(await p.evaluate(() => {
         const title = document.querySelector('.mobile-v2-screen.active .m2-title');
@@ -68,6 +84,56 @@ async function main() {
       await p.evaluate(() => { MobileV2MesAtual.setSubtab('gastos-metas'); MobileV2.setTab('mes'); });
       assert.equal(await p.locator('.gm-summary-card').evaluate(e => e.tagName === 'DETAILS' && !e.open), true);
       assert.equal(await p.locator('.gm-name').first().evaluate(e => e.scrollWidth <= e.clientWidth + 1), true);
+    });
+    await check('category goals expose the remaining budget without changing totals', async () => {
+      const row = p.locator('.gm-row').filter({ has: p.locator('.gm-name', { hasText: /^CATEGORIA 1$/ }) });
+      assert.match(await row.locator('.gm-sub').innerText(), /Restante: R\$\s*140,00/);
+      await capture(p, 'goals');
+    });
+    await check('a one-cent goal overrun is not labeled as negative remaining budget', async () => {
+      const original = await p.evaluate(() => {
+        const month = getCurrentMonth(), item = month.outflows[1];
+        const snapshot = { amount: item.amount, goal: month.dailyGoals['CATEGORIA 1'] };
+        item.amount = 100.01; month.dailyGoals['CATEGORIA 1'] = 100;
+        MobileV2MesAtual.invalidateCache(); MobileV2.refresh(); return snapshot;
+      });
+      try {
+        const row = p.locator('.gm-row').filter({ has: p.locator('.gm-name', { hasText: /^CATEGORIA 1$/ }) });
+        assert.match(await row.locator('.gm-sub').innerText(), /Limite ultrapassado em R\$\s*0,01/);
+      } finally {
+        await p.evaluate(value => {
+          const month = getCurrentMonth(); month.outflows[1].amount = value.amount;
+          month.dailyGoals['CATEGORIA 1'] = value.goal; MobileV2MesAtual.invalidateCache(); MobileV2.refresh();
+        }, original);
+      }
+    });
+    await check('card detail exposes canonical due date and installment metadata', async () => {
+      await p.locator('[data-m2-subtab="planejamento"]').click();
+      await p.locator('[data-m2-subtab="card:audit-card"]').click();
+      assert.equal(await p.locator('[data-tab-panel="card:audit-card"]').isVisible(), true);
+      assert.match(await p.locator('[data-tab-panel="card:audit-card"] .m2-card-due').innerText(), /Vencimento: 10\/11\/26/);
+      assert.match(await p.locator('[data-tab-panel="card:audit-card"] .m-item-meta').innerText(), /Parcela 1 de 3/);
+      await capture(p, 'card');
+      await p.evaluate(() => MobileV2MesAtual.setSubtab('gastos-metas'));
+    });
+    await check('calendar explains intensity and preserves selected day', async () => {
+      await p.evaluate(() => MobileV2.setTab('calendario'));
+      assert.match(await p.locator('.m2-calendar-legend').innerText(), /Menor saída[\s\S]*Maior saída/);
+      await p.locator('[data-cal-day="12"]').click();
+      assert.equal(await p.locator('[data-cal-day="12"]').getAttribute('aria-pressed'), 'true');
+      await capture(p, 'calendar');
+      for (const dark of [true, false]) {
+        await p.evaluate(value => toggleThemePreference(value), dark);
+        assert.equal(await p.evaluate(() => {
+          const cell = document.querySelector('.cal-day.has-items:not(.selected)');
+          const swatch = document.querySelector('.m2-calendar-legend-swatch');
+          const previous = swatch.style.getPropertyValue('--m2-day-tone');
+          swatch.style.setProperty('--m2-day-tone', cell.style.getPropertyValue('--m2-day-tone'));
+          const matches = getComputedStyle(cell).backgroundColor === getComputedStyle(swatch).backgroundColor;
+          swatch.style.setProperty('--m2-day-tone', previous); return matches;
+        }), true);
+      }
+      await p.evaluate(() => { MobileV2MesAtual.setSubtab('gastos-metas'); MobileV2.setTab('mes'); });
     });
     await check('income rows leave usable room for names and values', async () => {
       await p.locator('[data-m2-subtab="renda"]').click();
@@ -164,8 +230,81 @@ async function main() {
     await check('layout-only interactions preserve financial state', async () => {
       assert.equal(await p.evaluate(() => JSON.stringify(getAllFinanceMonths())), before);
     });
+    await p.route('**/api/pluggy/connection', route => route.fulfill({ json: { connected: true } }));
+    await p.evaluate(() => import('/app-assets/modules/mobile-v2/internet-banking-mobile.js'));
+    await p.evaluate(() => {
+      window.__originalPluggy = window.PluggyBanking;
+      const group = { accountId: 'synthetic', accountName: 'Cartao de teste', accountType: 'CREDIT', pendingCount: 1,
+        totalPending: 42, rows: [{ id: 'synthetic-tx', description: 'Compra de teste', category: 'LAZER', amount: 42, date: '27/10/26' }] };
+      window.__bankSnapshot = { views: { credit: [group], bank: [] } };
+      window.PluggyBanking = {
+        getMobileSnapshot: async () => window.__bankSnapshot,
+        addOne: () => new Promise(resolve => { window.__resolveBankSave = resolve; }), updateField: () => {}
+      };
+    });
+    await check('banking names fields, exposes destination and uses static scoped CSS', async () => {
+      await p.evaluate(() => MobileV2InternetBanking.open());
+      await p.locator('.mib-group-header').click();
+      assert.equal(await p.locator('.mib-group-header').getAttribute('aria-expanded'), 'true');
+      assert.match(await p.locator('.mib-destination').innerText({ timeout: 1000 }), /outubro.*2026/i);
+      assert.equal(await p.locator('.mib-select[data-field="category"]').getAttribute('aria-label'), 'Categoria');
+      assert.doesNotMatch(await p.locator('.mib-select[data-field="category"]').innerText(), /fun LAZER/);
+      assert.equal(await p.locator('#mib-styles').count(), 0);
+      await capture(p, 'banking');
+    });
+    await check('banking does not announce success before confirmed save', async () => {
+      await p.locator('.mib-btn-ok').click();
+      assert.equal(await p.locator('.mib-btn-ok').isDisabled(), true);
+      await p.evaluate(() => window.__resolveBankSave({ status: 'pending' }));
+      assert.match(await p.locator('[data-mib-feedback]').innerText({ timeout: 1000 }), /não confirmado/i);
+      await p.waitForFunction(() => !document.querySelector('.mib-btn-ok').disabled);
+      await p.locator('.mib-btn-ok').click();
+      await p.evaluate(() => { window.__bankSnapshot.views.credit = []; window.__resolveBankSave({ status: 'saved' }); });
+      await p.waitForFunction(() => document.querySelector('[data-mib-feedback]')?.textContent.includes('adicionado'));
+      assert.match(await p.locator('[data-mib-feedback]').innerText(), /adicionado/);
+    });
+    await check('banking reconciles a confirmed save after closing and reopening', async () => {
+      await p.evaluate(async () => {
+        window.__bankSnapshot.views.credit = [{ accountId: 'synthetic', accountName: 'Cartao de teste', accountType: 'CREDIT', pendingCount: 1,
+          totalPending: 42, rows: [{ id: 'synthetic-tx-2', description: 'Outra compra', category: 'LAZER', amount: 42 }] }];
+        await MobileV2InternetBanking.open();
+      });
+      await p.locator('.mib-btn-ok').click();
+      await p.evaluate(async () => { MobileV2InternetBanking.close(); await MobileV2InternetBanking.open(); });
+      assert.equal(await p.locator('.mib-btn-ok').isDisabled(), true);
+      await p.evaluate(() => { window.__bankSnapshot.views.credit = []; window.__resolveBankSave({ status: 'saved' }); });
+      await p.locator('.mib-btn-ok').waitFor({ state: 'detached' });
+      assert.equal(await p.locator('#mobileV2InternetBankingMount').getAttribute('aria-busy'), 'false');
+    });
+    await check('banking network failure is recoverable without pretending it is disconnected', async () => {
+      await p.route('**/api/pluggy/connection', route => route.fulfill({ status: 503, json: {} }));
+      await p.evaluate(() => MobileV2InternetBanking.open());
+      assert.equal(await p.locator('[data-mib-retry]').isVisible(), true);
+      assert.equal(await p.locator('#mobileV2ConnectBanking').count(), 0);
+      await p.unroute('**/api/pluggy/connection');
+      await p.route('**/api/pluggy/connection', route => route.fulfill({ json: { connected: true } }));
+      await p.locator('[data-mib-retry]').click();
+      await p.locator('.mib-destination').waitFor();
+      assert.equal(await p.locator('[data-mib-retry]').count(), 0);
+    });
+    await check('late banking connection response cannot reopen a closed sheet', async () => {
+      let release, requested;
+      const started = new Promise(resolve => { requested = resolve; });
+      const gate = new Promise(resolve => { release = resolve; });
+      await p.route('**/api/pluggy/connection', async route => {
+        requested(); await gate; await route.fulfill({ json: { connected: true } });
+      });
+      await p.evaluate(() => { window.__openingBank = MobileV2InternetBanking.open(); });
+      await started;
+      await p.evaluate(() => MobileV2InternetBanking.close());
+      release();
+      await p.evaluate(() => window.__openingBank);
+      assert.equal(await p.locator('#mobileV2InternetBankingSheet').isVisible(), false);
+    });
+    await p.evaluate(() => { MobileV2InternetBanking.close(); window.PluggyBanking = window.__originalPluggy; });
+    const recurring = await open('normal');
     await check('recurring mobile edit supports cancelling scope then confirmed save', async () => {
-      await p.evaluate(() => {
+      await recurring.evaluate(() => {
         MobileV2.setTab('mes'); save = async () => true;
         const month = getCurrentMonth();
         const item = normalizeUnifiedOutflowItem({ id: 'design-recurring', description: 'Recorrente ficticio',
@@ -173,17 +312,19 @@ async function main() {
           outputKind: 'method', outputMethod: 'boleto', expenseRecurring: true, recurringGroupId: 'design-rec-group' });
         month.outflows.push(item); MobileV2OutflowForm.openEdit(item);
       });
-      await p.locator('#mobileV2OutflowAmount').fill('40,00');
-      await p.locator('#mobileV2OutflowSubmit').click();
-      await p.locator('#modalRecurringChangeScope').waitFor({ state: 'visible' });
-      await p.locator('#modalRecurringChangeScope').getByRole('button', { name: 'Cancelar', exact: true }).click();
-      await p.waitForFunction(() => !document.getElementById('mobileV2OutflowSubmit').disabled);
-      assert.equal(await p.evaluate(() => getCurrentMonth().outflows.find(item => item.id === 'design-recurring').amount), 30);
-      await p.locator('#mobileV2OutflowSubmit').click();
-      await p.locator('#modalRecurringChangeScope').getByRole('button', { name: 'Alterar apenas este mês', exact: true }).click();
-      await p.locator('#mobileV2OutflowSheet').waitFor({ state: 'hidden' });
-      assert.equal(await p.evaluate(() => getCurrentMonth().outflows.find(item => item.id === 'design-recurring').amount), 40);
+      await recurring.locator('#mobileV2OutflowAmount').fill('40,00');
+      await recurring.locator('#mobileV2OutflowSubmit').click();
+      await recurring.locator('#modalRecurringChangeScope').waitFor({ state: 'visible' });
+      await recurring.locator('#modalRecurringChangeScope').getByRole('button', { name: 'Cancelar', exact: true }).click();
+      await recurring.waitForFunction(() => !document.getElementById('mobileV2OutflowSubmit').disabled);
+      assert.equal(await recurring.evaluate(() => getCurrentMonth().outflows.find(item => item.id === 'design-recurring').amount), 30);
+      await recurring.locator('#mobileV2OutflowSubmit').click();
+      await recurring.locator('#modalRecurringChangeScope').getByRole('button', { name: 'Alterar apenas este mês', exact: true }).click();
+      await recurring.locator('#mobileV2OutflowSheet').waitFor({ state: 'hidden' });
+      await recurring.waitForFunction(() => getCurrentMonth().outflows.find(item => item.id === 'design-recurring').amount === 40);
+      assert.equal(await recurring.evaluate(() => getCurrentMonth().outflows.find(item => item.id === 'design-recurring').amount), 40);
     });
+    await recurring.context().close();
     await p.context().close();
     const extreme = await open('many');
     await check('extreme monthly values fit their own metric', async () => {

@@ -45,11 +45,23 @@ nao equivalem a teclado virtual, leitor de tela ou aparelho fisico homologado.
 
 ### Apresentacao aprovada em 27/10/2026
 
-O aplicativo carrega `product-design.css` depois dos demais estilos. Esse
+O aplicativo carrega `product-design.css` depois dos estilos base. Esse
 arquivo concentra tokens de cor claro/escuro, superficies opacas, bordas,
 tipografia Inter e alinhamento tabular de valores. Azul identifica acoes
 principais nas duas apresentacoes. Emojis de categoria e caixa alta dos nomes
 de renda fora da edicao continuam preservados.
+
+Depois carregam `modules/mobile-v2/styles/banking.css`, com estrutura estatica
+do Internet Banking, e `mobile-design.css`, responsavel pelo acabamento mobile.
+Ambos limitam as regras a `html.mobile-v2` e largura maxima de 900 px; abrir o
+banking nao injeta mais CSS nem altera estilos de outras telas.
+Cartoes mostram vencimento calculado pelo helper canonico e parcela/recorrencia
+nos metadados. Metas mostram saldo restante ou excedido sem gravar novo campo.
+A legenda do calendario usa a mesma funcao de intensidade dos dias.
+Internet Banking informa a competencia de destino, nomeia selects e bloqueia
+acoes concorrentes durante importacao. `saved` confirma sucesso; outros estados
+nao confirmam. Falha ao atualizar a lista depois de `saved` nao anula o sucesso.
+Falha de conexao/carregamento oferece nova tentativa; nao vira desconexao falsa.
 
 Dashboard usa grade fluida no layout padrao. Quando ha coordenadas/dimensoes
 personalizadas, elas continuam sendo aplicadas na leitura, nao so na edicao.
