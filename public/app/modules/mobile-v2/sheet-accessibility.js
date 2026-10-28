@@ -1,12 +1,13 @@
 (function initMobileSheetAccessibility(global) {
   'use strict';
-  const selector = '.bottom-sheet.open:not([hidden]), .m2-onboarding-layer.open:not([hidden]), #mobileV2InternetBankingSheet:not([hidden]), .modal-bg.open';
+  const selector = '.bottom-sheet.open:not([hidden]), .m2-onboarding-layer.open:not([hidden]), #mobileV2InternetBankingSheet:not([hidden]), .modal-bg.open, #modalUniversalSearch';
   const panelSelector = '.bottom-sheet-panel, .m2-onboarding-panel, .mib-shell-panel, .modal';
   const focusable = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])';
   const opened = new Map();
   const previousInert = new Map();
   let current = null;
   let scheduled = false;
+  let lastOutsideFocus = document.activeElement;
 
   function controls(panel) {
     return Array.from(panel.querySelectorAll(focusable)).filter(el => el.getClientRects().length && !el.closest('[hidden], [inert]'));
@@ -15,6 +16,16 @@
   function restoreBackground() {
     previousInert.forEach((value, el) => { el.inert = value; });
     previousInert.clear();
+  }
+
+  function resolveInvoker(node) {
+    const available = candidate => candidate?.isConnected && candidate.getClientRects().length && !candidate.closest('[inert]');
+    if (available(node)) return node;
+    const byId = node?.id ? document.getElementById(node.id) : null;
+    if (available(byId)) return byId;
+    const label = node?.getAttribute?.('aria-label');
+    return label ? Array.from(document.querySelectorAll('[aria-label]'))
+      .find(candidate => candidate.getAttribute('aria-label') === label && available(candidate)) : null;
   }
 
   function sync() {
@@ -27,7 +38,10 @@
       if (!layers.includes(layer)) { returnTo = entry.invoker; layer.style.zIndex = entry.zIndex; opened.delete(layer); }
     });
     layers.forEach(layer => {
-      if (!opened.has(layer)) opened.set(layer, { invoker: document.activeElement, zIndex: layer.style.zIndex });
+      if (!opened.has(layer)) opened.set(layer, {
+        invoker: layer.contains(document.activeElement) ? lastOutsideFocus : document.activeElement,
+        zIndex: layer.style.zIndex
+      });
     });
     Array.from(opened.keys()).forEach((layer, index) => {
       const zIndex = String(2000 + index * 10);
@@ -73,8 +87,8 @@
         }
         if (local.firstElementChild.textContent !== text) local.firstElementChild.textContent = text;
       } else if (local) local.remove();
-    } else if (returnTo?.isConnected && !returnTo.closest('[inert]')) {
-      returnTo.focus({ preventScroll: true });
+    } else {
+      resolveInvoker(returnTo)?.focus({ preventScroll: true });
     }
     if (document.body.classList.contains('mobile-v2-sheet-open') !== (layers.length > 0)) {
       document.body.classList.toggle('mobile-v2-sheet-open', layers.length > 0);
@@ -93,6 +107,7 @@
     if (event.key === 'Escape') {
       event.preventDefault(); event.stopImmediatePropagation();
       if (current.id === 'mobileV2OutflowSheet') { global.MobileV2OutflowForm?.requestDismiss(); return; }
+      if (current.id === 'modalUniversalSearch') { global.UniversalSearch?.close(); return; }
       if (current.matches('.modal-bg')) {
         const cancel = Array.from(current.querySelectorAll('button')).find(button => /^(cancelar|fechar|não|nao)$/i.test(button.textContent.trim()));
         if (cancel) cancel.click(); else global.closeModal(current.id);
@@ -109,6 +124,7 @@
     }
   }, true);
   document.addEventListener('focusin', event => {
+    if (!current && !event.target.closest(selector)) lastOutsideFocus = event.target;
     const panel = current?.querySelector('[role="dialog"]');
     if (panel && !current.contains(event.target)) (controls(panel)[0] || panel).focus({ preventScroll: true });
   });

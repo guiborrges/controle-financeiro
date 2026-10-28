@@ -386,7 +386,7 @@
           if (await reconcileReopenedImport(result, revision)) return;
           if (result?.status !== 'saved') {
             if (result?.savedCount) await refresh(false);
-            feedback('Salvamento não confirmado para todos os itens. Confira as pendências antes de tentar novamente.', true);
+            feedback(`${Number(result?.savedCount || 0)} lançamento(s) confirmado(s). Salvamento não confirmado para os demais itens. Confira as pendências antes de tentar novamente.`, true);
             return;
           }
           await refreshAfterSave('Lançamentos adicionados com sucesso.');
@@ -430,8 +430,20 @@
           }
         });
         rowNode.querySelector('[data-action="x"]')?.addEventListener('click', async () => {
-          global.PluggyBanking.dismiss(accountId, txId);
-          await refresh(false);
+          if (importBusy) return;
+          const revision = openingRevision;
+          setImportBusy(true); feedback('Ignorando lançamento...');
+          try {
+            await global.PluggyBanking.dismiss(accountId, txId);
+            if (revision !== openingRevision) {
+              if (!ensureShell().hidden) await refresh(false);
+              return;
+            }
+            await refreshAfterSave('Lançamento ignorado da revisão.');
+          } catch {
+            if (revision === openingRevision) feedback('Não foi possível ignorar o lançamento. Tente novamente.', true);
+            global.triggerHapticFeedback?.('error');
+          } finally { setImportBusy(false); }
         });
       });
     });

@@ -178,6 +178,10 @@
       root.querySelectorAll('[data-m2-profile]').forEach((input) => { payload[input.dataset.m2Profile] = input.value; });
       payload.avatarDataUrl = editedAvatar;
       const status = root.querySelector('.m2-settings-status');
+      const button = root.querySelector('[data-save-profile]');
+      if (button.disabled) return;
+      button.disabled = true;
+      status.setAttribute('role', 'status'); status.textContent = 'Salvando perfil...';
       try {
         const response = await fetch('/api/profile', { method: 'PUT', credentials: 'same-origin', headers: global.getCsrfHeaders?.({ 'Content-Type': 'application/json', Accept: 'application/json' }) || { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const result = await response.json().catch(() => ({}));
@@ -186,10 +190,13 @@
         global.__APP_BOOTSTRAP__ = { ...(global.__APP_BOOTSTRAP__ || {}), profile: profileResult, session: { ...(getSessionSnapshot()), displayName: profileResult.displayName || payload.displayName, email: profileResult.email || payload.email } };
         if (status) status.textContent = 'Perfil atualizado.';
         global.triggerHapticFeedback?.('success');
-        renderHome(root);
+        if (button.isConnected) renderHome(root);
       } catch (error) {
+        status?.setAttribute('role', 'alert');
         if (status) status.textContent = error.message;
         global.triggerHapticFeedback?.('error');
+      } finally {
+        button.disabled = false;
       }
     });
   }

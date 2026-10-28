@@ -63,6 +63,21 @@ acoes concorrentes durante importacao. `saved` confirma sucesso; outros estados
 nao confirmam. Falha ao atualizar a lista depois de `saved` nao anula o sucesso.
 Falha de conexao/carregamento oferece nova tentativa; nao vira desconexao falsa.
 
+Finalizacao de 28/10/2026: a busca Mobile guarda search/tag/kind por competencia
+e conserva o limite da visao/metodo. Limpar filtros nao troca mes ou cartao.
+O sheet de filtros chama MobileV2MesAtual.setFilters, nao o filtro Desktop.
+Renda recebida soma registros incluidos e pagos; pendente e esperado menos
+recebido. Reembolsos usam os grupos canonicos, excluem titular e separam linhas
+pagas e pendentes, sem registrar receita nova. Somatorios exibidos usam centavos.
+Editores de meta/fatura aguardam save(true)===true para fechar. Pending bloqueia
+o campo ja aplicado; retry chama flushServerStorage, sem reaplicar a alteracao.
+Fechamento durante operacao e resultado tardio de outro editor sao protegidos.
+Ajuda inicial cancela timers antigos; busca universal entra na pilha modal;
+notificacoes preservam foco ao reconstruir conteudo. Toasts usam texto literal.
+Graficos ignoram interpolacao em reduced-motion e exportam com tokens do tema.
+Teste complementar: npm run test:mobile-completion. Validacao fisica continua
+nao executada; a matriz final registra essa limitacao explicitamente.
+
 Dashboard usa grade fluida no layout padrao. Quando ha coordenadas/dimensoes
 personalizadas, elas continuam sendo aplicadas na leitura, nao so na edicao.
 Organizar painel alterna um estado temporario que mostra alcas e controles;

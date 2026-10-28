@@ -138,10 +138,17 @@
   }
 
   let popoverOpen = false;
+  let popoverInvoker = null;
+  let openPage = '';
 
-  function closeNotificationsPopover() {
+  function closeNotificationsPopover(restoreFocus = false) {
     popoverOpen = false;
-    document.querySelectorAll('.top-notifications').forEach(wrapper => wrapper.classList.remove('is-open'));
+    openPage = '';
+    document.querySelectorAll('.top-notifications').forEach(wrapper => {
+      wrapper.classList.remove('is-open');
+      wrapper.querySelector('.top-bell-btn')?.setAttribute('aria-expanded', 'false');
+    });
+    if (restoreFocus && popoverInvoker?.isConnected) popoverInvoker.focus();
   }
 
   function positionNotificationsPopover(wrapper) {
@@ -173,7 +180,7 @@
     const body = items.length
       ? items.map(item => `
         <div class="notification-item">
-          <button class="notification-dismiss-btn" type="button" onclick="dismissNotificationItem('${String(item.id || '').replace(/'/g, "\\'")}')" title="Remover notificação">×</button>
+          <button class="notification-dismiss-btn" type="button" data-dismiss-notification="${global.escapeHtml?.(item.id) || ''}" aria-label="Remover notificação" title="Remover notificação">×</button>
           <div class="notification-item-title">
             <span>${global.escapeHtml?.(item.title) || ''}</span>
             <span>${global.fmt?.(item.amount) || item.amount}</span>
@@ -186,6 +193,7 @@
       <div class="notification-popover-head">
         <div class="notification-popover-title">Pagamentos e entradas de hoje</div>
         <div class="notification-popover-day">${global.escapeHtml?.(todayLabel) || todayLabel}</div>
+        <button type="button" data-close-notifications aria-label="Fechar notificações">×</button>
       </div>
       ${body}
     `;
@@ -196,6 +204,9 @@
     const todayKey = getTodayDayKey();
     const showBadge = notifications.length > 0 && getSeenDayKey() !== todayKey;
     document.querySelectorAll('.top-notifications').forEach(wrapper => {
+      if (popoverOpen && openPage && wrapper.dataset.pageNotifications === openPage) {
+        wrapper.classList.add('is-open'); popoverInvoker = wrapper.querySelector('.top-bell-btn');
+      }
       const badge = wrapper.querySelector('[data-notification-badge]');
       const popover = wrapper.querySelector('[data-notification-popover]');
       if (badge) {
@@ -203,8 +214,23 @@
         badge.style.display = showBadge ? '' : 'none';
       }
       if (popover) {
+        const focused = popover.contains(document.activeElement);
+        const focusedDismissId = document.activeElement?.dataset?.dismissNotification;
+        wrapper.querySelector('.top-bell-btn')?.setAttribute('aria-expanded', String(wrapper.classList.contains('is-open')));
+        popover.setAttribute('role', 'region'); popover.setAttribute('aria-label', 'Notificações de hoje');
         popover.innerHTML = renderNotificationsPopoverHtml(notifications);
+        popover.querySelector('[data-close-notifications]')?.addEventListener('click', () => closeNotificationsPopover(true));
+        popover.querySelectorAll('[data-dismiss-notification]').forEach(button => button.addEventListener('click', () => {
+          dismissNotification(button.dataset.dismissNotification);
+          wrapper.querySelector('[data-close-notifications]')?.focus();
+        }));
         if (wrapper.classList.contains('is-open')) positionNotificationsPopover(wrapper);
+        if (focused && wrapper.classList.contains('is-open')) {
+          const replacement = focusedDismissId
+            ? Array.from(popover.querySelectorAll('[data-dismiss-notification]')).find(button => button.dataset.dismissNotification === focusedDismissId)
+            : null;
+          (replacement || popover.querySelector('[data-close-notifications]'))?.focus();
+        }
       }
     });
     if (!popoverOpen) closeNotificationsPopover();
@@ -219,6 +245,8 @@
     closeNotificationsPopover();
     if (!shouldOpen) return;
     wrapper.classList.add('is-open');
+    openPage = wrapper.dataset.pageNotifications || '';
+    popoverInvoker = wrapper.querySelector('.top-bell-btn');
     popoverOpen = true;
     const todayKey = getTodayDayKey();
     if (getSeenDayKey() !== todayKey) {
@@ -227,7 +255,15 @@
     }
     positionNotificationsPopover(wrapper);
     renderNotificationBells();
+    wrapper.querySelector('[data-close-notifications]')?.focus();
   }
+
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !popoverOpen) return;
+    const wrapper = document.querySelector('.top-notifications.is-open');
+    if (!wrapper || wrapper.closest('[inert]')) { closeNotificationsPopover(); return; }
+    event.preventDefault(); event.stopImmediatePropagation(); closeNotificationsPopover(true);
+  }, true);
 
   global.dismissNotificationItem = dismissNotification;
 

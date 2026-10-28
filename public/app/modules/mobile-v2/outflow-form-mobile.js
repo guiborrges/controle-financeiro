@@ -4,6 +4,7 @@
   let submitting = false;
   let pendingSave = null;
   let initialFormState = null;
+  let inlineCanDismiss = null;
 
   function formState() {
     return JSON.stringify(Array.from(document.querySelectorAll('#mobileV2OutflowFormBody input, #mobileV2OutflowFormBody select, #mobileV2OutflowFormBody textarea'))
@@ -11,7 +12,7 @@
   }
 
   function requestDismiss() {
-    if (submitting) return false;
+    if (submitting || (inlineCanDismiss && !inlineCanDismiss())) return false;
     if (initialFormState !== null && formState() !== initialFormState && !global.confirm('Descartar as alterações deste lançamento?')) return false;
     close();
     return true;
@@ -192,6 +193,7 @@
         <h3 class="form-title">${MODE_LABEL[mode] || 'Lançamento'}</h3>
       </div>
 
+      <fieldset class="m2-form-group"><legend>Dados do lançamento</legend>
       <div class="form-field">
         <label class="form-label" for="mobileV2OutflowDescription">Descrição</label>
         <input id="mobileV2OutflowDescription" class="form-input" type="text" placeholder="Ex: Mercado, aluguel">
@@ -208,6 +210,8 @@
         </div>
       </div>
 
+      </fieldset>
+      <fieldset class="m2-form-group"><legend>Classificação e opções</legend>
       <div class="form-field">
         <label class="form-label" for="mobileV2OutflowCategory">Categoria</label>
         <select id="mobileV2OutflowCategory" class="form-input">
@@ -268,6 +272,7 @@
         <span class="form-check-label">Aparecer no planejamento do mês</span>
       </label>
 
+      </fieldset>
       <div class="form-actions">
         <button class="btn-cancel" type="button" id="mobileV2OutflowCancel">Cancelar</button>
         <button class="btn-submit" type="button" id="mobileV2OutflowSubmit">Adicionar</button>
@@ -426,8 +431,9 @@
     }
   }
 
-  function openInlineSheet({ title, subtitle, body, showBack = false, backLabel = 'Voltar', onBack = null, closeLabel = 'Fechar' }) {
+  function openInlineSheet({ title, subtitle, body, showBack = false, backLabel = 'Voltar', onBack = null, closeLabel = 'Fechar', protectDraft = false, canDismiss = null }) {
     initialFormState = null;
+    inlineCanDismiss = canDismiss;
     global.MobileV2?.closeFabMenu?.({ instant: true });
     const sheet = ensureSheet();
     sheet?.classList.remove('m2-banking-sheet');
@@ -449,15 +455,16 @@
         onBack();
         return;
       }
-      close();
+      requestDismiss();
     });
     mount.querySelector('#mobileV2OutflowClose')?.addEventListener('click', () => {
-      close();
+      requestDismiss();
     });
     sheet.classList.add('open');
     sheet.style.display = '';
     sheet.removeAttribute('hidden');
     document.body.classList.add('mobile-v2-sheet-open');
+    if (protectDraft) initialFormState = formState();
   }
 
   function openIncomePicker() {
@@ -552,7 +559,8 @@
   }
 
   function close() {
-    if (submitting) return;
+    if (submitting || (inlineCanDismiss && !inlineCanDismiss())) return;
+    inlineCanDismiss = null;
     const sheet = document.getElementById('mobileV2OutflowSheet');
     if (!sheet) return;
     initialFormState = null;

@@ -27,9 +27,7 @@
     root.querySelectorAll('[data-filter]').forEach(btn => {
       btn.addEventListener('click', () => {
         const filter = btn.getAttribute('data-filter') || 'expense';
-        if (typeof global.setUnifiedOutflowFilter === 'function') {
-          global.setUnifiedOutflowFilter(filter);
-        }
+        global.MobileV2MesAtual?.setFilters?.({ kind: filter });
         close();
       });
     });

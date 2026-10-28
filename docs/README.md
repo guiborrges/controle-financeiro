@@ -1,6 +1,6 @@
 # Documentacao do MeuFin
 
-Revisao: 26/10/2026. Referencia funcional: d83efd4.
+Revisao: 28/10/2026. Referencia funcional atual: PROJECT_CONTEXT.md.
 
 ## Ordem de leitura
 
@@ -21,6 +21,8 @@ da substituicao dos testes de historico privado, descrita no proprio manual.
 4. [Pipelines](INDEPENDENT_PIPELINES.md): workers Pluggy e PDF/Oracle AI.
 5. [Publicacao](../DEPLOY.md) e [checklist](../DEPLOY_CHECKLIST.md): operacao Oracle/PM2.
 6. [Mapa do produto](mapa-do-produto.md): intencao funcional e limites de produto.
+7. [Entrega final mobile](MOBILE-REDESIGN-ENTREGA-FINAL-2026-10-28.md): os 36 itens,
+   evidencias e limites de homologacao fisica.
 
 ## Documentos atuais versus historicos
 
@@ -45,7 +47,8 @@ Relatorios preservados como evidencias:
   [handoff historico](CHAT_HISTORY_HANDOFF.md).
 
 As contagens historicas nao devem ser reescritas. Referencia funcional atual:
-481 testes Node e 15 cenarios de navegador aprovados. Persistem ressalvas de
+503 testes Node, 17 cenarios smoke, 12 responsivos e suites mobile de 29 e 23
+cenarios por motor. Persistem ressalvas de
 SQLite, dependencia, datas e seguranca, descritas no guia e na etapa 7.
 
 ## Quando atualizar

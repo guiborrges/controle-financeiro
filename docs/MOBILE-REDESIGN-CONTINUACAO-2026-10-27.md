@@ -1,5 +1,8 @@
 # Redesign mobile: continuacao e controle dos 36 itens
 
+Registro historico desta rodada. Situacao atualizada dos 36 itens:
+[entrega final de 28/10/2026](MOBILE-REDESIGN-ENTREGA-FINAL-2026-10-28.md).
+
 Esta entrega continua a primeira rodada; nao declara a auditoria inteira
 encerrada. A lista original em auditoria-design-mobile e um retrato anterior.
 

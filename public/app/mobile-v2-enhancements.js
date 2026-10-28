@@ -33,20 +33,25 @@
     const root = ensureToastRoot();
     const toast = document.createElement('div');
     toast.className = 'mobile-v2-toast';
-    const action = options.actionLabel
-      ? `<button type="button" class="mobile-v2-toast-action">${String(options.actionLabel)}</button>`
-      : '';
-    toast.innerHTML = `<span class="mobile-v2-toast-message"></span>${action}`;
+    toast.innerHTML = '<span class="mobile-v2-toast-message"></span>';
+    if (options.actionLabel) {
+      const action = document.createElement('button'); action.type = 'button';
+      action.className = 'mobile-v2-toast-action'; action.textContent = String(options.actionLabel); toast.appendChild(action);
+    }
     toast.querySelector('.mobile-v2-toast-message').textContent = String(message || '');
     root.appendChild(toast);
 
     let actionTaken = false;
+    let closed = false;
     const close = () => {
+      if (closed) return;
+      closed = true;
       toast.classList.add('leaving');
       window.setTimeout(() => toast.remove(), 180);
       if (!actionTaken && typeof options.onClose === 'function') options.onClose();
     };
     toast.querySelector('.mobile-v2-toast-action')?.addEventListener('click', () => {
+      if (closed) return;
       actionTaken = true;
       try { options.onAction?.(); } finally { close(); }
     });

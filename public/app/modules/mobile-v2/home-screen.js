@@ -236,6 +236,14 @@
     const fromMonths = previousChartState?.months || months.map((month) => ({ ...month, renda: 0, gastos: 0 }));
     const fromCategories = previousChartState?.categories || categories.map((category) => ({ ...category, value: 0 }));
     cancelAnimationFrame(chartAnimationFrame);
+    if (global.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      drawLineChart(line, months); drawPieChart(pie, categories);
+      previousChartState = {
+        months: months.map(month => ({ ...month })),
+        categories: categories.map(category => ({ ...category }))
+      };
+      return;
+    }
     const step = (now) => {
       const progress = easeInOutCubic(Math.min(1, (now - start) / 300));
       drawLineChart(line, interpolateSeries(fromMonths, months, progress));
@@ -387,31 +395,33 @@
     canvas.width = 1080;
     canvas.height = 1350;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#FAFAF8';
+    const tokens = getComputedStyle(document.documentElement);
+    const color = key => tokens.getPropertyValue(key).trim();
+    ctx.fillStyle = color('--surface');
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#2471A3';
+    ctx.fillStyle = color('--surface2');
     ctx.fillRect(0, 0, canvas.width, 330);
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = color('--text');
     ctx.font = '700 62px Inter, Arial';
     ctx.fillText('Controle Financeiro', 72, 118);
     ctx.font = '500 32px Inter, Arial';
     ctx.fillText(`Resumo ${PERIODS.find((period) => period.value === activePeriod)?.label || ''}`, 72, 174);
     ctx.font = '700 76px Inter, Arial';
     ctx.fillText(formatMoney(totalResult), 72, 278);
-    ctx.fillStyle = '#152033';
+    ctx.fillStyle = color('--text');
     ctx.font = '700 44px Inter, Arial';
     ctx.fillText('Renda', 72, 438);
     ctx.fillText('Lançamentos', 72, 568);
     ctx.fillText('Resultado', 72, 698);
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#2471A3';
+    ctx.fillStyle = color('--green');
     ctx.fillText(formatMoney(totalIncome), 1008, 438);
-    ctx.fillStyle = '#E74C3C';
+    ctx.fillStyle = color('--red');
     ctx.fillText(formatMoney(totalExpenses), 1008, 568);
-    ctx.fillStyle = totalResult >= 0 ? '#27AE60' : '#E74C3C';
+    ctx.fillStyle = color(totalResult >= 0 ? '--green' : '--red');
     ctx.fillText(formatMoney(totalResult), 1008, 698);
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#667085';
+    ctx.fillStyle = color('--text2');
     ctx.font = '400 28px Inter, Arial';
     ctx.fillText('Gerado pelo app Controle Financeiro', 72, 1240);
 

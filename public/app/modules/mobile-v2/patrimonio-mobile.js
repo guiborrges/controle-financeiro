@@ -153,7 +153,7 @@
         </article>
       </section>
 
-      <section class="m-list-card">
+      <section class="m2-patr-accounts">
         <h3 class="m-list-title">Contas</h3>
         ${accounts.length ? `<div class="m2-patr-grid">${accounts.map((account) => {
           const name = String(account?.nome || account?.name || 'Conta');

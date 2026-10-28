@@ -1,6 +1,6 @@
 # Contexto atual do MeuFin
 
-Atualizado em 27/10/2026. Base anterior ao redesign: `67fa380`.
+Atualizado em 28/10/2026. Base anterior ao redesign: `67fa380`.
 Guia detalhado: [ARCHITECTURE.md](ARCHITECTURE.md). Indice: [README.md](README.md).
 
 ## Produto e workspace
@@ -46,6 +46,13 @@ Nao tratar snapshots de auditoria como aplicativo ativo.
   continuam locais ao processo, nao distribuidos.
 
 ## Entregas recentes
+
+- Finalizacao do redesign: filtros mes/metodo/tag isolados; renda esperada e
+  recebida; reembolsos por status sem dupla receita; patrimonio sem card aninhado.
+  Busca universal, notificacoes e ajuda inicial com foco/reabertura tratados.
+  Editores de meta/fatura respeitam save confirmado e retry sem reaplicacao.
+- `npm run test:mobile-completion` cobre os fluxos restantes; matriz dos 36 itens
+  em MOBILE-REDESIGN-ENTREGA-FINAL-2026-10-28.md. Homologacao fisica nao executada.
 
 - Revisao visual Mobile: cabecalhos com menu de acoes, valores adaptaveis,
   periodo exato do Dashboard, barras reais e expansao de categorias; metas

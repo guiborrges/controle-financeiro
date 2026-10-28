@@ -14,6 +14,7 @@
     "test:smoke": "node scripts/test-refactor-smoke.js",
     "test:responsive": "node scripts/test-responsive-regressions.js",
     "test:mobile-design": "node scripts/test-mobile-design.js",
+    "test:mobile-completion": "node scripts/test-mobile-completion.js",
     "docs:build": "node scripts/build-reconstruction-manual.js",
     "docs:verify": "node scripts/reconstruct-from-manual.js docs/MEUFIN-RECONSTRUCAO-COMPLETA.md",
     "test:perf:refactor": "node scripts/benchmark-refactor-dashboard.js",

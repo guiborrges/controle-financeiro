@@ -44,11 +44,11 @@ html.mobile-v2 .mib-group {
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 172px;
-        letter-spacing: -0.02em;
+        letter-spacing: 0;
       }
       html.mobile-v2 .mib-group-origin {
         display: block;
-        font-size: 10px;
+        font-size: var(--m2-font-caption, 12px);
         color: var(--text3, #9ca3af);
         margin-top: 3px;
         text-transform: uppercase;
@@ -61,7 +61,7 @@ html.mobile-v2 .mib-group {
         flex-shrink: 0;
       }
       html.mobile-v2 .mib-group-count {
-        font-size: 10px;
+        font-size: var(--m2-font-caption, 12px);
         color: var(--accent, #2471a3);
         font-weight: 800;
         letter-spacing: .055em;
@@ -72,7 +72,7 @@ html.mobile-v2 .mib-group {
         font-weight: 800;
         color: var(--text1, #111827);
         margin-top: 2px;
-        letter-spacing: -0.02em;
+        letter-spacing: 0;
       }
       html.mobile-v2 .mib-group-body { border-top: 1px solid var(--border, #e5e7eb); }
       html.mobile-v2 .mib-group-actions { padding: 10px 14px 6px; }
@@ -82,7 +82,7 @@ html.mobile-v2 .mib-group {
         border-radius: 17px;
         border: 1px solid color-mix(in srgb, var(--border, #e5e7eb) 78%, transparent);
         background: color-mix(in srgb, var(--surface-strong, #fff) 92%, transparent);
-        font-size: 11px;
+        font-size: var(--m2-font-caption, 12px);
         font-weight: 800;
         color: var(--text2, #374151);
         cursor: pointer;
@@ -121,11 +121,11 @@ html.mobile-v2 .mib-group {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        letter-spacing: -0.01em;
+        letter-spacing: 0;
       }
       html.mobile-v2 .mib-item-meta {
         display: block;
-        font-size: 10px;
+        font-size: var(--m2-font-caption, 12px);
         color: var(--text3, #9ca3af);
         margin-top: 3px;
         letter-spacing: .05em;
@@ -144,7 +144,7 @@ html.mobile-v2 .mib-group {
         font-size: 15px;
         font-weight: 800;
         color: var(--red, #e74c3c);
-        letter-spacing: -0.02em;
+        letter-spacing: 0;
       }
       html.mobile-v2 .mib-item-actions { display: flex; gap: 6px; }
       html.mobile-v2 .mib-btn-ok, html.mobile-v2 .mib-btn-dismiss {
@@ -175,7 +175,7 @@ html.mobile-v2 .mib-group {
         border-radius: 12px;
         border: 1px solid color-mix(in srgb, var(--border, #e5e7eb) 86%, transparent);
         background: color-mix(in srgb, var(--surface-strong, #fff) 96%, transparent);
-        font-size: 11px;
+        font-size: var(--m2-font-caption, 12px);
         color: var(--text1, #111827);
         padding: 0 10px;
         appearance: auto;
@@ -194,8 +194,8 @@ html.mobile-v2 .mib-group {
       html.mobile-v2 .mib-shell-header { min-height:66px; display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:10px; flex:0 0 auto; padding:10px 16px 8px; border-bottom:1px solid var(--border,#e5e7eb); background:color-mix(in srgb,var(--bg,#f4f7fb) 94%,transparent); backdrop-filter:blur(14px); }
       html.mobile-v2 .mib-shell-close { width:40px; height:40px; display:grid; place-items:center; border:1px solid var(--border,#e5e7eb); border-radius:14px; background:var(--surface-strong,#fff); color:var(--text1,#111827); font-size:22px; }
       html.mobile-v2 .mib-shell-heading { min-width:0; text-align:center; }
-      html.mobile-v2 .mib-shell-title { display:block; font-size:18px; font-weight:800; letter-spacing:-.025em; }
-      html.mobile-v2 .mib-shell-subtitle { display:block; margin-top:2px; color:var(--text3,#9ca3af); font-size:10px; }
+      html.mobile-v2 .mib-shell-title { display:block; font-size:18px; font-weight:800; letter-spacing: 0; }
+      html.mobile-v2 .mib-shell-subtitle { display:block; margin-top:2px; color:var(--text3,#9ca3af); font-size: var(--m2-font-caption, 12px); }
       html.mobile-v2 .mib-shell-content { min-height:0; flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:12px 12px 24px; }
       html.mobile-v2 .mib-description-input { width:100%; height:36px; border:1px solid color-mix(in srgb,var(--border,#e5e7eb) 86%,transparent); border-radius:12px; background:var(--surface-strong,#fff); color:var(--text1,#111827); padding:0 10px; font-size:13px; font-weight:700; }
       html.mobile-v2 .mib-item-fields { display:grid; gap:8px; }

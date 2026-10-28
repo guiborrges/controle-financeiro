@@ -12,7 +12,7 @@
   let activeSubtab = 'planejamento';
   const uiStateByMonth = new Map();
   const activeFilters = {
-    search: ''
+    search: '', tag: '', kind: 'all'
   };
   const monthCache = new Map();
   const virtualState = new WeakMap();
@@ -45,12 +45,16 @@
     const inputId = `mobileMoneyEditor_${Date.now()}`;
     const saveId = `${inputId}_save`;
     const cancelId = `${inputId}_cancel`;
+    let busy = false, pending = false;
     sheet({
       title,
       subtitle,
+      protectDraft: true,
+      canDismiss: () => !busy,
       body: `
         <label class="m2-field-label" for="${inputId}">Valor</label>
         <input id="${inputId}" class="m2-field-input" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(currentValue ? String(currentValue).replace('.', ',') : '')}" placeholder="${escapeHtml(placeholder || '0,00')}">
+        <p data-money-status role="status"></p>
         <div class="m2-sheet-actions">
           <button id="${cancelId}" class="m2-chip-btn" type="button">Cancelar</button>
           <button id="${saveId}" class="m2-chip-btn positive" type="button">${escapeHtml(submitLabel || 'Salvar')}</button>
@@ -59,15 +63,40 @@
     });
     requestAnimationFrame(() => {
       const input = document.getElementById(inputId);
-      const close = () => global.MobileV2OutflowForm?.closeInlineSheet?.();
+      const close = () => { if (!busy) global.MobileV2OutflowForm?.closeInlineSheet?.(); };
       input?.focus?.();
       input?.addEventListener('input', () => {
         input.value = String(input.value || '').replace(/[^\d,.-]/g, '');
       });
       document.getElementById(cancelId)?.addEventListener('click', close);
-      document.getElementById(saveId)?.addEventListener('click', () => {
-        onSave?.(parseMoneyInput(input?.value));
-        close();
+      document.getElementById(saveId)?.addEventListener('click', async () => {
+        if (busy) return;
+        const button = document.getElementById(saveId);
+        const status = document.querySelector('[data-money-status]');
+        const amount = parseMoneyInput(input.value);
+        if (!(amount >= 0)) {
+          status.setAttribute('role', 'alert'); status.textContent = 'Informe um valor igual ou maior que zero.'; return;
+        }
+        busy = true; button.disabled = true; input.disabled = true;
+        status.setAttribute('role', 'status'); status.textContent = 'Salvando...';
+        try {
+          const retry = pending;
+          pending = true;
+          const confirmed = retry
+            ? await global.flushServerStorage(true, 'mobile-money-retry')
+            : await onSave?.(amount);
+          if (!input.isConnected || document.getElementById(inputId) !== input) return;
+          if (confirmed === true) {
+            busy = false; pending = false; invalidateCache();
+            global.MobileV2Enhancements?.notifyDataChanged?.('money-editor-save');
+            close(); global.MobileV2?.refresh(); return;
+          }
+          status.setAttribute('role', 'alert'); status.textContent = 'Salvamento não confirmado. Tente novamente.';
+        } catch {
+          status.setAttribute('role', 'alert'); status.textContent = 'Não foi possível confirmar o salvamento. Tente novamente.';
+        } finally {
+          busy = false; button.disabled = false; button.textContent = 'Tentar salvar novamente';
+        }
       });
     });
   }
@@ -117,6 +146,9 @@
     if (typeof state.allSearch !== 'string') state.allSearch = '';
     uiStateByMonth.set(monthId, state);
     activeSubtab = state.subtab;
+    activeFilters.search = state.allSearch;
+    activeFilters.tag = state.tag || '';
+    activeFilters.kind = state.kind || 'all';
   }
 
   function getCurrentMonthSafe() {
@@ -145,6 +177,8 @@
   function resetView() {
     activeSubtab = 'planejamento';
     activeFilters.search = '';
+    activeFilters.tag = '';
+    activeFilters.kind = 'all';
     uiStateByMonth.clear();
     invalidateCache();
   }
@@ -417,7 +451,6 @@
             `).join('') : ''}
             ${cardSections}
             ${(!normalRows.length && !cardSections) ? emptyState('Você ainda não possui lançamentos neste mês.', '+ Adicionar primeiro lançamento') : ''}
-            ${!monthCards.length ? emptyState('Nenhum cartão cadastrado.', '+ Adicionar cartão', 'Cadastre seus cartões para acompanhar faturas e gastos futuros.').replace('data-action="add-first"', 'data-action="add-card"') : ''}
           </div>
         </section>
       </div>
@@ -643,18 +676,17 @@
     `;
   }
 
-  const GM_PIE_COLORS = ['#2471A3', '#27AE60', '#F39C12', '#8E44AD', '#17A589', '#D35400', '#BB4F43', '#2C3E50'];
-
   function getGmPieSlices(sourceRows) {
     const rows = (Array.isArray(sourceRows) ? sourceRows : [])
       .filter((row) => Number(row?.spent || 0) > 0);
     const total = rows.reduce((sum, row) => sum + Number(row.spent || 0), 0);
     if (!(total > 0)) return [];
 
+    const colors = global.buildDistinctPieColors(rows.length);
     const slices = rows.map((row, index) => ({
       category: row.category,
       spent: Number(row.spent || 0),
-      color: GM_PIE_COLORS[index % GM_PIE_COLORS.length]
+      color: colors[index]
     }));
     return slices.map((slice) => ({
       ...slice,
@@ -768,7 +800,7 @@
               <div class="m-item-surface" data-action="edit" data-id="${row.id}">
                 <div class="m-item-info">
                   <span class="m-item-name">${escapeHtml(row.description)}</span>
-                  <span class="m-item-meta">${escapeHtml(row.date)} · ${escapeHtml(row.category)}</span>
+                  <span class="m-item-meta">${renderRowMetadata(row)}</span>
                 </div>
                 <span class="m-item-value">${formatMoney(row.amount)}</span>
               </div>
@@ -784,6 +816,9 @@
     const rendaExtra = sortViewsByDateDesc((month?.projetos || []).map((row, index) => ({ ...row, __sourceIndex: index })));
     const monthMetrics = getCachedMonthView(month).metrics;
     const total = Number(monthMetrics?.renda || 0);
+    const receivedCents = [...rendaFixa, ...rendaExtra]
+      .filter(row => row.includeInTotals !== false && row.paid === true)
+      .reduce((sum, row) => sum + Math.round(Number(row.valor || 0) * 100), 0);
 
     return `
       <div class="m2-tab-panel ${activeSubtab === 'renda' ? 'active' : ''}" data-tab-panel="renda">
@@ -822,7 +857,11 @@
             <button class="m2-chip-btn positive" type="button" onclick="openAddItem && openAddItem('renda')">+ Renda fixa</button>
             <button class="m2-chip-btn positive" type="button" onclick="openAddItem && openAddItem('projeto')">+ Renda extra</button>
           </div>
-          <div class="m2-list-total">Total esperado: ${formatMoney(total)}</div>
+          <dl class="m2-status-summary" data-income-summary>
+            <div><dt>Esperado</dt><dd>${formatMoney(total)}</dd></div>
+            <div><dt>Recebido</dt><dd>${formatMoney(receivedCents / 100)}</dd></div>
+            <div><dt>A receber</dt><dd>${formatMoney((Math.round(total * 100) - receivedCents) / 100)}</dd></div>
+          </dl>
         </section>
       </div>
     `;
@@ -865,7 +904,9 @@
 
   function renderReembolsos(month) {
     const groups = getMobileReimbursementGroups(month);
-    const total = groups.reduce((sum, group) => sum + Number(group.total || 0), 0);
+    const sumRows = (rows, paid) => rows.filter(row => row.paid === paid)
+      .reduce((sum, row) => sum + Math.round(Number(row.amount || 0) * 100), 0) / 100;
+    const allRows = groups.flatMap(group => group.rows);
     return `
       <div class="m2-tab-panel ${activeSubtab === 'reembolsos' ? 'active' : ''}" data-tab-panel="reembolsos">
         <section class="m-list-card">
@@ -874,14 +915,14 @@
             <details class="m2-category-accordion" data-reimbursement-key="${escapeHtml(group.key)}">
               <summary>
                 <span>${escapeHtml(group.name)}</span>
-                <strong>${formatMoney(group.total)}</strong>
+                <span class="m2-reimbursement-status"><strong>${formatMoney(sumRows(group.rows, false))} a receber</strong><small>${formatMoney(sumRows(group.rows, true))} recebido</small></span>
               </summary>
               ${group.rows.map((row) => `
                 <article class="m-item">
                   <div class="m-item-surface static">
                     <div class="m-item-info">
                       <span class="m-item-name">${escapeHtml(row.description)}</span>
-                      <span class="m-item-meta">${escapeHtml(row.date)} · ${row.paid ? 'Pago' : 'Pendente'}</span>
+                      <span class="m-item-meta">${escapeHtml(row.date || (month.outflows || []).find(item => item.id === row.outflowId)?.date || '')} · ${row.paid ? 'Recebido' : 'Pendente'}</span>
                     </div>
                     <span class="m-item-value income">${formatMoney(row.amount)}</span>
                   </div>
@@ -891,8 +932,11 @@
                 <button class="m2-chip-btn ${group.paid ? '' : 'positive'}" type="button" data-action="toggle-reimbursement" data-reimbursement-key="${escapeHtml(group.key)}" data-paid="${group.paid ? '0' : '1'}">${group.paid ? 'Marcar pendente' : 'Marcar pago'}</button>
               </div>
             </details>
-          `).join('') : '<div class="m2-empty">Nenhum reembolso pendente neste mês.</div>'}
-          <div class="m2-list-total">Total a receber: ${formatMoney(total)}</div>
+          `).join('') : '<div class="m2-empty">Nenhum reembolso neste mês.</div>'}
+          <dl class="m2-status-summary">
+            <div data-reimbursement-pending><dt>A receber</dt><dd>${formatMoney(sumRows(allRows, false))}</dd></div>
+            <div data-reimbursement-received><dt>Recebido</dt><dd>${formatMoney(sumRows(allRows, true))}</dd></div>
+          </dl>
         </section>
       </div>
     `;
@@ -958,29 +1002,43 @@
     });
 
     const searchInput = target.querySelector('#mobileV2AllSearch');
+    const tagInput = target.querySelector('#mobileV2TagFilter');
     if (searchInput) {
       const apply = () => {
         const term = String(searchInput.value || '').trim().toLowerCase();
         const monthId = String(month?.id || 'current');
         const state = uiStateByMonth.get(monthId) || { subtab: activeSubtab, allSearch: '' };
         state.allSearch = searchInput.value || '';
+        state.tag = tagInput?.value || '';
         uiStateByMonth.set(monthId, state);
         activeFilters.search = searchInput.value || '';
+        activeFilters.tag = state.tag;
         const matched = typeof global.getUnifiedFilterRows === 'function'
-          ? new Set(global.getUnifiedFilterRows(month, 'all', '', term).filter(row => row.kind === 'outflow').map(row => String(row.item.id))) : null;
+          ? new Set(global.getUnifiedFilterRows(month, activeFilters.kind, state.tag, term).filter(row => row.kind === 'outflow').map(row => String(row.item.id))) : null;
         target.querySelectorAll('.m-item[data-outflow-id]').forEach((row) => {
-          row.hidden = !!term && (matched ? !matched.has(row.getAttribute('data-outflow-id')) : !row.textContent.toLowerCase().includes(term));
+          row.hidden = matched ? !matched.has(row.getAttribute('data-outflow-id')) : !!term && !row.textContent.toLowerCase().includes(term);
+        });
+        target.querySelectorAll('.m2-summary-card-group').forEach(group => {
+          group.hidden = !!(term || state.tag || activeFilters.kind !== 'all') && !group.querySelector('.m-item:not([hidden])');
         });
         const virtualList = target.querySelector('#mobileV2AllList');
         if (virtualList) virtualState.get(virtualList)?.update?.();
         const message = target.querySelector('#mobileV2SearchStatus');
         if (message) {
           const count = target.querySelectorAll('.m2-tab-panel.active .m-item[data-outflow-id]:not([hidden])').length;
-          message.textContent = term ? `${count} lançamento(s) encontrado(s) nesta visão.` : '';
+          const view = Array.from(target.querySelectorAll('[data-m2-subtab]')).find(node => node.dataset.m2Subtab === activeSubtab)?.textContent.trim() || '';
+          message.textContent = `${count} lançamento(s) · ${month.nome || ''} · ${view}${state.tag ? ` · Tag: ${state.tag}` : ''}${activeFilters.kind !== 'all' ? ` · ${activeFilters.kind === 'spend' ? 'Gastos' : 'Compromissos'}` : ''}`;
         }
       };
       apply();
       searchInput.addEventListener('input', apply);
+      tagInput?.addEventListener('change', apply);
+      target.querySelector('[data-clear-month-filters]')?.addEventListener('click', () => {
+        searchInput.value = ''; if (tagInput) tagInput.value = '';
+        activeFilters.kind = 'all';
+        const state = uiStateByMonth.get(String(month.id)); if (state) state.kind = 'all';
+        apply(); searchInput.focus();
+      });
     }
 
     target.querySelectorAll('.m-item').forEach((row) => attachSwipe(target, row));
@@ -1066,17 +1124,15 @@
           subtitle: category,
           currentValue: current,
           submitLabel: 'Salvar meta',
-          onSave(value) {
+          async onSave(value) {
             month.dailyGoals = month.dailyGoals && typeof month.dailyGoals === 'object' ? month.dailyGoals : {};
             if (value > 0) {
               month.dailyGoals[category] = value;
             } else {
               delete month.dailyGoals[category];
             }
-            if (typeof global.save === 'function') global.save(true);
-            invalidateCache();
-            global.MobileV2Enhancements?.notifyDataChanged?.('goal-save');
-            global.MobileV2?.refresh?.();
+            if (await global.save(true) !== true) return false;
+            return true;
           }
         });
       });
@@ -1109,15 +1165,13 @@
           subtitle: 'Altera apenas a fatura deste cartão no mês selecionado.',
           currentValue: currentAmount.toFixed(2),
           submitLabel: 'Salvar fatura',
-          onSave(nextAmount) {
-            if (!(nextAmount >= 0)) return;
+          async onSave(nextAmount) {
+            if (!(nextAmount >= 0)) return false;
             bill.amount = nextAmount;
             bill.manualAmountSet = true;
             if (typeof global.syncUnifiedOutflowLegacyData === 'function') global.syncUnifiedOutflowLegacyData(month);
-            if (typeof global.save === 'function') global.save(true);
-            invalidateCache();
-            global.MobileV2Enhancements?.notifyDataChanged?.('card-bill-edit');
-            global.MobileV2?.refresh?.();
+            if (await global.save(true) !== true) return false;
+            return true;
           }
         });
       });
@@ -1250,7 +1304,7 @@
       ${renderPageHeader()}
       ${renderMonthNav(month)}
       ${renderSubtabs()}
-      ${['planejamento', 'todos'].includes(activeSubtab) || /^(card|method):/.test(activeSubtab) ? `<label class="m2-month-search-label" for="mobileV2AllSearch">Pesquisar neste mês e nesta visão</label><input id="mobileV2AllSearch" class="m2-search" type="search" aria-label="Buscar lançamentos neste mês e nesta visão" placeholder="Nome, valor ou data" value="${escapeHtml(activeFilters.search || '')}"><p id="mobileV2SearchStatus" class="m2-month-search-label" role="status"></p>` : ''}
+      ${['planejamento', 'todos'].includes(activeSubtab) || /^(card|method):/.test(activeSubtab) ? `<div class="m2-month-filters"><label class="m2-month-search-label" for="mobileV2AllSearch">Pesquisar neste mês e nesta visão</label><input id="mobileV2AllSearch" class="m2-search" type="search" aria-label="Buscar lançamentos neste mês e nesta visão" placeholder="Nome, valor ou data" value="${escapeHtml(activeFilters.search || '')}"><div class="m2-filter-controls"><label for="mobileV2TagFilter">Tag</label><select id="mobileV2TagFilter"><option value="">Todas as tags</option>${(global.getMonthTagOptions?.(month, global, { purpose: 'history' }) || []).map(tag => `<option value="${escapeHtml(tag)}" ${activeFilters.tag === tag ? 'selected' : ''}>${escapeHtml(tag)}</option>`).join('')}</select><button type="button" class="m2-chip-btn" data-clear-month-filters>Limpar filtros</button></div><p id="mobileV2SearchStatus" class="m2-month-search-label" role="status"></p></div>` : ''}
       ${renderPlanejamento(month)}
       ${Array.isArray(month?.outflowCards) ? month.outflowCards.map((card) => renderCardTab(month, card?.id)).join('') : ''}
       ${getDirectMethodTabs(month).map((tab) => renderMethodTab(month, tab.method)).join('')}
@@ -1287,6 +1341,17 @@
       if (SUBTABS.some((entry) => entry.key === tab) || /^(card|method):/.test(String(tab || ''))) activeSubtab = tab;
     },
     getActiveFilters: () => ({ ...activeFilters }),
+    setFilters(filters = {}) {
+      const month = getCurrentMonthSafe(); if (!month) return;
+      ensureUiState(month);
+      const state = uiStateByMonth.get(String(month.id));
+      if (['all', 'expense', 'spend'].includes(filters.kind)) {
+        state.kind = filters.kind; state.subtab = 'todos';
+      }
+      if (typeof filters.tag === 'string') state.tag = filters.tag;
+      if (typeof filters.search === 'string') state.allSearch = filters.search;
+      global.MobileV2?.setTab('mes'); global.MobileV2?.refresh();
+    },
     invalidateCache
   };
   document.addEventListener('mobileDataChanged', invalidateCache);

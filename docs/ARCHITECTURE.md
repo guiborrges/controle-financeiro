@@ -1,6 +1,6 @@
 # Arquitetura do MeuFin
 
-Atualizado em 27/10/2026. Base anterior ao redesign: `67fa380`.
+Atualizado em 28/10/2026. Base anterior ao redesign: `67fa380`.
 Este guia descreve o sistema implementado. Relatorios em `refatoracao/` sao
 historicos: suas contagens e limites correspondem a cada etapa, nao ao presente.
 Indice: [README.md](README.md). Resumo: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
@@ -25,6 +25,17 @@ salvar confirmado continua fechando, enquanto pending/retry mantem o contrato.
 Pesquisa mobile reaproveita `getUnifiedFilterRows` no mes atual, sem mudar a
 consulta financeira nem fazer aproximacao numerica. Testes adicionais:
 `npm run test:mobile-design`. Emulacao nao homologa aparelho/teclado fisico.
+
+Finalizacao: filtros de busca/tag/tipo pertencem a competencia MobileV2 e
+reutilizam getUnifiedFilterRows; o sheet nao altera o filtro Desktop oculto.
+Renda e reembolsos apresentam separado o que falta receber e o recebido,
+sem gerar registros financeiros novos. Metas e valor de fatura fecham somente
+com confirmacao; retry sincroniza o estado aplicado, sem reaplicar comandos.
+Busca universal integra a pilha de foco; notificacoes preservam foco ao render.
+Captions e tracking pertencem aos tokens mobile; product-design.css nao possui
+mais seletores especificos de skin mobile. Teste complementar:
+`npm run test:mobile-completion`. Matriz final e limites em
+[MOBILE-REDESIGN-ENTREGA-FINAL-2026-10-28.md](MOBILE-REDESIGN-ENTREGA-FINAL-2026-10-28.md).
 
 ### Apresentacao visual vigente (27/10/2026)
 

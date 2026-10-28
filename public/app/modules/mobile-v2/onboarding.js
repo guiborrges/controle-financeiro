@@ -99,7 +99,9 @@
     return layer;
   }
 
+  let closeTimer = null;
   function showLayer() {
+    global.clearTimeout(closeTimer);
     const layer = ensureLayer();
     layer.removeAttribute('hidden');
     requestAnimationFrame(() => layer.classList.add('open'));
@@ -111,7 +113,8 @@
     const layer = document.getElementById('mobileV2OnboardingLayer');
     if (!layer) return;
     layer.classList.remove('open');
-    global.setTimeout(() => layer.setAttribute('hidden', 'hidden'), 220);
+    global.clearTimeout(closeTimer);
+    closeTimer = global.setTimeout(() => layer.setAttribute('hidden', 'hidden'), 220);
     document.body.classList.remove('mobile-v2-sheet-open');
     global.MobileV2?.refresh?.();
   }

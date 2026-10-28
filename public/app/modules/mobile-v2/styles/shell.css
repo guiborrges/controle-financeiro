@@ -54,14 +54,14 @@
     font-size: 21px;
     margin: 0;
     font-weight: 800;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
     line-height: 1.02;
   }
 
   html.mobile-v2 .m2-subtitle {
     margin: 4px 0 0;
     color: var(--text3);
-    font-size: 11px;
+    font-size: var(--m2-font-caption, 12px);
     letter-spacing: .01em;
   }
 
@@ -98,7 +98,7 @@
   }
 
   html.mobile-v2 .hero-result-label {
-    font-size: 11px;
+    font-size: var(--m2-font-caption, 12px);
     opacity: .85;
     text-transform: uppercase;
     letter-spacing: .08em;
@@ -108,7 +108,7 @@
     font-size: 30px;
     font-weight: 700;
     margin-top: 4px;
-    letter-spacing: -.5px;
+    letter-spacing: 0;
   }
 
   html.mobile-v2 .metric-pair {
@@ -127,7 +127,7 @@
 
   html.mobile-v2 .metric-small-label {
     color: var(--text3);
-    font-size: 11px;
+    font-size: var(--m2-font-caption, 12px);
   }
 
   html.mobile-v2 .metric-small-value {
@@ -205,7 +205,7 @@
   }
 
   html.mobile-v2 .m2-row-meta {
-    font-size: 11px;
+    font-size: var(--m2-font-caption, 12px);
     color: var(--text3);
   }
 
@@ -249,7 +249,7 @@
     text-align: center;
     font-size: 20px;
     font-weight: 850;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   html.mobile-v2 .m2-month-metrics {
@@ -268,8 +268,8 @@
     box-shadow: none;
   }
 
-  html.mobile-v2 .m2-mini-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
-  html.mobile-v2 .m2-mini-value { font-size: 15px; font-weight: 850; letter-spacing: -0.03em; }
+  html.mobile-v2 .m2-mini-label { font-size: var(--m2-font-caption, 12px); color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+  html.mobile-v2 .m2-mini-value { font-size: 15px; font-weight: 850; letter-spacing: 0; }
   html.mobile-v2 .m2-mini-value.positive { color: var(--green); }
   html.mobile-v2 .m2-mini-value.negative { color: var(--red); }
 
@@ -474,7 +474,7 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    font-size: 10px;
+    font-size: var(--m2-font-caption, 12px);
     font-weight: 600;
     border-radius: 14px;
     min-height: 48px;
@@ -490,7 +490,7 @@
     width: 22px;
     height: 22px;
   }
-  html.mobile-v2 .bottom-nav-item .nav-label { font-size: 9px; }
+  html.mobile-v2 .bottom-nav-item .nav-label { font-size: var(--m2-font-caption, 12px); }
 
   html.mobile-v2 #mobileV2Fab {
     position: fixed;

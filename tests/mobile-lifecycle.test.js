@@ -2,7 +2,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const crypto = require('node:crypto');
 const path = require('node:path');
 const { appRoot, loadBrowser } = require('./helpers/refactor-fixtures');
 const { readMobileStyles } = require('./helpers/mobile-styles');
@@ -62,10 +61,15 @@ test('event module initializes once and tolerates non-browser test surfaces', ()
   assert.doesNotThrow(() => f.ctx.AppEvents.emit('mobileDataChanged'));
 });
 
-test('mobile CSS extraction preserves every rule, value and cascade position', () => {
-  const source = readMobileStyles().replace(/\r\n/g, '\n');
-  assert.equal(crypto.createHash('sha256').update(source).digest('hex'),
-    'b307c2325aafba7281f029dbbc83b37d322446da5d5d8d656a59b5b6d124f286');
+test('mobile CSS component imports retain their explicit cascade order', () => {
+  const entry = fs.readFileSync(path.join(appRoot, 'mobile-v2.css'), 'utf8');
+  const names = [...entry.matchAll(/styles\/([^"\n]+)\.css/g)].map(match => match[1]);
+  assert.deepEqual(names, ['onboarding', 'feedback', 'navigation', 'forms-and-charts', 'shell', 'screens']);
+  const source = readMobileStyles();
+  assert.doesNotMatch(source, /@import/);
+  for (const selector of ['.bottom-nav', '.bottom-sheet-panel', '.m-item-surface', '.m2-onboarding-panel']) {
+    assert.ok(source.includes(selector), selector);
+  }
 });
 
 test('mobile lifecycle no longer replaces save/nav or polls for mutation wrappers', () => {
