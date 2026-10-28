@@ -108,7 +108,7 @@ interativas usam 44 px e rolagem horizontal, sem reduzir fonte ou esconder valor
   cegamente. As protecoes financeiras e de isolamento continuam preservadas.
 - npm run test:smoke: 17 PASS; npm run test:responsive: 12 PASS.
 - npm run test:mobile-design: 29 cenarios por motor.
-- npm run test:mobile-completion: 23 cenarios por motor, com estado sintetico.
+- npm run test:mobile-completion: 25 cenarios por motor, com estado sintetico.
 - Chromium, Firefox e WebKit emulados; matriz visual com 146 capturas e uma
   rodada adicional das telas alteradas. Capturas sao evidencia, nao certificacao.
 - npm run docs:build e docs:verify: manual reconstruivel atualizado.
@@ -124,3 +124,14 @@ nenhuma funcionalidade PWA nova e prometida nesta entrega.
 
 Gate de publicacao npm audit --audit-level=critical: PASS. Permanece alerta
 alto preexistente em Nodemailer; nao foi feita atualizacao major nesta entrega.
+
+## Correcao dos menus apos capturas do iPhone
+
+O menu Mais acoes agora aplica tamanho de linha aos botoes internos, sem
+limita-los aos 44 px dos botoes de icone do cabecalho. O sino ocupa uma linha
+inteira, com icone e rotulo alinhados aos demais itens. O acionador de reticencias
+preserva a apresentacao de botao.
+No menu Adicionar, regras especificas anulam os transforms radiais legados.
+As tres acoes ficam dentro da viewport e o botao de fechar permanece central,
+sem aumentar ou deslocar ao abrir. Testes verificam geometria com pagina rolada
+em Chromium/Firefox/WebKit. Isso nao equivale a homologacao em iPhone fisico.

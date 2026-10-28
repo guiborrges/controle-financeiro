@@ -77,6 +77,41 @@ async function main() {
       currentMonthId = 'outubro_2026'; MobileV2.refresh();
     });
     const before = await p.evaluate(() => JSON.stringify(getAllFinanceMonths()));
+    await check('header action menu aligns icons and keeps every label inside its row', async () => {
+      const menu = p.locator('.mobile-v2-screen.active .m2-header-menu');
+      await menu.locator('summary').click();
+      const rows = await menu.locator('.m2-icon-btn').evaluateAll(nodes => nodes.filter(node => node.tagName === 'BUTTON').map(node => {
+        const r = node.getBoundingClientRect(), icon = node.querySelector('svg').getBoundingClientRect(), label = node.querySelector('.m2-header-menu-label').getBoundingClientRect();
+        return { left: icon.left, inside: label.left >= r.left && label.right <= r.right + 1, height: r.height };
+      }));
+      assert.equal(rows.length, 3); assert.ok(rows.every(row => row.inside && row.height >= 44));
+      assert.ok(Math.max(...rows.map(row => row.left)) - Math.min(...rows.map(row => row.left)) <= 1);
+      if (process.env.MEUFIN_DESIGN_OUTPUT) {
+        fs.mkdirSync(process.env.MEUFIN_DESIGN_OUTPUT, { recursive: true });
+        await p.screenshot({ path: path.join(process.env.MEUFIN_DESIGN_OUTPUT, engine + '-header-menu-open.png') });
+      }
+      await menu.locator('summary').click();
+    });
+    await check('expanded add menu stays inside the viewport after scrolling and keeps its close button centered', async () => {
+      await p.evaluate(() => window.scrollTo(0, 600));
+      await p.locator('#mobileV2Fab').click();
+      await p.waitForTimeout(300);
+      const boxes = await p.locator('[data-m2-fab-action]').evaluateAll(nodes => nodes.map(node => {
+        const r = node.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight };
+      }));
+      assert.ok(boxes.every(r => r.left >= -1 && r.right <= r.width + 1 && r.top >= 0 && r.bottom <= r.height), JSON.stringify(boxes));
+      const fab = await p.locator('#mobileV2Fab').evaluate(node => {
+        const r = node.getBoundingClientRect(); return { center: r.left + r.width / 2, viewport: document.documentElement.clientWidth / 2 };
+      });
+      assert.ok(Math.abs(fab.center - fab.viewport) <= 1, JSON.stringify(fab));
+      if (process.env.MEUFIN_DESIGN_OUTPUT) {
+        fs.mkdirSync(process.env.MEUFIN_DESIGN_OUTPUT, { recursive: true });
+        await p.screenshot({ path: path.join(process.env.MEUFIN_DESIGN_OUTPUT, engine + '-add-menu-open.png') });
+      }
+      await p.locator('#mobileV2Fab').click();
+      await p.evaluate(() => window.scrollTo(0, 0));
+    });
+    await p.evaluate(() => { MobileV2.closeFabMenu({ instant: true }); document.querySelectorAll('.m2-header-menu').forEach(menu => { menu.open = false; }); window.scrollTo(0, 0); });
     await check('tag and search stay inside method and retain independent month state', async () => {
       await p.locator('[data-m2-subtab="todos"]').click();
       await p.locator('#mobileV2TagFilter').selectOption('Trabalho');
@@ -120,6 +155,7 @@ async function main() {
       }
     });
     await check('universal search contains keyboard focus and restores its mobile invoker', async () => {
+      await p.waitForFunction(() => !document.getElementById('mobileV2Root').closest('[inert]'));
       const invoker = p.locator('.mobile-v2-screen.active [aria-label="Buscador universal"]');
       await invoker.focus();
       await p.evaluate(() => MobileV2.openUniversalSearch());
@@ -140,6 +176,7 @@ async function main() {
       await p.locator('#mobileV2DatePickerSheet').waitFor();
       await p.keyboard.press('Escape');
       await p.locator('#mobileV2DatePickerSheet').waitFor({ state: 'hidden' });
+      await p.waitForFunction(() => !!document.activeElement.closest('#mobileV2OutflowSheet'));
       assert.equal(await p.locator('#mobileV2OutflowSheet').isVisible(), true);
       assert.equal(await p.evaluate(() => !!document.activeElement.closest('#mobileV2OutflowSheet')), true);
       await p.locator('#mobileV2OutflowCancel').click();

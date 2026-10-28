@@ -47,7 +47,7 @@ Relatorios preservados como evidencias:
   [handoff historico](CHAT_HISTORY_HANDOFF.md).
 
 As contagens historicas nao devem ser reescritas. Referencia funcional atual:
-503 testes Node, 17 cenarios smoke, 12 responsivos e suites mobile de 29 e 23
+503 testes Node, 17 cenarios smoke, 12 responsivos e suites mobile de 29 e 25
 cenarios por motor. Persistem ressalvas de
 SQLite, dependencia, datas e seguranca, descritas no guia e na etapa 7.
 

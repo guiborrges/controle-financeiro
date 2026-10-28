@@ -115,11 +115,17 @@ html.mobile-v2 .cal-month-title { font-size: 16px; font-weight: 600; letter-spac
   html.mobile-v2 .m2-header-menu > summary::-webkit-details-marker { display: none; }
   html.mobile-v2 .m2-header-menu > div {
     position: absolute; right: 0; top: 50px; z-index: 550; display: grid; gap: 8px;
-    min-width: 180px; padding: 8px; border: 1px solid var(--border); border-radius: 8px;
+    width: min(240px, calc(100vw - 32px)); box-sizing: border-box; padding: 8px; border: 1px solid var(--border); border-radius: 8px;
     background: var(--surface); box-shadow: var(--shadow-strong);
   }
-  html.mobile-v2 .m2-header-menu > div button { width: 100%; justify-content: flex-start; gap: 10px; padding: 8px; }
-  html.mobile-v2 .m2-header-menu-label { font: 500 13px Inter, sans-serif; }
+  html.mobile-v2 .m2-header-menu > div > .top-notifications { display: block; width: 100%; margin: 0; min-width: 0; }
+  html.mobile-v2 .m2-header-actions .m2-header-menu button.m2-icon-btn {
+    display: flex; align-items: center; justify-content: flex-start; gap: 10px;
+    width: 100%; height: auto; min-height: 44px; padding: 10px; box-sizing: border-box;
+    border: 0; border-radius: 6px; background: transparent; text-align: left;
+  }
+  html.mobile-v2 .m2-header-menu-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; font: 500 13px Inter, sans-serif; }
+  html.mobile-v2 .m2-header-menu .top-bell-badge { right: 8px; top: 0; }
   html.mobile-v2 .period-selector { gap: 4px; margin-bottom: 8px; }
   html.mobile-v2 .period-btn, html.mobile-v2 .tab-pill,
   html.mobile-v2 .m2-chip-btn { min-height: 44px; }
@@ -252,10 +258,13 @@ html.mobile-v2 .cal-month-title { font-size: 16px; font-weight: 600; letter-spac
   html.mobile-v2 .mib-shell-title { font-size: 22px; letter-spacing: 0; }
   html.mobile-v2 .mib-group-name { font-size: 14px; }
   html.mobile-v2 .m2-fab-menu.open .m2-fab-scrim { backdrop-filter: none; background: rgba(0,0,0,.4); }
+  html.mobile-v2 #mobileV2Fab { left: calc(50vw - 28px); width: 56px; height: 56px; padding: 0; box-sizing: border-box; transform: none; }
+  html.mobile-v2 #mobileV2Fab.open { transform: none; }
   html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action {
     left: auto; right: 16px; width: min(260px, calc(100% - 32px)); min-height: 48px;
     transform: none; border-radius: 8px; background: var(--surface); color: var(--text); font-weight: 500; letter-spacing: 0;
   }
+  html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action:is(.is-left, .is-top, .is-right) { transform: none; }
   html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action.is-left { bottom: calc(252px + env(safe-area-inset-bottom, 0px)); }
   html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action.is-top { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); }
   html.mobile-v2 .m2-fab-menu.open .m2-fab-text-action.is-right { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }

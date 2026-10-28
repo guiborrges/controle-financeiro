@@ -339,6 +339,7 @@ async function main() {
       assert.equal(item.amount, 13.45);
       assert.equal(item.paid, true);
       await page.evaluate(id => MobileV2OutflowForm.openEdit(getCurrentMonth().outflows.find(item => item.id === id)), item.id);
+      await page.waitForFunction(() => document.activeElement?.id === 'mobileV2OutflowDescription');
       await page.locator('#mobileV2OutflowAmount').fill('14,55');
       await page.locator('#mobileV2OutflowSubmit').click();
       await page.locator('#mobileV2OutflowSheet').waitFor({ state: 'hidden' });
